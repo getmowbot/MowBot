@@ -1,4 +1,13 @@
-import type { Bot, Computer, Message, ServerEvent, Team } from '@mowbot/contract';
+import type {
+  Bot,
+  Canvas,
+  Computer,
+  Message,
+  Question,
+  ServerEvent,
+  SystemSettings,
+  Team,
+} from '@mowbot/contract';
 import type { QueryClient } from '@tanstack/react-query';
 import { appendDelta, type Conversation, upsertMessage } from './message-cache';
 import { keys } from './query-keys';
@@ -27,7 +36,20 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
     case 'ready':
       // (Re)connected: whatever happened while offline is unknown, refetch.
       client.removeQueries({ queryKey: ['live'] });
-      for (const key of ['bots', 'teams', 'computers', 'messages', 'tasks', 'feed', 'me']) {
+      for (const key of [
+        'bots',
+        'teams',
+        'computers',
+        'messages',
+        'tasks',
+        'feed',
+        'me',
+        'canvases',
+        'notifications',
+        'questions',
+        'routines',
+        'system',
+      ]) {
         void client.invalidateQueries({ queryKey: [key] });
       }
       break;
@@ -35,7 +57,36 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
       client.setQueryData<Computer[]>(keys.computers, (list) => upsert(list, event.computer));
       break;
     case 'workspace.changed':
-      // No file explorer on mobile yet.
+      // Folder listings of that workspace (any path) refetch if shown.
+      void client.invalidateQueries({ queryKey: ['files', event.workspaceId] });
+      break;
+    case 'canvas.updated':
+      client.setQueryData<Canvas[]>(keys.canvases, (list) =>
+        upsert(list, event.canvas)?.sort((a, b) => a.position - b.position),
+      );
+      break;
+    case 'canvas.deleted':
+      client.setQueryData<Canvas[]>(keys.canvases, (list) =>
+        list?.filter((c) => c.id !== event.canvasId),
+      );
+      break;
+    case 'notification.created':
+      void client.invalidateQueries({ queryKey: keys.notifications });
+      break;
+    case 'question.updated': {
+      const { question } = event;
+      client.setQueryData<Question[]>(keys.questions, (list) => {
+        const others = list?.filter((q) => q.id !== question.id);
+        return question.status === 'open' && others ? [question, ...others] : others;
+      });
+      break;
+    }
+    case 'routine.updated':
+    case 'routine.deleted':
+      void client.invalidateQueries({ queryKey: keys.routines });
+      break;
+    case 'system.updated':
+      client.setQueryData<SystemSettings>(keys.system, event.settings);
       break;
     case 'bot.updated':
       client.setQueryData<Bot[]>(keys.bots, (list) => upsert(list, event.bot));

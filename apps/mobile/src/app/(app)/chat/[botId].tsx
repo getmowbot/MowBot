@@ -14,24 +14,25 @@ import {
 import { KeyboardChatScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChatHeader } from '../../components/chat/chat-header';
-import { Composer } from '../../components/chat/composer';
-import { ChatEmptyState } from '../../components/chat/empty-state';
-import { BotMessage, IncomingMessage, UserMessage } from '../../components/chat/messages';
-import { reveal } from '../../components/reveal';
-import { Button } from '../../components/ui/button';
-import { Surface } from '../../components/ui/surface';
-import { T } from '../../components/ui/text';
-import { moodOf } from '../../lib/bot-mood';
-import { isIncoming, liveMessage } from '../../lib/message-cache';
+import { ChatHeader } from '../../../components/chat/chat-header';
+import { Composer } from '../../../components/chat/composer';
+import { ChatEmptyState } from '../../../components/chat/empty-state';
+import { BotMessage, IncomingMessage, UserMessage } from '../../../components/chat/messages';
+import { ChatQuestions } from '../../../components/questions';
+import { reveal } from '../../../components/reveal';
+import { Button } from '../../../components/ui/button';
+import { Surface } from '../../../components/ui/surface';
+import { T } from '../../../components/ui/text';
+import { moodOf } from '../../../lib/bot-mood';
+import { isIncoming, liveMessage } from '../../../lib/message-cache';
 import {
   botsById,
   useBots,
   useConversation,
   useProviders,
   useSendMessage,
-} from '../../lib/queries';
-import { colors } from '../../theme';
+} from '../../../lib/queries';
+import { colors } from '../../../theme';
 
 function Separator() {
   return <View style={styles.separator} />;
@@ -180,6 +181,7 @@ export default function ChatScreen() {
               {error}
             </T>
           )}
+          <ChatQuestions botId={bot.id} />
           <Composer bot={bot} onSend={sendText} />
         </View>
       </KeyboardStickyView>

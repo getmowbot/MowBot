@@ -1,3 +1,8 @@
+import { fr as appAdmin } from './areas/appAdmin';
+import { fr as board } from './areas/board';
+import { fr as orgAdmin } from './areas/orgAdmin';
+import { fr as pcView } from './areas/pcView';
+
 /** French catalog: the reference. Every other language must provide exactly these keys. */
 export const fr = {
   common: {
@@ -9,9 +14,17 @@ export const fr = {
     you: 'toi',
     deletedBot: 'Bot supprimé',
     botNotFound: 'Bot introuvable.',
+    options: 'Options',
+    save: 'Enregistrer',
+    saving: 'Enregistrement…',
+    delete: 'Supprimer',
+    confirm: 'Confirmer',
+    close: 'Fermer',
+    actionFailed: 'L’action a échoué.',
   },
   tabs: {
     home: 'Accueil',
+    bots: 'Bots',
     activity: 'Activité',
     org: 'Organisation',
     settings: 'Réglages',
@@ -58,6 +71,17 @@ export const fr = {
     empty: 'Pas encore d’autre équipe. Demande au Chef d’en monter une.',
   },
   chat: {
+    options: 'Options de {{name}}',
+    menuSettings: 'Réglages',
+    menuRename: 'Renommer',
+    menuMove: 'Changer d’équipe',
+    menuPc: 'Voir le PC',
+    menuFiles: 'Fichiers',
+    menuClear: 'Vider la conversation',
+    clearConfirm:
+      'Vider la conversation avec {{name}} ? Il oublie tout ce qui a été dit et range son PC ; les fichiers sont gardés.',
+    menuDelete: 'Supprimer {{name}}',
+    deleteConfirm: 'Supprimer {{name}} ? Sa conversation est effacée ; ses fichiers sont gardés.',
     placeholder: 'Écris à {{name}}…',
     send: 'Envoyer',
     stop: 'Arrêter',
@@ -237,4 +261,9 @@ export const fr = {
     days_one: 'hier',
     days_other: 'il y a {{count}} jours',
   },
+  // Each area has its own file (src/i18n/areas), filled independently.
+  board,
+  pcView,
+  orgAdmin,
+  appAdmin,
 } as const;

@@ -3,17 +3,17 @@ import { LogOut, Server } from 'lucide-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, View } from 'react-native';
-import { ListCard } from '../../../components/list-card';
-import { Section, TabScroll } from '../../../components/tab-scroll';
-import { Button } from '../../../components/ui/button';
-import { Segmented } from '../../../components/ui/segmented';
-import { T } from '../../../components/ui/text';
-import { Touchable } from '../../../components/ui/touchable';
-import { type LanguagePreference, setLanguagePreference, storedPreference } from '../../../i18n';
-import { useLiveConnection } from '../../../lib/events';
-import { useMe } from '../../../lib/queries';
-import { deviceName, signOut, useSession } from '../../../lib/session';
-import { colors, fonts } from '../../../theme';
+import { ListCard } from '../../../../components/list-card';
+import { Section, TabScroll } from '../../../../components/tab-scroll';
+import { Button } from '../../../../components/ui/button';
+import { Segmented } from '../../../../components/ui/segmented';
+import { T } from '../../../../components/ui/text';
+import { Touchable } from '../../../../components/ui/touchable';
+import { type LanguagePreference, setLanguagePreference, storedPreference } from '../../../../i18n';
+import { useLiveConnection } from '../../../../lib/events';
+import { useMe } from '../../../../lib/queries';
+import { deviceName, signOut, useSession } from '../../../../lib/session';
+import { colors, fonts } from '../../../../theme';
 
 function InfoRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (

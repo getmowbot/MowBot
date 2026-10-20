@@ -7,6 +7,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { OptionsHost } from '../components/ui/options-host';
 import i18n, { storedPreference } from '../i18n';
 import { resolveLanguage } from '../i18n/catalog';
 import { useServerEvents } from '../lib/events';
@@ -68,6 +69,7 @@ export default function RootLayout() {
           <ThemeProvider value={theme}>
             <StatusBar style="light" />
             {signedIn && <ServerEvents />}
+            <OptionsHost />
             <Stack
               screenOptions={{
                 headerShown: false,
@@ -75,8 +77,7 @@ export default function RootLayout() {
               }}
             >
               <Stack.Protected guard={signedIn}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="chat/[botId]" />
+                <Stack.Screen name="(app)" />
               </Stack.Protected>
               <Stack.Protected guard={!signedIn}>
                 <Stack.Screen name="connect" options={{ animation: 'fade' }} />

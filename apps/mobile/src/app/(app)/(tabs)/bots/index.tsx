@@ -4,19 +4,19 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { BotAvatar, TeamAvatar } from '../../../components/bot-avatar';
-import { BotRow, BotStatusLine, openChat, useBotMood } from '../../../components/bot-row';
-import { ListCard } from '../../../components/list-card';
-import { reveal } from '../../../components/reveal';
-import { Section, TabScroll } from '../../../components/tab-scroll';
-import { Button } from '../../../components/ui/button';
-import { Surface } from '../../../components/ui/surface';
-import { T } from '../../../components/ui/text';
-import { Touchable } from '../../../components/ui/touchable';
-import { useLiveConnection } from '../../../lib/events';
-import { isAndroid } from '../../../lib/platform';
-import { useBots, useTeams } from '../../../lib/queries';
-import { colors, shape } from '../../../theme';
+import { BotAvatar, TeamAvatar } from '../../../../components/bot-avatar';
+import { BotRow, BotStatusLine, openChat, useBotMood } from '../../../../components/bot-row';
+import { ListCard } from '../../../../components/list-card';
+import { reveal } from '../../../../components/reveal';
+import { Section, TabScroll } from '../../../../components/tab-scroll';
+import { Button } from '../../../../components/ui/button';
+import { Surface } from '../../../../components/ui/surface';
+import { T } from '../../../../components/ui/text';
+import { Touchable } from '../../../../components/ui/touchable';
+import { useLiveConnection } from '../../../../lib/events';
+import { isAndroid } from '../../../../lib/platform';
+import { useBots, useTeams } from '../../../../lib/queries';
+import { colors, shape } from '../../../../theme';
 
 /** True once the event stream has been down for a moment (not during the first connect). */
 function useOffline(): boolean {

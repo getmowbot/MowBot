@@ -1,7 +1,7 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useTranslation } from 'react-i18next';
-import { isAndroid } from '../../lib/platform';
-import { colors } from '../../theme';
+import { isAndroid } from '../../../lib/platform';
+import { colors } from '../../../theme';
 
 /**
  * System tab bar: Liquid Glass on iOS 26 (blur on older iOS), Material 3 navigation bar on
@@ -32,24 +32,18 @@ export default function TabsLayout() {
     >
       <NativeTabs.Trigger name="(home)" contentStyle={{ backgroundColor: colors.background }}>
         <NativeTabs.Trigger.Label>{t('tabs.home')}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="bots" contentStyle={{ backgroundColor: colors.background }}>
+        <NativeTabs.Trigger.Label>{t('tabs.bots')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          sf={{
-            default: 'bubble.left.and.bubble.right',
-            selected: 'bubble.left.and.bubble.right.fill',
-          }}
-          md="forum"
+          sf={{ default: 'person.3', selected: 'person.3.fill' }}
+          md="groups"
         />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="activity" contentStyle={{ backgroundColor: colors.background }}>
         <NativeTabs.Trigger.Label>{t('tabs.activity')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="checklist" md="checklist" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="org" contentStyle={{ backgroundColor: colors.background }}>
-        <NativeTabs.Trigger.Label>{t('tabs.org')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          sf={{ default: 'person.3', selected: 'person.3.fill' }}
-          md="groups"
-        />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings" contentStyle={{ backgroundColor: colors.background }}>
         <NativeTabs.Trigger.Label>{t('tabs.settings')}</NativeTabs.Trigger.Label>

@@ -105,11 +105,7 @@ export function Segmented<V extends string>({ options, value, onChange, label }:
   );
 
   if (isAndroid) return <View style={styles.outlined}>{content}</View>;
-  return (
-    <Surface variant="bar" radius={HEIGHT / 2 + INSET}>
-      {content}
-    </Surface>
-  );
+  return <Surface radius={HEIGHT / 2 + INSET}>{content}</Surface>;
 }
 
 const styles = StyleSheet.create({

@@ -2,15 +2,15 @@ import type { Bot, Computer, Team } from '@mowbot/contract';
 import { Lock } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { BotAvatar, TeamAvatar } from '../../../components/bot-avatar';
-import { BotRow, openChat, useBotMood } from '../../../components/bot-row';
-import { ListCard } from '../../../components/list-card';
-import { Section, TabScroll } from '../../../components/tab-scroll';
-import { Surface } from '../../../components/ui/surface';
-import { T } from '../../../components/ui/text';
-import { Touchable } from '../../../components/ui/touchable';
-import { useBots, useComputers, useTeams } from '../../../lib/queries';
-import { colors } from '../../../theme';
+import { BotAvatar, TeamAvatar } from '../../components/bot-avatar';
+import { BotRow, openChat, useBotMood } from '../../components/bot-row';
+import { ListCard } from '../../components/list-card';
+import { Section, TabScroll } from '../../components/tab-scroll';
+import { Surface } from '../../components/ui/surface';
+import { T } from '../../components/ui/text';
+import { Touchable } from '../../components/ui/touchable';
+import { useBots, useComputers, useTeams } from '../../lib/queries';
+import { colors } from '../../theme';
 
 const PC_COLORS: Record<Computer['status'], string> = {
   running: colors.accentStrong,

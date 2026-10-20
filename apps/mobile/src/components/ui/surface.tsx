@@ -6,7 +6,10 @@ import { isAndroid, useLiquidGlass } from '../../lib/platform';
 import { colors, shape } from '../../theme';
 
 export interface SurfaceProps extends ViewProps {
-  /** `card`: content blocks; `bar`: floating chrome (header, composer) over scrolling content. */
+  /**
+   * `card`: content blocks, always flat. `bar`: floating chrome over the content (the message
+   * field, the chat's back, options and title): the only Liquid Glass of the app.
+   */
   variant?: 'card' | 'bar';
   radius?: number;
   /** Liquid Glass reacts to touches (buttons, the composer). */
@@ -15,9 +18,9 @@ export interface SurfaceProps extends ViewProps {
 }
 
 /**
- * The app's dark glass. iOS 26: Liquid Glass, materializing on mount (fading a glass view's
- * opacity would kill the effect). Older iOS: blur for bars, flat surfaces for cards. Android:
- * Material 3 tonal surfaces, no shadow glow.
+ * The app's surfaces. Bars: Liquid Glass on iOS 26, materializing on mount (fading a glass
+ * view's opacity would kill the effect), blur on older iOS. Cards: flat everywhere, so glass stays
+ * for the few controls floating over content. Android: Material 3 tonal surfaces, no glow.
  */
 export function Surface({
   variant = 'card',
@@ -31,7 +34,7 @@ export function Surface({
   const [shown, setShown] = useState(false);
   useEffect(() => setShown(true), []);
 
-  if (glass) {
+  if (glass && variant === 'bar') {
     return (
       <GlassView
         {...props}

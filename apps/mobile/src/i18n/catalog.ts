@@ -1,7 +1,7 @@
 import type { fr } from './fr';
 
 /** Same keys as the French catalog, any wording: a missing or extra key fails the typecheck. */
-type Widen<T> = { readonly [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
+export type Widen<T> = { readonly [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
 export type Catalog = Widen<typeof fr>;
 
 export const LANGUAGES = ['fr', 'en'] as const;

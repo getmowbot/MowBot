@@ -9,4 +9,18 @@ export const keys = {
   messages: (botId: string) => ['messages', botId] as const,
   /** The answer a bot is streaming, fed by events even when its chat is not open. */
   live: (botId: string) => ['live', botId] as const,
+  /** Home page cards, in the user's order. */
+  canvases: ['canvases'] as const,
+  notifications: ['notifications'] as const,
+  /** Questions bots asked the user that wait for an answer. */
+  questions: ['questions'] as const,
+  /** Every routine, or one bot's (`['routines', botId]`). */
+  routines: ['routines'] as const,
+  routineRuns: (routineId: string) => ['routine-runs', routineId] as const,
+  system: ['system'] as const,
+  devices: ['devices'] as const,
+  /** A folder of a workspace (`path` '' = its root). */
+  files: (workspaceId: string, path = '') => ['files', workspaceId, path] as const,
+  /** What a bot's own Chrome window shows (live view). */
+  botBrowser: (botId: string) => ['bot-browser', botId] as const,
 };

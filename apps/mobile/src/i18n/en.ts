@@ -1,3 +1,7 @@
+import { en as appAdmin } from './areas/appAdmin';
+import { en as board } from './areas/board';
+import { en as orgAdmin } from './areas/orgAdmin';
+import { en as pcView } from './areas/pcView';
 import type { Catalog } from './catalog';
 
 export const en: Catalog = {
@@ -10,9 +14,17 @@ export const en: Catalog = {
     you: 'you',
     deletedBot: 'Deleted bot',
     botNotFound: 'Bot not found.',
+    options: 'Options',
+    save: 'Save',
+    saving: 'Saving…',
+    delete: 'Delete',
+    confirm: 'Confirm',
+    close: 'Close',
+    actionFailed: 'That didn’t work.',
   },
   tabs: {
     home: 'Home',
+    bots: 'Bots',
     activity: 'Activity',
     org: 'Organization',
     settings: 'Settings',
@@ -59,6 +71,17 @@ export const en: Catalog = {
     empty: 'No other team yet. Ask the Chef to set one up.',
   },
   chat: {
+    options: '{{name}} options',
+    menuSettings: 'Settings',
+    menuRename: 'Rename',
+    menuMove: 'Move to another team',
+    menuPc: 'View the PC',
+    menuFiles: 'Files',
+    menuClear: 'Clear conversation',
+    clearConfirm:
+      'Clear the conversation with {{name}}? It forgets everything that was said and tidies up its PC; files are kept.',
+    menuDelete: 'Delete {{name}}',
+    deleteConfirm: 'Delete {{name}}? Its conversation is erased; its files are kept.',
     placeholder: 'Message {{name}}…',
     send: 'Send',
     stop: 'Stop',
@@ -238,4 +261,9 @@ export const en: Catalog = {
     days_one: 'yesterday',
     days_other: '{{count}} days ago',
   },
+  // Each area has its own file (src/i18n/areas), filled independently.
+  board,
+  pcView,
+  orgAdmin,
+  appAdmin,
 };
