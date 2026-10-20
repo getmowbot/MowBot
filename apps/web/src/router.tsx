@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router';
 import { BotAvatar } from './components/bot-avatar';
 import { useAuth } from './lib/auth';
+import { ActivityPage } from './routes/activity-page';
 import { AppShell } from './routes/app-shell';
 import { LoginPage, SetupPage } from './routes/auth-pages';
 import { AvatarGallery } from './routes/avatar-gallery';
@@ -16,6 +17,8 @@ import { DesktopPage } from './routes/desktop-page';
 import { DevicesPage } from './routes/devices-page';
 import { FilesPage } from './routes/files-page';
 import { ModelsPage } from './routes/models-page';
+import { OrgPage } from './routes/org-page';
+import { TeamPage } from './routes/team-page';
 
 const PUBLIC_PATHS = ['/setup', '/login'];
 
@@ -79,10 +82,37 @@ const devicesRoute = createRoute({
   component: DevicesPage,
 });
 
+const orgRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/org',
+  component: OrgPage,
+});
+const activityRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/activity',
+  component: ActivityPage,
+});
+const teamRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/teams/$teamId',
+  component: TeamPage,
+});
 const desktopRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/teams/$teamId/desktop',
   component: DesktopPage,
+});
+const computerRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/computers/$computerId',
+  component: DesktopPage,
+});
+const workspaceFilesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/workspaces/$workspaceId/files',
+  validateSearch: (search: Record<string, unknown>): { path?: string } =>
+    typeof search.path === 'string' && search.path ? { path: search.path } : {},
+  component: FilesPage,
 });
 const filesRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -108,8 +138,13 @@ export const router = createRouter({
       botRoute,
       modelsRoute,
       devicesRoute,
+      orgRoute,
+      activityRoute,
+      teamRoute,
       desktopRoute,
       filesRoute,
+      computerRoute,
+      workspaceFilesRoute,
       ...(import.meta.env.DEV ? [galleryRoute] : []),
     ]),
   ]),

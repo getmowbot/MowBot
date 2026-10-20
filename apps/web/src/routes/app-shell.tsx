@@ -1,10 +1,25 @@
+import type { Bot, Team } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { Link, Outlet, useLocation } from '@tanstack/react-router';
-import { Cpu, FolderOpen, LogOut, Menu, Monitor, MonitorSmartphone, X } from 'lucide-react';
+import {
+  Activity,
+  ChevronDown,
+  Cpu,
+  FolderOpen,
+  LogOut,
+  Menu,
+  Monitor,
+  MonitorSmartphone,
+  Network,
+  Plus,
+  Users,
+  X,
+} from 'lucide-react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { type ReactNode, useState } from 'react';
 import { BotAvatar, TeamAvatar } from '../components/bot-avatar';
 import { StatusDot } from '../components/computer-status';
+import { OrgDialogsProvider, useOrgDialogs } from '../components/org-dialogs';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../lib/auth';
 import { moodOf, statusLabel } from '../lib/bot-mood';
@@ -62,13 +77,168 @@ function NavItem({
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="space-y-0.5">
-      <p className="px-2.5 pb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-faint">
-        {title}
-      </p>
+      <div className="flex items-center justify-between px-2.5 pb-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-faint">{title}</p>
+        {action}
+      </div>
       {children}
+    </div>
+  );
+}
+
+function SectionButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick(): void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="grid size-6 place-items-center rounded-md text-faint transition-colors hover:bg-white/[0.06] hover:text-foreground"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Remembers which teams are folded in the sidebar (per browser; storage may be unavailable). */
+function useFolded(): [Set<string>, (teamId: string) => void] {
+  const [folded, setFolded] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('mowbot.folded-teams') ?? '[]') as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const toggle = (teamId: string) =>
+    setFolded((current) => {
+      const next = new Set(current);
+      if (!next.delete(teamId)) next.add(teamId);
+      try {
+        localStorage.setItem('mowbot.folded-teams', JSON.stringify([...next]));
+      } catch {
+        // Folding still works for this visit.
+      }
+      return next;
+    });
+  return [folded, toggle];
+}
+
+function BotNav({ bot, onNavigate }: { bot: Bot; onNavigate(): void }) {
+  const mood = moodOf(bot);
+  return (
+    <NavItem
+      to="/bots/$botId"
+      params={{ botId: bot.id }}
+      onNavigate={onNavigate}
+      className="py-1.5"
+    >
+      <BotAvatar seed={bot.avatarSeed} size={24} mood={mood} />
+      <span className="min-w-0 flex-1 truncate">{bot.name}</span>
+      {mood !== 'idle' && mood !== 'error' && (
+        <span className="shimmer-text max-w-[45%] shrink-0 truncate text-[11px]">
+          {statusLabel(bot, mood)}
+        </span>
+      )}
+    </NavItem>
+  );
+}
+
+function TeamNav({
+  team,
+  members,
+  folded,
+  onToggle,
+  onNavigate,
+}: {
+  team: Team;
+  members: Bot[];
+  folded: boolean;
+  onToggle(): void;
+  onNavigate(): void;
+}) {
+  const computers = useComputers();
+  const pc = computers.data?.find((c) => c.id === team.computerId);
+  return (
+    <div>
+      <div className="flex items-center">
+        <NavItem
+          to="/teams/$teamId"
+          params={{ teamId: team.id }}
+          exact
+          onNavigate={onNavigate}
+          className="min-w-0 flex-1 py-1.5"
+        >
+          <TeamAvatar seeds={members.map((b) => b.avatarSeed)} size={24} />
+          <span className="truncate font-medium text-foreground/90">{team.name}</span>
+        </NavItem>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={!folded}
+          aria-label={folded ? `Déplier ${team.name}` : `Replier ${team.name}`}
+          className="grid size-7 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-white/[0.06] hover:text-foreground"
+        >
+          <ChevronDown
+            className={cn('size-3.5 transition-transform duration-300', folded && '-rotate-90')}
+          />
+        </button>
+      </div>
+      <AnimatePresence initial={false}>
+        {!folded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={springs.soft}
+            className="overflow-hidden"
+          >
+            <div className="ml-[21px] space-y-0.5 border-l border-border py-0.5 pl-2">
+              {members
+                .filter((bot) => !bot.isChef)
+                .map((bot) => (
+                  <BotNav key={bot.id} bot={bot} onNavigate={onNavigate} />
+                ))}
+              <NavItem
+                to="/teams/$teamId/desktop"
+                params={{ teamId: team.id }}
+                onNavigate={onNavigate}
+                className="py-1.5"
+              >
+                <Monitor className="size-4 shrink-0" />
+                <span className="flex-1">Bureau</span>
+                {pc && <StatusDot status={pc.status} />}
+              </NavItem>
+              <NavItem
+                to="/teams/$teamId/files"
+                params={{ teamId: team.id }}
+                onNavigate={onNavigate}
+                className="py-1.5"
+              >
+                <FolderOpen className="size-4 shrink-0" /> Fichiers
+              </NavItem>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -78,13 +248,16 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
   const me = useMe();
   const chef = useChef();
   const teams = useTeams();
-  const computers = useComputers();
   const bots = useBots();
+  const dialogs = useOrgDialogs();
+  const [folded, toggle] = useFolded();
   const bot = chef.data;
   const mood = bot ? moodOf(bot) : 'idle';
+  const all = bots.data ?? [];
+  const solo = all.filter((b) => !b.teamId);
 
   return (
-    <nav className="flex h-full flex-col gap-6 p-3">
+    <nav className="flex h-full flex-col gap-5 p-3">
       <Link to="/" onClick={onNavigate} className="flex items-center gap-2.5 px-2 pt-1.5">
         <img src="/favicon.svg" alt="" className="size-7" />
         <span className="text-[17px] font-semibold tracking-tight">MowBot</span>
@@ -107,42 +280,51 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
         </NavItem>
       )}
 
-      <Section title="Équipes">
-        {teams.data?.map((team) => {
-          const pc = computers.data?.find((c) => c.id === team.computerId);
-          return (
-            <div key={team.id} className="space-y-0.5">
-              <p className="flex items-center gap-2 px-2.5 pb-0.5 pt-1 text-[13px] font-medium text-foreground/90">
-                <TeamAvatar
-                  seeds={(bots.data ?? [])
-                    .filter((b) => b.teamId === team.id)
-                    .map((b) => b.avatarSeed)}
-                  size={22}
-                />
-                <span className="truncate">{team.name}</span>
-              </p>
-              <NavItem
-                to="/teams/$teamId/desktop"
-                params={{ teamId: team.id }}
-                onNavigate={onNavigate}
-              >
-                <Monitor className="size-4 shrink-0" />
-                <span className="flex-1">Bureau</span>
-                {pc && <StatusDot status={pc.status} />}
-              </NavItem>
-              <NavItem
-                to="/teams/$teamId/files"
-                params={{ teamId: team.id }}
-                onNavigate={onNavigate}
-              >
-                <FolderOpen className="size-4 shrink-0" /> Fichiers
-              </NavItem>
-            </div>
-          );
-        })}
-      </Section>
+      <div className="-mx-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1">
+        <div className="space-y-0.5">
+          <NavItem to="/org" onNavigate={onNavigate}>
+            <Network className="size-4 shrink-0" /> Organisation
+          </NavItem>
+          <NavItem to="/activity" onNavigate={onNavigate}>
+            <Activity className="size-4 shrink-0" /> Activité
+          </NavItem>
+        </div>
 
-      <div className="mt-auto space-y-0.5">
+        <Section
+          title="Équipes"
+          action={
+            <span className="flex">
+              <SectionButton label="Nouvelle équipe" onClick={() => dialogs.newTeam()}>
+                <Users className="size-3.5" />
+              </SectionButton>
+              <SectionButton label="Nouveau bot" onClick={() => dialogs.newBot()}>
+                <Plus className="size-3.5" />
+              </SectionButton>
+            </span>
+          }
+        >
+          {teams.data?.map((team) => (
+            <TeamNav
+              key={team.id}
+              team={team}
+              members={all.filter((b) => b.teamId === team.id)}
+              folded={folded.has(team.id)}
+              onToggle={() => toggle(team.id)}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </Section>
+
+        {solo.length > 0 && (
+          <Section title="Bots solo">
+            {solo.map((b) => (
+              <BotNav key={b.id} bot={b} onNavigate={onNavigate} />
+            ))}
+          </Section>
+        )}
+      </div>
+
+      <div className="space-y-0.5">
         <NavItem to="/settings/models" onNavigate={onNavigate}>
           <Cpu className="size-4 shrink-0" /> Modèles
         </NavItem>
@@ -174,80 +356,82 @@ export function AppShell() {
   const fullBleed = pathname === '/' || pathname.startsWith('/bots/');
 
   return (
-    <div className="flex h-dvh overflow-hidden">
-      <aside className="hidden w-[264px] shrink-0 border-r border-border bg-background-raised/60 backdrop-blur-xl md:block">
-        <LayoutGroup id="sidebar">
-          <Sidebar onNavigate={() => {}} />
-        </LayoutGroup>
-      </aside>
+    <OrgDialogsProvider>
+      <div className="flex h-dvh overflow-hidden">
+        <aside className="hidden w-[264px] shrink-0 border-r border-border bg-background-raised/60 backdrop-blur-xl md:block">
+          <LayoutGroup id="sidebar">
+            <Sidebar onNavigate={() => {}} />
+          </LayoutGroup>
+        </aside>
 
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.div
-              key="scrim"
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setOpen(false)}
-              aria-hidden
-            />
-            <motion.aside
-              key="drawer"
-              className="fixed inset-y-0 left-0 z-50 w-[280px] border-r border-border bg-background-raised md:hidden"
-              initial={{ x: -300 }}
-              animate={{ x: 0 }}
-              exit={{ x: -300 }}
-              transition={springs.soft}
-            >
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-2.5"
+        <AnimatePresence>
+          {open && (
+            <>
+              <motion.div
+                key="scrim"
+                className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 onClick={() => setOpen(false)}
-                aria-label="Fermer le menu"
+                aria-hidden
+              />
+              <motion.aside
+                key="drawer"
+                className="fixed inset-y-0 left-0 z-50 w-[280px] border-r border-border bg-background-raised md:hidden"
+                initial={{ x: -300 }}
+                animate={{ x: 0 }}
+                exit={{ x: -300 }}
+                transition={springs.soft}
               >
-                <X className="size-4" />
-              </Button>
-              <LayoutGroup id="drawer">
-                <Sidebar onNavigate={() => setOpen(false)} />
-              </LayoutGroup>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 md:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setOpen(true)}
-            aria-label="Ouvrir le menu"
-          >
-            <Menu className="size-4" />
-          </Button>
-          <span className="font-semibold tracking-tight">MowBot</span>
-        </header>
-        <main
-          className={cn(
-            'relative min-h-0 flex-1',
-            fullBleed ? 'overflow-hidden' : 'overflow-y-auto p-4 md:p-8',
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 top-2.5"
+                  onClick={() => setOpen(false)}
+                  aria-label="Fermer le menu"
+                >
+                  <X className="size-4" />
+                </Button>
+                <LayoutGroup id="drawer">
+                  <Sidebar onNavigate={() => setOpen(false)} />
+                </LayoutGroup>
+              </motion.aside>
+            </>
           )}
-        >
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={springs.soft}
-            className="h-full"
+        </AnimatePresence>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setOpen(true)}
+              aria-label="Ouvrir le menu"
+            >
+              <Menu className="size-4" />
+            </Button>
+            <span className="font-semibold tracking-tight">MowBot</span>
+          </header>
+          <main
+            className={cn(
+              'relative min-h-0 flex-1',
+              fullBleed ? 'overflow-hidden' : 'overflow-y-auto p-4 md:p-8',
+            )}
           >
-            <Outlet />
-          </motion.div>
-        </main>
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={springs.soft}
+              className="h-full"
+            >
+              <Outlet />
+            </motion.div>
+          </main>
+        </div>
+        <ServerEvents />
       </div>
-      <ServerEvents />
-    </div>
+    </OrgDialogsProvider>
   );
 }

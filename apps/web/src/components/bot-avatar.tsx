@@ -301,7 +301,15 @@ export function TeamAvatar({ seeds, size = 32 }: { seeds: string[]; size?: numbe
   if (members.length <= 1) {
     return (
       <span className="grid shrink-0 place-items-center" style={{ width: size, height: size }}>
-        {members[0] && <BotAvatar seed={members[0]} size={size * 0.78} />}
+        {members[0] ? (
+          <BotAvatar seed={members[0]} size={size * 0.78} />
+        ) : (
+          // A team without bots yet: an empty seat.
+          <span
+            className="rounded-full border border-dashed border-border-strong"
+            style={{ width: size * 0.7, height: size * 0.7 }}
+          />
+        )}
       </span>
     );
   }

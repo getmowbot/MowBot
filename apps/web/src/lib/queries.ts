@@ -1,4 +1,4 @@
-import type { Computer } from '@mowbot/contract';
+import type { Computer, TaskStatus } from '@mowbot/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './auth';
 
@@ -123,6 +123,29 @@ export function useProviders() {
     queryKey: ['providers'],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/v1/providers');
+      if (error || !data) throw error;
+      return data.items;
+    },
+  });
+}
+
+export function useTasks(filter: { botId?: string; status?: TaskStatus } = {}) {
+  return useQuery({
+    queryKey: ['tasks', filter],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/tasks', { params: { query: filter } });
+      if (error || !data) throw error;
+      return data.items;
+    },
+  });
+}
+
+/** Latest messages between bots (oldest → newest). */
+export function useFeed(limit = 100) {
+  return useQuery({
+    queryKey: ['feed', limit],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/feed', { params: { query: { limit } } });
       if (error || !data) throw error;
       return data.items;
     },

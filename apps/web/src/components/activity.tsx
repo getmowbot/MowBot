@@ -12,10 +12,20 @@ import {
   FileText,
   FolderOpen,
   Globe,
+  ListChecks,
+  ListPlus,
+  Lock,
+  LockOpen,
   type LucideIcon,
+  MessageCircleQuestion,
+  Monitor,
   MousePointer2,
   Search,
+  Send,
   SquareTerminal,
+  UserPen,
+  UserPlus,
+  Users,
   Wrench,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -94,7 +104,19 @@ function describeComputer(input: Input): string {
 }
 
 /** Categories counted in the summary of a finished activity. */
-type Kind = 'search' | 'page' | 'capture' | 'command' | 'screen' | 'write' | 'read' | 'tidy';
+type Kind =
+  | 'search'
+  | 'page'
+  | 'capture'
+  | 'command'
+  | 'screen'
+  | 'write'
+  | 'read'
+  | 'tidy'
+  | 'message'
+  | 'question'
+  | 'task'
+  | 'created';
 
 const NOUNS: Record<Kind, [string, string]> = {
   search: ['recherche', 'recherches'],
@@ -105,6 +127,18 @@ const NOUNS: Record<Kind, [string, string]> = {
   write: ['fichier écrit', 'fichiers écrits'],
   read: ['lecture', 'lectures'],
   tidy: ['rangement', 'rangements'],
+  message: ['message', 'messages'],
+  question: ['question', 'questions'],
+  task: ['tâche', 'tâches'],
+  created: ['création', 'créations'],
+};
+
+const TASK_STATUSES: Record<string, string> = {
+  todo: 'à faire',
+  doing: 'en cours',
+  blocked: 'bloquée',
+  done: 'terminée',
+  cancelled: 'annulée',
 };
 
 interface ToolMeta {
@@ -153,6 +187,54 @@ const TOOLS: Record<string, ToolMeta> = {
         ? `Ferme ${i.ids.length} onglet${i.ids.length > 1 ? 's' : ''} ou fenêtre${i.ids.length > 1 ? 's' : ''}`
         : 'Range ce qu’il a ouvert',
     kind: () => 'tidy',
+  },
+  pc_status: {
+    icon: () => Monitor,
+    title: () => 'Regarde qui fait quoi sur le PC',
+    kind: () => null,
+  },
+  lock_file: {
+    icon: () => Lock,
+    title: (i) => `Réserve ${workspacePath(i.path)}`,
+    kind: () => null,
+  },
+  unlock_file: {
+    icon: () => LockOpen,
+    title: (i) => `Libère ${workspacePath(i.path)}`,
+    kind: () => null,
+  },
+  list_bots: { icon: () => Users, title: () => 'Consulte l’annuaire', kind: () => null },
+  send_message: {
+    icon: () => Send,
+    title: (i) => `Écrit à ${str(i.to)}`,
+    kind: () => 'message',
+  },
+  ask_bot: {
+    icon: () => MessageCircleQuestion,
+    title: (i) => `Demande à ${str(i.to)}`,
+    kind: () => 'question',
+  },
+  assign_task: {
+    icon: () => ListPlus,
+    title: (i) => `Confie « ${str(i.title)} » à ${str(i.to)}`,
+    kind: () => 'task',
+  },
+  update_task: {
+    icon: () => ListChecks,
+    title: (i) => `Tâche ${TASK_STATUSES[str(i.status)] ?? 'mise à jour'}`,
+    kind: () => null,
+  },
+  list_tasks: { icon: () => ListChecks, title: () => 'Revoit ses tâches', kind: () => null },
+  create_team: {
+    icon: () => Users,
+    title: (i) => `Crée l’équipe ${str(i.name)}`,
+    kind: () => 'created',
+  },
+  create_bot: { icon: () => UserPlus, title: (i) => `Crée ${str(i.name)}`, kind: () => 'created' },
+  update_bot: {
+    icon: () => UserPen,
+    title: (i) => `Met à jour ${str(i.bot)}`,
+    kind: () => null,
   },
 };
 

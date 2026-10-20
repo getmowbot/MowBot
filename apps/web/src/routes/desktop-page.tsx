@@ -6,7 +6,7 @@ import type { DesktopViewHandle } from '../components/desktop-view';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/form';
 import { problemMessage } from '../lib/auth';
-import { useComputer, useComputerAction, useMe, useTeam } from '../lib/queries';
+import { useBots, useComputer, useComputerAction, useMe, useTeam } from '../lib/queries';
 
 // noVNC is heavy: load it only when a desktop is shown.
 const DesktopView = lazy(() =>
@@ -14,17 +14,20 @@ const DesktopView = lazy(() =>
 );
 
 export function DesktopPage() {
-  const { teamId } = useParams({ strict: false }) as { teamId?: string };
-  const team = useTeam(teamId);
-  const computer = useComputer(team.data?.computerId);
+  // A team's PC (/teams/:id/desktop) or any computer (/computers/:id), e.g. a dedicated one.
+  const params = useParams({ strict: false }) as { teamId?: string; computerId?: string };
+  const team = useTeam(params.teamId);
+  const bots = useBots();
+  const computerId = params.computerId ?? team.data?.computerId;
+  const computer = useComputer(computerId);
   const me = useMe();
-  const action = useComputerAction(team.data?.computerId);
+  const action = useComputerAction(computerId);
   const view = useRef<DesktopViewHandle>(null);
 
-  if (team.isPending || computer.isPending) {
+  if (team.isPending || (computerId && computer.isPending)) {
     return <p className="text-sm text-muted-foreground">Chargement…</p>;
   }
-  if (!team.data || !computer.data) {
+  if (!computer.data) {
     return <p className="text-sm text-destructive">Ordinateur introuvable.</p>;
   }
 
@@ -37,7 +40,12 @@ export function DesktopPage() {
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-muted-foreground">{team.data.name}</p>
+          <p className="text-sm text-muted-foreground">
+            {(bots.data ?? [])
+              .filter((b) => b.computerId === pc.id)
+              .map((b) => b.name)
+              .join(', ') || 'Aucun bot'}
+          </p>
           <h1 className="flex items-center gap-2 text-xl font-semibold">
             <span className="truncate">{pc.name}</span>
             <StatusBadge status={pc.status} />
