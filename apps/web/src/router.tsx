@@ -6,12 +6,16 @@ import {
   Outlet,
   useLocation,
 } from '@tanstack/react-router';
+import { BotAvatar } from './components/bot-avatar';
 import { useAuth } from './lib/auth';
-import { AppShell, HomePage } from './routes/app-shell';
+import { AppShell } from './routes/app-shell';
 import { LoginPage, SetupPage } from './routes/auth-pages';
+import { AvatarGallery } from './routes/avatar-gallery';
+import { ChatPage } from './routes/chat-page';
 import { DesktopPage } from './routes/desktop-page';
 import { DevicesPage } from './routes/devices-page';
 import { FilesPage } from './routes/files-page';
+import { ModelsPage } from './routes/models-page';
 
 const PUBLIC_PATHS = ['/setup', '/login'];
 
@@ -20,17 +24,23 @@ function AuthGate() {
   const { status } = useAuth();
   const { pathname } = useLocation();
 
-  if (status === 'loading') {
+  if (status === 'loading' || status === 'offline') {
     return (
-      <div className="flex min-h-dvh items-center justify-center text-muted-foreground">
-        Chargement…
-      </div>
-    );
-  }
-  if (status === 'offline') {
-    return (
-      <div className="flex min-h-dvh items-center justify-center px-4 text-center text-muted-foreground">
-        Le hub MowBot est injoignable. Vérifie qu'il est démarré puis recharge la page.
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-4 text-center">
+        <BotAvatar
+          seed="mowbot-portier"
+          size={72}
+          mood={status === 'loading' ? 'thinking' : 'sleeping'}
+        />
+        <p
+          className={
+            status === 'loading' ? 'shimmer-text text-sm' : 'text-sm text-muted-foreground'
+          }
+        >
+          {status === 'loading'
+            ? 'Connexion au hub…'
+            : "Le hub MowBot est injoignable. Vérifie qu'il est démarré puis recharge la page."}
+        </p>
       </div>
     );
   }
@@ -52,7 +62,17 @@ const loginRoute = createRoute({
   component: LoginPage,
 });
 const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', component: AppShell });
-const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: HomePage });
+const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: ChatPage });
+const botRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/bots/$botId',
+  component: ChatPage,
+});
+const modelsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/settings/models',
+  component: ModelsPage,
+});
 const devicesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/settings/devices',
@@ -72,11 +92,26 @@ const filesRoute = createRoute({
   component: FilesPage,
 });
 
+// Dev-only: review bot characters at /dev/avatars.
+const galleryRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/dev/avatars',
+  component: AvatarGallery,
+});
+
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
     setupRoute,
     loginRoute,
-    appRoute.addChildren([homeRoute, devicesRoute, desktopRoute, filesRoute]),
+    appRoute.addChildren([
+      homeRoute,
+      botRoute,
+      modelsRoute,
+      devicesRoute,
+      desktopRoute,
+      filesRoute,
+      ...(import.meta.env.DEV ? [galleryRoute] : []),
+    ]),
   ]),
 });
 

@@ -12,6 +12,7 @@ await services.computers.reconcile().catch((error) => {
   app.log.warn({ err: error }, 'Could not reconcile computers with Docker (is Docker reachable?)');
 });
 services.computers.startHibernation();
+await services.runtime.recover();
 
 const pendingSetupToken = services.setup.pendingToken;
 if (pendingSetupToken) {

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -10,10 +10,16 @@ import { buildApp } from '../src/app';
 import type { AgentEndpoint, ComputerRuntime, ComputerSpec } from '../src/computers/runtime';
 import { type Config, loadConfig } from '../src/config';
 import { type Database, openDatabase } from '../src/db/client';
-import { createServices, type Services } from '../src/services';
+import { createServices, type ServiceOverrides, type Services } from '../src/services';
 
 export const SETUP_TOKEN = 'test-setup-token-0123456789';
 export const PASSWORD = 'correct horse battery staple';
+
+/** 1×1 transparent PNG. */
+export const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+  'base64',
+);
 
 export interface TestApp {
   app: FastifyInstance;
@@ -45,7 +51,11 @@ export class FakeRuntime implements ComputerRuntime {
     const agent = createAgent({
       token: spec.agentToken,
       vncPort: (vnc.address() as net.AddressInfo).port,
-      run: async () => ({ exitCode: 0, stdout: '', stderr: '', timedOut: false }),
+      run: async (command, args) => {
+        // scrot writes its PNG to the path given last.
+        if (command === 'scrot') await writeFile(args.at(-1) as string, TINY_PNG);
+        return { exitCode: 0, stdout: '', stderr: '', timedOut: false };
+      },
     });
     const { port } = await agent.listen(0, '127.0.0.1');
     this.machines.set(containerId, {
@@ -86,6 +96,7 @@ export class FakeRuntime implements ComputerRuntime {
 export async function createTestApp(
   overrides: Partial<Config> = {},
   runtime = new FakeRuntime(),
+  modelFor?: ServiceOverrides['modelFor'],
 ): Promise<TestApp & { runtime: FakeRuntime; workspacesDir: string }> {
   const workspacesDir = await mkdtemp(path.join(tmpdir(), 'mowbot-ws-'));
   const config: Config = {
@@ -100,7 +111,7 @@ export async function createTestApp(
   };
   const database: Database = await openDatabase(config.databaseUrl);
   await database.migrate();
-  const services = await createServices(config, database.db, { runtime });
+  const services = await createServices(config, database.db, { runtime, modelFor });
   const app = await buildApp(services);
   await app.ready();
   return {

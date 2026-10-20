@@ -1,8 +1,14 @@
 import { PASSWORD_MIN_LENGTH } from '@mowbot/contract';
+import { motion } from 'motion/react';
 import { type FormEvent, type ReactNode, useState } from 'react';
+import { BotAvatar } from '../components/bot-avatar';
 import { Button } from '../components/ui/button';
 import { Card, FormError, Input, Label } from '../components/ui/form';
 import { problemMessage, useAuth } from '../lib/auth';
+import { reveal, stagger } from '../lib/motion';
+
+/** The mascot greeting people at the door: its eyes follow the pointer. */
+const MASCOT_SEED = 'mowbot-portier';
 
 function AuthLayout({
   title,
@@ -15,14 +21,23 @@ function AuthLayout({
 }) {
   return (
     <main className="flex min-h-dvh items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="space-y-1 text-center">
-          <img src="/favicon.svg" alt="" className="mx-auto mb-3 size-10" />
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
-        </div>
-        <Card>{children}</Card>
-      </div>
+      <motion.div
+        initial="hidden"
+        animate="shown"
+        variants={stagger}
+        className="w-full max-w-sm space-y-7"
+      >
+        <motion.div variants={reveal} className="flex flex-col items-center gap-4 text-center">
+          <BotAvatar seed={MASCOT_SEED} size={104} followPointer />
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+            <p className="text-sm text-muted-foreground">{subtitle}</p>
+          </div>
+        </motion.div>
+        <motion.div variants={reveal}>
+          <Card>{children}</Card>
+        </motion.div>
+      </motion.div>
     </main>
   );
 }
@@ -36,8 +51,9 @@ export function SetupPage() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const password = String(form.get('password'));
-    if (password !== String(form.get('confirm')))
+    if (password !== String(form.get('confirm'))) {
       return setError('Les mots de passe ne correspondent pas.');
+    }
     setPending(true);
     setError(null);
     try {
@@ -59,19 +75,17 @@ export function SetupPage() {
       subtitle="Crée le compte propriétaire de cette instance."
     >
       <form className="space-y-4" onSubmit={onSubmit}>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="setupToken">Jeton de configuration</Label>
           <Input id="setupToken" name="setupToken" required autoComplete="off" spellCheck={false} />
-          <p className="text-xs text-muted-foreground">
-            Affiché dans les logs du hub au premier démarrage.
-          </p>
+          <p className="text-xs text-faint">Affiché dans les logs du hub au premier démarrage.</p>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="displayName">Ton nom</Label>
           <Input id="displayName" name="displayName" required maxLength={100} autoComplete="name" />
         </div>
         <input type="hidden" name="username" value="owner" autoComplete="username" />
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="password">Mot de passe</Label>
           <Input
             id="password"
@@ -81,14 +95,14 @@ export function SetupPage() {
             minLength={PASSWORD_MIN_LENGTH}
             autoComplete="new-password"
           />
-          <p className="text-xs text-muted-foreground">{PASSWORD_MIN_LENGTH} caractères minimum.</p>
+          <p className="text-xs text-faint">{PASSWORD_MIN_LENGTH} caractères minimum.</p>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="confirm">Confirmation</Label>
           <Input id="confirm" name="confirm" type="password" required autoComplete="new-password" />
         </div>
         <FormError message={error} />
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button type="submit" size="lg" className="w-full" disabled={pending}>
           {pending ? 'Création…' : 'Créer le compte'}
         </Button>
       </form>
@@ -116,10 +130,10 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout title="MowBot" subtitle="Connecte-toi pour retrouver tes équipes.">
+    <AuthLayout title="Content de te revoir" subtitle="Tes bots t'attendent.">
       <form className="space-y-4" onSubmit={onSubmit}>
         <input type="hidden" name="username" value="owner" autoComplete="username" />
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="password">Mot de passe</Label>
           <Input
             id="password"
@@ -131,7 +145,7 @@ export function LoginPage() {
           />
         </div>
         <FormError message={error} />
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button type="submit" size="lg" className="w-full" disabled={pending}>
           {pending ? 'Connexion…' : 'Se connecter'}
         </Button>
       </form>

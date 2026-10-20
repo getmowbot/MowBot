@@ -1,4 +1,5 @@
-# MOWBOT_DOMAIN=localhost uses Caddy's internal CA; a public domain gets a Let's Encrypt certificate.
+# MOWBOT_DOMAIN: public domain(s) get Let's Encrypt certificates; localhost, LAN IPs and .lan names
+# get Caddy's internal CA; an http:// address serves plain HTTP (LAN only). See deploy/.env.example.
 {$MOWBOT_DOMAIN:localhost} {
 	encode zstd gzip
 

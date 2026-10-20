@@ -16,11 +16,13 @@ import {
 import pkg from '../package.json' with { type: 'json' };
 import { HttpProblem, problemBody } from './http/problems';
 import { authRoutes } from './routes/auth';
+import { botRoutes } from './routes/bots';
 import { computerRoutes } from './routes/computers';
 import { deviceRoutes } from './routes/devices';
 import { eventRoutes } from './routes/events';
 import { fileRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
+import { providerRoutes } from './routes/providers';
 import { teamRoutes } from './routes/teams';
 import type { Services } from './services';
 
@@ -135,13 +137,19 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
       await api.register(computerRoutes);
       await api.register(fileRoutes);
       await api.register(eventRoutes);
+      await api.register(providerRoutes);
+      await api.register(botRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: API_PREFIX },
   );
 
   services.computers.setLogger(app.log);
-  app.addHook('onClose', () => services.computers.close());
+  services.runtime.setLogger(app.log);
+  app.addHook('onClose', async () => {
+    await services.runtime.close();
+    await services.computers.close();
+  });
 
   return app;
 }

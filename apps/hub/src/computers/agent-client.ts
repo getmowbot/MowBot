@@ -7,6 +7,24 @@ export interface AgentHealth {
   controlLocked: boolean;
 }
 
+export interface ExecResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+}
+
+export class UserHasControlError extends Error {
+  constructor() {
+    super('The user has taken control of the desktop; wait until they hand it back.');
+  }
+}
+
+async function agentError(response: Response): Promise<string> {
+  const body = (await response.json().catch(() => null)) as { error?: string } | null;
+  return `mow-agent: ${body?.error ?? `HTTP ${response.status}`}`;
+}
+
 /** Talks to the mow-agent daemon running inside a computer. */
 export class AgentClient {
   constructor(
@@ -40,6 +58,44 @@ export class AgentClient {
       signal: AbortSignal.timeout(5_000),
     });
     if (!response.ok) throw new Error(`mow-agent control returned ${response.status}`);
+  }
+
+  /** Runs `bash -lc command` as the `bot` user. */
+  async exec(
+    command: string,
+    options: { timeoutMs?: number; cwd?: string } = {},
+  ): Promise<ExecResult> {
+    const timeoutMs = options.timeoutMs ?? 120_000;
+    const response = await fetch(this.url('/exec'), {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ command, timeoutMs, cwd: options.cwd }),
+      signal: AbortSignal.timeout(timeoutMs + 10_000),
+    });
+    if (!response.ok) throw new Error(await agentError(response));
+    return (await response.json()) as ExecResult;
+  }
+
+  /** PNG of the whole display. */
+  async screenshot(): Promise<Buffer> {
+    const response = await fetch(this.url('/screenshot'), {
+      headers: this.headers(),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) throw new Error(await agentError(response));
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  /** Mouse/keyboard action (see mow-agent `InputAction`). Fails while the user has control. */
+  async input(action: Record<string, unknown>): Promise<void> {
+    const response = await fetch(this.url('/input'), {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(action),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (response.status === 423) throw new UserHasControlError();
+    if (!response.ok) throw new Error(await agentError(response));
   }
 
   /** Raw RFB stream to the computer's VNC server, bridged by the agent. */

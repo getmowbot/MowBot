@@ -361,4 +361,12 @@ Tables (créées au fil des phases) :
 - **Ordinateurs** : liste, qui travaille dessus, ressources, verrous.
 - **Réglages du bot** : équipe ou solo, ordinateur (PC de l'équipe / nouvel ordi dédié), modèle, autonomie, budget.
 - Fil inter-bots (lecture), organigramme, tâches (kanban), routines, approbations, coffre, MCP, providers, appareils et sécurité, activité et coûts, réglages globaux (autonomie, budgets, pause globale).
-- Responsive dès le départ.
+- Responsive dès le départ ; accessible depuis le réseau local.
+
+### 15.1 Langage visuel (web et futures apps)
+
+- **Sombre, noir et blanc (yin/yang)** : fond quasi noir, surfaces en verre sombre, accent **blanc** (texte noir sur blanc pour les éléments clés, ex. les messages de l'utilisateur). Pas de vert ; les seules couleurs viennent des bots et des états (erreur, transition).
+- **Pas de lueurs** : ni halo ni ombre lumineuse. Les boutons principaux ont un **trait de lumière qui parcourt leur bordure** et s'inversent en blanc au survol.
+- **Mouvement** : ressorts amortis sans rebond ; les éléments apparaissent en passant du flou au net ; le texte « en cours » est balayé d'un reflet. Si le système demande moins d'animations, seuls les mouvements continus s'arrêtent.
+- **Personnages** : chaque bot est un personnage plat de couleur unie (cercle le plus souvent) avec deux petits yeux blancs en pilules, sans pupille ; la position des yeux montre où il regarde. Ils clignent à leur propre rythme, jettent des coups d'œil, suivent le curseur sur les grands formats, et changent d'expression selon l'état : réfléchit (regard en l'air, points en orbite), travaille (yeux plissés qui lisent, arc qui tourne), attend (yeux grands ouverts, anneau qui pulse), dort (yeux fermés), erreur (yeux inquiets, pastille rouge). Une équipe s'affiche comme une grappe de ses membres.
+- Le génome (forme, couleur, yeux, rythme) est tiré de la graine du bot par `@mowbot/design`, partagé par tous les clients.

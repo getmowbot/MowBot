@@ -41,6 +41,18 @@
 - [x] Vérifié de bout en bout sur Docker Desktop (Windows) : PC allumé en ~3 s, bureau XFCE + Chrome dans l'UI, souris et clavier transmis, fichier créé dans le PC visible dans l'explorateur, arrêt / redémarrage avec home conservé
 - [ ] Reportés : quotas de workspace, upload reprenable, arm64 avec navigateur, limites CPU/RAM par PC, réseau isolé par équipe, journal `provision.sh`
 
+## État de P2
+
+- [x] Fournisseurs : OpenAI-compatible, Command Code (preset), OpenAI (Responses API) ; clés chiffrées, test de connexion par la liste des modèles ; le premier fournisseur est donné au Chef
+- [x] Chef créé avec l'Équipe principale, sur son PC ; modèle choisi par bot
+- [x] Runtime : une file par bot, boucle LLM ↔ outils (AI SDK v7, 30 étapes max), streaming (`message.delta`), points de contrôle à chaque outil, arrêt en cours de réponse, reprise après redémarrage du hub, usage de tokens par réponse
+- [x] Outils : `bash`, `read_file` / `write_file` / `list_files` (limités à `/workspace`), `open_url` (Chrome partagé via DevTools), `screenshot` (image jointe à l'étape suivante, jamais stockée dans l'historique), `computer` (souris et clavier, refusé pendant une prise de contrôle) ; le PC s'allume tout seul
+- [x] Interface : thème sombre noir et blanc (yin/yang), bots en personnages (couleur unie, yeux en pilules qui clignent et regardent, humeur selon l'état), chat en streaming avec cartes d'action, panneau « Voir le PC », page Modèles
+- [x] Accès depuis le LAN (dev : `host: true` ; prod : adresses LAN dans `MOWBOT_DOMAIN`)
+- [x] Vérifié de bout en bout avec un fournisseur simulé sur le vrai PC Docker : commande, page ouverte, capture, fichier écrit, réponse Markdown
+- [ ] Abonnement ChatGPT (« Sign in with ChatGPT ») : en attente du choix de licence open source
+- [ ] Navigateur piloté via `@playwright/mcp` (arrive avec la passerelle MCP, P6) ; budgets par bot
+
 ## Risques
 
 1. **Conditions des providers** : l'abonnement ChatGPT n'est utilisable que via le programme open-source officiel (MowBot doit être open source) ; Claude Pro/Max uniquement via le CLI Claude Code officiel non modifié. Les limites des abonnements supposent un « usage individuel ordinaire » → une proactivité massive consomme vite les quotas.
