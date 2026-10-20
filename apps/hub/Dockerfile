@@ -6,6 +6,8 @@ WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/hub/package.json apps/hub/
 COPY packages/contract/package.json packages/contract/
+# Only a test dependency of the hub, but pnpm resolves it when deploying.
+COPY apps/agent/package.json apps/agent/
 RUN pnpm install --frozen-lockfile --filter "@mowbot/hub..."
 COPY packages/contract packages/contract
 COPY apps/hub apps/hub
@@ -19,6 +21,8 @@ WORKDIR /app
 COPY --from=build /out/package.json ./
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
+# Owned by `node` (uid 1000, same as the computers' `bot`) so a fresh volume mounted here is writable.
+RUN mkdir -p /data/workspaces && chown node:node /data/workspaces
 USER node
 EXPOSE 8787
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s \

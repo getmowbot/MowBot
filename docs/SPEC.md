@@ -94,7 +94,7 @@ Principes :
 | MCP | `@modelcontextprotocol/sdk` |
 | Docker | `dockerode` via `tecnativa/docker-socket-proxy` |
 | Web | Vite + React + TanStack Router/Query + Tailwind + composants style shadcn/ui ; noVNC |
-| Ordinateur | Ubuntu 24.04, TigerVNC (Xvnc) + XFCE4 + noVNC/websockify, Google Chrome (headed, CDP 9222), xdotool, scrot, tmux, supervisord, Node 24, `mow-agent`, `@playwright/mcp` |
+| Ordinateur | Ubuntu 24.04, TigerVNC (Xvnc) + XFCE4, noVNC côté client (flux relayé par le hub et `mow-agent`), Google Chrome (headed, CDP 9222), xdotool, scrot, tmux, supervisord, Node 24, `mow-agent`, `@playwright/mcp` |
 | Déploiement | `docker compose` (caddy, hub, postgres, socket-proxy) ; ordinateurs créés dynamiquement ; runtime Sysbox recommandé |
 
 ---
@@ -142,7 +142,8 @@ Principes :
 ### 5.2 Image `mowbot/workstation`
 
 - Identique pour PC d'équipe et PC dédié. Utilisateur Linux `bot` avec `sudo NOPASSWD`. Display principal `:0` en 1280×800.
-- supervisord lance : Xvnc `:0`, XFCE, websockify (noVNC), **un Chrome partagé** (profil `/home/bot/.config/chrome`, `--remote-debugging-port=9222`), `mow-agent`.
+- supervisord lance : Xvnc `:0` (écoute **uniquement en local**), XFCE, **un Chrome partagé** (profil `/home/bot/.config/mowbot-chrome`, `--remote-debugging-port=9222` sur 127.0.0.1), `mow-agent`.
+- Le bureau n'est jamais exposé : le navigateur parle RFB en WebSocket au hub (ticket à usage unique), qui relaie vers `mow-agent` (jeton de l'ordinateur), qui relaie vers le VNC local.
 - `mow-agent` (HTTP + WS interne, token par ordinateur, chaque requête porte le `bot_id`) :
   - `exec` : sessions tmux par bot, timeout, arrière-plan, streaming ;
   - `fs` : read/write/edit/list/upload/download ;
@@ -188,7 +189,8 @@ Principes :
   - `outputs/` — livrables ;
   - `kb/` — base de connaissances de l'équipe en Markdown (lisible par l'utilisateur) ;
   - `.trash/` — corbeille.
-- Côté utilisateur (UI + API) : explorateur (arbre, recherche, tri), aperçu (texte/code, Markdown, images, PDF, audio/vidéo), **téléchargement** d'un fichier (Range) ou d'un dossier (zip en streaming), **upload** (glisser-déposer ; upload reprenable pour le mobile), création de dossier, renommage/déplacement, suppression vers la corbeille, mises à jour en direct (inotify → `workspace.changed`), mention « modifié par [bot] ».
+- Côté utilisateur (UI + API) : explorateur (arbre, recherche, tri), aperçu (texte/code, Markdown, images, PDF, audio/vidéo), **téléchargement** d'un fichier (Range) ou d'un dossier (zip en streaming), **upload** (glisser-déposer ; upload reprenable pour le mobile), création de dossier, renommage/déplacement, suppression vers la corbeille, mises à jour en direct (`workspace.changed` pour les changements faits via le hub ; rafraîchissement périodique pour ceux faits depuis les ordinateurs), mention « modifié par [bot] » (plus tard).
+- Fichiers venant des bots = contenu non fiable : aperçus servis avec `nosniff` et CSP `sandbox`, HTML et scripts servis comme texte, téléchargements toujours en pièce jointe.
 - Sécurité : résolution de chemin stricte (pas de traversal, pas de symlink hors workspace), quota par workspace, scopes API `files:read` / `files:write`.
 - Partage entre équipes : `share_file(path, to: bot|team)` → copie dans `inbox/` du workspace cible + notification.
 - Plus tard : snapshots / versions.

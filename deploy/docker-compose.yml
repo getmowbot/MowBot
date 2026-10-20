@@ -49,7 +49,25 @@ services:
       MOWBOT_SETUP_TOKEN: ${MOWBOT_SETUP_TOKEN:-}
       MOWBOT_TRUST_PROXY: "true"
       DOCKER_HOST: tcp://socket-proxy:2375
-    networks: [internal]
+      MOWBOT_WORKSPACES_DIR: /data/workspaces
+      MOWBOT_WORKSPACES_VOLUME: mowbot-workspaces
+      MOWBOT_WORKSTATION_IMAGE: ${MOWBOT_WORKSTATION_IMAGE:-mowbot/workstation:local}
+      MOWBOT_COMPUTER_NETWORK: mowbot-computers
+      MOWBOT_COMPUTER_REACH: dns
+      MOWBOT_COMPUTER_RUNTIME: ${MOWBOT_COMPUTER_RUNTIME:-}
+      MOWBOT_COMPUTER_IDLE_MINUTES: ${MOWBOT_COMPUTER_IDLE_MINUTES:-30}
+    volumes:
+      - workspaces:/data/workspaces
+    networks: [internal, computers]
+
+  # Image of the computers the hub starts (not a running service).
+  #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile build build
+  workstation:
+    build:
+      context: ..
+      dockerfile: workstation/Dockerfile
+    image: ${MOWBOT_WORKSTATION_IMAGE:-mowbot/workstation:local}
+    profiles: [build]
 
   caddy:
     build:
@@ -73,6 +91,12 @@ volumes:
   postgres-data:
   caddy-data:
   caddy-config:
+  # Fixed name: the hub mounts one sub-folder per workspace into each computer.
+  workspaces:
+    name: mowbot-workspaces
 
 networks:
   internal:
+  # Shared by the hub and the computers it creates (fixed name, referenced by the hub).
+  computers:
+    name: mowbot-computers

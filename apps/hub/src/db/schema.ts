@@ -1,6 +1,7 @@
-import type { DeviceKind, Scope } from '@mowbot/contract';
+import type { ComputerKind, ComputerStatus, DeviceKind, Scope } from '@mowbot/contract';
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   check,
   index,
@@ -9,6 +10,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -98,3 +100,57 @@ export const settings = pgTable('settings', {
   value: jsonb('value').$type<unknown>().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** A file tree owned by a team (or a solo bot), mounted on `/workspace` in its computers. */
+export const workspaces = pgTable('workspaces', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  ownerType: text('owner_type').$type<'team' | 'bot'>().notNull(),
+  quotaBytes: bigint('quota_bytes', { mode: 'number' }),
+  createdAt: createdAt(),
+});
+
+export const teams = pgTable(
+  'teams',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    mission: text('mission'),
+    /** The "Équipe principale" created at setup, led by the Chef. */
+    isMain: boolean('is_main').notNull().default(false),
+    isolated: boolean('isolated').notNull().default(false),
+    /** Bots arrive in P2; no foreign key until then. */
+    leadBotId: uuid('lead_bot_id'),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('teams_main_unique').on(t.isMain).where(sql`${t.isMain}`)],
+);
+
+/** A persistent Docker container with a Linux desktop: a team's shared PC or a dedicated one. */
+export const computers = pgTable(
+  'computers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    kind: text('kind').$type<ComputerKind>().notNull(),
+    teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    status: text('status').$type<ComputerStatus>().notNull().default('stopped'),
+    statusDetail: text('status_detail'),
+    containerId: text('container_id'),
+    /** Bearer token the hub uses to call the computer's mow-agent, sealed with the master key. */
+    agentTokenSealed: text('agent_token_sealed').notNull(),
+    controlDeviceId: uuid('control_device_id').references(() => devices.id, {
+      onDelete: 'set null',
+    }),
+    controlSince: timestamp('control_since', { withTimezone: true }),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('computers_team_pc_unique').on(t.teamId).where(sql`${t.kind} = 'team'`)],
+);

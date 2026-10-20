@@ -27,6 +27,10 @@ export interface MowbotClient {
   /** Tries to restore a session from the refresh token. Resolves to whether it worked. */
   refresh(): Promise<boolean>;
   isAuthenticated(): boolean;
+  /** Authenticated fetch relative to `baseUrl` (uploads, binary downloads). */
+  fetch(path: string, init?: RequestInit): Promise<Response>;
+  /** Absolute `ws://` / `wss://` URL for a hub path. */
+  socketUrl(path: string): string;
 }
 
 /** Routes that never carry an access token nor trigger a refresh on 401. */
@@ -105,5 +109,33 @@ export function createMowbotClient(options: MowbotClientOptions): MowbotClient {
     },
   });
 
-  return { api, setSession, refresh, isAuthenticated: () => access !== null };
+  /** Raw fetch with the same auth handling, for what typed calls cannot express (multipart, blobs). */
+  const authorizedFetch = async (path: string, init: RequestInit = {}): Promise<Response> => {
+    if (access && access.expiresAt - Date.now() < EXPIRY_MARGIN_MS) await refresh();
+    const send = () => {
+      const headers = new Headers(init.headers);
+      if (access) headers.set('authorization', `Bearer ${access.token}`);
+      return fetchImpl(`${options.baseUrl}${path}`, { ...init, headers, credentials });
+    };
+    const response = await send();
+    if (response.status !== 401 || !(await refresh())) return response;
+    return send();
+  };
+
+  /** WebSocket URL for a path, e.g. `/api/v1/events?ticket=…`. */
+  const socketUrl = (path: string): string => {
+    const origin = options.baseUrl || globalThis.location.origin;
+    const url = new URL(path, origin);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return url.toString();
+  };
+
+  return {
+    api,
+    setSession,
+    refresh,
+    isAuthenticated: () => access !== null,
+    fetch: authorizedFetch,
+    socketUrl,
+  };
 }
