@@ -142,7 +142,8 @@ export const fr = {
     closePc: 'Fermer le PC',
     pcStarting: 'Démarrage du PC…',
     pcAsleep: 'Le PC dort. Il s’allume tout seul quand le bot en a besoin.',
-    readOnly: 'Vue en lecture seule. Pour prendre la main, ouvre le Bureau de l’équipe.',
+    readOnly: 'Vue en lecture seule : prends le contrôle pour utiliser la souris et le clavier.',
+    openFull: 'Ouvrir en grand',
     notSent: 'Message non envoyé.',
     notFound: 'Bot introuvable.',
     viewPc: 'Voir le PC',
@@ -380,6 +381,7 @@ export const fr = {
     noPage: '{{name}} n’a pas de page ouverte.',
     noPageHint: 'Sa fenêtre de Chrome s’affiche ici dès qu’il navigue sur le web.',
     showOnScreen: 'Afficher à l’écran',
+    takeOverPage: 'Prendre la main',
     botPage: 'Page ouverte par {{name}}',
   },
   files: {
