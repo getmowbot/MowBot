@@ -68,7 +68,25 @@
 - [x] PC partagé : l'écran pris à tour de rôle (captures, souris, clavier, page au premier plan), `pc_status` (qui fait quoi, onglets et processus de chacun), `lock_file` / `unlock_file`
 - [x] Interface : équipes et bots dans la barre latérale, page d'équipe, organigramme, page Activité (tâches + échanges entre bots), messages des autres bots dans le chat, réglages et suppression d'un bot, PC et fichiers des PC dédiés et des bots solo
 - [x] Vérifié avec un modèle simulé : le Chef pose une question à un bot, attend sa réponse, lui confie une tâche ; le bot écrit le livrable et la marque terminée ; le Chef est prévenu
-- [ ] Suite P3 (prochaine PR) : navigateur par bot (fenêtres Chrome et pilotage CDP sans l'écran), displays virtuels, screencast par bot, `share_file` entre équipes, canal d'équipe, approbations, déplacement d'un bot vers une autre équipe
+- [x] P3b, navigateur par bot :
+  - chaque bot a sa propre fenêtre de Chrome, pilotée par DevTools (pont `/cdp` de mow-agent), sans souris, clavier ni écran ;
+  - outils `browser_open`, `browser_snapshot`, `browser_click`, `browser_type`, `browser_select`, `browser_press`, `browser_scroll`, `browser_back`, `browser_screenshot` : texte de la page et éléments numérotés ;
+  - plusieurs bots naviguent en même temps sur le même PC, avec les connexions de Chrome partagées ;
+  - `open_url` retiré.
+- [x] Vue live de la fenêtre de chaque bot dans « Voir le PC » et le panneau PC du chat, avec un bouton « Afficher à l'écran » pour prendre la main.
+- [x] Le PC est recréé quand l'image des ordinateurs change (le dossier `/home/bot` est gardé).
+- [x] `ask_user` : question avec réponses en boutons, dans le chat et sur l'accueil, avec notification.
+  - La réponse arrive au bot comme un message de l'utilisateur.
+  - Écrire au bot dans le chat clôt ses questions ouvertes.
+  - 3 questions ouvertes au plus par bot.
+- [x] `share_file` : copie d'un fichier ou d'un dossier dans `inbox/` d'une autre équipe ou d'un bot solo ; le destinataire (ou le lead) est prévenu.
+- [x] Déplacer un bot vers une autre équipe ou le rendre solo, depuis l'app (menu du bot) ou par le Chef (`move_bot`).
+  - Le bot s'arrête et range ce qu'il a ouvert.
+  - Son dossier le suit.
+  - Son ancien PC dédié est supprimé.
+  - L'espace d'un ancien bot solo va dans la corbeille de l'Équipe principale.
+- [x] Vérifié sur un vrai PC avec un modèle simulé : deux bots naviguent en même temps (ouvrir, cliquer, capturer), posent leur question, reçoivent la réponse, et un bot change d'équipe (son onglet est fermé, son dossier déplacé).
+- [ ] Plus tard : displays virtuels par bot, canal d'équipe, approbations.
 
 ## État de P4
 

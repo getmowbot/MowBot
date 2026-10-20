@@ -48,6 +48,18 @@ export class DockerComputerRuntime implements ComputerRuntime {
       if (statusOf(error) === 404) return null;
       throw error;
     });
+    // A stopped computer built from an older image is recreated from the new one: its home
+    // (installs, browser profile) and its workspace are volumes and stay.
+    if (info && !info.State.Running) {
+      const current = await this.docker
+        .getImage(this.config.computers.image)
+        .inspect()
+        .catch(() => null);
+      if (current && current.Id !== info.Image) {
+        await container.remove({ force: true });
+        info = null;
+      }
+    }
     if (!info) {
       await this.ensureImage();
       await this.ensureNetwork();

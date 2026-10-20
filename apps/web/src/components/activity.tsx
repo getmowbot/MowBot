@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   AlarmClock,
   AppWindow,
+  ArrowRightLeft,
   Bell,
   Brain,
   BrushCleaning,
@@ -17,6 +18,7 @@ import {
   FileText,
   FolderOpen,
   Globe,
+  Keyboard,
   LayoutDashboard,
   ListChecks,
   ListPlus,
@@ -26,9 +28,12 @@ import {
   MessageCircleQuestion,
   Monitor,
   MousePointer2,
+  MousePointerClick,
   Search,
   Send,
   SquareTerminal,
+  TextCursorInput,
+  Undo2,
   UserPen,
   UserPlus,
   Users,
@@ -118,6 +123,7 @@ function describeComputer(input: Input): string {
 type Kind =
   | 'search'
   | 'page'
+  | 'web'
   | 'capture'
   | 'command'
   | 'screen'
@@ -142,6 +148,12 @@ interface ToolMeta {
   kind(input: Input): Kind | null;
 }
 
+const openPage: ToolMeta = {
+  icon: (i) => (searchQuery(i.url) ? Search : Globe),
+  title: (i) => describeUrl(i.url),
+  kind: (i) => (searchQuery(i.url) ? 'search' : 'page'),
+};
+
 const TOOLS: Record<string, ToolMeta> = {
   bash: {
     icon: () => SquareTerminal,
@@ -163,10 +175,48 @@ const TOOLS: Record<string, ToolMeta> = {
     title: (i) => i18n.t('activity.listFiles', { path: workspacePath(i.path) }),
     kind: () => 'read',
   },
-  open_url: {
-    icon: (i) => (searchQuery(i.url) ? Search : Globe),
-    title: (i) => describeUrl(i.url),
-    kind: (i) => (searchQuery(i.url) ? 'search' : 'page'),
+  browser_open: openPage,
+  // Conversations from before the bots had their own browser window.
+  open_url: openPage,
+  browser_snapshot: {
+    icon: () => FileText,
+    title: () => i18n.t('activity.browserSnapshot'),
+    kind: () => null,
+  },
+  browser_click: {
+    icon: () => MousePointerClick,
+    title: (i) => i18n.t('activity.browserClick', { ref: String(i.ref ?? '?') }),
+    kind: () => 'web',
+  },
+  browser_type: {
+    icon: () => TextCursorInput,
+    title: (i) => i18n.t('activity.type', { text: str(i.text).slice(0, 60) }),
+    kind: () => 'web',
+  },
+  browser_select: {
+    icon: () => ListChecks,
+    title: (i) => i18n.t('activity.browserSelect', { option: str(i.option) }),
+    kind: () => 'web',
+  },
+  browser_press: {
+    icon: () => Keyboard,
+    title: (i) => i18n.t('activity.keys', { keys: str(i.key) }),
+    kind: () => 'web',
+  },
+  browser_scroll: {
+    icon: () => MousePointer2,
+    title: (i) => i18n.t(i.direction === 'up' ? 'activity.scrollUp' : 'activity.scrollDown'),
+    kind: () => null,
+  },
+  browser_back: {
+    icon: () => Undo2,
+    title: () => i18n.t('activity.browserBack'),
+    kind: () => 'web',
+  },
+  browser_screenshot: {
+    icon: () => Camera,
+    title: () => i18n.t('activity.browserScreenshot'),
+    kind: () => 'capture',
   },
   screenshot: {
     icon: () => Camera,
@@ -207,6 +257,21 @@ const TOOLS: Record<string, ToolMeta> = {
     icon: () => Send,
     title: (i) => i18n.t('activity.sendMessage', { name: str(i.to) }),
     kind: () => 'message',
+  },
+  share_file: {
+    icon: () => Send,
+    title: (i) => i18n.t('activity.shareFile', { path: workspacePath(i.path), name: str(i.to) }),
+    kind: () => 'message',
+  },
+  move_bot: {
+    icon: () => ArrowRightLeft,
+    title: (i) => i18n.t('activity.moveBot', { name: str(i.bot), team: str(i.team) }),
+    kind: () => null,
+  },
+  ask_user: {
+    icon: () => MessageCircleQuestion,
+    title: () => i18n.t('activity.askUser'),
+    kind: () => 'question',
   },
   ask_bot: {
     icon: () => MessageCircleQuestion,

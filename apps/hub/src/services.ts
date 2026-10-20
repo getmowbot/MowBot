@@ -17,6 +17,7 @@ import { OrgService } from './org/service';
 import type { TaskService } from './org/tasks';
 import { CanvasService } from './proactivity/canvases';
 import { NotificationService, SystemService } from './proactivity/notifications';
+import { QuestionService } from './proactivity/questions';
 import { RoutineService } from './proactivity/routines';
 import { Scheduler } from './proactivity/scheduler';
 import { ProviderService } from './providers/service';
@@ -43,6 +44,7 @@ export interface Services {
   system: SystemService;
   scheduler: Scheduler;
   canvases: CanvasService;
+  questions: QuestionService;
   /** Main team, its PC, the Chef and its daily summary (at startup and right after setup). */
   bootstrap(): Promise<void>;
 }
@@ -68,6 +70,7 @@ export async function createServices(
   const notifications = new NotificationService(db, events);
   const system = new SystemService(db, events, config.timeZone);
   const canvases = new CanvasService(db, events);
+  const questions = new QuestionService(db, events, notifications);
   const bootstrap = async () => {
     await bootstrapOrganization(db, files, config.masterKey);
     const [chef] = await db.select().from(botsTable).where(eq(botsTable.isChef, true));
@@ -96,6 +99,7 @@ export async function createServices(
     notifications,
     system,
     canvases,
+    questions,
     modelFor: overrides.modelFor,
     askTimeoutMs: overrides.askTimeoutMs,
   });
@@ -119,6 +123,7 @@ export async function createServices(
     system,
     scheduler: new Scheduler({ db, routines, runtime, system, notifications }),
     canvases,
+    questions,
     bootstrap,
   };
 }

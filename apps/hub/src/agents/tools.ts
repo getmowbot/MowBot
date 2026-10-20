@@ -13,7 +13,6 @@ import {
   isTabId,
   isWindowId,
   openedBy,
-  openUrlScript,
   parseProcesses,
   processesScript,
 } from './desktop';
@@ -52,7 +51,7 @@ export function clip(text: string, max = MAX_TOOL_TEXT): string {
 }
 
 /** `/workspace/a/b` → `a/b`; anything outside /workspace is refused. */
-function workspacePath(input: string): string {
+export function workspacePath(input: string): string {
   const resolved = path.posix.resolve('/workspace', input.replaceAll('\\', '/'));
   if (resolved !== '/workspace' && !resolved.startsWith('/workspace/')) {
     throw new Error(
@@ -160,23 +159,9 @@ export function buildTools(ctx: ToolContext): ToolSet {
     }),
   });
 
-  tools.open_url = tool({
-    description:
-      'Ouvre une adresse dans le Google Chrome de ton PC, à la place de ta page courante (ton onglet est réutilisé). new_tab: true garde ta page et ouvre un onglet de plus.',
-    inputSchema: z.object({ url: z.url(), new_tab: z.boolean().default(false) }),
-    execute: async ({ url, new_tab }, { abortSignal }) => {
-      const agent = await computer();
-      await takeScreen(abortSignal);
-      const result = await agent.exec(openUrlScript(ctx.botId, url, new_tab), {
-        timeoutMs: 45_000,
-      });
-      if (result.exitCode !== 0) throw new Error(result.stderr || 'Chrome did not open the page');
-      return `Ouvert dans Chrome : ${url}. Prends une capture pour voir la page.`;
-    },
-  });
-
   tools.screenshot = tool({
-    description: "Capture l'écran de ton PC (1280×800) pour voir ce qui s'y passe.",
+    description:
+      "Capture l'écran de ton PC (1280×800) pour voir ce qui s'y passe (applications, bureau). Pour une page web, préfère browser_snapshot ou browser_screenshot.",
     inputSchema: z.object({}),
     execute: async (_, { abortSignal }) => {
       const agent = await computer();

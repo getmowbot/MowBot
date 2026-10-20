@@ -89,6 +89,13 @@ export const botCreateSchema = z.object({
 });
 export type BotCreate = z.infer<typeof botCreateSchema>;
 
+/** Moves a bot to another team (null: solo), on its PC or a dedicated one. */
+export const botMoveSchema = z.object({
+  teamId: z.uuid().nullable(),
+  computer: botComputerChoiceSchema.default('team'),
+});
+export type BotMove = z.infer<typeof botMoveSchema>;
+
 /** Display parts of a message (the exact model transcript is kept server-side). */
 export const messagePartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
@@ -154,3 +161,14 @@ export const feedSchema = z.object({
   nextCursor: z.string().nullable(),
 });
 export type FeedItem = z.infer<typeof feedItemSchema>;
+
+/** What a bot's own Chrome window shows, for the live view. */
+export const botBrowserSchema = z.object({
+  /** false: the bot has no page open (or the hub restarted since). */
+  open: z.boolean(),
+  title: z.string().nullable(),
+  url: z.string().nullable(),
+  /** JPEG, base64. */
+  image: z.string().nullable(),
+});
+export type BotBrowser = z.infer<typeof botBrowserSchema>;

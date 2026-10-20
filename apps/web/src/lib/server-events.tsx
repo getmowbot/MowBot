@@ -1,4 +1,4 @@
-import type { Bot, Canvas, Message, ServerEvent, Team } from '@mowbot/contract';
+import type { Bot, Canvas, Message, Question, ServerEvent, Team } from '@mowbot/contract';
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { api, client } from './auth';
@@ -139,6 +139,14 @@ export function ServerEvents() {
           void queryClient.invalidateQueries({ queryKey: ['notifications'] });
           alertOnThisDevice(event.notification);
           break;
+        case 'question.updated': {
+          const { question } = event;
+          queryClient.setQueryData<Question[]>(['questions'], (list) => {
+            const others = list?.filter((q) => q.id !== question.id);
+            return question.status === 'open' && others ? [question, ...others] : others;
+          });
+          break;
+        }
         case 'routine.updated':
         case 'routine.deleted':
           void queryClient.invalidateQueries({ queryKey: ['routines'] });

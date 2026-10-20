@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream, type ReadStream } from 'node:fs';
 import {
+  cp,
   lstat,
   mkdir,
   readdir,
@@ -49,6 +50,14 @@ function numbered(name: string, n: number): string {
   const dot = name.lastIndexOf('.');
   if (dot <= 0) return `${name} (${n})`;
   return `${name.slice(0, dot)} (${n})${name.slice(dot)}`;
+}
+
+/** `name`, or the first `name (n)` that is free in `dir`. */
+async function freeName(dir: string, name: string): Promise<string> {
+  for (let n = 0; ; n++) {
+    const candidate = n === 0 ? name : numbered(name, n);
+    if (!(await lstat(path.join(dir, candidate)).catch(() => null))) return candidate;
+  }
 }
 
 /** Files of every workspace, stored under `<root>/<workspaceId>/`. */
@@ -224,16 +233,18 @@ export class WorkspaceFiles {
     };
   }
 
-  /** Writes (overwrites) a file, creating missing parent folders inside the workspace. */
-  async writeFile(workspaceId: string, file: string, content: string | Buffer): Promise<FileEntry> {
-    const rel = normalizePath(file);
-    if (!rel) throw invalidPath();
+  /** Creates a folder and its missing parents, never through a symlink leading outside. */
+  private async ensureFolder(
+    workspaceId: string,
+    dir: string,
+  ): Promise<{ rel: string; abs: string }> {
+    const rel = normalizePath(dir);
     const base = await realpath(this.dirOf(workspaceId));
     // Validate the deepest existing ancestor before creating anything (symlinks included).
-    const segments = rel.split('/');
+    const segments = rel ? rel.split('/') : [];
     let existing = base;
-    for (let i = 0; i < segments.length - 1; i++) {
-      const candidate = path.join(existing, segments[i] as string);
+    for (const segment of segments) {
+      const candidate = path.join(existing, segment);
       const info = await lstat(candidate).catch(() => null);
       if (!info) break;
       existing = await realpath(candidate);
@@ -242,7 +253,57 @@ export class WorkspaceFiles {
       }
     }
     const abs = path.join(base, ...segments);
-    await mkdir(path.dirname(abs), { recursive: true });
+    await mkdir(abs, { recursive: true });
+    return { rel, abs };
+  }
+
+  /**
+   * Copies a file or folder into a folder of another workspace (symlinks left out), as
+   * `name (n)` when the name is taken.
+   */
+  async copyInto(
+    workspaceId: string,
+    from: string,
+    toWorkspaceId: string,
+    toDir: string,
+  ): Promise<FileEntry> {
+    const source = await this.resolve(workspaceId, from, true);
+    if (!source.rel) throw invalidPath('Cannot copy a whole workspace');
+    if ((await lstat(source.abs)).isSymbolicLink()) throw invalidPath('Refusing to copy a symlink');
+    const folder = await this.ensureFolder(toWorkspaceId, toDir);
+    const name = await freeName(folder.abs, path.basename(source.abs));
+    const abs = path.join(folder.abs, name);
+    await cp(source.abs, abs, {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+      filter: async (item) => !(await lstat(item)).isSymbolicLink(),
+    });
+    return (await this.entry(joinRel(folder.rel, name), abs)) as FileEntry;
+  }
+
+  /** Moves a file or folder to another workspace as `toDir/name` (numbered if taken). */
+  async moveInto(
+    workspaceId: string,
+    from: string,
+    toWorkspaceId: string,
+    toDir: string,
+    name: string,
+  ): Promise<string> {
+    const source = await this.resolve(workspaceId, from, true);
+    if (!source.rel) throw invalidPath();
+    const folder = await this.ensureFolder(toWorkspaceId, toDir);
+    const free = await freeName(folder.abs, name);
+    await rename(source.abs, path.join(folder.abs, free));
+    return joinRel(folder.rel, free);
+  }
+
+  /** Writes (overwrites) a file, creating missing parent folders inside the workspace. */
+  async writeFile(workspaceId: string, file: string, content: string | Buffer): Promise<FileEntry> {
+    const rel = normalizePath(file);
+    if (!rel) throw invalidPath();
+    const folder = await this.ensureFolder(workspaceId, parentOf(rel));
+    const abs = path.join(folder.abs, path.posix.basename(rel));
     if ((await lstat(abs).catch(() => null))?.isSymbolicLink())
       throw invalidPath('Refusing to write through a symlink');
     await writeFsFile(abs, content);

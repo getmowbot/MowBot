@@ -17,14 +17,17 @@ import {
 import { useTranslation } from 'react-i18next';
 import { ActivityGroup, type ActivityPart } from '../components/activity';
 import { BotAvatar } from '../components/bot-avatar';
+import { BotBrowserView, ViewSwitch } from '../components/bot-browser-view';
 import { BotMenu, RenameField } from '../components/bot-menu';
 import { StatusBadge } from '../components/computer-status';
 import { Markdown } from '../components/markdown';
+import { QuestionCard } from '../components/question-card';
 import { Button } from '../components/ui/button';
 import { i18n } from '../i18n';
 import { api, problemMessage } from '../lib/auth';
 import { moodOf, statusLabel } from '../lib/bot-mood';
 import { reveal } from '../lib/motion';
+import { useQuestions } from '../lib/proactivity';
 import {
   useBot,
   useBots,
@@ -275,11 +278,21 @@ function Composer({ bot, onSend }: { bot: Bot; onSend(text: string): void }) {
   );
 }
 
-function ComputerPanel({ computerId, onClose }: { computerId: string; onClose(): void }) {
+function ComputerPanel({
+  computerId,
+  bot,
+  onClose,
+}: {
+  computerId: string;
+  bot: { id: string; name: string };
+  onClose(): void;
+}) {
   const { t } = useTranslation();
   const computer = useComputer(computerId);
   const action = useComputerAction(computerId);
   const pc = computer.data;
+  // The bot browses in its own window, which the screen doesn't show.
+  const [shown, setShown] = useState<'bot' | 'screen'>('bot');
   return (
     <motion.aside
       initial={{ opacity: 0, x: 24, filter: 'blur(8px)' }}
@@ -296,7 +309,19 @@ function ComputerPanel({ computerId, onClose }: { computerId: string; onClose():
           <PanelRightClose className="size-4" />
         </Button>
       </div>
-      {pc?.status === 'running' ? (
+      {pc?.status === 'running' && (
+        <ViewSwitch
+          value={shown}
+          options={[
+            { value: 'bot', label: t('desktop.botWindow', { name: bot.name }) },
+            { value: 'screen', label: t('desktop.screen') },
+          ]}
+          onChange={setShown}
+        />
+      )}
+      {pc?.status === 'running' && shown === 'bot' ? (
+        <BotBrowserView botId={bot.id} botName={bot.name} onShown={() => setShown('screen')} />
+      ) : pc?.status === 'running' ? (
         <Suspense fallback={null}>
           <DesktopView computerId={computerId} interactive={false} />
         </Suspense>
@@ -326,6 +351,9 @@ export function ChatPage() {
   const byId = useBot(botId);
   const bot = botId ? byId.data : chef.data;
   const messages = useMessages(bot?.id);
+  const questions = useQuestions();
+  // Oldest first, like the conversation.
+  const asked = (questions.data ?? []).filter((q) => q.botId === bot?.id).reverse();
   const providers = useProviders();
   const queryClient = useQueryClient();
   const scroller = useRef<HTMLDivElement>(null);
@@ -473,13 +501,23 @@ export function ChatPage() {
 
         <div className="mx-auto w-full max-w-3xl px-3 pb-3 md:px-6 md:pb-5">
           {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
+          <AnimatePresence initial={false}>
+            {asked.map((question) => (
+              <QuestionCard key={question.id} question={question} className="mb-2" />
+            ))}
+          </AnimatePresence>
           <Composer bot={bot} onSend={(text) => send.mutate(text)} />
         </div>
       </div>
 
       <AnimatePresence>
         {showPc && bot.computerId && (
-          <ComputerPanel key="pc" computerId={bot.computerId} onClose={() => setShowPc(false)} />
+          <ComputerPanel
+            key="pc"
+            computerId={bot.computerId}
+            bot={bot}
+            onClose={() => setShowPc(false)}
+          />
         )}
       </AnimatePresence>
     </div>

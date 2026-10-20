@@ -1,7 +1,8 @@
 import { useParams } from '@tanstack/react-router';
 import { Hand, Maximize, Play, Power, RotateCw, Undo2 } from 'lucide-react';
-import { lazy, Suspense, useRef } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BotBrowserView, ViewSwitch } from '../components/bot-browser-view';
 import { StatusBadge } from '../components/computer-status';
 import type { DesktopViewHandle } from '../components/desktop-view';
 import { Button } from '../components/ui/button';
@@ -25,6 +26,8 @@ export function DesktopPage() {
   const me = useMe();
   const action = useComputerAction(computerId);
   const view = useRef<DesktopViewHandle>(null);
+  // The screen, or one bot's own browser window.
+  const [shown, setShown] = useState('screen');
 
   if (team.isPending || (computerId && computer.isPending)) {
     return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
@@ -37,16 +40,15 @@ export function DesktopPage() {
   const control = pc.control;
   const inControl = Boolean(control && control.deviceId === me.data?.device.id);
   const busy = action.isPending || pc.status === 'starting' || pc.status === 'stopping';
+  const pcBots = (bots.data ?? []).filter((b) => b.computerId === pc.id);
+  const shownBot = pcBots.find((b) => b.id === shown);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm text-muted-foreground">
-            {(bots.data ?? [])
-              .filter((b) => b.computerId === pc.id)
-              .map((b) => b.name)
-              .join(', ') || t('common.noBots')}
+            {pcBots.map((b) => b.name).join(', ') || t('common.noBots')}
           </p>
           <h1 className="flex items-center gap-2 text-xl font-semibold">
             <span className="truncate">{pc.name}</span>
@@ -113,7 +115,27 @@ export function DesktopPage() {
         </p>
       )}
 
-      {pc.status === 'running' ? (
+      {pc.status === 'running' && pcBots.length > 0 && (
+        <ViewSwitch
+          value={shownBot ? shownBot.id : 'screen'}
+          options={[
+            { value: 'screen', label: t('desktop.screen') },
+            ...pcBots.map((b) => ({
+              value: b.id,
+              label: t('desktop.botWindow', { name: b.name }),
+            })),
+          ]}
+          onChange={setShown}
+        />
+      )}
+
+      {pc.status === 'running' && shownBot ? (
+        <BotBrowserView
+          botId={shownBot.id}
+          botName={shownBot.name}
+          onShown={() => setShown('screen')}
+        />
+      ) : pc.status === 'running' ? (
         <Suspense
           fallback={<p className="text-sm text-muted-foreground">{t('desktop.loading')}</p>}
         >

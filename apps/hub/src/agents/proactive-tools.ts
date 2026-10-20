@@ -8,6 +8,7 @@ import { bots, messages, notifications, routineRuns, routines, tasks, teams } fr
 import { HttpProblem } from '../http/problems';
 import { TASK_STATUS_LABELS } from '../org/tasks';
 import type { NotificationService } from '../proactivity/notifications';
+import type { QuestionService } from '../proactivity/questions';
 import type { RoutineService } from '../proactivity/routines';
 import { startOfDay } from '../proactivity/schedule';
 
@@ -15,6 +16,8 @@ export interface ProactiveToolContext {
   self: BotRow;
   routines: RoutineService;
   notifications: NotificationService;
+  questions: QuestionService;
+  ownerName: string;
   bots: BotService;
   db: Db;
 }
@@ -203,6 +206,23 @@ export function buildProactiveTools(ctx: ProactiveToolContext): ToolSet {
     execute: async ({ title, body, priority }) => {
       await notifier.create({ botId: self.id, priority, title, body });
       return priority === 'digest' ? 'Gardé pour le bilan du soir.' : "L'utilisateur est prévenu.";
+    },
+  });
+
+  tools.ask_user = tool({
+    description:
+      "Pose une question à l'utilisateur, avec des réponses toutes prêtes qu'il choisit d'un clic (il peut aussi écrire la sienne). Il est prévenu. Sa réponse t'arrive plus tard comme un message : ne l'attends pas, termine ton tour.",
+    inputSchema: z.object({
+      question: z.string().trim().min(1).max(500),
+      options: z
+        .array(z.string().trim().min(1).max(60))
+        .max(6)
+        .default([])
+        .describe('2 à 4 réponses courtes quand c’est possible (ex. « Oui », « Non, plus tard »)'),
+    }),
+    execute: async ({ question, options }) => {
+      await ctx.questions.ask(self, question, [...new Set(options)]).catch(toolError);
+      return `Question posée à ${ctx.ownerName}. Sa réponse t'arrivera comme un message : termine ton tour maintenant (en une phrase, sans répéter la question), ou avance sur ce qui n'en dépend pas.`;
     },
   });
 

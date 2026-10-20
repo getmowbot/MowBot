@@ -1,4 +1,4 @@
-import type { Notification, SystemSettingsUpdate } from '@mowbot/contract';
+import type { Notification, Question, SystemSettingsUpdate } from '@mowbot/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './auth';
 
@@ -107,4 +107,36 @@ export function alertOnThisDevice(notification: Notification): void {
   } catch {
     // Some browsers only allow notifications from a service worker.
   }
+}
+
+/** Questions bots asked the user that still wait for an answer, newest first. */
+export function useQuestions() {
+  return useQuery({
+    queryKey: ['questions'],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/questions');
+      if (error || !data) throw error;
+      return data.items;
+    },
+  });
+}
+
+export function useAnswerQuestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, answer }: { id: string; answer: string }) => {
+      const { data, error } = await api.POST('/api/v1/questions/{id}/answer', {
+        params: { path: { id } },
+        body: { answer },
+      });
+      if (error || !data) throw error;
+      return data;
+    },
+    onSuccess: (question) =>
+      queryClient.setQueryData<Question[]>(['questions'], (list) =>
+        list?.filter((q) => q.id !== question.id),
+      ),
+    // Answered meanwhile on another device: refresh.
+    onError: () => queryClient.invalidateQueries({ queryKey: ['questions'] }),
+  });
 }

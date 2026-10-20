@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { closeScript, openedBy, openUrlScript, parseInventory } from '../src/agents/desktop';
+import { closeScript, inventoryScript, openedBy, parseInventory } from '../src/agents/desktop';
 
 const BOT = '0b6a3c1e-8d2f-4b7a-9c3e-5f1d2a4b6c8e';
 const TAB_A = 'BD2AF21E1213A8D9FC7CC82EA06B8AE9';
@@ -33,15 +33,13 @@ describe('desktop inventory', () => {
 });
 
 describe('desktop scripts', () => {
-  it('quotes URLs for the shell', () => {
-    const script = openUrlScript(BOT, "https://example.com/?q=it's", false);
-    expect(script).toContain("URL='https://example.com/?q=it'\\''s'");
-    expect(script).toContain(`STATE="$HOME/.mowbot/bots/${BOT}"`);
+  it('keeps the state of each bot in its own folder', () => {
+    expect(inventoryScript(BOT)).toContain(`STATE="$HOME/.mowbot/bots/${BOT}"`);
   });
 
   it('refuses ids that could inject shell', () => {
     expect(() => closeScript(BOT, ['$(reboot)'], [])).toThrow();
     expect(() => closeScript(BOT, [], ['1; rm -rf ~'])).toThrow();
-    expect(() => openUrlScript('../../etc', 'https://example.com', false)).toThrow();
+    expect(() => inventoryScript('../../etc')).toThrow();
   });
 });

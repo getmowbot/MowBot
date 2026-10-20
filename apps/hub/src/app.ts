@@ -25,6 +25,7 @@ import { fileRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
 import { proactivityRoutes } from './routes/proactivity';
 import { providerRoutes } from './routes/providers';
+import { questionRoutes } from './routes/questions';
 import { taskRoutes } from './routes/tasks';
 import { teamRoutes } from './routes/teams';
 import type { Services } from './services';
@@ -143,6 +144,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
       await api.register(providerRoutes);
       await api.register(botRoutes);
       await api.register(taskRoutes);
+      await api.register(questionRoutes);
       await api.register(proactivityRoutes);
       await api.register(canvasRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());

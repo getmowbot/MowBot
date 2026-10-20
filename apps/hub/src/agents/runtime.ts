@@ -1,5 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import type { Message, MessageKind, MessagePart, ModelRef } from '@mowbot/contract';
+import type {
+  Bot,
+  BotMove,
+  Message,
+  MessageKind,
+  MessagePart,
+  ModelRef,
+  Question,
+} from '@mowbot/contract';
 import { type LanguageModel, type ModelMessage, stepCountIs, streamText } from 'ai';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import { type BotRow, type BotService, toMessage } from '../bots/service';
@@ -12,9 +20,12 @@ import type { OrgService } from '../org/service';
 import { TaskService } from '../org/tasks';
 import type { CanvasService } from '../proactivity/canvases';
 import type { NotificationService, SystemService } from '../proactivity/notifications';
+import type { QuestionService } from '../proactivity/questions';
 import { IDLE_ANSWER, MAX_FAILURES, type RoutineService } from '../proactivity/routines';
 import type { ProviderService } from '../providers/service';
 import type { WorkspaceFiles } from '../workspaces/files';
+import { BrowserHub } from './browser';
+import { buildBrowserTools } from './browser-tools';
 import { buildCanvasTools } from './canvas-tools';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
 import { buildOrgTools } from './org-tools';
@@ -51,6 +62,7 @@ export interface RuntimeDeps {
   notifications: NotificationService;
   system: SystemService;
   canvases: CanvasService;
+  questions: QuestionService;
   /** Tests inject scripted models (several: a fallback chain). */
   modelFor?: (bot: BotRow) => LanguageModel | LanguageModel[] | null;
   tidyAfterMs?: number;
@@ -107,10 +119,10 @@ function summarize(
   output: unknown,
   workspaceId: string | null,
 ): Pick<Extract<MessagePart, { type: 'tool' }>, 'output' | 'image'> {
-  if (toolName === 'screenshot') {
+  if (toolName === 'screenshot' || toolName === 'browser_screenshot') {
     const saved = (output as { saved?: string | null }).saved;
     return {
-      output: "Capture de l'écran",
+      output: toolName === 'screenshot' ? "Capture de l'écran" : 'Capture de la page',
       ...(saved && workspaceId ? { image: { workspaceId, path: saved } } : {}),
     };
   }
@@ -147,6 +159,8 @@ export class BotRuntime {
   private readonly sends = new Map<string, number[]>();
   readonly screen = new ScreenLeases();
   readonly locks = new FileLocks();
+  /** Each bot's own Chrome window, driven over DevTools. */
+  readonly browser = new BrowserHub();
   readonly tasks: TaskService;
 
   constructor(private readonly deps: RuntimeDeps) {
@@ -384,12 +398,30 @@ export class BotRuntime {
 
   async send(botId: string, text: string): Promise<Message> {
     await this.deps.bots.row(botId);
+    // Writing to the bot moves on from the questions it asked.
+    await this.deps.questions.closeOpen(botId);
+    return this.post(botId, text, text);
+  }
+
+  /** The user answered a bot's question: the answer reaches the bot as their message. */
+  async answerQuestion(id: string, answer: string): Promise<Question> {
+    const question = await this.deps.questions.answer(id, answer);
+    await this.post(
+      question.botId,
+      `[Réponse à ta question « ${question.question} »]\n${answer}`,
+      answer,
+    );
+    return question;
+  }
+
+  /** A message from the user: `text` for the bot, `display` for the app. */
+  private async post(botId: string, text: string, display: string): Promise<Message> {
     const [row] = await this.deps.db
       .insert(messages)
       .values({
         botId,
         role: 'user',
-        parts: [{ type: 'text', text }],
+        parts: [{ type: 'text', text: display }],
         modelMessages: [{ role: 'user', content: text }],
         status: 'done',
       })
@@ -413,6 +445,7 @@ export class BotRuntime {
     this.stop(botId);
     await this.idle(botId);
     await this.answerAsksOf(bot, `${bot.name} a été réinitialisé et ne répondra pas.`);
+    await this.deps.questions.closeOpen(botId);
     await this.deps.db.delete(messages).where(eq(messages.botId, botId));
     this.deps.events.publish({ type: 'messages.cleared', botId });
     await this.deps.bots.update(botId, { status: 'idle', statusDetail: null });
@@ -423,6 +456,22 @@ export class BotRuntime {
         this.log.warn({ err: error, botId }, 'Tidy-up failed'),
       );
     }
+  }
+
+  /** Moves a bot to another team or computer: it stops and tidies its old computer up first. */
+  async moveBot(botId: string, input: BotMove): Promise<Bot> {
+    const bot = await this.deps.bots.row(botId);
+    if (bot.isChef) return this.deps.org.moveBot(botId, input); // Refused there.
+    this.stop(botId);
+    await this.idle(botId);
+    if (bot.computerId) {
+      clearTimeout(this.tidyTimers.get(botId));
+      this.tidyTimers.delete(botId);
+      await this.tidy(botId, bot.computerId).catch((error) =>
+        this.log.warn({ err: error, botId }, 'Tidy-up failed'),
+      );
+    }
+    return this.deps.org.moveBot(botId, input);
   }
 
   /** Resolves when the bot's queue is empty (tests, shutdown). */
@@ -440,6 +489,7 @@ export class BotRuntime {
     this.tidyTimers.clear();
     for (const controller of this.controllers.values()) controller.abort();
     await Promise.allSettled(this.chains.values());
+    await this.browser.close();
   }
 
   /** After a hub restart: interrupted runs are marked as such and bots go back to idle. */
@@ -715,6 +765,17 @@ export class BotRuntime {
       const allTeams = await this.deps.org.listTeams();
       const allBots = await db.select().from(bots).orderBy(bots.createdAt);
       const pendingImages: string[] = [];
+      const computer = computerId
+        ? async () => {
+            const agent = await this.computerAgent(computerId);
+            watch.windowsBefore ??= inventory(agent, botId).then(
+              (inv) => new Set(inv.windows.map((w) => w.id)),
+              () => null,
+            );
+            await watch.windowsBefore;
+            return agent;
+          }
+        : null;
       const tools = {
         ...buildTools({
           botId,
@@ -733,19 +794,21 @@ export class BotRuntime {
                   ),
               }
             : null,
-          computer: computerId
-            ? async () => {
-                const agent = await this.computerAgent(computerId);
-                watch.windowsBefore ??= inventory(agent, botId).then(
-                  (inv) => new Set(inv.windows.map((w) => w.id)),
-                  () => null,
-                );
-                await watch.windowsBefore;
-                return agent;
-              }
-            : null,
+          computer,
           pendingImages,
         }),
+        ...(computerId && computer
+          ? buildBrowserTools({
+              botId,
+              botName: bot.name,
+              computerId,
+              workspaceId: bot.workspaceId,
+              files: this.deps.files,
+              browser: this.browser,
+              computer,
+              pendingImages,
+            })
+          : {}),
         ...(await buildOrgTools({
           self: bot,
           depth: depth + 1,
@@ -753,12 +816,16 @@ export class BotRuntime {
           org: this.deps.org,
           tasks: this.tasks,
           bots: this.deps.bots,
+          files: this.deps.files,
+          events,
           db,
         })),
         ...buildProactiveTools({
           self: bot,
           routines: this.deps.routines,
           notifications: this.deps.notifications,
+          questions: this.deps.questions,
+          ownerName: account?.name ?? "l'utilisateur",
           bots: this.deps.bots,
           db,
         }),
@@ -814,7 +881,7 @@ export class BotRuntime {
                 {
                   role: 'user',
                   content: [
-                    { type: 'text', text: "Capture de l'écran de ton PC (1280×800) :" },
+                    { type: 'text', text: 'Capture demandée (l’écran du PC fait 1280×800) :' },
                     ...images.map((image) => ({
                       type: 'file' as const,
                       data: image,

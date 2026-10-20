@@ -1,7 +1,7 @@
 import type { Bot, Message } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Ellipsis, Eraser, type LucideIcon, Pencil, Settings2 } from 'lucide-react';
+import { ArrowRightLeft, Ellipsis, Eraser, type LucideIcon, Pencil, Settings2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -111,6 +111,17 @@ export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
             >
               {t('botMenu.rename')}
             </MenuItem>
+            {!bot.isChef && (
+              <MenuItem
+                icon={ArrowRightLeft}
+                onClick={() => {
+                  setOpen(false);
+                  dialogs.moveBot(bot);
+                }}
+              >
+                {t('botMenu.move')}
+              </MenuItem>
+            )}
             <MenuItem
               icon={Eraser}
               danger
