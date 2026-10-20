@@ -1,9 +1,46 @@
-import type { ServerEvent } from '@mowbot/contract';
-import { useQueryClient } from '@tanstack/react-query';
+import type { Bot, Message, ServerEvent } from '@mowbot/contract';
+import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { api, client } from './auth';
 
 const MAX_BACKOFF_MS = 30_000;
+
+function upsertMessage(queryClient: QueryClient, message: Message) {
+  queryClient.setQueryData<Message[]>(['messages', message.botId], (list) => {
+    if (!list) return list;
+    const index = list.findIndex((m) => m.id === message.id);
+    if (index < 0) return [...list, message];
+    const next = list.slice();
+    next[index] = message;
+    return next;
+  });
+}
+
+function appendDelta(
+  queryClient: QueryClient,
+  event: Extract<ServerEvent, { type: 'message.delta' }>,
+) {
+  queryClient.setQueryData<Message[]>(['messages', event.botId], (list) => {
+    if (!list) return list;
+    return list.map((message) => {
+      if (message.id !== event.messageId) return message;
+      const parts = message.parts.slice();
+      const part = parts[event.partIndex];
+      if (part && part.type === event.kind) {
+        parts[event.partIndex] = { ...part, text: part.text + event.text };
+      } else {
+        parts[event.partIndex] = { type: event.kind, text: event.text };
+      }
+      return { ...message, parts };
+    });
+  });
+}
+
+function updateBot(queryClient: QueryClient, bot: Bot) {
+  queryClient.setQueryData<Bot[]>(['bots'], (list) =>
+    list ? list.map((b) => (b.id === bot.id ? bot : b)) : list,
+  );
+}
 
 /** Keeps the React Query cache in sync with the hub's event stream while signed in. */
 export function ServerEvents() {
@@ -19,8 +56,9 @@ export function ServerEvents() {
       switch (event.type) {
         case 'ready':
           // (Re)connected: whatever happened while offline is unknown, refetch.
-          void queryClient.invalidateQueries({ queryKey: ['computer'] });
-          void queryClient.invalidateQueries({ queryKey: ['computers'] });
+          for (const key of ['computer', 'computers', 'bots', 'messages']) {
+            void queryClient.invalidateQueries({ queryKey: [key] });
+          }
           break;
         case 'computer.updated':
           queryClient.setQueryData(['computer', event.computer.id], event.computer);
@@ -28,6 +66,15 @@ export function ServerEvents() {
           break;
         case 'workspace.changed':
           void queryClient.invalidateQueries({ queryKey: ['files', event.workspaceId] });
+          break;
+        case 'bot.updated':
+          updateBot(queryClient, event.bot);
+          break;
+        case 'message.updated':
+          upsertMessage(queryClient, event.message);
+          break;
+        case 'message.delta':
+          appendDelta(queryClient, event);
           break;
       }
     };

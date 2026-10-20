@@ -15,6 +15,13 @@
       "when": 1792506954898,
       "tag": "0001_computers_and_workspaces",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792515877516,
+      "tag": "0002_bots_and_providers",
+      "breakpoints": true
     }
   ]
 }

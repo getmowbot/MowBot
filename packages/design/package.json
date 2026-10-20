@@ -1,0 +1,13 @@
+{
+  "name": "@mowbot/design",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Design tokens and bot character genome shared by the web, mobile and desktop apps.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

@@ -5,7 +5,7 @@ Des équipes de bots IA self-hosted. Chaque équipe partage un vrai PC Linux (bu
 - Spécification : [docs/SPEC.md](docs/SPEC.md)
 - Roadmap : [docs/ROADMAP.md](docs/ROADMAP.md)
 
-> **État : P1 (ordinateur et fichiers).** Compte et appareils, API sécurisée, PC Linux de l'Équipe principale (bureau en direct, prise de contrôle, hibernation) et explorateur de son workspace. Les bots arrivent en P2.
+> **État : P2 (le Chef).** Le Chef discute avec toi en streaming et travaille sur le PC de l'Équipe principale (commandes, pages web, captures, souris/clavier, fichiers). PC en direct avec prise de contrôle, explorateur de fichiers, API sécurisée. Prochaine étape : les équipes de bots (P3).
 
 ## Structure
 
@@ -15,6 +15,7 @@ apps/agent            mow-agent, le démon de chaque ordinateur (bureau, entrée
 apps/web              App web (Vite + React + TanStack)
 packages/contract     Schémas zod partagés (source de vérité des types de l'API)
 packages/api-client   Client TypeScript généré depuis l'OpenAPI (web, futures apps mobile/desktop)
+packages/design       Tokens (noir et blanc) et génome des personnages, partagés avec les futures apps
 workstation/          Image Docker des ordinateurs (Ubuntu, XFCE, VNC, Chrome, mow-agent)
 deploy/               docker-compose de production, Caddy
 docs/                 Spécification et roadmap
@@ -57,6 +58,18 @@ docker build -f workstation/Dockerfile -t mowbot/workstation:local .
 
 Le hub publie l'agent de chaque ordinateur sur `127.0.0.1` et monte le workspace de l'équipe (`apps/hub/.data/workspaces/<id>`) sur `/workspace`.
 
+### Réveiller le Chef
+
+Dans l'app, **Modèles → Ajouter** : Command Code (clé de ton abonnement), OpenAI (clé API) ou n'importe quel fournisseur compatible OpenAI (OpenRouter, Ollama…). Le premier fournisseur ajouté est donné au Chef ; le modèle se choisit par bot. Pour les captures d'écran, prends un modèle qui accepte les images.
+
+### Depuis le réseau local
+
+`pnpm dev` écoute sur toutes les interfaces : depuis un téléphone ou un autre PC du LAN, ouvre `http://<ip-de-cette-machine>:5173` (Vite affiche les adresses au démarrage). Sous Windows, autorise Node.js dans le pare-feu si une fenêtre le demande.
+
+### Personnages des bots
+
+Chaque bot a son personnage, tiré de sa graine (`packages/design`) : couleur, forme, yeux, rythme de clignement. En dev, la galerie `/dev/avatars` montre les variantes et les humeurs.
+
 ### Commandes
 
 | Commande | Rôle |
@@ -87,7 +100,7 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile bui
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
 ```
 
-Caddy sert le web et l'API en HTTPS (certificat automatique pour un domaine public). Récupère le jeton de configuration avec :
+Caddy sert le web et l'API en HTTPS (certificat automatique pour un domaine public). Pour le réseau local, mets l'IP ou le nom LAN du serveur dans `MOWBOT_DOMAIN` (voir `deploy/.env.example` : HTTPS avec l'autorité interne de Caddy, ou HTTP simple). Récupère le jeton de configuration avec :
 
 ```bash
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs hub

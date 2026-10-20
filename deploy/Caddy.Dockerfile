@@ -7,6 +7,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/contract/package.json packages/contract/
 COPY packages/api-client/package.json packages/api-client/
+COPY packages/design/package.json packages/design/
 RUN pnpm install --frozen-lockfile --filter "@mowbot/web..."
 COPY packages packages
 COPY apps/web apps/web

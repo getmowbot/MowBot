@@ -1,6 +1,16 @@
 import { randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream, type ReadStream } from 'node:fs';
-import { lstat, mkdir, readdir, realpath, rename, rm, stat } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile as writeFsFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -179,6 +189,47 @@ export class WorkspaceFiles {
       await rm(temp, { force: true });
       throw error;
     }
+  }
+
+  /** Reads a text file, truncated to `maxBytes`. */
+  async readText(
+    workspaceId: string,
+    file: string,
+    maxBytes = 200_000,
+  ): Promise<{ text: string; truncated: boolean; size: number }> {
+    const found = await this.stat(workspaceId, file);
+    if (found.type !== 'file') throw invalidPath('Not a file');
+    const buffer = await readFile(found.abs);
+    return {
+      text: buffer.subarray(0, maxBytes).toString('utf8'),
+      truncated: buffer.length > maxBytes,
+      size: buffer.length,
+    };
+  }
+
+  /** Writes (overwrites) a file, creating missing parent folders inside the workspace. */
+  async writeFile(workspaceId: string, file: string, content: string | Buffer): Promise<FileEntry> {
+    const rel = normalizePath(file);
+    if (!rel) throw invalidPath();
+    const base = await realpath(this.dirOf(workspaceId));
+    // Validate the deepest existing ancestor before creating anything (symlinks included).
+    const segments = rel.split('/');
+    let existing = base;
+    for (let i = 0; i < segments.length - 1; i++) {
+      const candidate = path.join(existing, segments[i] as string);
+      const info = await lstat(candidate).catch(() => null);
+      if (!info) break;
+      existing = await realpath(candidate);
+      if (existing !== base && !existing.startsWith(base + path.sep)) {
+        throw invalidPath('Path escapes workspace');
+      }
+    }
+    const abs = path.join(base, ...segments);
+    await mkdir(path.dirname(abs), { recursive: true });
+    if ((await lstat(abs).catch(() => null))?.isSymbolicLink())
+      throw invalidPath('Refusing to write through a symlink');
+    await writeFsFile(abs, content);
+    return (await this.entry(rel, abs)) as FileEntry;
   }
 
   openRead(abs: string, range?: { start: number; end: number }): ReadStream {

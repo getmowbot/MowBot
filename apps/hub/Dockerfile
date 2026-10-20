@@ -6,10 +6,12 @@ WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/hub/package.json apps/hub/
 COPY packages/contract/package.json packages/contract/
+COPY packages/design/package.json packages/design/
 # Only a test dependency of the hub, but pnpm resolves it when deploying.
 COPY apps/agent/package.json apps/agent/
 RUN pnpm install --frozen-lockfile --filter "@mowbot/hub..."
 COPY packages/contract packages/contract
+COPY packages/design packages/design
 COPY apps/hub apps/hub
 RUN pnpm --filter @mowbot/hub build \
   && pnpm --filter @mowbot/hub deploy --prod --legacy /out \

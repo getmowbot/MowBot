@@ -48,6 +48,8 @@ services:
       MOWBOT_MASTER_KEY: ${MOWBOT_MASTER_KEY:?Set MOWBOT_MASTER_KEY in deploy/.env}
       MOWBOT_SETUP_TOKEN: ${MOWBOT_SETUP_TOKEN:-}
       MOWBOT_TRUST_PROXY: "true"
+      # false only when serving plain HTTP on a LAN (see deploy/.env.example).
+      MOWBOT_COOKIE_SECURE: ${MOWBOT_COOKIE_SECURE:-true}
       DOCKER_HOST: tcp://socket-proxy:2375
       MOWBOT_WORKSPACES_DIR: /data/workspaces
       MOWBOT_WORKSPACES_VOLUME: mowbot-workspaces

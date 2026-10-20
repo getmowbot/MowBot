@@ -1,4 +1,13 @@
-import type { ComputerKind, ComputerStatus, DeviceKind, Scope } from '@mowbot/contract';
+import type {
+  BotStatus,
+  ComputerKind,
+  ComputerStatus,
+  DeviceKind,
+  MessagePart,
+  ProviderKind,
+  Scope,
+} from '@mowbot/contract';
+import type { ModelMessage } from 'ai';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -153,4 +162,59 @@ export const computers = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('computers_team_pc_unique').on(t.teamId).where(sql`${t.kind} = 'team'`)],
+);
+
+/** An LLM endpoint and its (sealed) API key. */
+export const providerProfiles = pgTable('provider_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  kind: text('kind').$type<ProviderKind>().notNull(),
+  baseUrl: text('base_url').notNull(),
+  defaultModel: text('default_model'),
+  apiKeySealed: text('api_key_sealed'),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const bots = pgTable(
+  'bots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    role: text('role').notNull(),
+    mission: text('mission'),
+    isChef: boolean('is_chef').notNull().default(false),
+    teamId: uuid('team_id').references(() => teams.id, { onDelete: 'set null' }),
+    computerId: uuid('computer_id').references(() => computers.id, { onDelete: 'set null' }),
+    workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
+    providerId: uuid('provider_id').references(() => providerProfiles.id, { onDelete: 'set null' }),
+    model: text('model'),
+    status: text('status').$type<BotStatus>().notNull().default('idle'),
+    statusDetail: text('status_detail'),
+    avatarSeed: text('avatar_seed').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('bots_chef_unique').on(t.isChef).where(sql`${t.isChef}`)],
+);
+
+/**
+ * One conversation per bot with the owner (bot-to-bot threads come with teams). `parts` is
+ * what clients display; `modelMessages` is the exact transcript replayed to the model.
+ */
+export const messages = pgTable(
+  'messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id, { onDelete: 'cascade' }),
+    role: text('role').$type<'user' | 'assistant'>().notNull(),
+    parts: jsonb('parts').$type<MessagePart[]>().notNull(),
+    modelMessages: jsonb('model_messages').$type<ModelMessage[]>().notNull(),
+    status: text('status').$type<'streaming' | 'done' | 'error' | 'stopped'>().notNull(),
+    error: text('error'),
+    usage: jsonb('usage').$type<{ inputTokens: number; outputTokens: number }>(),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
+  },
+  (t) => [index('messages_bot_created_idx').on(t.botId, t.createdAt)],
 );

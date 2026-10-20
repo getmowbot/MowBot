@@ -82,3 +82,49 @@ export function useComputerAction(computerId: string | null | undefined) {
     },
   });
 }
+
+export function useBots() {
+  return useQuery({
+    queryKey: ['bots'],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/bots');
+      if (error || !data) throw error;
+      return data.items;
+    },
+  });
+}
+
+export function useBot(botId: string | undefined) {
+  const bots = useBots();
+  return { ...bots, data: bots.data?.find((bot) => bot.id === botId) };
+}
+
+export function useChef() {
+  const bots = useBots();
+  return { ...bots, data: bots.data?.find((bot) => bot.isChef) };
+}
+
+export function useMessages(botId: string | undefined) {
+  return useQuery({
+    queryKey: ['messages', botId],
+    enabled: Boolean(botId),
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/bots/{id}/messages', {
+        params: { path: { id: botId as string }, query: { limit: 80 } },
+      });
+      if (error || !data) throw error;
+      return data.items;
+    },
+  });
+}
+
+export function useProviders() {
+  return useQuery({
+    queryKey: ['providers'],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/providers');
+      if (error || !data) throw error;
+      return data.items;
+    },
+  });
+}
