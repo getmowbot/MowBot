@@ -324,7 +324,7 @@ configure() {
   check_machine
   local file=$env_file.new ip port https cookie=true
   ip=$(lan_ip)
-  if [[ -z $domain ]] && ((!lan)); then
+  if [[ -z $domain ]] && ((!lan && !assume_yes)) && [[ -n $tty ]]; then
     note "MowBot peut être servi :"
     note "  • sur ton réseau local, en HTTP : http://$ip"
     note "  • sur un nom de domaine public, en HTTPS avec un certificat automatique : le domaine"

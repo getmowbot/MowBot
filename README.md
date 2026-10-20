@@ -112,7 +112,43 @@ Chaque bot a son personnage, tiré de sa graine (`packages/design`) : couleur, f
 
 ## Production
 
-Sur un serveur Linux avec Docker :
+Sur un serveur Linux (Ubuntu, Debian, Fedora…), une seule commande installe tout, et la même met à jour :
+
+```bash
+git clone git@github.com:jorisleva/MowBot.git && sudo MowBot/install.sh
+```
+
+Le dépôt est privé : le serveur clone avec une clé SSH ajoutée à ton compte GitHub. Une fois le dépôt public, ceci suffira :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jorisleva/MowBot/main/install.sh | sudo bash
+```
+
+Le script :
+- installe Docker s'il manque (script officiel `get.docker.com`) ;
+- demande l'adresse : un nom de domaine public, servi en HTTPS avec un certificat automatique, ou rien pour le réseau local en HTTP ;
+- écrit `deploy/.env` avec des clés générées ;
+- construit les images (le hub, le web, le PC des bots), puis démarre. La première fois prend 10 à 20 minutes ;
+- affiche l'adresse et le jeton de configuration pour créer ton compte.
+
+Il installe aussi la commande `mowbot` :
+
+| Commande | Rôle |
+|---|---|
+| `sudo mowbot update` | Récupère le code, reconstruit les images et redémarre. Tes réglages et tes données restent. |
+| `sudo mowbot status` | État des services et adresse |
+| `sudo mowbot logs [hub]` | Journaux en direct |
+| `sudo mowbot stop` / `start` / `restart` | Arrêter (PC des bots compris), relancer |
+
+Relancer `install.sh` fait la même chose que `mowbot update`. Les PC des bots passent à la nouvelle image à leur prochain démarrage.
+
+Options sans question : `--domain mowbot.example.com`, `--lan`, `--port 8080` (port HTTP en réseau local), `--yes`. Pour un autre emplacement que `/opt/mowbot` avec la version `curl` : `--dir`.
+
+**Sauvegarde `deploy/.env`** : sa clé `MOWBOT_MASTER_KEY` chiffre les secrets ; sans elle, ils sont illisibles.
+
+### À la main
+
+Avec Docker déjà installé :
 
 ```bash
 cp deploy/.env.example deploy/.env
@@ -133,5 +169,3 @@ Caddy sert le web et l'API en HTTPS (certificat automatique pour un domaine publ
 ```bash
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs hub
 ```
-
-**Sauvegarde `MOWBOT_MASTER_KEY`** : sans elle, les secrets chiffrés sont illisibles.
