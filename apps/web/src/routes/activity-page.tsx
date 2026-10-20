@@ -96,7 +96,7 @@ function FeedRow({ item, byId }: { item: FeedItem; byId: Map<string, Bot> }) {
           <span className="font-medium text-foreground">{fromName}</span> {t('activityPage.feedTo')}{' '}
           {to ? (
             <Link
-              to={to.isChef ? '/' : '/bots/$botId'}
+              to={to.isChef ? '/chef' : '/bots/$botId'}
               params={{ botId: to.id }}
               className="font-medium text-foreground hover:underline"
             >

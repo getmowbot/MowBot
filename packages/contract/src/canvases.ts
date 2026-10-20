@@ -59,7 +59,7 @@ export const canvasContentSchema = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('html'),
-    /** A self-contained page (inline CSS/JS, images as data: URIs): no network access. */
+    /** A self-contained page (inline CSS, images as data: URIs); shown without scripts or network. */
     html: z.string().max(60_000),
   }),
 ]);

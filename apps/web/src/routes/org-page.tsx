@@ -17,7 +17,7 @@ function BotLine({ bot, lead }: { bot: Bot; lead?: boolean }) {
   const mood = moodOf(bot);
   return (
     <Link
-      to={bot.isChef ? '/' : '/bots/$botId'}
+      to={bot.isChef ? '/chef' : '/bots/$botId'}
       params={{ botId: bot.id }}
       className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05]"
     >
@@ -113,7 +113,7 @@ export function OrgPage() {
       {chef.data && (
         <div className="flex flex-col items-center">
           <Reveal>
-            <Link to="/" className="flex flex-col items-center gap-2 rounded-2xl px-4 py-2">
+            <Link to="/chef" className="flex flex-col items-center gap-2 rounded-2xl px-4 py-2">
               <BotAvatar
                 seed={chef.data.avatarSeed}
                 size={72}

@@ -82,7 +82,7 @@ function IncomingMessage({ message }: { message: Message }) {
           {(from || message.fromName) && <BotAvatar seed={from?.avatarSeed ?? name} size={16} />}
           {from ? (
             <Link
-              to={from.isChef ? '/' : '/bots/$botId'}
+              to={from.isChef ? '/chef' : '/bots/$botId'}
               params={{ botId: from.id }}
               className="font-medium text-foreground/90 hover:underline"
             >

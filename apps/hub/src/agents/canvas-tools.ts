@@ -51,7 +51,7 @@ const contentSchema = z.discriminatedUnion('kind', [
       .string()
       .max(60_000)
       .describe(
-        'Page autonome : CSS et JS en ligne, images en data: (aucun accès réseau). Fond transparent, texte clair.',
+        'HTML et CSS autonomes, sans JavaScript (bloqué) ni accès réseau : images en data:, graphiques en SVG en ligne. Fond transparent, texte clair ; hauteur fixe selon la taille (s 200 px, m 260 px, l 360 px).',
       ),
   }),
 ]);

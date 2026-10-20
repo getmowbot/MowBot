@@ -23,7 +23,7 @@ function MemberCard({ bot, lead }: { bot: Bot; lead: boolean }) {
   return (
     <motion.div variants={reveal} className="glass flex items-center gap-3 rounded-2xl p-3">
       <Link
-        to={bot.isChef ? '/' : '/bots/$botId'}
+        to={bot.isChef ? '/chef' : '/bots/$botId'}
         params={{ botId: bot.id }}
         className="flex min-w-0 flex-1 items-center gap-3"
       >

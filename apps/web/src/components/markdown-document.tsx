@@ -17,17 +17,24 @@ export function resolveWorkspacePath(href: string, baseDir: string): string | nu
 }
 
 /** An image of the workspace, fetched with the session. */
-function WorkspaceImage({
+export function WorkspaceImage({
   workspaceId,
   path,
   alt,
+  version,
+  className,
+  placeholderClassName,
 }: {
   workspaceId: string;
   path: string;
   alt: string;
+  /** Changes when the file may have changed (e.g. the canvas showing it was updated). */
+  version?: string;
+  className?: string;
+  placeholderClassName?: string;
 }) {
   const image = useQuery({
-    queryKey: ['file-blob', workspaceId, path],
+    queryKey: ['file-blob', workspaceId, path, version],
     staleTime: Number.POSITIVE_INFINITY,
     retry: false,
     queryFn: async () => {
@@ -47,10 +54,21 @@ function WorkspaceImage({
     );
   }
   if (!image.data) {
-    return <span className="block aspect-video w-full animate-pulse rounded-lg bg-white/[0.04]" />;
+    return (
+      <span
+        className={cn(
+          'block aspect-video w-full animate-pulse rounded-lg bg-white/[0.04]',
+          placeholderClassName,
+        )}
+      />
+    );
   }
   return (
-    <img src={image.data} alt={alt} className="my-4 max-w-full rounded-lg border border-border" />
+    <img
+      src={image.data}
+      alt={alt}
+      className={className ?? 'my-4 max-w-full rounded-lg border border-border'}
+    />
   );
 }
 

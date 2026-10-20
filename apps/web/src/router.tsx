@@ -17,8 +17,11 @@ import { ChatPage } from './routes/chat-page';
 import { DesktopPage } from './routes/desktop-page';
 import { DevicesPage } from './routes/devices-page';
 import { FilesPage } from './routes/files-page';
+import { HomePage } from './routes/home-page';
 import { ModelsPage } from './routes/models-page';
 import { OrgPage } from './routes/org-page';
+import { ProactivityPage } from './routes/proactivity-page';
+import { RoutinesPage } from './routes/routines-page';
 import { TeamPage } from './routes/team-page';
 
 const PUBLIC_PATHS = ['/setup', '/login'];
@@ -65,7 +68,12 @@ const loginRoute = createRoute({
   component: LoginPage,
 });
 const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', component: AppShell });
-const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: ChatPage });
+const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: HomePage });
+const chefRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/chef',
+  component: ChatPage,
+});
 const botRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/bots/$botId',
@@ -82,6 +90,16 @@ const devicesRoute = createRoute({
   component: DevicesPage,
 });
 
+const routinesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/routines',
+  component: RoutinesPage,
+});
+const proactivityRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/settings/proactivity',
+  component: ProactivityPage,
+});
 const orgRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/org',
@@ -135,9 +153,12 @@ export const router = createRouter({
     loginRoute,
     appRoute.addChildren([
       homeRoute,
+      chefRoute,
       botRoute,
       modelsRoute,
       devicesRoute,
+      routinesRoute,
+      proactivityRoute,
       orgRoute,
       activityRoute,
       teamRoute,

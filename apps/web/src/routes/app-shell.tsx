@@ -3,14 +3,18 @@ import { springs } from '@mowbot/design';
 import { Link, Outlet, useLocation } from '@tanstack/react-router';
 import {
   Activity,
+  CalendarClock,
   ChevronDown,
   Cpu,
   FolderOpen,
+  Gauge,
+  House,
   LogOut,
   Menu,
   Monitor,
   MonitorSmartphone,
   Network,
+  Pause,
   Plus,
   Users,
   X,
@@ -26,6 +30,7 @@ import { Button } from '../components/ui/button';
 import { useAuth } from '../lib/auth';
 import { moodOf, statusLabel } from '../lib/bot-mood';
 import { useAccountLocale } from '../lib/locale';
+import { useNotifications, useSystem } from '../lib/proactivity';
 import { useBots, useChef, useComputers, useMe, useTeams } from '../lib/queries';
 import { ServerEvents } from '../lib/server-events';
 import { cn } from '../lib/utils';
@@ -261,6 +266,8 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
   const mood = bot ? moodOf(bot) : 'idle';
   const all = bots.data ?? [];
   const solo = all.filter((b) => !b.teamId);
+  const unread = useNotifications().data?.unread ?? 0;
+  const paused = useSystem().data?.paused ?? false;
 
   return (
     <nav className="flex h-full flex-col gap-5 p-3">
@@ -270,7 +277,7 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
       </Link>
 
       {bot && (
-        <NavItem to="/" exact onNavigate={onNavigate} className="py-2.5">
+        <NavItem to="/chef" onNavigate={onNavigate} className="py-2.5">
           <BotAvatar seed={bot.avatarSeed} size={30} mood={mood} />
           <span className="min-w-0 flex-1">
             <span className="block truncate font-medium text-foreground">{bot.name}</span>
@@ -288,6 +295,20 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
 
       <div className="-mx-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1">
         <div className="space-y-0.5">
+          <NavItem to="/" exact onNavigate={onNavigate}>
+            <House className="size-4 shrink-0" />
+            <span className="flex-1">{t('shell.home')}</span>
+            {paused ? (
+              <Pause className="size-3.5 text-muted-foreground" aria-label={t('shell.paused')} />
+            ) : unread > 0 ? (
+              <span className="rounded-full bg-primary px-1.5 text-[11px] font-semibold tabular-nums text-primary-foreground">
+                {unread}
+              </span>
+            ) : null}
+          </NavItem>
+          <NavItem to="/routines" onNavigate={onNavigate}>
+            <CalendarClock className="size-4 shrink-0" /> {t('shell.routines')}
+          </NavItem>
           <NavItem to="/org" onNavigate={onNavigate}>
             <Network className="size-4 shrink-0" /> {t('shell.organization')}
           </NavItem>
@@ -334,6 +355,9 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
         <NavItem to="/settings/models" onNavigate={onNavigate}>
           <Cpu className="size-4 shrink-0" /> {t('shell.models')}
         </NavItem>
+        <NavItem to="/settings/proactivity" onNavigate={onNavigate}>
+          <Gauge className="size-4 shrink-0" /> {t('shell.proactivity')}
+        </NavItem>
         <NavItem to="/settings/devices" onNavigate={onNavigate}>
           <MonitorSmartphone className="size-4 shrink-0" /> {t('shell.devices')}
         </NavItem>
@@ -362,7 +386,7 @@ export function AppShell() {
   useAccountLocale();
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
-  const fullBleed = pathname === '/' || pathname.startsWith('/bots/');
+  const fullBleed = pathname === '/chef' || pathname.startsWith('/bots/');
 
   return (
     <OrgDialogsProvider>

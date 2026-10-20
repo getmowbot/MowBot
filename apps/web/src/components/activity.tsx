@@ -2,16 +2,22 @@ import type { MessagePart } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useQuery } from '@tanstack/react-query';
 import {
+  AlarmClock,
   AppWindow,
+  Bell,
   Brain,
   BrushCleaning,
+  CalendarClock,
+  CalendarX,
   Camera,
   Check,
   ChevronDown,
+  ClipboardList,
   FilePen,
   FileText,
   FolderOpen,
   Globe,
+  LayoutDashboard,
   ListChecks,
   ListPlus,
   Lock,
@@ -121,7 +127,10 @@ type Kind =
   | 'message'
   | 'question'
   | 'task'
-  | 'created';
+  | 'created'
+  | 'routine'
+  | 'canvas'
+  | 'notified';
 
 const TASK_STATUSES = ['todo', 'doing', 'blocked', 'done', 'cancelled'] as const;
 const isTaskStatus = (value: string): value is (typeof TASK_STATUSES)[number] =>
@@ -237,6 +246,62 @@ const TOOLS: Record<string, ToolMeta> = {
   update_bot: {
     icon: () => UserPen,
     title: (i) => i18n.t('activity.updateBot', { name: str(i.bot) }),
+    kind: () => null,
+  },
+  create_routine: {
+    icon: () => CalendarClock,
+    title: (i) => i18n.t('activity.createRoutine', { name: str(i.name) }),
+    kind: () => 'routine',
+  },
+  list_routines: {
+    icon: () => CalendarClock,
+    title: () => i18n.t('activity.listRoutines'),
+    kind: () => null,
+  },
+  update_routine: {
+    icon: () => CalendarClock,
+    title: () => i18n.t('activity.updateRoutine'),
+    kind: () => null,
+  },
+  delete_routine: {
+    icon: () => CalendarX,
+    title: () => i18n.t('activity.deleteRoutine'),
+    kind: () => null,
+  },
+  set_heartbeat: {
+    icon: () => AlarmClock,
+    title: (i) =>
+      i18n.t(typeof i.minutes === 'number' ? 'activity.setHeartbeat' : 'activity.heartbeatOff'),
+    kind: () => null,
+  },
+  notify_user: {
+    icon: () => Bell,
+    title: (i) => i18n.t('activity.notifyUser', { title: str(i.title) }),
+    kind: () => 'notified',
+  },
+  activity_report: {
+    icon: () => ClipboardList,
+    title: () => i18n.t('activity.activityReport'),
+    kind: () => null,
+  },
+  canvas_set: {
+    icon: () => LayoutDashboard,
+    title: (i) => i18n.t('activity.canvasSet', { title: str(i.title) }),
+    kind: () => 'canvas',
+  },
+  canvas_get: {
+    icon: () => LayoutDashboard,
+    title: () => i18n.t('activity.canvasGet'),
+    kind: () => null,
+  },
+  canvas_list: {
+    icon: () => LayoutDashboard,
+    title: () => i18n.t('activity.canvasList'),
+    kind: () => null,
+  },
+  canvas_remove: {
+    icon: () => LayoutDashboard,
+    title: () => i18n.t('activity.canvasRemove'),
     kind: () => null,
   },
 };
