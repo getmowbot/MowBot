@@ -1,5 +1,4 @@
 import type { Bot } from '@mowbot/contract';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, ChevronLeft, Ellipsis, EllipsisVertical } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +9,7 @@ import { isAndroid, useLiquidGlass } from '../../lib/platform';
 import { colors } from '../../theme';
 import { BotAvatar } from '../bot-avatar';
 import { IconButton } from '../ui/button';
+import { EdgeFade } from '../ui/edge-fade';
 import { ShimmerText } from '../ui/shimmer-text';
 import { Surface } from '../ui/surface';
 import { T } from '../ui/text';
@@ -25,9 +25,9 @@ function Identity({ bot, mood }: { bot: Bot; mood: BotMood }) {
   const { t } = useTranslation();
   return (
     <>
-      <BotAvatar seed={bot.avatarSeed} size={34} mood={mood} />
+      <BotAvatar seed={bot.avatarSeed} size={26} mood={mood} />
       <View style={styles.names}>
-        <T variant="headline" numberOfLines={1}>
+        <T variant="callout" numberOfLines={1} style={styles.name}>
           {bot.name}
         </T>
         <ShimmerText active={mood !== 'idle'} style={styles.status} numberOfLines={1}>
@@ -39,9 +39,9 @@ function Identity({ bot, mood }: { bot: Bot; mood: BotMood }) {
 }
 
 /**
- * The chat's top bar, floating over the conversation. iOS 26: Liquid Glass back button, title
- * capsule and ⋯ button over a fade; older iOS: the same in blur; Android: a Material 3 top app
- * bar with the overflow menu.
+ * The chat's top bar, floating over the conversation: back on the left, ⋯ on the right, and the
+ * bot's name and state centered between them in a compact capsule. iOS 26: Liquid Glass over a
+ * fade; older iOS: the same in blur; Android: a center-aligned Material 3 top app bar.
  */
 export function ChatHeader({ bot, mood, onLayout }: Props) {
   const { t } = useTranslation();
@@ -56,8 +56,10 @@ export function ChatHeader({ bot, mood, onLayout }: Props) {
       <View onLayout={onLayout} style={[styles.appBar, { paddingTop: insets.top }]}>
         <View style={styles.appBarRow}>
           <IconButton icon={ArrowLeft} label={t('common.back')} onPress={back} size={44} />
-          <View style={styles.identity}>
-            <Identity bot={bot} mood={mood} />
+          <View style={styles.center}>
+            <View style={styles.identity}>
+              <Identity bot={bot} mood={mood} />
+            </View>
           </View>
           <IconButton icon={EllipsisVertical} label={optionsLabel} onPress={openMenu} size={44} />
         </View>
@@ -67,16 +69,13 @@ export function ChatHeader({ bot, mood, onLayout }: Props) {
 
   return (
     <View onLayout={onLayout} style={[styles.floating, { paddingTop: insets.top + 4 }]}>
-      <LinearGradient
-        colors={['rgba(6, 7, 10, 0.92)', 'rgba(6, 7, 10, 0.6)', 'rgba(6, 7, 10, 0)']}
-        locations={[0, 0.55, 1]}
-        style={styles.fade}
-        pointerEvents="none"
-      />
+      <EdgeFade edge="top" style={styles.fade} />
       <IconButton icon={ChevronLeft} label={t('common.back')} onPress={back} raised size={44} />
-      <Surface variant="bar" radius={glass ? 22 : 20} style={styles.capsule}>
-        <Identity bot={bot} mood={mood} />
-      </Surface>
+      <View style={styles.center}>
+        <Surface variant="bar" radius={glass ? 20 : 18} style={styles.capsule}>
+          <Identity bot={bot} mood={mood} />
+        </Surface>
+      </View>
       <IconButton icon={Ellipsis} label={optionsLabel} onPress={openMenu} raised size={44} />
     </View>
   );
@@ -99,7 +98,9 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 4,
   },
-  identity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // Between the two buttons, which have the same width: the title sits in the middle.
+  center: { flex: 1, minWidth: 0, alignItems: 'center' },
+  identity: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 8 },
   floating: {
     position: 'absolute',
     top: 0,
@@ -112,17 +113,17 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   fade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: -24 },
-  // Between the two round buttons, as wide as the name needs (centered when short).
+  // As wide as the name needs, never past the buttons.
   capsule: {
-    flex: 1,
-    minWidth: 0,
-    height: 44,
+    maxWidth: '100%',
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
-    paddingLeft: 5,
+    gap: 8,
+    paddingLeft: 7,
     paddingRight: 14,
   },
   names: { flexShrink: 1, minWidth: 0 },
-  status: { fontSize: 12, lineHeight: 15 },
+  name: { fontWeight: '600', lineHeight: 18 },
+  status: { fontSize: 11.5, lineHeight: 14 },
 });

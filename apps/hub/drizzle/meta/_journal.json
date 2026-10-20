@@ -64,6 +64,13 @@
       "when": 1792530294633,
       "tag": "0008_questions",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792535744229,
+      "tag": "0009_canvas_collapsed",
+      "breakpoints": true
     }
   ]
 }

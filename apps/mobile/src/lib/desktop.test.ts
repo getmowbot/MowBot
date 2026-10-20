@@ -70,6 +70,21 @@ describe('noVNC page', () => {
     expect(parseDesktopEvent('{"type":"other"}')).toBeNull();
     expect(parseDesktopEvent('null')).toBeNull();
   });
+
+  it('carries the clipboard both ways', () => {
+    expect(parseDesktopEvent('{"type":"clipboard","text":"copié"}')).toEqual({
+      type: 'clipboard',
+      text: 'copié',
+    });
+    expect(parseDesktopEvent('{"type":"clipboard"}')).toBeNull();
+    const html = desktopHtml();
+    // What the PC copies goes to the app; what the app pastes lands on the PC's clipboard.
+    expect(html).toContain("addEventListener('clipboard'");
+    expect(html).toContain('rfb.clipboardPasteFrom(command.text)');
+    expect(
+      commandScript({ type: 'paste', text: 'secret', keys: [{ keysym: 0x76, code: 'KeyV' }] }),
+    ).toContain('"type":"paste","text":"secret"');
+  });
 });
 
 describe('fitBox', () => {

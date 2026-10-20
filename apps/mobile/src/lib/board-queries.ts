@@ -32,8 +32,13 @@ export function useCanvasActions() {
   const resync = () => client.invalidateQueries({ queryKey: keys.canvases });
 
   const update = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: { size?: CanvasSize; hidden?: boolean } }) =>
-      data(api().PATCH('/api/v1/canvases/{id}', { params: { path: { id } }, body })),
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: { size?: CanvasSize; hidden?: boolean; collapsed?: boolean };
+    }) => data(api().PATCH('/api/v1/canvases/{id}', { params: { path: { id } }, body })),
     onMutate: ({ id, body }) =>
       set((list) => list.map((c) => (c.id === id ? { ...c, ...body } : c))),
     onSuccess: (canvas) => set((list) => replaceCanvas(list, canvas) ?? list),

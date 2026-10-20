@@ -23,6 +23,7 @@ export function toCanvas(row: CanvasRow): Canvas {
     content: row.content,
     position: row.position,
     hidden: row.hidden,
+    collapsed: row.collapsed,
     updatedAt: row.updatedAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
   };
@@ -125,13 +126,20 @@ export class CanvasService {
   }
 
   /** Layout and visibility, by the user. */
-  async update(id: string, input: { size?: CanvasSize; hidden?: boolean }): Promise<Canvas> {
-    await this.row(id);
+  async update(
+    id: string,
+    input: { size?: CanvasSize; hidden?: boolean; collapsed?: boolean },
+  ): Promise<Canvas> {
+    const current = await this.row(id);
+    if (input.size === undefined && input.hidden === undefined && input.collapsed === undefined) {
+      return toCanvas(current);
+    }
     const [row] = await this.db
       .update(canvases)
       .set({
         ...(input.size ? { size: input.size } : {}),
         ...(input.hidden !== undefined ? { hidden: input.hidden } : {}),
+        ...(input.collapsed !== undefined ? { collapsed: input.collapsed } : {}),
       })
       .where(eq(canvases.id, id))
       .returning();

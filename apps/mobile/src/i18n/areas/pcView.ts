@@ -57,9 +57,14 @@ export const fr = {
     up: 'Flèche haut',
     down: 'Flèche bas',
     right: 'Flèche droite',
-    copy: 'Ctrl+C',
-    paste: 'Ctrl+V',
+    copy: 'Copier',
+    paste: 'Coller',
     hide: 'Masquer le clavier',
+  },
+  clipboard: {
+    copied: 'Copié depuis le PC dans ton téléphone.',
+    pasted: 'Collé sur le PC.',
+    empty: 'Le presse-papiers du téléphone est vide.',
   },
   errors: {
     computer_not_running: 'Le PC n’est pas allumé.',
@@ -122,9 +127,14 @@ export const en: Widen<typeof fr> = {
     up: 'Up arrow',
     down: 'Down arrow',
     right: 'Right arrow',
-    copy: 'Ctrl+C',
-    paste: 'Ctrl+V',
+    copy: 'Copy',
+    paste: 'Paste',
     hide: 'Hide the keyboard',
+  },
+  clipboard: {
+    copied: 'Copied from the PC to your phone.',
+    pasted: 'Pasted on the PC.',
+    empty: 'Your phone’s clipboard is empty.',
   },
   errors: {
     computer_not_running: 'The PC is not on.',

@@ -42,7 +42,7 @@ export const canvasRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags,
         operationId: 'updateCanvas',
-        description: 'Size and visibility; the content belongs to the bot.',
+        description: 'Size, visibility and folding; the content belongs to the bot.',
         security: bearerSecurity,
         params: canvasIdParamsSchema,
         body: canvasUpdateSchema,

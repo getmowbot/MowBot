@@ -1,4 +1,5 @@
 import type { Bot } from '@mowbot/contract';
+import * as Clipboard from 'expo-clipboard';
 import { router, Stack, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -105,6 +106,29 @@ export default function PcScreen() {
   // instant, and closing it would hand control back to the bots.
   const [screenOpened, setScreenOpened] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  // What just went through the clipboard, shown for a moment under the keyboard bar.
+  const [clipNote, setClipNote] = useState<string | null>(null);
+  const clipTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const note = (text: string) => {
+    setClipNote(text);
+    clearTimeout(clipTimer.current);
+    clipTimer.current = setTimeout(() => setClipNote(null), 2_500);
+  };
+  useEffect(() => () => clearTimeout(clipTimer.current), []);
+  // Copied on the PC (Ctrl+C there): onto the phone's clipboard.
+  const copiedOnPc = (text: string) => {
+    void Clipboard.setStringAsync(text).then(() => note(t('pcView.clipboard.copied')));
+  };
+  // The phone's clipboard, pasted on the PC.
+  const pasteOnPc = async () => {
+    const text = await Clipboard.getStringAsync().catch(() => '');
+    if (!text) {
+      note(t('pcView.clipboard.empty'));
+      return;
+    }
+    desktop.current?.paste(text);
+    note(t('pcView.clipboard.pasted'));
+  };
 
   const pc = computer.data;
   const running = pc?.status === 'running';
@@ -261,6 +285,7 @@ export default function PcScreen() {
                   computerId={computerId}
                   interactive={inControl}
                   bare={isFullscreen}
+                  onClipboard={copiedOnPc}
                 />
                 {isFullscreen ? (
                   <View style={styles.exit}>
@@ -311,7 +336,13 @@ export default function PcScreen() {
                   <KeyboardBar
                     onKeys={(keys) => desktop.current?.sendKeys(keys)}
                     onCombo={(keys) => desktop.current?.sendCombo(keys)}
+                    onPaste={() => void pasteOnPc()}
                   />
+                ) : null}
+                {inControl && clipNote ? (
+                  <T variant="footnote" tone="muted" style={[styles.inset, styles.clipNote]}>
+                    {clipNote}
+                  </T>
                 ) : null}
                 {keyboardVisible ? null : (
                   <View style={[styles.inset, styles.actions]}>
@@ -394,4 +425,5 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
+  clipNote: { textAlign: 'center' },
 });

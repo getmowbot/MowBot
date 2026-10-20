@@ -153,9 +153,16 @@ describe('canvases', () => {
       size: 'l',
       hidden: true,
     });
-    expect(resized.body).toMatchObject({ size: 'l', hidden: true });
+    expect(resized.body).toMatchObject({ size: 'l', hidden: true, collapsed: false });
+    const folded = await inject<Canvas>('PATCH', `/api/v1/canvases/${second?.id}`, {
+      collapsed: true,
+    });
+    expect(folded.body).toMatchObject({ collapsed: true, hidden: false });
     await ask('Mets à jour la première');
     expect((await home()).find((c) => c.key === 'un')?.hidden).toBe(true);
+    // Folded stays folded when the bot updates it, and nothing to change changes nothing.
+    expect((await home()).find((c) => c.key === 'deux')?.collapsed).toBe(true);
+    expect((await inject<Canvas>('PATCH', `/api/v1/canvases/${second?.id}`, {})).status).toBe(200);
 
     expect((await inject('DELETE', `/api/v1/canvases/${second?.id}`)).status).toBe(204);
     expect((await home()).map((c) => c.key)).toEqual(['un']);

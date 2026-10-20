@@ -371,6 +371,16 @@ export const en: Catalog = {
     noPageHint: 'Its Chrome window shows up here as soon as it browses the web.',
     showOnScreen: 'Show on screen',
     takeOverPage: 'Take over',
+    clipboard: {
+      hint: 'Ctrl+V pastes your clipboard on the PC; what you copy on the PC comes back to you.',
+      copied: 'Copied from the PC to your clipboard.',
+      pasted: 'Pasted on the PC.',
+      copyFromPc: 'Copy the PC’s text',
+      copyFailed: 'The browser refused to copy.',
+      pasteText: 'Paste text…',
+      placeholder: 'Text or password to paste on the PC',
+      send: 'Paste on the PC',
+    },
     botPage: 'Page open by {{name}}',
   },
   files: {
@@ -493,6 +503,8 @@ export const en: Catalog = {
   },
   canvas: {
     menu: 'Options for “{{title}}”',
+    fold: 'Fold',
+    unfold: 'Unfold',
     size: 'Size',
     sizes: { s: 'Small', m: 'Medium', l: 'Wide' },
     moveEarlier: 'Move earlier',

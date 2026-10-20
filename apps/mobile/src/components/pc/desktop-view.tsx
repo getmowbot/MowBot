@@ -13,7 +13,7 @@ import {
   parseDesktopEvent,
   type Size,
 } from '../../lib/desktop';
-import type { KeyPress } from '../../lib/keysyms';
+import { CTRL_V, type KeyPress } from '../../lib/keysyms';
 import { desktopTicket, useAppActive } from '../../lib/pc-queries';
 import { hubUrl } from '../../lib/session';
 import { colors, shape } from '../../theme';
@@ -25,6 +25,8 @@ export interface DesktopHandle {
   sendKeys(keys: KeyPress[]): void;
   /** Held together (Ctrl+C). */
   sendCombo(keys: KeyPress[]): void;
+  /** Puts text on the PC's clipboard and pastes it (Ctrl+V). */
+  paste(text: string): void;
 }
 
 type Phase = 'loading' | 'connecting' | 'connected' | 'disconnected' | 'loadFailed';
@@ -35,6 +37,8 @@ interface Props {
   interactive: boolean;
   /** Full screen: no frame. */
   bare?: boolean;
+  /** Text copied on the PC, while the user has control. */
+  onClipboard?(text: string): void;
   ref?: Ref<DesktopHandle>;
 }
 
@@ -50,7 +54,7 @@ const HTML = desktopHtml();
  * fitted in the space it is given at the PC's aspect ratio. Touches become clicks once the user
  * has control; until then it is view-only. Reconnects by itself after a drop, a few times.
  */
-export function DesktopView({ computerId, interactive, bare = false, ref }: Props) {
+export function DesktopView({ computerId, interactive, bare = false, onClipboard, ref }: Props) {
   const { t } = useTranslation();
   const webView = useRef<WebView>(null);
   const [phase, setPhase] = useState<Phase>('loading');
@@ -145,6 +149,9 @@ export function DesktopView({ computerId, interactive, bare = false, ref }: Prop
       case 'disconnected':
         dropped();
         break;
+      case 'clipboard':
+        onClipboard?.(message.text);
+        break;
       case 'error':
         // A security failure is followed by a disconnect, which retries.
         if (message.reason === 'load') {
@@ -160,6 +167,7 @@ export function DesktopView({ computerId, interactive, bare = false, ref }: Prop
       if (keys.length > 0) send({ type: 'keys', keys });
     },
     sendCombo: (keys) => send({ type: 'combo', keys }),
+    paste: (text) => send({ type: 'paste', text, keys: CTRL_V }),
   }));
 
   // Taking or giving back control switches noVNC between view-only and interactive.

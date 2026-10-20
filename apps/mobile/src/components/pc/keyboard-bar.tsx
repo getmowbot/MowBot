@@ -13,7 +13,7 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Keyboard, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useKeyboardState } from 'react-native-keyboard-controller';
-import { CTRL_C, CTRL_V, KEYS, type KeyPress, keysForEdit } from '../../lib/keysyms';
+import { CTRL_C, KEYS, type KeyPress, keysForEdit } from '../../lib/keysyms';
 import { isAndroid, isIOS } from '../../lib/platform';
 import { colors, shape, spacing, type } from '../../theme';
 import { T } from '../ui/text';
@@ -24,6 +24,8 @@ interface Props {
   onKeys(keys: KeyPress[]): void;
   /** Held together. */
   onCombo(keys: KeyPress[]): void;
+  /** Pastes the phone's clipboard on the PC. */
+  onPaste(): void;
 }
 
 interface KeyButton {
@@ -39,7 +41,7 @@ interface KeyButton {
  * to the PC as it is typed (corrections included), Return sends Enter; the keys below cover what
  * a phone keyboard lacks.
  */
-export function KeyboardBar({ onKeys, onCombo }: Props) {
+export function KeyboardBar({ onKeys, onCombo, onPaste }: Props) {
   const { t } = useTranslation();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const input = useRef<TextInput>(null);
@@ -81,7 +83,7 @@ export function KeyboardBar({ onKeys, onCombo }: Props) {
       press: () => onKeys([KEYS.right]),
     },
     { id: 'copy', label: t('pcView.keyboard.copy'), press: () => onCombo(CTRL_C) },
-    { id: 'paste', label: t('pcView.keyboard.paste'), press: () => onCombo(CTRL_V) },
+    { id: 'paste', label: t('pcView.keyboard.paste'), press: onPaste },
   ];
 
   const clearField = () => {

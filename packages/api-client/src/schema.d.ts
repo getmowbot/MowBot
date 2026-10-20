@@ -860,7 +860,7 @@ export interface paths {
         delete: operations["deleteCanvas"];
         options?: never;
         head?: never;
-        /** @description Size and visibility; the content belongs to the bot. */
+        /** @description Size, visibility and folding; the content belongs to the bot. */
         patch: operations["updateCanvas"];
         trace?: never;
     };
@@ -5907,6 +5907,7 @@ export interface operations {
                             };
                             position: number;
                             hidden: boolean;
+                            collapsed: boolean;
                             /** Format: date-time */
                             updatedAt: string;
                             /** Format: date-time */
@@ -6028,6 +6029,7 @@ export interface operations {
                     /** @enum {string} */
                     size?: "s" | "m" | "l";
                     hidden?: boolean;
+                    collapsed?: boolean;
                 };
             };
         };
@@ -6090,6 +6092,7 @@ export interface operations {
                         };
                         position: number;
                         hidden: boolean;
+                        collapsed: boolean;
                         /** Format: date-time */
                         updatedAt: string;
                         /** Format: date-time */
@@ -6274,6 +6277,7 @@ export interface operations {
                         };
                         position: number;
                         hidden: boolean;
+                        collapsed: boolean;
                         /** Format: date-time */
                         updatedAt: string;
                         /** Format: date-time */
@@ -6391,6 +6395,7 @@ export interface operations {
                         };
                         position: number;
                         hidden: boolean;
+                        collapsed: boolean;
                         /** Format: date-time */
                         updatedAt: string;
                         /** Format: date-time */
@@ -6515,6 +6520,7 @@ export interface operations {
                         };
                         position: number;
                         hidden: boolean;
+                        collapsed: boolean;
                         /** Format: date-time */
                         updatedAt: string;
                         /** Format: date-time */

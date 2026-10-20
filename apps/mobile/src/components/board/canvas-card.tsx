@@ -1,8 +1,17 @@
 import type { Bot, Canvas } from '@mowbot/contract';
-import { ArrowDown, ArrowUp, Ellipsis, Eye, EyeOff, Scaling, Trash2 } from 'lucide-react-native';
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  Ellipsis,
+  Eye,
+  EyeOff,
+  Scaling,
+  Trash2,
+} from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { CANVAS_SIZES, checklistProgress } from '../../lib/board';
+import { CANVAS_SIZES, checklistProgress, foldedSummary } from '../../lib/board';
 import { useCanvasActions } from '../../lib/board-queries';
 import { alertError, confirm, type MenuOption, openOptions } from '../../lib/options-menu';
 import { timeAgo } from '../../lib/time';
@@ -12,6 +21,7 @@ import { useBotMood } from '../bot-row';
 import { IconButton } from '../ui/button';
 import { Surface } from '../ui/surface';
 import { T } from '../ui/text';
+import { Touchable } from '../ui/touchable';
 import { ChecklistBody, HtmlBody, NoteBody, ScoreBody, StatsBody } from './canvas-kinds';
 
 /** The bot that pinned the card, alive (its mood follows what it is doing). */
@@ -39,8 +49,10 @@ export function CanvasCard({ canvas, bot, first, last, onMove }: Props) {
   const botName = bot?.name ?? t('board.canvas.someBot');
   const failed = () => alertError(t('common.actionFailed'));
 
-  const change = (body: { size?: Canvas['size']; hidden?: boolean }) =>
+  const change = (body: { size?: Canvas['size']; hidden?: boolean; collapsed?: boolean }) =>
     update.mutate({ id: canvas.id, body }, { onError: failed });
+  const folded = canvas.collapsed;
+  const summary = folded ? foldedSummary(content) : null;
 
   const openMenu = () => {
     const options: MenuOption[] = [];
@@ -86,13 +98,31 @@ export function CanvasCard({ canvas, bot, first, last, onMove }: Props) {
   };
 
   return (
-    <Surface style={styles.card}>
+    <Surface style={[styles.card, folded && styles.folded]}>
       <View style={styles.header}>
         {bot ? <Author bot={bot} /> : <BotAvatar seed={canvas.botId} size={30} still />}
-        <View style={styles.headText}>
-          <T variant="headline" numberOfLines={2}>
-            {canvas.title}
-          </T>
+        <Touchable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: !folded }}
+          accessibilityHint={folded ? t('board.canvas.unfold') : t('board.canvas.fold')}
+          onPress={() => change({ collapsed: !folded })}
+          style={styles.headText}
+        >
+          <View style={styles.titleRow}>
+            <T variant="headline" numberOfLines={2} style={styles.shrink}>
+              {canvas.title}
+            </T>
+            <ChevronDown
+              size={16}
+              color={colors.textFaint}
+              style={folded ? styles.chevronFolded : undefined}
+            />
+          </View>
+          {summary ? (
+            <T variant="footnote" tone="muted" numberOfLines={1}>
+              {summary}
+            </T>
+          ) : null}
           <View style={styles.meta}>
             {canvas.hidden && (
               <EyeOff
@@ -108,7 +138,7 @@ export function CanvasCard({ canvas, bot, first, last, onMove }: Props) {
               })}
             </T>
           </View>
-        </View>
+        </Touchable>
         {progress && (
           <T
             variant="caption"
@@ -128,17 +158,19 @@ export function CanvasCard({ canvas, bot, first, last, onMove }: Props) {
         />
       </View>
 
-      <View style={canvas.hidden ? styles.dimmed : undefined}>
-        {content.kind === 'note' && (
-          <NoteBody canvas={canvas} content={content} workspaceId={workspaceId} />
-        )}
-        {content.kind === 'score' && (
-          <ScoreBody canvas={canvas} content={content} workspaceId={workspaceId} />
-        )}
-        {content.kind === 'stats' && <StatsBody content={content} />}
-        {content.kind === 'checklist' && <ChecklistBody canvas={canvas} content={content} />}
-        {content.kind === 'html' && <HtmlBody content={content} size={canvas.size} />}
-      </View>
+      {folded ? null : (
+        <View style={canvas.hidden ? styles.dimmed : undefined}>
+          {content.kind === 'note' && (
+            <NoteBody canvas={canvas} content={content} workspaceId={workspaceId} />
+          )}
+          {content.kind === 'score' && (
+            <ScoreBody canvas={canvas} content={content} workspaceId={workspaceId} />
+          )}
+          {content.kind === 'stats' && <StatsBody content={content} />}
+          {content.kind === 'checklist' && <ChecklistBody canvas={canvas} content={content} />}
+          {content.kind === 'html' && <HtmlBody content={content} size={canvas.size} />}
+        </View>
+      )}
     </Surface>
   );
 }
@@ -148,6 +180,9 @@ const styles = StyleSheet.create({
   // The ⋯ button's glyph lines up with the checklist's remove buttons (both pulled by 8).
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginRight: -8 },
   headText: { flex: 1, minWidth: 0, gap: 1 },
+  folded: { paddingBottom: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  chevronFolded: { transform: [{ rotate: '-90deg' }] },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   shrink: { flexShrink: 1 },
   progress: { fontVariant: ['tabular-nums'] },
