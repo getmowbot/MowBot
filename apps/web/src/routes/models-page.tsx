@@ -19,27 +19,25 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BotAvatar } from '../components/bot-avatar';
 import { Button } from '../components/ui/button';
 import { Card, FormError, Input, Label, Select } from '../components/ui/form';
+import { i18n } from '../i18n';
 import { api, problemMessage } from '../lib/auth';
 import { Reveal } from '../lib/motion';
 import { useBots, useProviders } from '../lib/queries';
 import { cn } from '../lib/utils';
 
-const KINDS: { kind: ProviderKind; title: string; hint: string }[] = [
-  {
-    kind: 'command-code',
-    title: 'Command Code',
-    hint: 'Clé de ton abonnement (Studio → API keys).',
-  },
-  { kind: 'openai', title: 'OpenAI', hint: 'Clé API de platform.openai.com.' },
-  {
-    kind: 'openai-compatible',
-    title: 'Compatible OpenAI',
-    hint: 'OpenRouter, Ollama, xAI, DeepSeek… : URL de base + clé.',
-  },
-];
+/** Product names stay as they are; only the generic kind is worded. */
+const KINDS = [
+  { kind: 'command-code', name: 'Command Code', hint: 'models.kinds.commandCodeHint' },
+  { kind: 'openai', name: 'OpenAI', hint: 'models.kinds.openaiHint' },
+  { kind: 'openai-compatible', name: null, hint: 'models.kinds.compatibleHint' },
+] as const satisfies readonly { kind: ProviderKind; name: string | null; hint: string }[];
+
+const kindTitle = (option: (typeof KINDS)[number]): string =>
+  option.name ?? i18n.t('models.kinds.compatible');
 
 function useModels(providerId: string | null | undefined) {
   return useQuery({
@@ -82,13 +80,14 @@ function HeadersEditor({
   rows: HeaderRow[];
   onChange(rows: HeaderRow[]): void;
 }) {
+  const { t } = useTranslation();
   const zdr = rows.some((row) => row.name.trim().toLowerCase() === ZDR_HEADER);
   const set = (key: number, patch: Partial<HeaderRow>) =>
     onChange(rows.map((row) => (row.key === key ? { ...row, ...patch } : row)));
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[13px] font-medium text-muted-foreground">En-têtes HTTP</span>
+        <span className="text-[13px] font-medium text-muted-foreground">{t('models.headers')}</span>
         {kind === 'command-code' && (
           <button
             type="button"
@@ -126,22 +125,22 @@ function HeadersEditor({
               <Input
                 value={row.name}
                 onChange={(event) => set(row.key, { name: event.target.value })}
-                placeholder="Nom"
-                aria-label="Nom de l’en-tête"
+                placeholder={t('common.name')}
+                aria-label={t('models.headerName')}
                 className="flex-[2] font-mono text-[13px]"
               />
               <Input
                 value={row.value}
                 onChange={(event) => set(row.key, { value: event.target.value })}
-                placeholder="Valeur"
-                aria-label="Valeur de l’en-tête"
+                placeholder={t('models.valuePlaceholder')}
+                aria-label={t('models.headerValue')}
                 className="flex-[3] font-mono text-[13px]"
               />
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => onChange(rows.filter((r) => r.key !== row.key))}
-                aria-label="Retirer l’en-tête"
+                aria-label={t('models.removeHeader')}
               >
                 <X className="size-4" />
               </Button>
@@ -154,19 +153,18 @@ function HeadersEditor({
         size="sm"
         onClick={() => onChange([...rows, { key: headerKey++, name: '', value: '' }])}
       >
-        <Plus className="size-3.5" /> Ajouter un en-tête
+        <Plus className="size-3.5" /> {t('models.addHeader')}
       </Button>
       <p className="text-xs text-faint">
-        Envoyés avec chaque requête à ce fournisseur, et visibles dans l’app : une clé secrète va
-        dans « Clé API ».
-        {kind === 'command-code' &&
-          ' Zero Data Retention : Command Code ne passe que par des fournisseurs qui ne conservent rien ; un modèle sans cette option peut être refusé.'}
+        {t('models.headersNote')}
+        {kind === 'command-code' && ` ${t('models.zdrNote')}`}
       </p>
     </div>
   );
 }
 
 function EditProvider({ provider, onDone }: { provider: Provider; onDone(): void }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [rows, setRows] = useState(() => toRows(provider.headers));
   const [error, setError] = useState<string | null>(null);
@@ -189,7 +187,7 @@ function EditProvider({ provider, onDone }: { provider: Provider; onDone(): void
       void queryClient.invalidateQueries({ queryKey: ['models', provider.id] });
       onDone();
     },
-    onError: (err) => setError(problemMessage(err, 'Modifications non enregistrées.')),
+    onError: (err) => setError(problemMessage(err, t('models.changesNotSaved'))),
   });
   return (
     <form
@@ -202,21 +200,21 @@ function EditProvider({ provider, onDone }: { provider: Provider; onDone(): void
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor={`name-${provider.id}`}>Nom</Label>
+          <Label htmlFor={`name-${provider.id}`}>{t('common.name')}</Label>
           <Input id={`name-${provider.id}`} name="name" required defaultValue={provider.name} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`key-${provider.id}`}>Clé API</Label>
+          <Label htmlFor={`key-${provider.id}`}>{t('models.apiKey')}</Label>
           <Input
             id={`key-${provider.id}`}
             name="apiKey"
             type="password"
             autoComplete="off"
-            placeholder={provider.hasApiKey ? 'Inchangée' : 'Aucune'}
+            placeholder={provider.hasApiKey ? t('models.apiKeyUnchanged') : t('models.apiKeyNone')}
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor={`url-${provider.id}`}>URL de base</Label>
+          <Label htmlFor={`url-${provider.id}`}>{t('models.baseUrl')}</Label>
           <Input
             id={`url-${provider.id}`}
             name="baseUrl"
@@ -230,10 +228,10 @@ function EditProvider({ provider, onDone }: { provider: Provider; onDone(): void
       <FormError message={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
+          {save.isPending ? t('common.saving') : t('common.save')}
         </Button>
         <Button variant="ghost" onClick={onDone}>
-          Annuler
+          {t('common.cancel')}
         </Button>
       </div>
     </form>
@@ -241,6 +239,7 @@ function EditProvider({ provider, onDone }: { provider: Provider; onDone(): void
 }
 
 function AddProvider({ onDone }: { onDone(): void }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<ProviderKind>('command-code');
   const [rows, setRows] = useState<HeaderRow[]>([]);
@@ -267,7 +266,7 @@ function AddProvider({ onDone }: { onDone(): void }) {
       void queryClient.invalidateQueries({ queryKey: ['bots'] });
       onDone();
     },
-    onError: (err) => setError(problemMessage(err, 'Impossible d’ajouter ce fournisseur.')),
+    onError: (err) => setError(problemMessage(err, t('models.addFailed'))),
   });
   const current = KINDS.find((k) => k.kind === kind);
 
@@ -300,22 +299,32 @@ function AddProvider({ onDone }: { onDone(): void }) {
                 className="absolute inset-0 rounded-xl bg-primary/[0.08]"
               />
             )}
-            <span className="relative font-medium">{option.title}</span>
+            <span className="relative font-medium">{kindTitle(option)}</span>
           </button>
         ))}
       </div>
-      <p className="text-[13px] text-muted-foreground">{current?.hint}</p>
+      <p className="text-[13px] text-muted-foreground">{current && t(current.hint)}</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="name">Nom</Label>
-          <Input id="name" name="name" required defaultValue={current?.title} key={kind} />
+          <Label htmlFor="name">{t('common.name')}</Label>
+          <Input
+            id="name"
+            name="name"
+            required
+            defaultValue={current && kindTitle(current)}
+            key={kind}
+          />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="defaultModel">Modèle par défaut</Label>
-          <Input id="defaultModel" name="defaultModel" placeholder="ex. gpt-5.1, kimi-k2…" />
+          <Label htmlFor="defaultModel">{t('models.defaultModel')}</Label>
+          <Input
+            id="defaultModel"
+            name="defaultModel"
+            placeholder={t('models.defaultModelPlaceholder')}
+          />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="baseUrl">URL de base</Label>
+          <Label htmlFor="baseUrl">{t('models.baseUrl')}</Label>
           <Input
             id="baseUrl"
             name="baseUrl"
@@ -326,13 +335,13 @@ function AddProvider({ onDone }: { onDone(): void }) {
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="apiKey">Clé API</Label>
+          <Label htmlFor="apiKey">{t('models.apiKey')}</Label>
           <Input
             id="apiKey"
             name="apiKey"
             type="password"
             autoComplete="off"
-            placeholder="Chiffrée sur le hub, jamais réaffichée"
+            placeholder={t('models.apiKeyPlaceholder')}
           />
         </div>
       </div>
@@ -340,10 +349,11 @@ function AddProvider({ onDone }: { onDone(): void }) {
       <FormError message={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={create.isPending}>
-          <Plug className="size-4" /> {create.isPending ? 'Connexion…' : 'Connecter'}
+          <Plug className="size-4" />{' '}
+          {create.isPending ? t('models.connecting') : t('models.connect')}
         </Button>
         <Button type="button" variant="ghost" onClick={onDone}>
-          Annuler
+          {t('common.cancel')}
         </Button>
       </div>
     </form>
@@ -351,6 +361,7 @@ function AddProvider({ onDone }: { onDone(): void }) {
 }
 
 function ProviderRow({ provider }: { provider: Provider }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const models = useModels(provider.id);
   const [editing, setEditing] = useState(false);
@@ -372,7 +383,7 @@ function ProviderRow({ provider }: { provider: Provider }) {
         <p className="font-medium">{provider.name}</p>
         <p className="truncate text-xs text-faint">
           {provider.baseUrl}
-          {headerCount > 0 && ` · ${headerCount} en-tête${headerCount > 1 ? 's' : ''}`}
+          {headerCount > 0 && ` · ${t('models.headerCount', { count: headerCount })}`}
         </p>
       </div>
       <span
@@ -387,22 +398,27 @@ function ProviderRow({ provider }: { provider: Provider }) {
       >
         {models.isSuccess ? (
           <>
-            <Check className="size-3" /> {models.data.length} modèles
+            <Check className="size-3" /> {t('models.modelCount', { count: models.data.length })}
           </>
         ) : models.isError ? (
-          'Injoignable'
+          t('models.unreachable')
         ) : (
-          <span className="shimmer-text">Test…</span>
+          <span className="shimmer-text">{t('models.testing')}</span>
         )}
       </span>
-      <Button variant="ghost" size="icon" onClick={() => models.refetch()} aria-label="Retester">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => models.refetch()}
+        aria-label={t('models.retest')}
+      >
         <RefreshCw className="size-4" />
       </Button>
       <Button
         variant={editing ? 'outline' : 'ghost'}
         size="icon"
         onClick={() => setEditing((v) => !v)}
-        aria-label={`Réglages de ${provider.name}`}
+        aria-label={t('common.settingsOf', { name: provider.name })}
         aria-expanded={editing}
       >
         <Settings2 className="size-4" />
@@ -410,8 +426,10 @@ function ProviderRow({ provider }: { provider: Provider }) {
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => confirm(`Supprimer « ${provider.name} » ?`) && remove.mutate()}
-        aria-label={`Supprimer ${provider.name}`}
+        onClick={() =>
+          confirm(t('models.confirmDelete', { name: provider.name })) && remove.mutate()
+        }
+        aria-label={t('common.deleteNamed', { name: provider.name })}
       >
         <Trash2 className="size-4" />
       </Button>
@@ -433,6 +451,7 @@ function ProviderRow({ provider }: { provider: Provider }) {
 }
 
 function BotModel({ bot, providers }: { bot: Bot; providers: Provider[] }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const models = useModels(bot.providerId);
   const update = useMutation({
@@ -455,9 +474,9 @@ function BotModel({ bot, providers }: { bot: Bot; providers: Provider[] }) {
         className="w-auto min-w-40 flex-1 sm:flex-none"
         value={bot.providerId ?? ''}
         onChange={(event) => update.mutate({ providerId: event.target.value || null })}
-        aria-label={`Fournisseur de ${bot.name}`}
+        aria-label={t('models.providerOf', { name: bot.name })}
       >
-        <option value="">Aucun fournisseur</option>
+        <option value="">{t('models.noProvider')}</option>
         {providers.map((p) => (
           <option key={p.id} value={p.id}>
             {p.name}
@@ -469,10 +488,10 @@ function BotModel({ bot, providers }: { bot: Bot; providers: Provider[] }) {
           className="w-auto min-w-48 flex-1 sm:flex-none"
           value={modelValue}
           onChange={(event) => update.mutate({ model: event.target.value || null })}
-          aria-label={`Modèle de ${bot.name}`}
+          aria-label={t('models.modelOf', { name: bot.name })}
         >
           {!options.includes(modelValue) && (
-            <option value={modelValue}>{modelValue || 'Choisir…'}</option>
+            <option value={modelValue}>{modelValue || t('models.choose')}</option>
           )}
           {options.map((id) => (
             <option key={id} value={id}>
@@ -485,8 +504,8 @@ function BotModel({ bot, providers }: { bot: Bot; providers: Provider[] }) {
           className="w-auto min-w-48 flex-1 sm:flex-none"
           defaultValue={modelValue}
           key={modelValue}
-          placeholder="Nom du modèle"
-          aria-label={`Modèle de ${bot.name}`}
+          placeholder={t('models.modelName')}
+          aria-label={t('models.modelOf', { name: bot.name })}
           onBlur={(event) => {
             const value = event.target.value.trim();
             if (value !== modelValue) update.mutate({ model: value || null });
@@ -498,6 +517,7 @@ function BotModel({ bot, providers }: { bot: Bot; providers: Provider[] }) {
 }
 
 export function ModelsPage() {
+  const { t } = useTranslation();
   const providers = useProviders();
   const bots = useBots();
   const [adding, setAdding] = useState(false);
@@ -506,20 +526,17 @@ export function ModelsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Reveal>
-        <h1 className="text-2xl font-semibold tracking-tight">Modèles</h1>
-        <p className="text-sm text-muted-foreground">
-          Les cerveaux de tes bots. Les clés sont chiffrées sur ton hub et ne quittent jamais le
-          serveur.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t('shell.models')}</h1>
+        <p className="text-sm text-muted-foreground">{t('models.subtitle')}</p>
       </Reveal>
 
       <Reveal delay={0.05}>
         <Card className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-medium">Fournisseurs</h2>
+            <h2 className="font-medium">{t('models.providers')}</h2>
             {!adding && (
               <Button size="sm" onClick={() => setAdding(true)}>
-                <Plug className="size-3.5" /> Ajouter
+                <Plug className="size-3.5" /> {t('models.add')}
               </Button>
             )}
           </div>
@@ -539,9 +556,7 @@ export function ModelsPage() {
             )}
           </AnimatePresence>
           {list.length === 0 && !adding && (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              Aucun fournisseur. Ajoute ta clé Command Code ou OpenAI pour réveiller le Chef.
-            </p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{t('models.empty')}</p>
           )}
           <div className="divide-y divide-border">
             {list.map((provider) => (
@@ -554,7 +569,7 @@ export function ModelsPage() {
       {list.length > 0 && (
         <Reveal delay={0.1}>
           <Card className="space-y-1">
-            <h2 className="font-medium">Modèle de chaque bot</h2>
+            <h2 className="font-medium">{t('models.perBot')}</h2>
             <div className="divide-y divide-border">
               {bots.data?.map((bot) => (
                 <BotModel key={bot.id} bot={bot} providers={list} />

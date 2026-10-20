@@ -2,6 +2,7 @@ import type { FileEntry } from '@mowbot/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Download, X } from 'lucide-react';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { client } from '../lib/auth';
 import { Button } from './ui/button';
 
@@ -39,6 +40,7 @@ interface Props {
 
 /** Modal preview. Files are fetched with the session and shown from blob URLs; HTML is shown as source. */
 export function FilePreview({ workspaceId, entry, onClose, onDownload }: Props) {
+  const { t } = useTranslation();
   const kind = kindOf(entry);
   const content = useQuery({
     queryKey: ['file-content', workspaceId, entry.path, entry.modifiedAt],
@@ -67,7 +69,7 @@ export function FilePreview({ workspaceId, entry, onClose, onDownload }: Props) 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-8">
       <button
         type="button"
-        aria-label="Fermer l'aperçu"
+        aria-label={t('preview.close')}
         tabIndex={-1}
         className="absolute inset-0 cursor-default bg-black/60"
         onClick={onClose}
@@ -81,20 +83,20 @@ export function FilePreview({ workspaceId, entry, onClose, onDownload }: Props) 
         <div className="flex items-center gap-2 border-b px-4 py-2">
           <p className="min-w-0 flex-1 truncate font-medium">{entry.name}</p>
           <Button variant="outline" size="sm" onClick={() => onDownload(entry)}>
-            <Download className="size-4" /> Télécharger
+            <Download className="size-4" /> {t('preview.download')}
           </Button>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fermer l'aperçu">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label={t('preview.close')}>
             <X className="size-4" />
           </Button>
         </div>
         <div className="min-h-48 flex-1 overflow-auto">
           {kind === null && (
-            <p className="p-6 text-sm text-muted-foreground">Pas d'aperçu pour ce fichier.</p>
+            <p className="p-6 text-sm text-muted-foreground">{t('preview.none')}</p>
           )}
           {kind && content.isPending && (
-            <p className="p-6 text-sm text-muted-foreground">Chargement…</p>
+            <p className="p-6 text-sm text-muted-foreground">{t('common.loading')}</p>
           )}
-          {content.isError && <p className="p-6 text-sm text-destructive">Aperçu impossible.</p>}
+          {content.isError && <p className="p-6 text-sm text-destructive">{t('preview.failed')}</p>}
           {content.data && 'text' in content.data && (
             <pre className="whitespace-pre-wrap break-words p-4 font-mono text-xs leading-relaxed">
               {content.data.text}

@@ -1,5 +1,6 @@
 import RFB from '@novnc/novnc';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api, client } from '../lib/auth';
 
 export interface DesktopViewHandle {
@@ -20,6 +21,7 @@ export const DesktopView = forwardRef<DesktopViewHandle, Props>(function Desktop
   { computerId, interactive },
   ref,
 ) {
+  const { t } = useTranslation();
   const frameRef = useRef<HTMLDivElement>(null);
   const screenRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<RFB | null>(null);
@@ -87,7 +89,7 @@ export const DesktopView = forwardRef<DesktopViewHandle, Props>(function Desktop
       <div ref={screenRef} className="absolute inset-0" />
       {!connected && (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-white/70">
-          Connexion au bureau…
+          {t('computer.connecting')}
         </div>
       )}
     </div>

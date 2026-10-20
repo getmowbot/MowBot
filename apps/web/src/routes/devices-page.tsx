@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Laptop, Monitor, Smartphone, Terminal } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/form';
 import { api } from '../lib/auth';
+import { formatDate } from '../lib/utils';
 
 const kindIcon = {
   web: Monitor,
@@ -12,14 +14,11 @@ const kindIcon = {
   cli: Terminal,
 } as const;
 
-const formatDate = (iso: string | null) =>
-  iso
-    ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }).format(
-        new Date(iso),
-      )
-    : '—';
+const when = (iso: string | null) =>
+  iso ? formatDate(iso, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 
 export function DevicesPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const devices = useQuery({
     queryKey: ['devices'],
@@ -40,15 +39,15 @@ export function DevicesPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Appareils</h1>
-        <p className="text-sm text-muted-foreground">
-          Chaque navigateur ou application connecté a sa propre session, révocable à tout moment.
-        </p>
+        <h1 className="text-2xl font-semibold">{t('shell.devices')}</h1>
+        <p className="text-sm text-muted-foreground">{t('devices.subtitle')}</p>
       </div>
       <Card className="divide-y p-0">
-        {devices.isPending && <p className="p-4 text-sm text-muted-foreground">Chargement…</p>}
+        {devices.isPending && (
+          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
+        )}
         {devices.isError && (
-          <p className="p-4 text-sm text-destructive">Impossible de charger les appareils.</p>
+          <p className="p-4 text-sm text-destructive">{t('devices.loadFailed')}</p>
         )}
         {devices.data?.map((device) => {
           const Icon = kindIcon[device.kind];
@@ -60,17 +59,20 @@ export function DevicesPage() {
                   <span className="truncate">{device.name}</span>
                   {device.current && (
                     <span className="rounded bg-primary/15 px-1.5 text-xs text-primary">
-                      cet appareil
+                      {t('devices.current')}
                     </span>
                   )}
                   {device.revokedAt && (
                     <span className="rounded bg-muted px-1.5 text-xs text-muted-foreground">
-                      révoqué
+                      {t('devices.revoked')}
                     </span>
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Connecté le {formatDate(device.createdAt)} · vu {formatDate(device.lastSeenAt)}
+                  {t('devices.seen', {
+                    created: when(device.createdAt),
+                    seen: when(device.lastSeenAt),
+                  })}
                 </p>
               </div>
               {!device.current && !device.revokedAt && (
@@ -79,10 +81,12 @@ export function DevicesPage() {
                   size="sm"
                   disabled={revoke.isPending}
                   onClick={() => {
-                    if (confirm(`Révoquer « ${device.name} » ?`)) revoke.mutate(device.id);
+                    if (confirm(t('devices.confirmRevoke', { name: device.name }))) {
+                      revoke.mutate(device.id);
+                    }
                   }}
                 >
-                  Révoquer
+                  {t('devices.revoke')}
                 </Button>
               )}
             </div>
