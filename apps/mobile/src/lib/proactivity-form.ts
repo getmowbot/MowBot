@@ -1,6 +1,3 @@
-import type { ModelRef } from '@mowbot/contract';
-import type { TFunction } from 'i18next';
-
 /** A checked form value, or why it cannot be sent. */
 export type Checked<V, P extends string> = { ok: true; value: V } | { ok: false; problem: P };
 
@@ -64,38 +61,4 @@ export function formatTokens(value: number, language: string): string {
   } catch {
     return String(value);
   }
-}
-
-/** Check-in frequencies offered, like the web (null: off). */
-export const HEARTBEATS = [null, 15, 30, 60, 120, 240, 720] as const;
-
-/** The usual choices, plus the bot's current one if a bot set something else. */
-export function heartbeatChoices(current: number | null): (number | null)[] {
-  const choices: (number | null)[] = [...HEARTBEATS];
-  if (current !== null && !choices.includes(current)) {
-    choices.push(current);
-    choices.sort((a, b) => (a ?? 0) - (b ?? 0));
-  }
-  return choices;
-}
-
-export function heartbeatLabel(minutes: number | null, t: TFunction): string {
-  if (minutes === null) return t('appAdmin.proactivity.heartbeatOff');
-  if (minutes % 60 === 0) return t('appAdmin.proactivity.everyHours', { count: minutes / 60 });
-  return t('appAdmin.proactivity.everyMinutes', { count: minutes });
-}
-
-/** Provider + model picked in a form: both, or nothing. */
-export function checkModelRef(
-  providerId: string | null,
-  model: string,
-): Checked<ModelRef | null, 'model'> {
-  if (!providerId) return ok(null);
-  const name = model.trim();
-  if (!name) return fail('model');
-  return ok({ providerId, model: name });
-}
-
-export function sameModelRef(a: ModelRef | null, b: ModelRef | null): boolean {
-  return a?.providerId === b?.providerId && a?.model === b?.model;
 }

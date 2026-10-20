@@ -9,12 +9,9 @@ import type {
   TeamCreate,
   TeamUpdate,
 } from '@mowbot/contract';
-import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-query';
 import { data, keys, useTeams } from './queries';
 import { api } from './session';
-
-/** Models a provider advertises (shared with the web's key: the same list of ids). */
-const modelsKey = (providerId: string) => ['models', providerId] as const;
 
 /** Replaces the item with the same id, or appends it. */
 function upsert<T extends { id: string }>(list: T[] | undefined, item: T): T[] | undefined {
@@ -37,24 +34,6 @@ async function ok(call: Promise<{ error?: unknown }>): Promise<void> {
 export function useTeam(teamId: string | undefined) {
   const teams = useTeams();
   return { ...teams, data: teams.data?.find((team) => team.id === teamId) };
-}
-
-/** What a provider offers, to pick a model from (null id: nothing to list). */
-export function useProviderModels(providerId: string | null | undefined) {
-  return useQuery({
-    queryKey: modelsKey(providerId ?? ''),
-    enabled: Boolean(providerId),
-    retry: false,
-    staleTime: 5 * 60_000,
-    queryFn: async () =>
-      (
-        await data(
-          api().GET('/api/v1/providers/{id}/models', {
-            params: { path: { id: providerId as string } },
-          }),
-        )
-      ).items.map((model) => model.id),
-  });
 }
 
 export function useCreateTeam() {

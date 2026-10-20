@@ -1,15 +1,7 @@
 import type { TFunction } from 'i18next';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { translator } from '../test/fixtures';
-import {
-  checkBudget,
-  checkModelRef,
-  checkQuietHours,
-  heartbeatChoices,
-  heartbeatLabel,
-  normalizeTime,
-  sameModelRef,
-} from './proactivity-form';
+import { checkBudget, checkQuietHours, normalizeTime } from './proactivity-form';
 import {
   hasZdr,
   headerRow,
@@ -156,29 +148,6 @@ describe('quiet hours and budgets', () => {
     expect(checkBudget('999')).toEqual({ ok: false, problem: 'budget' });
     expect(checkBudget('-5000')).toEqual({ ok: false, problem: 'budget' });
     expect(checkBudget('lots')).toEqual({ ok: false, problem: 'budget' });
-  });
-
-  it('offers check-in frequencies, keeping an unusual current one', () => {
-    expect(heartbeatChoices(60)).toEqual([null, 15, 30, 60, 120, 240, 720]);
-    expect(heartbeatChoices(45)).toEqual([null, 15, 30, 45, 60, 120, 240, 720]);
-    expect(heartbeatLabel(null, en)).toBe('Off');
-    expect(heartbeatLabel(30, en)).toBe('Every 30 minutes');
-    expect(heartbeatLabel(60, en)).toBe('Every hour');
-    expect(heartbeatLabel(240, fr)).toBe('Toutes les 4 heures');
-  });
-
-  it('wants a model with a provider', () => {
-    expect(checkModelRef(null, 'ignored')).toEqual({ ok: true, value: null });
-    expect(checkModelRef('p1', '  ')).toEqual({ ok: false, problem: 'model' });
-    expect(checkModelRef('p1', ' gpt-5 ')).toEqual({
-      ok: true,
-      value: { providerId: 'p1', model: 'gpt-5' },
-    });
-    expect(sameModelRef(null, null)).toBe(true);
-    expect(sameModelRef({ providerId: 'p', model: 'm' }, { providerId: 'p', model: 'm' })).toBe(
-      true,
-    );
-    expect(sameModelRef({ providerId: 'p', model: 'm' }, null)).toBe(false);
   });
 });
 

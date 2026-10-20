@@ -12,12 +12,8 @@ import { Field } from '../../components/ui/field';
 import { ListRow, ROW_INSET, SwitchRow } from '../../components/ui/rows';
 import { adminError, useSystem, useUpdateSystem } from '../../lib/admin-queries';
 import { alertError, confirm } from '../../lib/options-menu';
-import {
-  checkBudget,
-  checkQuietHours,
-  formatTokens,
-  heartbeatLabel,
-} from '../../lib/proactivity-form';
+import { heartbeatLabel } from '../../lib/org-forms';
+import { checkBudget, checkQuietHours, formatTokens } from '../../lib/proactivity-form';
 import { useBots } from '../../lib/queries';
 
 interface Draft {
@@ -180,9 +176,7 @@ function BotRow({ bot }: { bot: Bot }) {
   ]
     .filter(Boolean)
     .join(' · ');
-  return (
-    <ListRow label={bot.name} hint={hint} onPress={() => router.push(`/proactivity/${bot.id}`)} />
-  );
+  return <ListRow label={bot.name} hint={hint} onPress={() => router.push(`/bot/${bot.id}`)} />;
 }
 
 /** How much bots act on their own: the kill switch, quiet hours, budgets, then each bot. */

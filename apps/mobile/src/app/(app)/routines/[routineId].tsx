@@ -206,7 +206,7 @@ function RoutineDetail({ routine, bot }: { routine: Routine; bot: Bot | undefine
             <ListRow
               icon={Gauge}
               label={t('appAdmin.routines.openProactivity')}
-              onPress={() => router.push(`/proactivity/${bot.id}`)}
+              onPress={() => router.push(`/bot/${bot.id}`)}
             />
           </ListCard>
         </Section>

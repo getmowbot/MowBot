@@ -72,7 +72,7 @@ function BotModelRow({ bot, providers }: { bot: Bot; providers: Provider[] }) {
       label={bot.name}
       hint={provider?.name}
       value={provider ? (model ?? '—') : t('appAdmin.models.noModel')}
-      onPress={() => router.push(`/models/bot/${bot.id}`)}
+      onPress={() => router.push(`/bot/${bot.id}`)}
     />
   );
 }

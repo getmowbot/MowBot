@@ -1,6 +1,4 @@
 import type {
-  Bot,
-  BotUpdate,
   Device,
   Me,
   MeUpdate,
@@ -125,24 +123,6 @@ export function useDeleteProvider() {
       );
       client.removeQueries({ queryKey: providerModelsKey(providerId) });
       void client.invalidateQueries({ queryKey: keys.bots });
-    },
-  });
-}
-
-/* ------------------------------------------------------------------ bots */
-
-/** Model, check-ins, budget: the admin side of a bot. */
-export function useUpdateBotSettings(botId: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (body: BotUpdate) =>
-      data(api().PATCH('/api/v1/bots/{id}', { params: { path: { id: botId } }, body })),
-    onSuccess: (bot) => {
-      client.setQueryData<Bot[]>(keys.bots, (list) =>
-        list?.map((b) => (b.id === bot.id ? bot : b)),
-      );
-      // The check-in routine follows the heartbeat.
-      void client.invalidateQueries({ queryKey: keys.routines });
     },
   });
 }

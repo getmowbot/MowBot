@@ -113,7 +113,7 @@ function UsedBy({ provider, bots }: { provider: Provider; bots: Bot[] }) {
           bot,
           value: bot.model ?? provider.defaultModel ?? '—',
           hint: undefined,
-          href: `/models/bot/${bot.id}`,
+          href: `/bot/${bot.id}`,
         },
       ];
     }
@@ -126,7 +126,7 @@ function UsedBy({ provider, bots }: { provider: Provider; bots: Bot[] }) {
         bot,
         value: ref.model,
         hint: light ? t('appAdmin.proactivity.lightModel') : t('appAdmin.proactivity.fallback'),
-        href: `/proactivity/${bot.id}`,
+        href: `/bot/${bot.id}`,
       },
     ];
   });
