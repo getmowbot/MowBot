@@ -1,9 +1,12 @@
 import type { FileEntry } from '@mowbot/contract';
 import { useQuery } from '@tanstack/react-query';
-import { Download, X } from 'lucide-react';
-import { useEffect } from 'react';
+import { Code, Download, FileText, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { client } from '../lib/auth';
+import { MarkdownDocument } from './markdown-document';
 import { Button } from './ui/button';
+
+const MARKDOWN = /\.(md|markdown)$/i;
 
 const TEXT =
   /\.(txt|md|markdown|csv|tsv|log|json|jsonl|ya?ml|toml|ini|env|xml|html?|css|js|mjs|cjs|ts|tsx|jsx|py|rb|go|rs|java|c|h|cpp|sh|bash|sql|conf)$/i;
@@ -35,11 +38,19 @@ interface Props {
   entry: FileEntry;
   onClose(): void;
   onDownload(entry: FileEntry): void;
+  /** A Markdown document links to another file of the workspace. */
+  onOpenPath?(path: string): void;
 }
 
-/** Modal preview. Files are fetched with the session and shown from blob URLs; HTML is shown as source. */
-export function FilePreview({ workspaceId, entry, onClose, onDownload }: Props) {
+/**
+ * Modal preview. Files are fetched with the session and shown from blob URLs; HTML is shown as
+ * source; Markdown is laid out as a document (its source one click away).
+ */
+export function FilePreview({ workspaceId, entry, onClose, onDownload, onOpenPath }: Props) {
   const kind = kindOf(entry);
+  const markdown = kind === 'text' && MARKDOWN.test(entry.name);
+  const [source, setSource] = useState(false);
+  const baseDir = entry.path.includes('/') ? entry.path.slice(0, entry.path.lastIndexOf('/')) : '';
   const content = useQuery({
     queryKey: ['file-content', workspaceId, entry.path, entry.modifiedAt],
     enabled: kind !== null,
@@ -80,6 +91,17 @@ export function FilePreview({ workspaceId, entry, onClose, onDownload }: Props) 
       >
         <div className="flex items-center gap-2 border-b px-4 py-2">
           <p className="min-w-0 flex-1 truncate font-medium">{entry.name}</p>
+          {markdown && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSource((v) => !v)}
+              aria-pressed={source}
+            >
+              {source ? <FileText className="size-4" /> : <Code className="size-4" />}
+              {source ? 'Mise en forme' : 'Source'}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => onDownload(entry)}>
             <Download className="size-4" /> Télécharger
           </Button>
@@ -95,7 +117,15 @@ export function FilePreview({ workspaceId, entry, onClose, onDownload }: Props) 
             <p className="p-6 text-sm text-muted-foreground">Chargement…</p>
           )}
           {content.isError && <p className="p-6 text-sm text-destructive">Aperçu impossible.</p>}
-          {content.data && 'text' in content.data && (
+          {content.data && 'text' in content.data && markdown && !source && (
+            <MarkdownDocument
+              text={content.data.text ?? ''}
+              workspaceId={workspaceId}
+              baseDir={baseDir}
+              onOpenPath={onOpenPath}
+            />
+          )}
+          {content.data && 'text' in content.data && (!markdown || source) && (
             <pre className="whitespace-pre-wrap break-words p-4 font-mono text-xs leading-relaxed">
               {content.data.text}
             </pre>

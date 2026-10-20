@@ -1,6 +1,6 @@
 import { type FileEntry, TRASH_FOLDER } from '@mowbot/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import {
   ChevronRight,
   Download,
@@ -54,6 +54,7 @@ export function FilesPage() {
   const owner =
     team?.name ?? bots.data?.find((b) => !b.teamId && b.workspaceId === workspaceId)?.name;
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const uploadInput = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<FileEntry | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -79,6 +80,26 @@ export function FilesPage() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['files', workspaceId] });
   const params = { params: { path: { id: workspaceId as string } } };
   const onError = (err: unknown) => setError(problemMessage(err, 'Action impossible.'));
+
+  /** A document links to another file (its preview opens) or folder (the explorer goes there). */
+  const openPath = async (path: string) => {
+    const parent = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+    const { data } = await api.GET('/api/v1/workspaces/{id}/files', {
+      params: { path: { id: workspaceId as string }, query: { path: parent } },
+    });
+    const entry = data?.entries.find((e) => e.path === path);
+    if (!entry) {
+      setPreview(null);
+      setError(`Introuvable : ${path}`);
+      return;
+    }
+    if (entry.type === 'directory') {
+      setPreview(null);
+      void navigate({ to: '.', search: { path: entry.path } });
+      return;
+    }
+    setPreview(entry);
+  };
 
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
@@ -317,10 +338,12 @@ export function FilesPage() {
 
       {preview && workspaceId && (
         <FilePreview
+          key={preview.path}
           workspaceId={workspaceId}
           entry={preview}
           onClose={() => setPreview(null)}
           onDownload={(entry) => void download(entry.path)}
+          onOpenPath={(path) => void openPath(path)}
         />
       )}
     </div>
