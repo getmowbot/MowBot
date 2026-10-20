@@ -24,6 +24,7 @@ export function toBot(row: BotRow): Bot {
     status: row.status,
     statusDetail: row.statusDetail,
     avatarSeed: row.avatarSeed,
+    managerId: row.managerId,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -33,6 +34,10 @@ export function toMessage(row: MessageRow): Message {
     id: row.id,
     botId: row.botId,
     role: row.role,
+    fromBotId: row.fromBotId,
+    fromName: row.meta?.fromName ?? null,
+    kind: row.kind,
+    taskId: row.meta?.taskId ?? null,
     parts: row.parts,
     status: row.status,
     error: row.error,

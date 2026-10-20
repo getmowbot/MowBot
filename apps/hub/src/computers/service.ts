@@ -114,6 +114,16 @@ export class ComputerService {
     }
   }
 
+  /** Stops the computer, deletes its container, home volume and row. */
+  async remove(id: string): Promise<void> {
+    const row = await this.row(id);
+    await this.boots.get(id);
+    await this.runtime.remove(row.id);
+    this.desktopSessions.delete(id);
+    this.lastTouch.delete(id);
+    await this.db.delete(computers).where(eq(computers.id, id));
+  }
+
   async restart(id: string): Promise<Computer> {
     await this.stop(id);
     return this.start(id);

@@ -23,6 +23,7 @@ import { eventRoutes } from './routes/events';
 import { fileRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
 import { providerRoutes } from './routes/providers';
+import { taskRoutes } from './routes/tasks';
 import { teamRoutes } from './routes/teams';
 import type { Services } from './services';
 
@@ -139,6 +140,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
       await api.register(eventRoutes);
       await api.register(providerRoutes);
       await api.register(botRoutes);
+      await api.register(taskRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: API_PREFIX },

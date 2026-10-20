@@ -1,7 +1,7 @@
 import type { Bot, Message, MessagePart } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowUp, Monitor, PanelRightClose, Power, Sparkles, Square } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -25,6 +25,7 @@ import { moodOf, statusLabel } from '../lib/bot-mood';
 import { reveal } from '../lib/motion';
 import {
   useBot,
+  useBots,
   useChef,
   useComputer,
   useComputerAction,
@@ -39,10 +40,48 @@ const DesktopView = lazy(() =>
 
 const SUGGESTIONS = [
   'Présente-toi et dis-moi ce que tu sais faire',
+  'Monte une équipe de veille sur l’IA avec deux bots',
   'Ouvre example.com et décris-moi la page',
   'Crée une note de bienvenue dans outputs',
-  'Quelle version de Python as-tu sur ton PC ?',
 ];
+
+const BOT_SUGGESTIONS = [
+  'Présente-toi',
+  'Où en es-tu de ta mission ?',
+  'Que fait ton équipe en ce moment ?',
+];
+
+const KIND_LABELS = { chat: 'message', ask: 'question', task: 'tâche' } as const;
+
+/** What another bot (or the user, for a task) gave this bot: a quieter, outlined bubble. */
+function IncomingMessage({ message }: { message: Message }) {
+  const bots = useBots();
+  const from = bots.data?.find((b) => b.id === message.fromBotId);
+  const name = from?.name ?? message.fromName ?? 'Toi';
+  const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('');
+  return (
+    <div className="flex justify-end">
+      <div className="max-w-[85%] space-y-1 rounded-2xl rounded-br-md border border-border-strong bg-white/[0.03] px-4 py-2.5">
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {(from || message.fromName) && <BotAvatar seed={from?.avatarSeed ?? name} size={16} />}
+          {from ? (
+            <Link
+              to={from.isChef ? '/' : '/bots/$botId'}
+              params={{ botId: from.id }}
+              className="font-medium text-foreground/90 hover:underline"
+            >
+              {name}
+            </Link>
+          ) : (
+            <span className="font-medium text-foreground/90">{name}</span>
+          )}
+          <span>· {KIND_LABELS[message.kind]}</span>
+        </p>
+        <Markdown text={text} className="text-[14.5px]" />
+      </div>
+    </div>
+  );
+}
 
 function UserMessage({ message }: { message: Message }) {
   const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('');
@@ -135,12 +174,13 @@ function EmptyState({ bot, onPick }: { bot: Bot; onPick(text: string): void }) {
         </h1>
         <p className="text-muted-foreground">
           {bot.isChef
-            ? 'Dis-moi ce que tu veux faire : je travaille sur le PC de l’équipe et je dépose mes résultats dans vos fichiers.'
+            ? 'Dis-moi ce que tu veux faire : je travaille sur le PC de l’équipe, je monte des équipes de bots et je dépose les résultats dans vos fichiers.'
             : bot.role}
         </p>
+        {!bot.isChef && bot.mission && <p className="text-sm text-faint">{bot.mission}</p>}
       </motion.div>
       <motion.div variants={reveal} className="flex flex-wrap justify-center gap-2">
-        {SUGGESTIONS.map((suggestion) => (
+        {(bot.isChef ? SUGGESTIONS : BOT_SUGGESTIONS).map((suggestion) => (
           <button
             key={suggestion}
             type="button"
@@ -405,7 +445,11 @@ export function ChatPage() {
                   transition={springs.soft}
                 >
                   {message.role === 'user' ? (
-                    <UserMessage message={message} />
+                    message.fromBotId || message.fromName || message.kind !== 'chat' ? (
+                      <IncomingMessage message={message} />
+                    ) : (
+                      <UserMessage message={message} />
+                    )
                   ) : (
                     <BotMessage message={message} bot={bot} />
                   )}

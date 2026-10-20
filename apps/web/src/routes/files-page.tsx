@@ -16,7 +16,7 @@ import { FilePreview } from '../components/file-preview';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/form';
 import { api, apiBaseUrl, client, problemMessage } from '../lib/auth';
-import { useTeam } from '../lib/queries';
+import { useBots, useTeams } from '../lib/queries';
 import { cn } from '../lib/utils';
 
 const label = (name: string) => (name === TRASH_FOLDER ? 'Corbeille' : name);
@@ -41,11 +41,18 @@ const formatDate = (iso: string) =>
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
 export function FilesPage() {
-  const { teamId } = useParams({ strict: false }) as { teamId?: string };
+  // A team's files (/teams/:id/files) or any workspace (/workspaces/:id/files), e.g. a solo bot's.
+  const route = useParams({ strict: false }) as { teamId?: string; workspaceId?: string };
   const search = useSearch({ strict: false }) as { path?: string };
   const dir = search.path ?? '';
-  const team = useTeam(teamId);
-  const workspaceId = team.data?.workspaceId;
+  const teams = useTeams();
+  const bots = useBots();
+  const team = teams.data?.find((t) =>
+    route.teamId ? t.id === route.teamId : t.workspaceId === route.workspaceId,
+  );
+  const workspaceId = route.workspaceId ?? team?.workspaceId;
+  const owner =
+    team?.name ?? bots.data?.find((b) => !b.teamId && b.workspaceId === workspaceId)?.name;
   const queryClient = useQueryClient();
   const uploadInput = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<FileEntry | null>(null);
@@ -145,14 +152,14 @@ export function FilesPage() {
     if (files.length > 0) upload.mutate(files);
   };
 
-  if (team.isPending) return <p className="text-sm text-muted-foreground">Chargement…</p>;
-  if (!team.data) return <p className="text-sm text-destructive">Équipe introuvable.</p>;
+  if (teams.isPending) return <p className="text-sm text-muted-foreground">Chargement…</p>;
+  if (!workspaceId) return <p className="text-sm text-destructive">Dossier introuvable.</p>;
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-muted-foreground">{team.data.name}</p>
+          <p className="text-sm text-muted-foreground">{owner ?? 'Fichiers'}</p>
           <nav
             aria-label="Dossier courant"
             className="flex flex-wrap items-center gap-1 text-xl font-semibold"

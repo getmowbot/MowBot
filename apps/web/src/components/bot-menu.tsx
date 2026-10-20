@@ -1,11 +1,12 @@
 import type { Bot, Message } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Ellipsis, Eraser, type LucideIcon, Pencil } from 'lucide-react';
+import { Ellipsis, Eraser, type LucideIcon, Pencil, Settings2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { api, problemMessage } from '../lib/auth';
 import { cn } from '../lib/utils';
+import { useOrgDialogs } from './org-dialogs';
 import { Button } from './ui/button';
 
 function MenuItem({
@@ -41,6 +42,7 @@ function MenuItem({
 export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const dialogs = useOrgDialogs();
   const queryClient = useQueryClient();
   const clear = useMutation({
     mutationFn: async () => {
@@ -89,6 +91,15 @@ export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
             transition={springs.snappy}
             className="glass absolute right-0 top-full z-50 mt-2 w-60 origin-top-right rounded-xl p-1"
           >
+            <MenuItem
+              icon={Settings2}
+              onClick={() => {
+                setOpen(false);
+                dialogs.botSettings(bot);
+              }}
+            >
+              Réglages
+            </MenuItem>
             <MenuItem
               icon={Pencil}
               onClick={() => {

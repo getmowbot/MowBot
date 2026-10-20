@@ -3,13 +3,16 @@ import type {
   ComputerKind,
   ComputerStatus,
   DeviceKind,
+  MessageKind,
   MessagePart,
   ProviderKind,
   Scope,
+  TaskStatus,
 } from '@mowbot/contract';
 import type { ModelMessage } from 'ai';
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
@@ -128,8 +131,9 @@ export const teams = pgTable(
     /** The "Équipe principale" created at setup, led by the Chef. */
     isMain: boolean('is_main').notNull().default(false),
     isolated: boolean('isolated').notNull().default(false),
-    /** Bots arrive in P2; no foreign key until then. */
-    leadBotId: uuid('lead_bot_id'),
+    leadBotId: uuid('lead_bot_id').references((): AnyPgColumn => bots.id, {
+      onDelete: 'set null',
+    }),
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id),
@@ -193,9 +197,15 @@ export const bots = pgTable(
     status: text('status').$type<BotStatus>().notNull().default('idle'),
     statusDetail: text('status_detail'),
     avatarSeed: text('avatar_seed').notNull(),
+    /** The bot that created this one (org chart). */
+    managerId: uuid('manager_id').references((): AnyPgColumn => bots.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('bots_chef_unique').on(t.isChef).where(sql`${t.isChef}`)],
+  (t) => [
+    uniqueIndex('bots_chef_unique').on(t.isChef).where(sql`${t.isChef}`),
+    // Bots address each other by name.
+    uniqueIndex('bots_name_unique').on(sql`lower(${t.name})`),
+  ],
 );
 
 /**
@@ -210,6 +220,11 @@ export const messages = pgTable(
       .notNull()
       .references(() => bots.id, { onDelete: 'cascade' }),
     role: text('role').$type<'user' | 'assistant'>().notNull(),
+    /** Incoming message written by another bot (null: by the user, or the bot's own answer). */
+    fromBotId: uuid('from_bot_id').references(() => bots.id, { onDelete: 'set null' }),
+    kind: text('kind').$type<MessageKind>().notNull().default('chat'),
+    /** `depth`: how many bot-to-bot hops led here (loop guard); `askId`: question to answer. */
+    meta: jsonb('meta').$type<MessageMeta>(),
     parts: jsonb('parts').$type<MessagePart[]>().notNull(),
     modelMessages: jsonb('model_messages').$type<ModelMessage[]>().notNull(),
     status: text('status').$type<'streaming' | 'done' | 'error' | 'stopped'>().notNull(),
@@ -217,5 +232,35 @@ export const messages = pgTable(
     usage: jsonb('usage').$type<{ inputTokens: number; outputTokens: number }>(),
     createdAt: timestamp('created_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
   },
-  (t) => [index('messages_bot_created_idx').on(t.botId, t.createdAt)],
+  (t) => [
+    index('messages_bot_created_idx').on(t.botId, t.createdAt),
+    index('messages_from_bot_created_idx').on(t.createdAt).where(sql`${t.fromBotId} is not null`),
+  ],
+);
+
+export interface MessageMeta {
+  /** Sender's name when it was sent (still shown if that bot is deleted). */
+  fromName?: string;
+  depth?: number;
+  askId?: string;
+  taskId?: string;
+}
+
+/** Work assigned to a bot by another bot (or by the user). */
+export const tasks = pgTable(
+  'tasks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(),
+    details: text('details'),
+    status: text('status').$type<TaskStatus>().notNull().default('todo'),
+    result: text('result'),
+    assigneeBotId: uuid('assignee_bot_id')
+      .notNull()
+      .references(() => bots.id, { onDelete: 'cascade' }),
+    creatorBotId: uuid('creator_bot_id').references(() => bots.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('tasks_assignee_idx').on(t.assigneeBotId, t.status)],
 );

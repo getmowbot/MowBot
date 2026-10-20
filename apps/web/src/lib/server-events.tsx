@@ -1,4 +1,4 @@
-import type { Bot, Message, ServerEvent } from '@mowbot/contract';
+import type { Bot, Message, ServerEvent, Team } from '@mowbot/contract';
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { api, client } from './auth';
@@ -36,10 +36,16 @@ function appendDelta(
   });
 }
 
+/** Replaces the item with the same id, or appends it (created elsewhere: another device, a bot). */
+function upsert<T extends { id: string }>(list: T[] | undefined, item: T): T[] | undefined {
+  if (!list) return list;
+  return list.some((x) => x.id === item.id)
+    ? list.map((x) => (x.id === item.id ? item : x))
+    : [...list, item];
+}
+
 function updateBot(queryClient: QueryClient, bot: Bot) {
-  queryClient.setQueryData<Bot[]>(['bots'], (list) =>
-    list ? list.map((b) => (b.id === bot.id ? bot : b)) : list,
-  );
+  queryClient.setQueryData<Bot[]>(['bots'], (list) => upsert(list, bot));
 }
 
 /** Keeps the React Query cache in sync with the hub's event stream while signed in. */
@@ -56,7 +62,15 @@ export function ServerEvents() {
       switch (event.type) {
         case 'ready':
           // (Re)connected: whatever happened while offline is unknown, refetch.
-          for (const key of ['computer', 'computers', 'bots', 'messages']) {
+          for (const key of [
+            'computer',
+            'computers',
+            'bots',
+            'messages',
+            'teams',
+            'tasks',
+            'feed',
+          ]) {
             void queryClient.invalidateQueries({ queryKey: [key] });
           }
           break;
@@ -69,12 +83,34 @@ export function ServerEvents() {
           break;
         case 'bot.updated':
           updateBot(queryClient, event.bot);
+          // A new bot may come with a new PC.
+          void queryClient.invalidateQueries({ queryKey: ['computers'] });
+          break;
+        case 'bot.deleted':
+          queryClient.setQueryData<Bot[]>(['bots'], (list) =>
+            list?.filter((b) => b.id !== event.botId),
+          );
+          void queryClient.invalidateQueries({ queryKey: ['computers'] });
+          break;
+        case 'team.updated':
+          queryClient.setQueryData<Team[]>(['teams'], (list) => upsert(list, event.team));
+          void queryClient.invalidateQueries({ queryKey: ['computers'] });
+          break;
+        case 'team.deleted':
+          queryClient.setQueryData<Team[]>(['teams'], (list) =>
+            list?.filter((t) => t.id !== event.teamId),
+          );
+          void queryClient.invalidateQueries({ queryKey: ['computers'] });
+          break;
+        case 'task.updated':
+          void queryClient.invalidateQueries({ queryKey: ['tasks'] });
           break;
         case 'messages.cleared':
           queryClient.setQueryData<Message[]>(['messages', event.botId], []);
           break;
         case 'message.updated':
           upsertMessage(queryClient, event.message);
+          if (event.message.fromBotId) void queryClient.invalidateQueries({ queryKey: ['feed'] });
           break;
         case 'message.delta':
           appendDelta(queryClient, event);

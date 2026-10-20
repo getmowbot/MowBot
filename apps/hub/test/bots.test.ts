@@ -2,50 +2,13 @@ import { readFile } from 'node:fs/promises';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
-import type { LanguageModelV4StreamPart } from '@ai-sdk/provider';
 import type { Bot, Message, ServerEvent } from '@mowbot/contract';
-import { simulateReadableStream } from 'ai';
-import { MockLanguageModelV4 } from 'ai/test';
+import type { MockLanguageModelV4 } from 'ai/test';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { messages } from '../src/db/schema';
 import { bearer, createTestApp, setupOwner } from './helpers';
-
-const usage = {
-  inputTokens: { total: 12, noCache: 12, cacheRead: 0, cacheWrite: 0 },
-  outputTokens: { total: 7, text: 7, reasoning: 0 },
-};
-
-const textTurn = (text: string): LanguageModelV4StreamPart[] => [
-  { type: 'stream-start', warnings: [] },
-  { type: 'text-start', id: 't' },
-  ...text.split(' ').map((word, i) => ({
-    type: 'text-delta' as const,
-    id: 't',
-    delta: i === 0 ? word : ` ${word}`,
-  })),
-  { type: 'text-end', id: 't' },
-  { type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage },
-];
-
-const toolTurn = (toolName: string, input: unknown, id = 'call-1'): LanguageModelV4StreamPart[] => [
-  { type: 'stream-start', warnings: [] },
-  { type: 'tool-call', toolCallId: id, toolName, input: JSON.stringify(input) },
-  { type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool_calls' }, usage },
-];
-
-/** A model that plays the given turns in order (the last one repeats). */
-function scripted(turns: LanguageModelV4StreamPart[][], chunkDelayInMs = 0) {
-  let call = 0;
-  return new MockLanguageModelV4({
-    doStream: async () => ({
-      stream: simulateReadableStream({
-        chunks: turns[Math.min(call++, turns.length - 1)] ?? [],
-        chunkDelayInMs,
-      }),
-    }),
-  });
-}
+import { scripted, textTurn, toolTurn } from './models';
 
 let t: Awaited<ReturnType<typeof createTestApp>> | undefined;
 

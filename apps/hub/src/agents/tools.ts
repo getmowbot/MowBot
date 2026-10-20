@@ -1,12 +1,32 @@
 import path from 'node:path';
 import { type ToolSet, tool } from 'ai';
 import { z } from 'zod';
+import type { BotRow } from '../bots/service';
 import { botFolder } from '../bots/service';
 import type { AgentClient } from '../computers/agent-client';
 import type { EventBus } from '../events';
 import type { WorkspaceFiles } from '../workspaces/files';
 import { parentOf } from '../workspaces/files';
-import { closeOpened, inventory, isTabId, isWindowId, openedBy, openUrlScript } from './desktop';
+import {
+  closeOpened,
+  inventory,
+  isTabId,
+  isWindowId,
+  openedBy,
+  openUrlScript,
+  parseProcesses,
+  processesScript,
+} from './desktop';
+import type { FileLocks, ScreenLeases } from './shared-pc';
+
+/** How a bot shares its computer with others. */
+export interface SharedPc {
+  computerId: string;
+  screen: ScreenLeases;
+  locks: FileLocks;
+  /** The other bots working on this computer. */
+  neighbours(): Promise<BotRow[]>;
+}
 
 /** What a bot's tools act on. */
 export interface ToolContext {
@@ -15,6 +35,7 @@ export interface ToolContext {
   workspaceId: string | null;
   files: WorkspaceFiles;
   events: EventBus;
+  shared: SharedPc | null;
   /** Starts the bot's computer if needed and returns its agent. */
   computer: (() => Promise<AgentClient>) | null;
   /** Screenshots (base64 PNG) to show the model at its next step. */
@@ -58,7 +79,11 @@ const pointSchema = {
 /** Tools of a bot. Without a computer it only gets file tools (if it has a workspace). */
 export function buildTools(ctx: ToolContext): ToolSet {
   const tools: ToolSet = {};
-  const { workspaceId, files, events } = ctx;
+  const { workspaceId, files, events, shared } = ctx;
+  const self = { id: ctx.botId, name: ctx.botName };
+  /** The display is shared: wait for the bot using it, then hold it for a little while. */
+  const takeScreen = (signal?: AbortSignal) =>
+    shared ? shared.screen.acquire(shared.computerId, self, signal) : Promise.resolve();
 
   if (workspaceId) {
     tools.list_files = tool({
@@ -94,7 +119,9 @@ export function buildTools(ctx: ToolContext): ToolSet {
         content: z.string(),
       }),
       execute: async ({ path: file, content }) => {
-        const entry = await files.writeFile(workspaceId, workspacePath(file), content);
+        const rel = workspacePath(file);
+        shared?.locks.assertWritable(workspaceId, rel, ctx.botId);
+        const entry = await files.writeFile(workspaceId, rel, content);
         events.publish({ type: 'workspace.changed', workspaceId, paths: [parentOf(entry.path)] });
         return `Écrit : /workspace/${entry.path} (${entry.size} octets)`;
       },
@@ -114,7 +141,10 @@ export function buildTools(ctx: ToolContext): ToolSet {
     }),
     execute: async ({ command, timeout_seconds }) => {
       const agent = await computer();
-      const result = await agent.exec(command, { timeoutMs: timeout_seconds * 1000 });
+      // Tagged so pc_status can tell which bot started which process.
+      const result = await agent.exec(`export MOWBOT_BOT=${ctx.botId}\n${command}`, {
+        timeoutMs: timeout_seconds * 1000,
+      });
       if (workspaceId) events.publish({ type: 'workspace.changed', workspaceId, paths: [''] });
       return result;
     },
@@ -134,8 +164,9 @@ export function buildTools(ctx: ToolContext): ToolSet {
     description:
       'Ouvre une adresse dans le Google Chrome de ton PC, à la place de ta page courante (ton onglet est réutilisé). new_tab: true garde ta page et ouvre un onglet de plus.',
     inputSchema: z.object({ url: z.url(), new_tab: z.boolean().default(false) }),
-    execute: async ({ url, new_tab }) => {
+    execute: async ({ url, new_tab }, { abortSignal }) => {
       const agent = await computer();
+      await takeScreen(abortSignal);
       const result = await agent.exec(openUrlScript(ctx.botId, url, new_tab), {
         timeoutMs: 45_000,
       });
@@ -147,8 +178,9 @@ export function buildTools(ctx: ToolContext): ToolSet {
   tools.screenshot = tool({
     description: "Capture l'écran de ton PC (1280×800) pour voir ce qui s'y passe.",
     inputSchema: z.object({}),
-    execute: async () => {
+    execute: async (_, { abortSignal }) => {
       const agent = await computer();
+      await takeScreen(abortSignal);
       const png = await agent.screenshot();
       let saved: string | null = null;
       if (workspaceId) {
@@ -197,8 +229,9 @@ export function buildTools(ctx: ToolContext): ToolSet {
       to_x: z.number().int().min(0).max(1279).optional(),
       to_y: z.number().int().min(0).max(799).optional(),
     }),
-    execute: async (input) => {
+    execute: async (input, { abortSignal }) => {
       const agent = await computer();
+      await takeScreen(abortSignal);
       const at = input.x !== undefined && input.y !== undefined ? { x: input.x, y: input.y } : {};
       switch (input.action) {
         case 'click':
@@ -268,8 +301,10 @@ export function buildTools(ctx: ToolContext): ToolSet {
     inputSchema: z.object({
       ids: z.array(z.string()).max(50).optional().describe('Identifiants donnés par list_windows'),
     }),
-    execute: async ({ ids }) => {
+    execute: async ({ ids }, { abortSignal }) => {
       const agent = await computer();
+      // Closing an application window goes through the keyboard (alt+F4).
+      await takeScreen(abortSignal);
       const inv = await inventory(agent, ctx.botId);
       const target = ids?.length
         ? {
@@ -297,6 +332,73 @@ export function buildTools(ctx: ToolContext): ToolSet {
         .join(' ');
     },
   });
+
+  if (!shared) return tools;
+
+  tools.pc_status = tool({
+    description:
+      "Qui fait quoi sur le PC que tu partages : les autres bots, qui a l'écran, les onglets et processus de chacun, les fenêtres, les fichiers verrouillés.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      const agent = await computer();
+      const neighbours = await shared.neighbours();
+      const names = new Map([
+        [ctx.botId, 'toi'],
+        ...neighbours.map((b) => [b.id, b.name] as const),
+      ]);
+      const who = (id: string) => names.get(id) ?? 'un bot supprimé';
+      const [inv, procs] = await Promise.all([
+        inventory(agent, ctx.botId),
+        agent.exec(processesScript(), { timeoutMs: 20_000 }).then((r) => parseProcesses(r.stdout)),
+      ]);
+      const screen = shared.screen.holder(shared.computerId);
+      const locks = workspaceId ? shared.locks.list(workspaceId) : [];
+      return [
+        `Bots sur ce PC : ${neighbours.map((b) => `${b.name} (${b.statusDetail ?? b.status})`).join(', ') || 'toi seul'}.`,
+        `Écran : ${screen ? (screen.botId === ctx.botId ? 'à toi' : `utilisé par ${screen.botName}`) : 'libre'}.`,
+        'Onglets de Chrome :',
+        ...(inv.tabs.length
+          ? inv.tabs.map(
+              (t) =>
+                `- ${t.title || '(sans titre)'} — ${t.url}${inv.owners.has(t.id) ? ` (${who(inv.owners.get(t.id) as string)})` : ''}`,
+            )
+          : ['- aucun']),
+        'Processus lancés par les bots :',
+        ...(procs.length
+          ? procs.map((p) => `- ${who(p.botId)} : [${p.pid}] ${p.command}`)
+          : ['- aucun']),
+        "Fenêtres d'applications :",
+        ...(inv.windows.length
+          ? inv.windows.map((w) => `- ${w.name} (${w.className})`)
+          : ['- aucune']),
+        `Fichiers verrouillés : ${locks.map((l) => `${l.path} (${l.botName})`).join(', ') || 'aucun'}.`,
+      ].join('\n');
+    },
+  });
+
+  if (workspaceId) {
+    tools.lock_file = tool({
+      description:
+        "Réserve un fichier de /workspace pendant que tu le modifies : les autres bots ne peuvent plus l'écrire avec write_file. Libéré par unlock_file ou à la fin de ton tour.",
+      inputSchema: z.object({ path: z.string() }),
+      execute: async ({ path: file }) => {
+        const rel = workspacePath(file);
+        shared.locks.lock(workspaceId, rel, self);
+        return `/workspace/${rel} est à toi jusqu'à unlock_file ou la fin de ton tour.`;
+      },
+    });
+
+    tools.unlock_file = tool({
+      description: 'Libère un fichier réservé avec lock_file.',
+      inputSchema: z.object({ path: z.string() }),
+      execute: async ({ path: file }) => {
+        const rel = workspacePath(file);
+        return shared.locks.unlock(workspaceId, rel, ctx.botId)
+          ? `/workspace/${rel} est libéré.`
+          : `Tu n'avais pas réservé /workspace/${rel}.`;
+      },
+    });
+  }
 
   return tools;
 }

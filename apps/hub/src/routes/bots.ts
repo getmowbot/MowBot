@@ -1,4 +1,5 @@
 import {
+  botCreateSchema,
   botIdParamsSchema,
   botListSchema,
   botSchema,
@@ -19,7 +20,7 @@ import { errorResponses, HttpProblem } from '../http/problems';
 const tags = ['bots'];
 
 export const botRoutes: FastifyPluginAsyncZod = async (app) => {
-  const { bots, runtime, providers, db, files } = app.services;
+  const { bots, runtime, providers, db, files, org } = app.services;
 
   app.get(
     '/bots',
@@ -33,6 +34,49 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async () => ({ items: await bots.list() }),
+  );
+
+  app.post(
+    '/bots',
+    {
+      preHandler: requireAuth('control'),
+      schema: {
+        tags,
+        operationId: 'createBot',
+        description:
+          "Creates a bot in a team (on the team's PC or a dedicated one) or solo (own PC and workspace).",
+        security: bearerSecurity,
+        body: botCreateSchema,
+        response: { 201: botSchema, ...errorResponses },
+      },
+    },
+    async (request, reply) => {
+      if (request.body.providerId) await providers.row(request.body.providerId);
+      return reply.code(201).send(await org.createBot(request.body));
+    },
+  );
+
+  app.delete(
+    '/bots/:id',
+    {
+      preHandler: requireAuth('control'),
+      schema: {
+        tags,
+        operationId: 'deleteBot',
+        description:
+          "Deletes a bot (not the Chef) and its conversation. A dedicated PC goes with it; a solo bot's files move to the main team's trash.",
+        security: bearerSecurity,
+        params: botIdParamsSchema,
+        response: { 204: z.null(), ...errorResponses },
+      },
+    },
+    async (request, reply) => {
+      const row = await bots.row(request.params.id);
+      if (row.isChef) throw new HttpProblem(409, 'chef', 'The Chef cannot be deleted');
+      await runtime.forget(row.id);
+      await org.retireBot(row.id);
+      return reply.code(204).send(null);
+    },
   );
 
   app.get(

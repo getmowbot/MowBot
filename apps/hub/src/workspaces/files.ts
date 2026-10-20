@@ -59,6 +59,23 @@ export class WorkspaceFiles {
     return path.join(this.root, workspaceId);
   }
 
+  /**
+   * Moves a whole workspace into another one's trash (its team or solo bot was deleted), so
+   * nothing is lost. Returns the path inside the target workspace.
+   */
+  async archiveInto(workspaceId: string, intoWorkspaceId: string, label: string): Promise<string> {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const name = `${stamp}-${label.replace(/[^\p{L}\p{N} _-]+/gu, '').trim() || 'archive'}`;
+    await mkdir(path.join(this.dirOf(intoWorkspaceId), TRASH_FOLDER), { recursive: true });
+    await rename(
+      this.dirOf(workspaceId),
+      path.join(this.dirOf(intoWorkspaceId), TRASH_FOLDER, name),
+    ).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== 'ENOENT') throw error;
+    });
+    return `${TRASH_FOLDER}/${name}`;
+  }
+
   /** Creates the workspace directory and its default folders. Idempotent. */
   async ensure(workspaceId: string): Promise<void> {
     const base = this.dirOf(workspaceId);

@@ -25,3 +25,19 @@ export function guessDeviceName(userAgent: string = navigator.userAgent): string
     ].find(([token]) => token && userAgent.includes(token))?.[1] ?? '';
   return os ? `${browser} · ${os}` : browser;
 }
+
+const RELATIVE = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
+
+/** "il y a 5 minutes", "hier"… */
+export function timeAgo(iso: string, now = Date.now()): string {
+  const seconds = Math.round((new Date(iso).getTime() - now) / 1000);
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['day', 86_400],
+    ['hour', 3_600],
+    ['minute', 60],
+  ];
+  for (const [unit, size] of units) {
+    if (Math.abs(seconds) >= size) return RELATIVE.format(Math.round(seconds / size), unit);
+  }
+  return 'à l’instant';
+}

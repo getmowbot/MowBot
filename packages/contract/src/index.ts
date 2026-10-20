@@ -6,4 +6,5 @@ export * from './devices';
 export * from './events';
 export * from './files';
 export * from './providers';
+export * from './tasks';
 export * from './teams';

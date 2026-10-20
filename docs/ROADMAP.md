@@ -57,6 +57,19 @@
 - [ ] Abonnement ChatGPT (« Sign in with ChatGPT ») : en attente du choix de licence open source
 - [ ] Navigateur piloté via `@playwright/mcp` (arrive avec la passerelle MCP, P6) ; budgets par bot
 
+## État de P3
+
+- [x] Équipes : création, réglages (mission, lead, cloisonnement), suppression d'une équipe vide (PC supprimé, fichiers dans la corbeille de l'Équipe principale) ; le Chef est lead de l'Équipe principale
+- [x] Bots : création dans une équipe (PC de l'équipe ou PC dédié) ou solo (PC et fichiers à lui), réglages, suppression ; noms uniques
+- [x] Le Chef crée équipes et bots (`create_team`, `create_bot`), un lead crée des bots dans son équipe ; `update_bot`
+- [x] Communication : `send_message`, `ask_bot` (attend la réponse ; refuse les blocages mutuels ; réponse tardive transmise en message), `list_bots` ; équipes cloisonnées joignables seulement par leur lead ou le Chef
+- [x] Tâches : `assign_task`, `update_task`, `list_tasks`, l'autre partie prévenue à chaque changement de statut ; l'utilisateur peut aussi confier et annuler des tâches
+- [x] Garde-fous : 10 échanges en chaîne entre bots sans l'utilisateur, 60 envois par bot et par heure
+- [x] PC partagé : l'écran pris à tour de rôle (captures, souris, clavier, page au premier plan), `pc_status` (qui fait quoi, onglets et processus de chacun), `lock_file` / `unlock_file`
+- [x] Interface : équipes et bots dans la barre latérale, page d'équipe, organigramme, page Activité (tâches + échanges entre bots), messages des autres bots dans le chat, réglages et suppression d'un bot, PC et fichiers des PC dédiés et des bots solo
+- [x] Vérifié avec un modèle simulé : le Chef pose une question à un bot, attend sa réponse, lui confie une tâche ; le bot écrit le livrable et la marque terminée ; le Chef est prévenu
+- [ ] Suite P3 (prochaine PR) : navigateur par bot (fenêtres Chrome et pilotage CDP sans l'écran), displays virtuels, screencast par bot, `share_file` entre équipes, canal d'équipe, approbations, déplacement d'un bot vers une autre équipe
+
 ## Risques
 
 1. **Conditions des providers** : l'abonnement ChatGPT n'est utilisable que via le programme open-source officiel (MowBot doit être open source) ; Claude Pro/Max uniquement via le CLI Claude Code officiel non modifié. Les limites des abonnements supposent un « usage individuel ordinaire » → une proactivité massive consomme vite les quotas.

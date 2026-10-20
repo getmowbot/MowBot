@@ -1,16 +1,21 @@
-import type { Message, MessagePart } from '@mowbot/contract';
+import { randomUUID } from 'node:crypto';
+import type { Message, MessageKind, MessagePart } from '@mowbot/contract';
 import { type LanguageModel, type ModelMessage, stepCountIs, streamText } from 'ai';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import { type BotRow, type BotService, toMessage } from '../bots/service';
 import type { AgentClient, ExecResult } from '../computers/agent-client';
 import type { ComputerService, Logger } from '../computers/service';
 import type { Db } from '../db/client';
-import { bots, messages, owner, teams } from '../db/schema';
+import { bots, type MessageMeta, messages, owner, teams } from '../db/schema';
 import type { EventBus } from '../events';
+import type { OrgService } from '../org/service';
+import { TaskService } from '../org/tasks';
 import type { ProviderService } from '../providers/service';
 import type { WorkspaceFiles } from '../workspaces/files';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
+import { buildOrgTools } from './org-tools';
 import { systemPrompt } from './prompt';
+import { FileLocks, ScreenLeases } from './shared-pc';
 import { buildTools, clip } from './tools';
 
 const HISTORY_MESSAGES = 40;
@@ -18,6 +23,11 @@ const MAX_STEPS = 30;
 const UI_OUTPUT_CHARS = 4_000;
 /** After this long without work, what a bot left open on its computer gets closed. */
 const TIDY_AFTER_MS = 10 * 60_000;
+/** Bot-to-bot hops without the user before bots must stop writing to each other. */
+export const MAX_DEPTH = 10;
+/** Messages, questions and tasks a bot may send other bots per hour. */
+const MAX_SENDS_PER_HOUR = 60;
+const ASK_TIMEOUT_MS = 15 * 60_000;
 
 type MessageRow = typeof messages.$inferSelect;
 
@@ -28,9 +38,31 @@ export interface RuntimeDeps {
   providers: ProviderService;
   computers: ComputerService;
   files: WorkspaceFiles;
+  org: OrgService;
   /** Tests inject a scripted model. */
   modelFor?: (bot: BotRow) => LanguageModel | null;
   tidyAfterMs?: number;
+  askTimeoutMs?: number;
+}
+
+/** A message for a bot from another bot (or from the user, for tasks). Wakes the bot up. */
+export interface Delivery {
+  /** null: the user. */
+  from: BotRow | null;
+  kind: MessageKind;
+  /** What the bot reads, after a header naming the sender. */
+  text: string;
+  /** What the app shows (defaults to `text`). */
+  display?: string;
+  meta?: Omit<MessageMeta, 'fromName'>;
+}
+
+interface PendingAsk {
+  askerId: string;
+  resolve(answer: string): void;
+  /** The asker gave up waiting: the answer comes to it later as a message. */
+  late: boolean;
+  depth: number;
 }
 
 /** Binary payloads stay out of stored transcripts (screenshots are re-taken when needed). */
@@ -45,6 +77,13 @@ function stripBinary(value: unknown): unknown {
   }
   return value;
 }
+
+const textOf = (parts: MessagePart[]) =>
+  parts
+    .filter((p): p is Extract<MessagePart, { type: 'text' }> => p.type === 'text')
+    .map((p) => p.text)
+    .join('')
+    .trim();
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : typeof error === 'string' ? error : 'Erreur inconnue';
@@ -88,11 +127,217 @@ export class BotRuntime {
   private readonly chains = new Map<string, Promise<void>>();
   private readonly controllers = new Map<string, AbortController>();
   private readonly tidyTimers = new Map<string, NodeJS.Timeout>();
+  /** Questions between bots awaiting an answer, by ask id. */
+  private readonly asks = new Map<string, PendingAsk>();
+  /** Who waits for whom (asker → asked), to refuse questions that would deadlock. */
+  private readonly waiting = new Map<string, string>();
+  /** When each bot recently wrote to other bots (rate limit). */
+  private readonly sends = new Map<string, number[]>();
+  readonly screen = new ScreenLeases();
+  readonly locks = new FileLocks();
+  readonly tasks: TaskService;
 
-  constructor(private readonly deps: RuntimeDeps) {}
+  constructor(private readonly deps: RuntimeDeps) {
+    this.tasks = new TaskService(deps.db, deps.events, (notice) =>
+      this.deliver(notice.to.id, {
+        from: notice.from,
+        kind: 'task',
+        text: notice.text,
+        display: notice.display,
+        meta: { taskId: notice.task.id, depth: notice.depth },
+      }),
+    );
+  }
 
   setLogger(log: Logger): void {
     this.log = log;
+  }
+
+  /** Puts a message in a bot's conversation and wakes it up. */
+  async deliver(toBotId: string, delivery: Delivery): Promise<void> {
+    const header = await this.header(delivery);
+    const [row] = await this.deps.db
+      .insert(messages)
+      .values({
+        botId: toBotId,
+        role: 'user',
+        fromBotId: delivery.from?.id ?? null,
+        kind: delivery.kind,
+        meta: { ...delivery.meta, ...(delivery.from ? { fromName: delivery.from.name } : {}) },
+        parts: [{ type: 'text', text: delivery.display ?? delivery.text }],
+        modelMessages: [
+          { role: 'user', content: header ? `${header}\n${delivery.text}` : delivery.text },
+        ],
+        status: 'done',
+      })
+      .returning();
+    if (!row) throw new Error('Message insert returned no row');
+    this.publish(row);
+    this.schedule(toBotId);
+  }
+
+  private async header({ from, kind }: Delivery): Promise<string> {
+    if (!from) {
+      const [account] = await this.deps.db.select({ name: owner.displayName }).from(owner);
+      return `[De la part de ${account?.name ?? "l'utilisateur"}]`;
+    }
+    const who = await this.describe(from);
+    if (kind === 'ask') {
+      return `[Question de ${who}. Ta réponse finale lui est transmise telle quelle : réponds-lui directement, sans send_message.]`;
+    }
+    if (kind === 'task') return `[De ${who}]`;
+    return `[Message de ${who}. Pour lui répondre, utilise send_message ; ne réponds pas si ce n'est pas utile.]`;
+  }
+
+  /** `Nova (Rédactrice, équipe Marketing)` */
+  async describe(bot: BotRow): Promise<string> {
+    const [team] = bot.teamId
+      ? await this.deps.db.select({ name: teams.name }).from(teams).where(eq(teams.id, bot.teamId))
+      : [];
+    const where = team ? `, équipe ${team.name}` : bot.isChef ? '' : ', bot solo';
+    return `${bot.name} (${bot.role}${where})`;
+  }
+
+  /**
+   * Whether `from` may write to `to` now: not itself, not past the hop limit, not into an
+   * isolated team (except through its lead or by the Chef), not faster than the rate limit.
+   */
+  async checkReach(from: BotRow, to: BotRow, depth: number): Promise<void> {
+    if (from.id === to.id) throw new Error("C'est toi.");
+    if (depth > MAX_DEPTH) {
+      throw new Error(
+        "Trop d'échanges en chaîne entre bots sans l'utilisateur : termine ce que tu peux et fais le point avec l'utilisateur.",
+      );
+    }
+    if (to.teamId && to.teamId !== from.teamId && !from.isChef) {
+      const [team] = await this.deps.db.select().from(teams).where(eq(teams.id, to.teamId));
+      if (team?.isolated && team.leadBotId !== to.id) {
+        const [lead] = team.leadBotId
+          ? await this.deps.db.select().from(bots).where(eq(bots.id, team.leadBotId))
+          : [];
+        throw new Error(
+          `L'équipe ${team.name} est cloisonnée : passe par ${lead ? `son lead, ${lead.name}, ou ` : ''}le Chef.`,
+        );
+      }
+    }
+    const hourAgo = Date.now() - 3_600_000;
+    const recent = (this.sends.get(from.id) ?? []).filter((at) => at > hourAgo);
+    if (recent.length >= MAX_SENDS_PER_HOUR) {
+      throw new Error(
+        `Tu as déjà écrit ${MAX_SENDS_PER_HOUR} fois à d'autres bots cette heure-ci : fais une pause.`,
+      );
+    }
+    recent.push(Date.now());
+    this.sends.set(from.id, recent);
+  }
+
+  /**
+   * Asks another bot and waits for its answer (the final text of the run that handles the
+   * question). Refused when it would deadlock; gives up after a while (the answer then
+   * arrives later as a message).
+   */
+  async ask(
+    from: BotRow,
+    to: BotRow,
+    question: string,
+    depth: number,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    for (let cursor: string | undefined = to.id; cursor; cursor = this.waiting.get(cursor)) {
+      if (cursor === from.id) {
+        throw new Error(
+          `${to.name} attend déjà une réponse de toi (directement ou par d'autres bots) : écris-lui plutôt avec send_message.`,
+        );
+      }
+    }
+    await this.checkReach(from, to, depth);
+    const askId = randomUUID();
+    const answer = new Promise<string>((resolve) =>
+      this.asks.set(askId, { askerId: from.id, resolve, late: false, depth }),
+    );
+    await this.deliver(to.id, { from, kind: 'ask', text: question, meta: { askId, depth } });
+    this.waiting.set(from.id, to.id);
+    await this.deps.bots.update(from.id, {
+      status: 'waiting_bot',
+      statusDetail: `Attend ${to.name}`,
+    });
+    const timeoutMs = this.deps.askTimeoutMs ?? ASK_TIMEOUT_MS;
+    let timer: NodeJS.Timeout | undefined;
+    let onAbort: (() => void) | undefined;
+    try {
+      return await Promise.race([
+        answer,
+        new Promise<string>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+          onAbort = () => reject(signal?.reason ?? new Error('aborted'));
+          if (signal?.aborted) onAbort();
+          signal?.addEventListener('abort', onAbort, { once: true });
+        }),
+      ]);
+    } catch (error) {
+      if (signal?.aborted) {
+        this.asks.delete(askId);
+        throw error;
+      }
+      const pending = this.asks.get(askId);
+      if (pending) pending.late = true;
+      return `${to.name} n'a pas répondu dans les ${Math.round(timeoutMs / 60_000)} minutes. Sa réponse t'arrivera plus tard, comme un message.`;
+    } finally {
+      clearTimeout(timer);
+      if (onAbort) signal?.removeEventListener('abort', onAbort);
+      this.waiting.delete(from.id);
+      if (!signal?.aborted) {
+        await this.deps.bots.update(from.id, { status: 'working', statusDetail: null });
+      }
+    }
+  }
+
+  /** The run that handled these questions is over: their askers get its answer. */
+  private async settleAsks(askIds: string[], bot: BotRow, answer: string): Promise<void> {
+    for (const askId of askIds) {
+      const pending = this.asks.get(askId);
+      if (!pending) continue;
+      this.asks.delete(askId);
+      if (!pending.late) {
+        pending.resolve(answer);
+        continue;
+      }
+      await this.deliver(pending.askerId, {
+        from: bot,
+        kind: 'chat',
+        text: `Réponse (en retard) à ta question :\n${answer}`,
+        meta: { depth: pending.depth + 1 },
+      }).catch((error) => this.log.warn({ err: error, askId }, 'Late answer lost'));
+    }
+  }
+
+  /** Before deleting a bot: stop it, answer whoever waits on it. */
+  async forget(botId: string): Promise<void> {
+    const bot = await this.deps.bots.row(botId);
+    this.stop(botId);
+    await this.idle(botId);
+    clearTimeout(this.tidyTimers.get(botId));
+    this.tidyTimers.delete(botId);
+    this.screen.releaseAll(botId);
+    this.locks.releaseAll(botId);
+    this.sends.delete(botId);
+    // Its own questions were dropped when its run stopped; questions to it get an answer.
+    await this.answerAsksOf(bot, `${bot.name} a été supprimé et ne répondra pas.`);
+  }
+
+  /** Answers every question waiting in a bot's conversation (it was cleared or deleted). */
+  private async answerAsksOf(bot: BotRow, answer: string): Promise<void> {
+    const rows = await this.deps.db
+      .select({ meta: messages.meta })
+      .from(messages)
+      .where(and(eq(messages.botId, bot.id), eq(messages.kind, 'ask')));
+    const askIds = rows.flatMap((row) => (row.meta?.askId ? [row.meta.askId] : []));
+    for (const askId of askIds) {
+      const pending = this.asks.get(askId);
+      if (!pending) continue;
+      this.asks.delete(askId);
+      if (!pending.late) pending.resolve(answer);
+    }
   }
 
   async send(botId: string, text: string): Promise<Message> {
@@ -125,6 +370,7 @@ export class BotRuntime {
     const bot = await this.deps.bots.row(botId);
     this.stop(botId);
     await this.idle(botId);
+    await this.answerAsksOf(bot, `${bot.name} a été réinitialisé et ne répondra pas.`);
     await this.deps.db.delete(messages).where(eq(messages.botId, botId));
     this.deps.events.publish({ type: 'messages.cleared', botId });
     await this.deps.bots.update(botId, { status: 'idle', statusDetail: null });
@@ -140,6 +386,11 @@ export class BotRuntime {
   /** Resolves when the bot's queue is empty (tests, shutdown). */
   async idle(botId: string): Promise<void> {
     while (this.chains.has(botId)) await this.chains.get(botId);
+  }
+
+  /** Resolves when no bot has work queued, including work bots give each other (tests). */
+  async settle(): Promise<void> {
+    while (this.chains.size > 0) await Promise.allSettled([...this.chains.values()]);
   }
 
   async close(): Promise<void> {
@@ -158,7 +409,7 @@ export class BotRuntime {
     await this.deps.db
       .update(bots)
       .set({ status: 'idle', statusDetail: null })
-      .where(inArray(bots.status, ['working']));
+      .where(inArray(bots.status, ['working', 'waiting_bot']));
   }
 
   private schedule(botId: string): void {
@@ -278,14 +529,23 @@ export class BotRuntime {
   private async run(botId: string): Promise<void> {
     const { db, events } = this.deps;
     const bot = await this.deps.bots.row(botId);
-    const [last] = await db
+    const recent = await db
       .select()
       .from(messages)
       .where(eq(messages.botId, botId))
       .orderBy(desc(messages.createdAt))
-      .limit(1);
+      .limit(HISTORY_MESSAGES);
     // Already answered (messages sent in a burst are handled by a single run).
-    if (last?.role !== 'user') return;
+    if (recent[0]?.role !== 'user') return;
+    // What arrived since the bot last spoke: the user resets the bot-to-bot hop count.
+    const answered = recent.findIndex((m) => m.role !== 'user');
+    const incoming = answered < 0 ? recent : recent.slice(0, answered);
+    const depth = incoming.some((m) => !m.fromBotId && !m.meta?.fromName)
+      ? 0
+      : Math.max(0, ...incoming.map((m) => m.meta?.depth ?? 0));
+    const askIds = incoming.flatMap((m) =>
+      m.kind === 'ask' && m.meta?.askId ? [m.meta.askId] : [],
+    );
 
     const [created] = await db
       .insert(messages)
@@ -300,6 +560,7 @@ export class BotRuntime {
         status: 'error',
         error: 'Aucun modèle configuré : ajoute un fournisseur dans Réglages → Modèles.',
       });
+      await this.settleAsks(askIds, bot, `${bot.name} n'a pas de modèle configuré.`);
       return;
     }
 
@@ -313,37 +574,60 @@ export class BotRuntime {
 
     try {
       const [account] = await db.select({ name: owner.displayName }).from(owner).limit(1);
-      const [team] = bot.teamId
-        ? await db.select({ name: teams.name }).from(teams).where(eq(teams.id, bot.teamId))
-        : [];
+      const allTeams = await this.deps.org.listTeams();
+      const allBots = await db.select().from(bots).orderBy(bots.createdAt);
       const pendingImages: string[] = [];
-      const tools = buildTools({
-        botId,
-        botName: bot.name,
-        workspaceId: bot.workspaceId,
-        files: this.deps.files,
-        events,
-        computer: computerId
-          ? async () => {
-              const agent = await this.computerAgent(computerId);
-              watch.windowsBefore ??= inventory(agent, botId).then(
-                (inv) => new Set(inv.windows.map((w) => w.id)),
-                () => null,
-              );
-              await watch.windowsBefore;
-              return agent;
-            }
-          : null,
-        pendingImages,
-      });
+      const tools = {
+        ...buildTools({
+          botId,
+          botName: bot.name,
+          workspaceId: bot.workspaceId,
+          files: this.deps.files,
+          events,
+          shared: computerId
+            ? {
+                computerId,
+                screen: this.screen,
+                locks: this.locks,
+                neighbours: async () =>
+                  (await db.select().from(bots).where(eq(bots.computerId, computerId))).filter(
+                    (b) => b.id !== botId,
+                  ),
+              }
+            : null,
+          computer: computerId
+            ? async () => {
+                const agent = await this.computerAgent(computerId);
+                watch.windowsBefore ??= inventory(agent, botId).then(
+                  (inv) => new Set(inv.windows.map((w) => w.id)),
+                  () => null,
+                );
+                await watch.windowsBefore;
+                return agent;
+              }
+            : null,
+          pendingImages,
+        }),
+        ...(await buildOrgTools({
+          self: bot,
+          depth: depth + 1,
+          runtime: this,
+          org: this.deps.org,
+          tasks: this.tasks,
+          bots: this.deps.bots,
+          db,
+        })),
+      };
 
       const result = streamText({
         model,
         system: systemPrompt({
           bot,
           ownerName: account?.name ?? "l'utilisateur",
-          teamName: team?.name ?? null,
+          teams: allTeams,
+          bots: allBots,
           hasComputer: Boolean(computerId),
+          sharesComputer: allBots.some((b) => b.id !== botId && b.computerId === computerId),
           now: new Date(),
         }),
         messages: await this.history(botId, created.createdAt),
@@ -447,12 +731,10 @@ export class BotRuntime {
         usage: { inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0 },
       });
       await this.deps.bots.update(botId, { status: 'idle', statusDetail: null });
+      await this.settleAsks(askIds, bot, textOf(parts) || '(pas de réponse écrite)');
     } catch (error) {
       const stopped = controller.signal.aborted;
-      const text = parts
-        .filter((p): p is Extract<MessagePart, { type: 'text' }> => p.type === 'text')
-        .map((p) => p.text)
-        .join('');
+      const text = textOf(parts);
       for (const part of parts)
         if (part.type === 'tool' && part.state === 'running') part.state = 'error';
       await this.save(created.id, {
@@ -467,8 +749,17 @@ export class BotRuntime {
         statusDetail: stopped ? null : errorMessage(error),
       });
       if (!stopped) this.log.warn({ err: error, botId }, 'Bot run failed');
+      await this.settleAsks(
+        askIds,
+        bot,
+        stopped
+          ? `${bot.name} a été interrompu avant de répondre.`
+          : `${bot.name} n'a pas pu répondre : ${errorMessage(error)}`,
+      );
     } finally {
       this.controllers.delete(botId);
+      this.screen.releaseAll(botId);
+      this.locks.releaseAll(botId);
     }
     if (computerId) await this.afterRun(botId, computerId, watch.windowsBefore);
   }
