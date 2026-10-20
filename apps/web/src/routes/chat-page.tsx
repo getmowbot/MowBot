@@ -2,7 +2,17 @@ import type { Bot, Message, MessagePart } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { ArrowUp, Monitor, PanelRightClose, Power, Sparkles, Square } from 'lucide-react';
+import {
+  ArrowUp,
+  Hand,
+  Maximize2,
+  Monitor,
+  PanelRightClose,
+  Power,
+  Sparkles,
+  Square,
+  Undo2,
+} from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   type FormEvent,
@@ -34,6 +44,7 @@ import {
   useChef,
   useComputer,
   useComputerAction,
+  useMe,
   useMessages,
   useProviders,
 } from '../lib/queries';
@@ -291,8 +302,15 @@ function ComputerPanel({
   const computer = useComputer(computerId);
   const action = useComputerAction(computerId);
   const pc = computer.data;
+  const me = useMe();
+  const control = pc?.control;
+  const inControl = Boolean(control && control.deviceId === me.data?.device.id);
   // The bot browses in its own window, which the screen doesn't show.
   const [shown, setShown] = useState<'bot' | 'screen'>('bot');
+  const takeOver = () => {
+    action.mutate('takeover');
+    setShown('screen');
+  };
   return (
     <motion.aside
       initial={{ opacity: 0, x: 24, filter: 'blur(8px)' }}
@@ -320,10 +338,15 @@ function ComputerPanel({
         />
       )}
       {pc?.status === 'running' && shown === 'bot' ? (
-        <BotBrowserView botId={bot.id} botName={bot.name} onShown={() => setShown('screen')} />
+        <BotBrowserView
+          botId={bot.id}
+          botName={bot.name}
+          onShown={() => setShown('screen')}
+          onTakeOver={inControl ? undefined : takeOver}
+        />
       ) : pc?.status === 'running' ? (
         <Suspense fallback={null}>
-          <DesktopView computerId={computerId} interactive={false} />
+          <DesktopView computerId={computerId} interactive={inControl} />
         </Suspense>
       ) : (
         <div className="grid aspect-[16/10] place-items-center rounded-lg border border-dashed border-border-strong text-center text-sm text-muted-foreground">
@@ -337,7 +360,33 @@ function ComputerPanel({
           </div>
         </div>
       )}
-      <p className="text-xs text-faint">{t('chat.readOnly')}</p>
+      {pc?.status === 'running' && (
+        <div className="flex flex-wrap items-center gap-2">
+          {inControl ? (
+            <Button size="sm" onClick={() => action.mutate('release')} disabled={action.isPending}>
+              <Undo2 className="size-3.5" /> {t('desktop.release')}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={takeOver} disabled={action.isPending}>
+              <Hand className="size-3.5" /> {t('desktop.takeover')}
+            </Button>
+          )}
+          <Link
+            to="/computers/$computerId"
+            params={{ computerId }}
+            className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Maximize2 className="size-3.5" /> {t('chat.openFull')}
+          </Link>
+        </div>
+      )}
+      <p className="text-xs text-faint">
+        {inControl
+          ? t('desktop.inControl')
+          : control
+            ? t('desktop.otherDevice')
+            : t('chat.readOnly')}
+      </p>
     </motion.aside>
   );
 }

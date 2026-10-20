@@ -134,6 +134,14 @@ export function DesktopPage() {
           botId={shownBot.id}
           botName={shownBot.name}
           onShown={() => setShown('screen')}
+          onTakeOver={
+            inControl
+              ? undefined
+              : () => {
+                  action.mutate('takeover');
+                  setShown('screen');
+                }
+          }
         />
       ) : pc.status === 'running' ? (
         <Suspense

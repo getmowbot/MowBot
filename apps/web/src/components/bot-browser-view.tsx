@@ -1,4 +1,4 @@
-import { Globe, MonitorUp } from 'lucide-react';
+import { Globe, Hand, MonitorUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { problemMessage } from '../lib/auth';
 import { useBotBrowser, useShowBotBrowser } from '../lib/queries';
@@ -45,10 +45,13 @@ export function BotBrowserView({
   botId,
   botName,
   onShown,
+  onTakeOver,
 }: {
   botId: string;
   botName: string;
   onShown?(): void;
+  /** Takes control of the computer (the page is put in front first). */
+  onTakeOver?(): void;
 }) {
   const { t } = useTranslation();
   const view = useBotBrowser(botId);
@@ -87,6 +90,15 @@ export function BotBrowserView({
           <MonitorUp className="size-3.5" />
           <span className="hidden sm:inline">{t('desktop.showOnScreen')}</span>
         </Button>
+        {onTakeOver && (
+          <Button
+            size="sm"
+            disabled={show.isPending}
+            onClick={() => show.mutate(undefined, { onSuccess: onTakeOver })}
+          >
+            <Hand className="size-3.5" /> {t('desktop.takeOverPage')}
+          </Button>
+        )}
       </div>
       {show.isError && (
         <p role="alert" className="text-xs text-destructive">

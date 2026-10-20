@@ -136,7 +136,8 @@ export const en: Catalog = {
     closePc: 'Close PC',
     pcStarting: 'Starting the PC…',
     pcAsleep: 'The PC is asleep. It turns on by itself when the bot needs it.',
-    readOnly: 'View only. To take control, open the team’s Desktop.',
+    readOnly: 'View only: take control to use the mouse and keyboard.',
+    openFull: 'Open full size',
     notSent: 'Message not sent.',
     notFound: 'Bot not found.',
     viewPc: 'View PC',
@@ -369,6 +370,7 @@ export const en: Catalog = {
     noPage: '{{name}} has no page open.',
     noPageHint: 'Its Chrome window shows up here as soon as it browses the web.',
     showOnScreen: 'Show on screen',
+    takeOverPage: 'Take over',
     botPage: 'Page open by {{name}}',
   },
   files: {
