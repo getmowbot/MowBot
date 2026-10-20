@@ -519,7 +519,7 @@ export interface paths {
         delete: operations["deleteBot"];
         options?: never;
         head?: never;
-        /** @description Identity, mission, provider and model of a bot. */
+        /** @description Identity, mission, models (main, fallbacks, light model for check-ins), check-in rhythm and daily token budget of a bot. */
         patch: operations["updateBot"];
         trace?: never;
     };
@@ -609,6 +609,140 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listRoutines"];
+        put?: never;
+        post: operations["createRoutine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routines/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Check-ins are stopped from the bot (heartbeatMinutes: null). */
+        delete: operations["deleteRoutine"];
+        options?: never;
+        head?: never;
+        patch: operations["updateRoutine"];
+        trace?: never;
+    };
+    "/api/v1/routines/{id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Fires the routine now, even when paused, over budget or in quiet hours. */
+        post: operations["runRoutine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routines/{id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The last 20 runs, newest first. */
+        get: operations["listRoutineRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hooks/routines/{id}/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Fires a webhook routine; the request body (JSON or text, 8 KB kept) is handed to the bot as data. */
+        post: operations["callRoutineWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The latest 100, newest first; `unread` leaves out digest-level ones. */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["readNotifications"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSystemSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Pausing stops every bot at once; bots then only answer the user until resumed. */
+        patch: operations["updateSystemSettings"];
         trace?: never;
     };
 }
@@ -3150,6 +3284,18 @@ export interface operations {
                             workspaceId: string | null;
                             providerId: string | null;
                             model: string | null;
+                            fallbacks: {
+                                /** Format: uuid */
+                                providerId: string;
+                                model: string;
+                            }[];
+                            lightModel: {
+                                /** Format: uuid */
+                                providerId: string;
+                                model: string;
+                            } | null;
+                            heartbeatMinutes: number | null;
+                            dailyTokenBudget: number | null;
                             /** @enum {string} */
                             status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                             statusDetail: string | null;
@@ -3245,6 +3391,18 @@ export interface operations {
                         workspaceId: string | null;
                         providerId: string | null;
                         model: string | null;
+                        fallbacks: {
+                            /** Format: uuid */
+                            providerId: string;
+                            model: string;
+                        }[];
+                        lightModel: {
+                            /** Format: uuid */
+                            providerId: string;
+                            model: string;
+                        } | null;
+                        heartbeatMinutes: number | null;
+                        dailyTokenBudget: number | null;
                         /** @enum {string} */
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
@@ -3324,6 +3482,18 @@ export interface operations {
                         workspaceId: string | null;
                         providerId: string | null;
                         model: string | null;
+                        fallbacks: {
+                            /** Format: uuid */
+                            providerId: string;
+                            model: string;
+                        }[];
+                        lightModel: {
+                            /** Format: uuid */
+                            providerId: string;
+                            model: string;
+                        } | null;
+                        heartbeatMinutes: number | null;
+                        dailyTokenBudget: number | null;
                         /** @enum {string} */
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
@@ -3448,6 +3618,18 @@ export interface operations {
                     mission?: string | null;
                     providerId?: string | null;
                     model?: string | null;
+                    fallbacks?: {
+                        /** Format: uuid */
+                        providerId: string;
+                        model: string;
+                    }[];
+                    lightModel?: {
+                        /** Format: uuid */
+                        providerId: string;
+                        model: string;
+                    } | null;
+                    heartbeatMinutes?: number | null;
+                    dailyTokenBudget?: number | null;
                 };
             };
         };
@@ -3471,6 +3653,18 @@ export interface operations {
                         workspaceId: string | null;
                         providerId: string | null;
                         model: string | null;
+                        fallbacks: {
+                            /** Format: uuid */
+                            providerId: string;
+                            model: string;
+                        }[];
+                        lightModel: {
+                            /** Format: uuid */
+                            providerId: string;
+                            model: string;
+                        } | null;
+                        heartbeatMinutes: number | null;
+                        dailyTokenBudget: number | null;
                         /** @enum {string} */
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
@@ -3551,7 +3745,7 @@ export interface operations {
                             fromBotId: string | null;
                             fromName: string | null;
                             /** @enum {string} */
-                            kind: "chat" | "ask" | "task";
+                            kind: "chat" | "ask" | "task" | "routine";
                             taskId: string | null;
                             parts: ({
                                 /** @enum {string} */
@@ -3664,7 +3858,7 @@ export interface operations {
                         fromBotId: string | null;
                         fromName: string | null;
                         /** @enum {string} */
-                        kind: "chat" | "ask" | "task";
+                        kind: "chat" | "ask" | "task" | "routine";
                         taskId: string | null;
                         parts: ({
                             /** @enum {string} */
@@ -4136,7 +4330,7 @@ export interface operations {
                             fromBotId: string | null;
                             fromName: string | null;
                             /** @enum {string} */
-                            kind: "chat" | "ask" | "task";
+                            kind: "chat" | "ask" | "task" | "routine";
                             taskId: string | null;
                             parts: ({
                                 /** @enum {string} */
@@ -4175,6 +4369,886 @@ export interface operations {
                             toBotId: string;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    listRoutines: {
+        parameters: {
+            query?: {
+                botId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            botId: string;
+                            /** @enum {string} */
+                            kind: "custom" | "heartbeat" | "digest";
+                            name: string;
+                            prompt: string;
+                            trigger: {
+                                /** @enum {string} */
+                                type: "cron";
+                                expr: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "interval";
+                                minutes: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "once";
+                                /** Format: date-time */
+                                at: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "webhook";
+                            };
+                            enabled: boolean;
+                            silent: boolean;
+                            /** @enum {string} */
+                            createdBy: "bot" | "user" | "system";
+                            nextRunAt: string | null;
+                            lastRunAt: string | null;
+                            lastStatus: ("running" | "done" | "idle" | "error" | "skipped") | null;
+                            failures: number;
+                            webhookUrl: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    createRoutine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    botId: string;
+                    name: string;
+                    prompt: string;
+                    trigger: {
+                        /** @enum {string} */
+                        type: "cron";
+                        expr: string;
+                    } | {
+                        /** @enum {string} */
+                        type: "interval";
+                        minutes: number;
+                    } | {
+                        /** @enum {string} */
+                        type: "once";
+                        /** Format: date-time */
+                        at: string;
+                    } | {
+                        /** @enum {string} */
+                        type: "webhook";
+                    };
+                    silent?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        /** @enum {string} */
+                        kind: "custom" | "heartbeat" | "digest";
+                        name: string;
+                        prompt: string;
+                        trigger: {
+                            /** @enum {string} */
+                            type: "cron";
+                            expr: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "interval";
+                            minutes: number;
+                        } | {
+                            /** @enum {string} */
+                            type: "once";
+                            /** Format: date-time */
+                            at: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "webhook";
+                        };
+                        enabled: boolean;
+                        silent: boolean;
+                        /** @enum {string} */
+                        createdBy: "bot" | "user" | "system";
+                        nextRunAt: string | null;
+                        lastRunAt: string | null;
+                        lastStatus: ("running" | "done" | "idle" | "error" | "skipped") | null;
+                        failures: number;
+                        webhookUrl: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    deleteRoutine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    updateRoutine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    prompt?: string;
+                    trigger?: {
+                        /** @enum {string} */
+                        type: "cron";
+                        expr: string;
+                    } | {
+                        /** @enum {string} */
+                        type: "interval";
+                        minutes: number;
+                    } | {
+                        /** @enum {string} */
+                        type: "once";
+                        /** Format: date-time */
+                        at: string;
+                    } | {
+                        /** @enum {string} */
+                        type: "webhook";
+                    };
+                    enabled?: boolean;
+                    silent?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        /** @enum {string} */
+                        kind: "custom" | "heartbeat" | "digest";
+                        name: string;
+                        prompt: string;
+                        trigger: {
+                            /** @enum {string} */
+                            type: "cron";
+                            expr: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "interval";
+                            minutes: number;
+                        } | {
+                            /** @enum {string} */
+                            type: "once";
+                            /** Format: date-time */
+                            at: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "webhook";
+                        };
+                        enabled: boolean;
+                        silent: boolean;
+                        /** @enum {string} */
+                        createdBy: "bot" | "user" | "system";
+                        nextRunAt: string | null;
+                        lastRunAt: string | null;
+                        lastStatus: ("running" | "done" | "idle" | "error" | "skipped") | null;
+                        failures: number;
+                        webhookUrl: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    runRoutine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "running" | "done" | "idle" | "error" | "skipped";
+                        detail: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    listRoutineRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            routineId: string;
+                            /** @enum {string} */
+                            status: "running" | "done" | "idle" | "error" | "skipped";
+                            detail: string | null;
+                            messageId: string | null;
+                            /** Format: date-time */
+                            startedAt: string;
+                            finishedAt: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    callRoutineWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accepted: boolean;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            botId: string | null;
+                            /** @enum {string} */
+                            priority: "digest" | "normal" | "urgent";
+                            title: string;
+                            body: string | null;
+                            readAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        }[];
+                        unread: number;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    readNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    getSystemSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        paused: boolean;
+                        quietHours: {
+                            start: string;
+                            end: string;
+                        } | null;
+                        dailyTokenBudget: number | null;
+                        timeZone: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    updateSystemSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    paused?: boolean;
+                    quietHours?: {
+                        start: string;
+                        end: string;
+                    } | null;
+                    dailyTokenBudget?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        paused: boolean;
+                        quietHours: {
+                            start: string;
+                            end: string;
+                        } | null;
+                        dailyTokenBudget: number | null;
+                        timeZone: string;
                     };
                 };
             };

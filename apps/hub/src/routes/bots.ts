@@ -20,7 +20,7 @@ import { errorResponses, HttpProblem } from '../http/problems';
 const tags = ['bots'];
 
 export const botRoutes: FastifyPluginAsyncZod = async (app) => {
-  const { bots, runtime, providers, db, files, org } = app.services;
+  const { bots, runtime, providers, db, files, org, routines } = app.services;
 
   app.get(
     '/bots',
@@ -101,7 +101,8 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags,
         operationId: 'updateBot',
-        description: 'Identity, mission, provider and model of a bot.',
+        description:
+          'Identity, mission, models (main, fallbacks, light model for check-ins), check-in rhythm and daily token budget of a bot.',
         security: bearerSecurity,
         params: botIdParamsSchema,
         body: botUpdateSchema,
@@ -117,7 +118,17 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
         // Switching provider without naming a model: take the provider's default.
         if (body.model === undefined) body.model = provider.defaultModel;
       }
-      return bots.update(request.params.id, body);
+      for (const ref of [
+        ...(body.fallbacks ?? []),
+        ...(body.lightModel ? [body.lightModel] : []),
+      ]) {
+        await providers.row(ref.providerId);
+      }
+      const updated = await bots.update(request.params.id, body);
+      if (body.heartbeatMinutes !== undefined) {
+        await routines.syncHeartbeat(await bots.row(request.params.id));
+      }
+      return updated;
     },
   );
 

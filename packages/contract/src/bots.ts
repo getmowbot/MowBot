@@ -10,6 +10,13 @@ export const botStatusSchema = z.enum([
 ]);
 export type BotStatus = z.infer<typeof botStatusSchema>;
 
+/** A model of a provider. */
+export const modelRefSchema = z.object({
+  providerId: z.uuid(),
+  model: z.string().trim().min(1).max(200),
+});
+export type ModelRef = z.infer<typeof modelRefSchema>;
+
 export const botSchema = z.object({
   id: z.uuid(),
   name: z.string(),
@@ -24,6 +31,14 @@ export const botSchema = z.object({
   workspaceId: z.uuid().nullable(),
   providerId: z.uuid().nullable(),
   model: z.string().nullable(),
+  /** Tried in order when the main model fails (provider down, quota reached…). */
+  fallbacks: z.array(modelRefSchema),
+  /** Cheaper model for check-ins; null: the main model. */
+  lightModel: modelRefSchema.nullable(),
+  /** Minutes between the bot's check-ins; null: none. */
+  heartbeatMinutes: z.number().int().nullable(),
+  /** Tokens per day the bot may spend on what it does on its own; null: no cap. */
+  dailyTokenBudget: z.number().int().nullable(),
   status: botStatusSchema,
   statusDetail: z.string().nullable(),
   /** Seed of the bot's character (shape, colors, eyes): see @mowbot/design. */
@@ -42,6 +57,16 @@ export const botUpdateSchema = z.object({
   mission: z.string().trim().max(4000).nullable().optional(),
   providerId: z.uuid().nullable().optional(),
   model: z.string().trim().min(1).max(200).nullable().optional(),
+  fallbacks: z.array(modelRefSchema).max(5).optional(),
+  lightModel: modelRefSchema.nullable().optional(),
+  heartbeatMinutes: z
+    .number()
+    .int()
+    .min(15)
+    .max(60 * 24)
+    .nullable()
+    .optional(),
+  dailyTokenBudget: z.number().int().min(1000).nullable().optional(),
 });
 export type BotUpdate = z.infer<typeof botUpdateSchema>;
 
@@ -82,7 +107,7 @@ export const messagePartSchema = z.discriminatedUnion('type', [
 ]);
 export type MessagePart = z.infer<typeof messagePartSchema>;
 
-export const messageKindSchema = z.enum(['chat', 'ask', 'task']);
+export const messageKindSchema = z.enum(['chat', 'ask', 'task', 'routine']);
 export type MessageKind = z.infer<typeof messageKindSchema>;
 
 export const messageSchema = z.object({
@@ -93,7 +118,7 @@ export const messageSchema = z.object({
   fromBotId: z.uuid().nullable(),
   /** Name of the sending bot when it wrote (kept if that bot is deleted). */
   fromName: z.string().nullable(),
-  /** `ask`: a question awaiting this bot's answer; `task`: a task assigned or updated. */
+  /** `ask`: a question awaiting this bot's answer; `task`: a task assigned or updated; `routine`: a routine or check-in fired. */
   kind: messageKindSchema,
   taskId: z.uuid().nullable(),
   parts: z.array(messagePartSchema),

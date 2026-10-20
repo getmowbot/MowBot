@@ -24,6 +24,7 @@
     "@fastify/websocket": "^11.3.4",
     "@node-rs/argon2": "^2.2.2",
     "ai": "^7.0.143",
+    "croner": "^10.0.1",
     "dockerode": "^5.0.1",
     "drizzle-orm": "^0.45.4",
     "fastify": "^5.12.7",

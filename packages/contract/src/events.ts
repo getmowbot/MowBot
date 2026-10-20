@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { botSchema, messageSchema } from './bots';
 import { computerSchema } from './computers';
+import { notificationSchema, routineSchema, systemSettingsSchema } from './routines';
 import { taskSchema } from './tasks';
 import { teamSchema } from './teams';
 
@@ -21,6 +22,12 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('team.updated'), team: teamSchema }),
   z.object({ type: z.literal('team.deleted'), teamId: z.uuid() }),
   z.object({ type: z.literal('task.updated'), task: taskSchema }),
+  /** A message went away (e.g. an idle check-in tidied up). */
+  z.object({ type: z.literal('message.deleted'), botId: z.uuid(), messageId: z.uuid() }),
+  z.object({ type: z.literal('routine.updated'), routine: routineSchema }),
+  z.object({ type: z.literal('routine.deleted'), routineId: z.uuid() }),
+  z.object({ type: z.literal('notification.created'), notification: notificationSchema }),
+  z.object({ type: z.literal('system.updated'), settings: systemSettingsSchema }),
   /** The bot's conversation was cleared. */
   z.object({ type: z.literal('messages.cleared'), botId: z.uuid() }),
   /** A message appeared or reached a checkpoint (tool call/result, end of run). */

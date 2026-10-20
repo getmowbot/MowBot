@@ -43,6 +43,13 @@
       "when": 1792525171974,
       "tag": "0005_owner_locale",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792525450676,
+      "tag": "0006_proactivity",
+      "breakpoints": true
     }
   ]
 }

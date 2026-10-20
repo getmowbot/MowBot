@@ -9,6 +9,7 @@
     "ignoreUnknown": true,
     "includes": [
       "**",
+      "!.claude",
       "!**/drizzle/meta",
       "!packages/api-client/openapi.json",
       "!packages/api-client/src/schema.d.ts"

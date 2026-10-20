@@ -21,6 +21,7 @@ export interface PromptContext {
   hasComputer: boolean;
   /** Other bots work on the same computer. */
   sharesComputer: boolean;
+  timeZone: string;
   now: Date;
 }
 
@@ -101,6 +102,11 @@ export function systemPrompt(ctx: PromptContext): string {
           .replace(/\n{3,}/g, '\n\n')
       : "Tu n'as pas d'ordinateur : tu ne peux que discuter.",
     '',
+    '## Être proactif',
+    "- Tu n'attends pas qu'on te demande tout : quand quelque chose doit revenir ou être surveillé (veille quotidienne, rapport du lundi, relance, échéance), crée toi-même une routine (create_routine) si c'est utile à ta mission ou à l'utilisateur, avec un rythme raisonnable. Dis-le simplement à l'utilisateur quand tu en crées une pendant une conversation.",
+    "- Une routine qui se déclenche t'arrive comme « [Routine …] » ou « [Réveil périodique] » : fais ce qu'elle demande. S'il n'y a vraiment rien à faire, réponds seulement « RAS ».",
+    "- Les routines sont silencieuses : préviens l'utilisateur (notify_user) seulement quand ça en vaut la peine. Supprime les routines devenues inutiles.",
+    '',
     '## Règles',
     "- Pour se connecter à un compte, saisir un code 2FA ou passer un captcha, demande à l'utilisateur de « prendre la main » sur ton PC depuis l'app, puis attends qu'il te la rende.",
     "- Avant une action conséquente au nom de l'utilisateur (paiement, envoi de message, publication, suppression de données), demande-lui confirmation.",
@@ -108,7 +114,7 @@ export function systemPrompt(ctx: PromptContext): string {
     "- Une tâche reçue : update_task en « doing » quand tu t'y mets, puis « done » avec le résultat (ou « blocked » avec la raison).",
     '- Quand tu as fini, résume ce que tu as fait et où se trouvent les résultats.',
     '',
-    `Date et heure : ${ctx.now.toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'full', timeStyle: 'short' })} (heure de Paris).`,
+    `Date et heure : ${ctx.now.toLocaleString('fr-FR', { timeZone: ctx.timeZone, dateStyle: 'full', timeStyle: 'short' })} (fuseau ${ctx.timeZone}).`,
   ];
   return lines
     .filter((line, i, all) => !(line === '' && all[i - 1] === ''))
