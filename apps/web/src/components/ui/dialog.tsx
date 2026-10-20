@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { type ReactNode, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Button } from './button';
 
@@ -22,6 +23,7 @@ export function Dialog({
   children: ReactNode;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const titleId = useId();
   useEffect(() => {
     if (!open) return;
@@ -62,7 +64,7 @@ export function Dialog({
               size="icon"
               className="absolute right-3 top-3"
               onClick={onClose}
-              aria-label="Fermer"
+              aria-label={t('common.close')}
             >
               <X className="size-4" />
             </Button>

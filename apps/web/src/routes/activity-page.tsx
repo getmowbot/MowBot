@@ -1,9 +1,10 @@
-import type { Bot, FeedItem, Task, TaskStatus } from '@mowbot/contract';
+import type { Bot, FeedItem, Task } from '@mowbot/contract';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, ListPlus } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BotAvatar } from '../components/bot-avatar';
 import { Markdown } from '../components/markdown';
 import { Button } from '../components/ui/button';
@@ -14,20 +15,15 @@ import { Reveal, reveal, stagger } from '../lib/motion';
 import { useBots, useFeed, useTasks } from '../lib/queries';
 import { cn, timeAgo } from '../lib/utils';
 
-const COLUMNS: { status: TaskStatus; title: string }[] = [
-  { status: 'todo', title: 'À faire' },
-  { status: 'doing', title: 'En cours' },
-  { status: 'blocked', title: 'Bloquées' },
-  { status: 'done', title: 'Terminées' },
-];
-
-const KIND_LABELS = { chat: 'message', ask: 'question', task: 'tâche' } as const;
+/** Kanban columns; cancelled tasks go with the done ones. */
+const COLUMNS = ['todo', 'doing', 'blocked', 'done'] as const;
 
 function Avatar({ bot, name, size = 22 }: { bot?: Bot; name: string; size?: number }) {
   return <BotAvatar seed={bot?.avatarSeed ?? name} size={size} title={name} />;
 }
 
 function TaskCard({ task, byId }: { task: Task; byId: Map<string, Bot> }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const assignee = byId.get(task.assigneeBotId);
   const creator = task.creatorBotId ? byId.get(task.creatorBotId) : undefined;
@@ -54,8 +50,11 @@ function TaskCard({ task, byId }: { task: Task; byId: Map<string, Bot> }) {
         <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           {assignee && <Avatar bot={assignee} name={assignee.name} size={18} />}
           <span className="truncate">
-            {assignee?.name ?? 'Bot supprimé'} · de {creator?.name ?? 'toi'} ·{' '}
-            {timeAgo(task.updatedAt)}
+            {t('activityPage.taskMeta', {
+              assignee: assignee?.name ?? t('activityPage.deletedBot'),
+              creator: creator?.name ?? t('activityPage.you'),
+              time: timeAgo(task.updatedAt),
+            })}
           </span>
         </p>
       </button>
@@ -72,7 +71,7 @@ function TaskCard({ task, byId }: { task: Task; byId: Map<string, Bot> }) {
           onClick={() => cancel.mutate()}
           disabled={cancel.isPending}
         >
-          Annuler la tâche
+          {t('activityPage.cancelTask')}
         </Button>
       )}
     </motion.div>
@@ -80,10 +79,11 @@ function TaskCard({ task, byId }: { task: Task; byId: Map<string, Bot> }) {
 }
 
 function FeedRow({ item, byId }: { item: FeedItem; byId: Map<string, Bot> }) {
+  const { t } = useTranslation();
   const from = item.fromBotId ? byId.get(item.fromBotId) : undefined;
   const to = byId.get(item.toBotId);
   const text = item.parts.map((p) => (p.type === 'text' ? p.text : '')).join('');
-  const fromName = from?.name ?? item.fromName ?? 'Bot supprimé';
+  const fromName = from?.name ?? item.fromName ?? t('activityPage.deletedBot');
   return (
     <motion.li variants={reveal} className="flex gap-3">
       <div className="flex shrink-0 items-center gap-1 pt-0.5">
@@ -93,19 +93,19 @@ function FeedRow({ item, byId }: { item: FeedItem; byId: Map<string, Bot> }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">{fromName}</span> à{' '}
+          <span className="font-medium text-foreground">{fromName}</span> {t('activityPage.feedTo')}{' '}
           {to ? (
             <Link
-              to={to.isChef ? '/' : '/bots/$botId'}
+              to={to.isChef ? '/chef' : '/bots/$botId'}
               params={{ botId: to.id }}
               className="font-medium text-foreground hover:underline"
             >
               {to.name}
             </Link>
           ) : (
-            'un bot supprimé'
+            t('activityPage.aDeletedBot')
           )}{' '}
-          · {KIND_LABELS[item.kind]} · {timeAgo(item.createdAt)}
+          · {t(`common.kinds.${item.kind}`)} · {timeAgo(item.createdAt)}
         </p>
         <Markdown text={text} className="mt-1 line-clamp-6 text-[13.5px] text-foreground/85" />
       </div>
@@ -114,6 +114,7 @@ function FeedRow({ item, byId }: { item: FeedItem; byId: Map<string, Bot> }) {
 }
 
 function NewTaskForm({ bots, onDone }: { bots: Bot[]; onDone(): void }) {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const create = useMutation({
     mutationFn: async (form: FormData) => {
@@ -128,7 +129,7 @@ function NewTaskForm({ bots, onDone }: { bots: Bot[]; onDone(): void }) {
       if (error) throw error;
     },
     onSuccess: onDone,
-    onError: (err) => setError(problemMessage(err, 'Tâche non créée.')),
+    onError: (err) => setError(problemMessage(err, t('activityPage.taskNotCreated'))),
   });
   return (
     <form
@@ -140,7 +141,7 @@ function NewTaskForm({ bots, onDone }: { bots: Bot[]; onDone(): void }) {
       }}
     >
       <div className="space-y-1.5">
-        <Label htmlFor="task-bot">Pour</Label>
+        <Label htmlFor="task-bot">{t('activityPage.assignee')}</Label>
         <Select id="task-bot" name="bot" required>
           {bots.map((bot) => (
             <option key={bot.id} value={bot.id}>
@@ -150,26 +151,26 @@ function NewTaskForm({ bots, onDone }: { bots: Bot[]; onDone(): void }) {
         </Select>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="task-title">Tâche</Label>
+        <Label htmlFor="task-title">{t('activityPage.task')}</Label>
         <Input id="task-title" name="title" required maxLength={200} autoFocus />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="task-details">Détails</Label>
+        <Label htmlFor="task-details">{t('activityPage.details')}</Label>
         <Textarea
           id="task-details"
           name="details"
           rows={4}
           maxLength={8000}
-          placeholder="Contexte, attentes, où livrer"
+          placeholder={t('activityPage.detailsPlaceholder')}
         />
       </div>
       <FormError message={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={create.isPending}>
-          {create.isPending ? 'Envoi…' : 'Confier la tâche'}
+          {create.isPending ? t('common.sending') : t('activityPage.assign')}
         </Button>
         <Button variant="ghost" onClick={onDone}>
-          Annuler
+          {t('common.cancel')}
         </Button>
       </div>
     </form>
@@ -178,6 +179,7 @@ function NewTaskForm({ bots, onDone }: { bots: Bot[]; onDone(): void }) {
 
 /** What the bots do together: their tasks, and what they write to each other. */
 export function ActivityPage() {
+  const { t } = useTranslation();
   const bots = useBots();
   const tasks = useTasks();
   const feed = useFeed();
@@ -189,29 +191,27 @@ export function ActivityPage() {
     <div className="mx-auto max-w-6xl space-y-8">
       <Reveal className="flex flex-wrap items-end gap-3">
         <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Activité</h1>
-          <p className="text-sm text-muted-foreground">
-            Les tâches que les bots se confient, et ce qu’ils se disent.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('activityPage.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('activityPage.subtitle')}</p>
         </div>
         <Button onClick={() => setCreating(true)}>
-          <ListPlus className="size-4" /> Nouvelle tâche
+          <ListPlus className="size-4" /> {t('activityPage.newTask')}
         </Button>
       </Reveal>
 
       <section className="space-y-3">
-        <h2 className="font-medium">Tâches</h2>
+        <h2 className="font-medium">{t('activityPage.tasks')}</h2>
         <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0">
           {COLUMNS.map((column) => {
-            const items = (tasks.data ?? []).filter((t) =>
-              column.status === 'done'
-                ? t.status === 'done' || t.status === 'cancelled'
-                : t.status === column.status,
+            const items = (tasks.data ?? []).filter((task) =>
+              column === 'done'
+                ? task.status === 'done' || task.status === 'cancelled'
+                : task.status === column,
             );
             return (
-              <div key={column.status} className="w-64 shrink-0 snap-start space-y-2 md:w-auto">
+              <div key={column} className="w-64 shrink-0 snap-start space-y-2 md:w-auto">
                 <p className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-[0.12em] text-faint">
-                  {column.title}
+                  {t(`activityPage.columns.${column}`)}
                   <span className="tabular-nums">{items.length}</span>
                 </p>
                 <motion.div
@@ -231,11 +231,9 @@ export function ActivityPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-medium">Échanges entre bots</h2>
+        <h2 className="font-medium">{t('activityPage.exchanges')}</h2>
         {exchanges.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Rien pour l’instant. Quand tes bots se parleront, tu verras tout ici.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('activityPage.empty')}</p>
         ) : (
           <motion.ul initial="hidden" animate="shown" variants={stagger} className="space-y-4">
             {exchanges.map((item) => (
@@ -245,7 +243,7 @@ export function ActivityPage() {
         )}
       </section>
 
-      <Dialog open={creating} onClose={() => setCreating(false)} title="Nouvelle tâche">
+      <Dialog open={creating} onClose={() => setCreating(false)} title={t('activityPage.newTask')}>
         <NewTaskForm bots={bots.data ?? []} onDone={() => setCreating(false)} />
       </Dialog>
     </div>

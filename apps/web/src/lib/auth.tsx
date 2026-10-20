@@ -9,6 +9,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { currentLocale, i18n } from '../i18n';
 import { guessDeviceName } from './utils';
 
 export const apiBaseUrl: string = import.meta.env.VITE_MOWBOT_API_URL ?? '';
@@ -30,18 +31,24 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const PROBLEM_MESSAGES: Record<string, string> = {
-  invalid_credentials: 'Mot de passe incorrect.',
-  invalid_setup_token: 'Jeton de configuration invalide.',
-  already_set_up: 'Cette instance est déjà configurée.',
-  validation_failed: 'Certains champs sont invalides.',
-  rate_limited: 'Trop de tentatives. Réessaie dans une minute.',
-};
+/** Problems worded in the app's language; the others show the hub's detail. */
+const WORDED_PROBLEMS = [
+  'invalid_credentials',
+  'invalid_setup_token',
+  'already_set_up',
+  'validation_failed',
+  'rate_limited',
+] as const;
+type WordedProblem = (typeof WORDED_PROBLEMS)[number];
+
+const isWorded = (code: string | undefined): code is WordedProblem =>
+  WORDED_PROBLEMS.includes(code as WordedProblem);
 
 export function problemMessage(error: unknown, fallback: string): string {
   const problem = error as Partial<Problem> | undefined;
   const code = problem?.type?.replace('urn:mowbot:problem:', '');
-  return (code && PROBLEM_MESSAGES[code]) ?? problem?.detail ?? fallback;
+  if (isWorded(code)) return i18n.t(`problems.${code}`);
+  return problem?.detail ?? fallback;
 }
 
 const device = () => ({ name: guessDeviceName(), kind: 'web' as const });
@@ -70,6 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error || !data) throw error;
     client.setSession(data);
+    // A new account starts in French: give it the language the owner set it up in.
+    await api.PATCH('/api/v1/me', { body: { locale: currentLocale() } }).catch(() => undefined);
     setStatus('authenticated');
   }, []);
 

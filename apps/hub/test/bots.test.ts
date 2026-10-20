@@ -69,7 +69,7 @@ describe('Chef', () => {
     const [user, answer] = await conversation();
     expect(user).toMatchObject({ role: 'user', parts: [{ type: 'text', text: 'Bonjour' }] });
     expect(answer).toMatchObject({ role: 'assistant', status: 'error' });
-    expect(answer?.error).toContain('Aucun modèle');
+    expect(answer?.errorCode).toBe('no_model');
   });
 });
 
@@ -358,5 +358,22 @@ describe('runtime', () => {
     ).json();
     expect(older.items).toHaveLength(2);
     expect(older.nextCursor).toBeNull();
+  });
+});
+
+describe('language', () => {
+  it('lets the owner pick the language bots answer in', async () => {
+    const model = scripted([textTurn('Hi!')]);
+    const { app, token, send, services, chef } = await start(model);
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/me',
+      headers: bearer(token),
+      payload: { locale: 'en' },
+    });
+    expect(res.json().owner.locale).toBe('en');
+    await send('Hello');
+    await services.runtime.idle(chef.id);
+    expect(JSON.stringify(model.doStreamCalls[0]?.prompt)).toContain('en anglais (English)');
   });
 });

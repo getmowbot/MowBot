@@ -1,7 +1,9 @@
 import { PASSWORD_MIN_LENGTH } from '@mowbot/contract';
 import { motion } from 'motion/react';
 import { type FormEvent, type ReactNode, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BotAvatar } from '../components/bot-avatar';
+import { LanguageSwitch } from '../components/language-menu';
 import { Button } from '../components/ui/button';
 import { Card, FormError, Input, Label } from '../components/ui/form';
 import { problemMessage, useAuth } from '../lib/auth';
@@ -37,12 +39,16 @@ function AuthLayout({
         <motion.div variants={reveal}>
           <Card>{children}</Card>
         </motion.div>
+        <motion.div variants={reveal}>
+          <LanguageSwitch />
+        </motion.div>
       </motion.div>
     </main>
   );
 }
 
 export function SetupPage() {
+  const { t } = useTranslation();
   const { setup } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -52,7 +58,7 @@ export function SetupPage() {
     const form = new FormData(event.currentTarget);
     const password = String(form.get('password'));
     if (password !== String(form.get('confirm'))) {
-      return setError('Les mots de passe ne correspondent pas.');
+      return setError(t('auth.passwordsDiffer'));
     }
     setPending(true);
     setError(null);
@@ -63,30 +69,27 @@ export function SetupPage() {
         password,
       });
     } catch (err) {
-      setError(problemMessage(err, 'Configuration impossible.'));
+      setError(problemMessage(err, t('auth.setupFailed')));
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <AuthLayout
-      title="Bienvenue sur MowBot"
-      subtitle="Crée le compte propriétaire de cette instance."
-    >
+    <AuthLayout title={t('auth.setupTitle')} subtitle={t('auth.setupSubtitle')}>
       <form className="space-y-4" onSubmit={onSubmit}>
         <div className="space-y-1.5">
-          <Label htmlFor="setupToken">Jeton de configuration</Label>
+          <Label htmlFor="setupToken">{t('auth.setupToken')}</Label>
           <Input id="setupToken" name="setupToken" required autoComplete="off" spellCheck={false} />
-          <p className="text-xs text-faint">Affiché dans les logs du hub au premier démarrage.</p>
+          <p className="text-xs text-faint">{t('auth.setupTokenHint')}</p>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="displayName">Ton nom</Label>
+          <Label htmlFor="displayName">{t('auth.displayName')}</Label>
           <Input id="displayName" name="displayName" required maxLength={100} autoComplete="name" />
         </div>
         <input type="hidden" name="username" value="owner" autoComplete="username" />
         <div className="space-y-1.5">
-          <Label htmlFor="password">Mot de passe</Label>
+          <Label htmlFor="password">{t('auth.password')}</Label>
           <Input
             id="password"
             name="password"
@@ -95,15 +98,17 @@ export function SetupPage() {
             minLength={PASSWORD_MIN_LENGTH}
             autoComplete="new-password"
           />
-          <p className="text-xs text-faint">{PASSWORD_MIN_LENGTH} caractères minimum.</p>
+          <p className="text-xs text-faint">
+            {t('auth.passwordHint', { min: PASSWORD_MIN_LENGTH })}
+          </p>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="confirm">Confirmation</Label>
+          <Label htmlFor="confirm">{t('auth.confirm')}</Label>
           <Input id="confirm" name="confirm" type="password" required autoComplete="new-password" />
         </div>
         <FormError message={error} />
         <Button type="submit" size="lg" className="w-full" disabled={pending}>
-          {pending ? 'Création…' : 'Créer le compte'}
+          {pending ? t('common.creating') : t('auth.createAccount')}
         </Button>
       </form>
     </AuthLayout>
@@ -111,6 +116,7 @@ export function SetupPage() {
 }
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const { login } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -123,18 +129,18 @@ export function LoginPage() {
     try {
       await login(password);
     } catch (err) {
-      setError(problemMessage(err, 'Connexion impossible.'));
+      setError(problemMessage(err, t('auth.loginFailed')));
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <AuthLayout title="Content de te revoir" subtitle="Tes bots t'attendent.">
+    <AuthLayout title={t('auth.loginTitle')} subtitle={t('auth.loginSubtitle')}>
       <form className="space-y-4" onSubmit={onSubmit}>
         <input type="hidden" name="username" value="owner" autoComplete="username" />
         <div className="space-y-1.5">
-          <Label htmlFor="password">Mot de passe</Label>
+          <Label htmlFor="password">{t('auth.password')}</Label>
           <Input
             id="password"
             name="password"
@@ -146,7 +152,7 @@ export function LoginPage() {
         </div>
         <FormError message={error} />
         <Button type="submit" size="lg" className="w-full" disabled={pending}>
-          {pending ? 'Connexion…' : 'Se connecter'}
+          {pending ? t('auth.signingIn') : t('auth.signIn')}
         </Button>
       </form>
     </AuthLayout>

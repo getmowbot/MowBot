@@ -70,6 +70,21 @@
 - [x] Vérifié avec un modèle simulé : le Chef pose une question à un bot, attend sa réponse, lui confie une tâche ; le bot écrit le livrable et la marque terminée ; le Chef est prévenu
 - [ ] Suite P3 (prochaine PR) : navigateur par bot (fenêtres Chrome et pilotage CDP sans l'écran), displays virtuels, screencast par bot, `share_file` entre équipes, canal d'équipe, approbations, déplacement d'un bot vers une autre équipe
 
+## État de P4
+
+- [x] Routines : déclencheurs cron, intervalle, une fois, webhook (URL secrète, contenu transmis au bot comme donnée) ; créées par les bots (`create_routine`…) ou par l'utilisateur ; silencieuses par défaut ; 20 par bot, 5 min d'écart minimum, désactivées après 3 échecs de suite (l'utilisateur est prévenu) ; historique des 20 derniers passages ; lancement à la main
+- [x] Réveils périodiques (heartbeat) par bot, avec heures calmes ; un réveil sans rien à faire (« RAS ») ne laisse pas de trace dans la conversation
+- [x] Bilan du jour du Chef (19 h, `activity_report` + `notify_user`)
+- [x] Notifications : `notify_user` (urgent, normal, digest gardé pour le bilan), liste et lecture
+- [x] Budgets de jetons par jour (par bot et global) sur ce que les bots font d'eux-mêmes
+- [x] Chaîne de modèles de repli et modèle léger pour les réveils
+- [x] Pause globale : tout s'arrête, les échanges entre bots attendent la reprise, les bots répondent encore à l'utilisateur
+- [x] Langue du compte (FR/EN) : les bots répondent dans la langue de l'utilisateur
+- [x] Page d'accueil : les canvas que les bots y épinglent (score avec logos, liste à cocher, chiffres, note, HTML sans script), notifications, demande rapide au Chef, pause globale ; l'utilisateur range, redimensionne, retire ou supprime les cartes (4 par bot, 24 en tout)
+- [x] Pages Routines (déclencheur, prochain passage, historique, lancement à la main, URL de webhook) et Proactivité (pause, heures calmes, budgets, réveils, modèles léger et de secours)
+- [x] Interface web en français et en anglais (langue du compte) ; aperçu des fichiers Markdown mis en forme
+- [ ] Web Push et notifications sur mobile (P8)
+
 ## Risques
 
 1. **Conditions des providers** : l'abonnement ChatGPT n'est utilisable que via le programme open-source officiel (MowBot doit être open source) ; Claude Pro/Max uniquement via le CLI Claude Code officiel non modifié. Les limites des abonnements supposent un « usage individuel ordinaire » → une proactivité massive consomme vite les quotas.

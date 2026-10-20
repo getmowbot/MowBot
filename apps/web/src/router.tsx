@@ -6,6 +6,7 @@ import {
   Outlet,
   useLocation,
 } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { BotAvatar } from './components/bot-avatar';
 import { useAuth } from './lib/auth';
 import { ActivityPage } from './routes/activity-page';
@@ -16,14 +17,18 @@ import { ChatPage } from './routes/chat-page';
 import { DesktopPage } from './routes/desktop-page';
 import { DevicesPage } from './routes/devices-page';
 import { FilesPage } from './routes/files-page';
+import { HomePage } from './routes/home-page';
 import { ModelsPage } from './routes/models-page';
 import { OrgPage } from './routes/org-page';
+import { ProactivityPage } from './routes/proactivity-page';
+import { RoutinesPage } from './routes/routines-page';
 import { TeamPage } from './routes/team-page';
 
 const PUBLIC_PATHS = ['/setup', '/login'];
 
 /** Sends every visitor to the page matching their auth state. */
 function AuthGate() {
+  const { t } = useTranslation();
   const { status } = useAuth();
   const { pathname } = useLocation();
 
@@ -40,9 +45,7 @@ function AuthGate() {
             status === 'loading' ? 'shimmer-text text-sm' : 'text-sm text-muted-foreground'
           }
         >
-          {status === 'loading'
-            ? 'Connexion au hub…'
-            : "Le hub MowBot est injoignable. Vérifie qu'il est démarré puis recharge la page."}
+          {status === 'loading' ? t('gate.connecting') : t('gate.offline')}
         </p>
       </div>
     );
@@ -65,7 +68,12 @@ const loginRoute = createRoute({
   component: LoginPage,
 });
 const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', component: AppShell });
-const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: ChatPage });
+const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: HomePage });
+const chefRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/chef',
+  component: ChatPage,
+});
 const botRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/bots/$botId',
@@ -82,6 +90,16 @@ const devicesRoute = createRoute({
   component: DevicesPage,
 });
 
+const routinesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/routines',
+  component: RoutinesPage,
+});
+const proactivityRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/settings/proactivity',
+  component: ProactivityPage,
+});
 const orgRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/org',
@@ -135,9 +153,12 @@ export const router = createRouter({
     loginRoute,
     appRoute.addChildren([
       homeRoute,
+      chefRoute,
       botRoute,
       modelsRoute,
       devicesRoute,
+      routinesRoute,
+      proactivityRoute,
       orgRoute,
       activityRoute,
       teamRoute,

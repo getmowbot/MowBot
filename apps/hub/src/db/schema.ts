@@ -1,11 +1,20 @@
 import type {
   BotStatus,
+  CanvasContent,
+  CanvasSize,
   ComputerKind,
   ComputerStatus,
   DeviceKind,
+  Locale,
+  Message,
   MessageKind,
   MessagePart,
+  ModelRef,
+  NotificationPriority,
   ProviderKind,
+  RoutineKind,
+  RoutineRunStatus,
+  RoutineTrigger,
   Scope,
   TaskStatus,
 } from '@mowbot/contract';
@@ -17,6 +26,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -36,6 +46,7 @@ export const owner = pgTable(
     singleton: boolean('singleton').notNull().default(true),
     displayName: text('display_name').notNull(),
     passwordHash: text('password_hash').notNull(),
+    locale: text('locale').$type<Locale>().notNull().default('fr'),
     createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -197,6 +208,10 @@ export const bots = pgTable(
     status: text('status').$type<BotStatus>().notNull().default('idle'),
     statusDetail: text('status_detail'),
     avatarSeed: text('avatar_seed').notNull(),
+    fallbacks: jsonb('fallbacks').$type<ModelRef[]>().notNull().default([]),
+    lightModel: jsonb('light_model').$type<ModelRef>(),
+    heartbeatMinutes: integer('heartbeat_minutes'),
+    dailyTokenBudget: integer('daily_token_budget'),
     /** The bot that created this one (org chart). */
     managerId: uuid('manager_id').references((): AnyPgColumn => bots.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
@@ -228,6 +243,7 @@ export const messages = pgTable(
     parts: jsonb('parts').$type<MessagePart[]>().notNull(),
     modelMessages: jsonb('model_messages').$type<ModelMessage[]>().notNull(),
     status: text('status').$type<'streaming' | 'done' | 'error' | 'stopped'>().notNull(),
+    errorCode: text('error_code').$type<MessageErrorCode>(),
     error: text('error'),
     usage: jsonb('usage').$type<{ inputTokens: number; outputTokens: number }>(),
     createdAt: timestamp('created_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
@@ -238,12 +254,18 @@ export const messages = pgTable(
   ],
 );
 
+export type MessageErrorCode = NonNullable<Message['errorCode']>;
+
 export interface MessageMeta {
   /** Sender's name when it was sent (still shown if that bot is deleted). */
   fromName?: string;
   depth?: number;
   askId?: string;
   taskId?: string;
+  routineId?: string;
+  runId?: string;
+  /** On an answer: the bot acted on its own (routine, other bots), not for the user. */
+  autonomous?: boolean;
 }
 
 /** Work assigned to a bot by another bot (or by the user). */
@@ -263,4 +285,84 @@ export const tasks = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('tasks_assignee_idx').on(t.assigneeBotId, t.status)],
+);
+
+/** Something a bot does on a schedule or on an event, without being asked. */
+export const routines = pgTable(
+  'routines',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<RoutineKind>().notNull().default('custom'),
+    name: text('name').notNull(),
+    prompt: text('prompt').notNull(),
+    trigger: jsonb('trigger').$type<RoutineTrigger>().notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    silent: boolean('silent').notNull().default(true),
+    createdBy: text('created_by').$type<'bot' | 'user' | 'system'>().notNull(),
+    nextRunAt: timestamp('next_run_at', { withTimezone: true }),
+    lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+    lastStatus: text('last_status').$type<RoutineRunStatus>(),
+    failures: integer('failures').notNull().default(0),
+    /** Secret of the webhook URL, sealed with the master key. */
+    webhookTokenSealed: text('webhook_token_sealed'),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('routines_due_idx').on(t.nextRunAt).where(sql`${t.enabled}`),
+    uniqueIndex('routines_heartbeat_unique').on(t.botId).where(sql`${t.kind} = 'heartbeat'`),
+  ],
+);
+
+export const routineRuns = pgTable(
+  'routine_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    routineId: uuid('routine_id')
+      .notNull()
+      .references(() => routines.id, { onDelete: 'cascade' }),
+    status: text('status').$type<RoutineRunStatus>().notNull(),
+    detail: text('detail'),
+    messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => [index('routine_runs_routine_idx').on(t.routineId, t.startedAt)],
+);
+
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    botId: uuid('bot_id').references(() => bots.id, { onDelete: 'set null' }),
+    priority: text('priority').$type<NotificationPriority>().notNull(),
+    title: text('title').notNull(),
+    body: text('body'),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('notifications_created_idx').on(t.createdAt)],
+);
+
+/** A card a bot pins on the home page (score, list, note…), updated in place by its key. */
+export const canvases = pgTable(
+  'canvases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    title: text('title').notNull(),
+    size: text('size').$type<CanvasSize>().notNull().default('s'),
+    content: jsonb('content').$type<CanvasContent>().notNull(),
+    position: integer('position').notNull().default(0),
+    hidden: boolean('hidden').notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('canvases_bot_key_unique').on(t.botId, t.key)],
 );

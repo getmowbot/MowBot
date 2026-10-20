@@ -35,6 +35,8 @@ const envSchema = z.object({
   MOWBOT_COMPUTER_RUNTIME: z.string().optional(),
   /** Stop computers nobody used for this long. 0 disables hibernation. */
   MOWBOT_COMPUTER_IDLE_MINUTES: z.coerce.number().int().min(0).default(30),
+  /** Routines, quiet hours and "today" are in this time zone. */
+  MOWBOT_TIME_ZONE: z.string().default('Europe/Paris'),
 });
 
 export interface Config {
@@ -61,6 +63,7 @@ export interface Config {
     runtime: string | undefined;
     idleMinutes: number;
   };
+  timeZone: string;
 }
 
 export function parseMasterKey(value: string): Buffer {
@@ -108,5 +111,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       runtime: e.MOWBOT_COMPUTER_RUNTIME,
       idleMinutes: e.MOWBOT_COMPUTER_IDLE_MINUTES,
     },
+    timeZone: e.MOWBOT_TIME_ZONE,
   };
 }

@@ -1,7 +1,8 @@
-import type { Bot, Message, ServerEvent, Team } from '@mowbot/contract';
+import type { Bot, Canvas, Message, ServerEvent, Team } from '@mowbot/contract';
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { api, client } from './auth';
+import { alertOnThisDevice } from './proactivity';
 
 const MAX_BACKOFF_MS = 30_000;
 
@@ -70,6 +71,10 @@ export function ServerEvents() {
             'teams',
             'tasks',
             'feed',
+            'canvases',
+            'notifications',
+            'routines',
+            'system',
           ]) {
             void queryClient.invalidateQueries({ queryKey: [key] });
           }
@@ -114,6 +119,32 @@ export function ServerEvents() {
           break;
         case 'message.delta':
           appendDelta(queryClient, event);
+          break;
+        case 'message.deleted':
+          queryClient.setQueryData<Message[]>(['messages', event.botId], (list) =>
+            list?.filter((m) => m.id !== event.messageId),
+          );
+          break;
+        case 'canvas.updated':
+          queryClient.setQueryData<Canvas[]>(['canvases'], (list) =>
+            list ? upsert(list, event.canvas)?.sort((a, b) => a.position - b.position) : list,
+          );
+          break;
+        case 'canvas.deleted':
+          queryClient.setQueryData<Canvas[]>(['canvases'], (list) =>
+            list?.filter((c) => c.id !== event.canvasId),
+          );
+          break;
+        case 'notification.created':
+          void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          alertOnThisDevice(event.notification);
+          break;
+        case 'routine.updated':
+        case 'routine.deleted':
+          void queryClient.invalidateQueries({ queryKey: ['routines'] });
+          break;
+        case 'system.updated':
+          queryClient.setQueryData(['system'], event.settings);
           break;
       }
     };

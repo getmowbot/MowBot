@@ -2,6 +2,7 @@ import type { Bot, Team } from '@mowbot/contract';
 import { Link } from '@tanstack/react-router';
 import { Crown, Lock, UserPlus, Users } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { BotAvatar, TeamAvatar } from '../components/bot-avatar';
 import { StatusDot } from '../components/computer-status';
 import { useOrgDialogs } from '../components/org-dialogs';
@@ -12,10 +13,11 @@ import { useBots, useChef, useComputers, useTeams } from '../lib/queries';
 import { cn } from '../lib/utils';
 
 function BotLine({ bot, lead }: { bot: Bot; lead?: boolean }) {
+  const { t } = useTranslation();
   const mood = moodOf(bot);
   return (
     <Link
-      to={bot.isChef ? '/' : '/bots/$botId'}
+      to={bot.isChef ? '/chef' : '/bots/$botId'}
       params={{ botId: bot.id }}
       className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05]"
     >
@@ -23,7 +25,12 @@ function BotLine({ bot, lead }: { bot: Bot; lead?: boolean }) {
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-sm font-medium">
           <span className="truncate">{bot.name}</span>
-          {lead && <Crown className="size-3 shrink-0 text-muted-foreground" aria-label="Lead" />}
+          {lead && (
+            <Crown
+              className="size-3 shrink-0 text-muted-foreground"
+              aria-label={t('common.lead')}
+            />
+          )}
         </span>
         <span
           className={cn('block truncate text-xs', mood === 'idle' ? 'text-faint' : 'shimmer-text')}
@@ -36,6 +43,7 @@ function BotLine({ bot, lead }: { bot: Bot; lead?: boolean }) {
 }
 
 function TeamNode({ team, members }: { team: Team; members: Bot[] }) {
+  const { t } = useTranslation();
   const computers = useComputers();
   const pc = computers.data?.find((c) => c.id === team.computerId);
   const sorted = [...members].sort(
@@ -57,11 +65,11 @@ function TeamNode({ team, members }: { team: Team; members: Bot[] }) {
           <span className="flex items-center gap-1.5 font-medium">
             <span className="truncate">{team.name}</span>
             {team.isolated && (
-              <Lock className="size-3.5 text-muted-foreground" aria-label="Cloisonnée" />
+              <Lock className="size-3.5 text-muted-foreground" aria-label={t('common.isolated')} />
             )}
           </span>
           <span className="block truncate text-xs text-muted-foreground">
-            {team.mission ?? `${members.length} bot${members.length > 1 ? 's' : ''}`}
+            {team.mission ?? t('org.botCount', { count: members.length })}
           </span>
         </span>
         {pc && <StatusDot status={pc.status} />}
@@ -70,7 +78,7 @@ function TeamNode({ team, members }: { team: Team; members: Bot[] }) {
         {sorted.length ? (
           sorted.map((bot) => <BotLine key={bot.id} bot={bot} lead={bot.id === team.leadBotId} />)
         ) : (
-          <p className="px-2 py-1.5 text-xs text-faint">Aucun bot</p>
+          <p className="px-2 py-1.5 text-xs text-faint">{t('common.noBots')}</p>
         )}
       </div>
     </motion.div>
@@ -79,6 +87,7 @@ function TeamNode({ team, members }: { team: Team; members: Bot[] }) {
 
 /** Org chart: the Chef, the teams under it with their bots, and the solo bots. */
 export function OrgPage() {
+  const { t } = useTranslation();
   const chef = useChef();
   const teams = useTeams();
   const bots = useBots();
@@ -90,23 +99,21 @@ export function OrgPage() {
     <div className="mx-auto max-w-5xl space-y-8">
       <Reveal className="flex flex-wrap items-end gap-3">
         <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Organisation</h1>
-          <p className="text-sm text-muted-foreground">
-            Tes équipes et leurs bots. Le Chef peut aussi les créer pour toi : demande-le-lui.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t('shell.organization')}</h1>
+          <p className="text-sm text-muted-foreground">{t('org.subtitle')}</p>
         </div>
         <Button variant="outline" onClick={() => dialogs.newTeam()}>
-          <Users className="size-4" /> Nouvelle équipe
+          <Users className="size-4" /> {t('common.newTeam')}
         </Button>
         <Button onClick={() => dialogs.newBot()}>
-          <UserPlus className="size-4" /> Nouveau bot
+          <UserPlus className="size-4" /> {t('common.newBot')}
         </Button>
       </Reveal>
 
       {chef.data && (
         <div className="flex flex-col items-center">
           <Reveal>
-            <Link to="/" className="flex flex-col items-center gap-2 rounded-2xl px-4 py-2">
+            <Link to="/chef" className="flex flex-col items-center gap-2 rounded-2xl px-4 py-2">
               <BotAvatar
                 seed={chef.data.avatarSeed}
                 size={72}
@@ -137,7 +144,7 @@ export function OrgPage() {
 
       {solo.length > 0 && (
         <section className="space-y-3">
-          <h2 className="font-medium">Bots solo</h2>
+          <h2 className="font-medium">{t('common.soloBots')}</h2>
           <motion.div
             initial="hidden"
             animate="shown"

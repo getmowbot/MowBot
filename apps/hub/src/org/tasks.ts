@@ -4,6 +4,7 @@ import type { Db } from '../db/client';
 import { bots, tasks } from '../db/schema';
 import type { EventBus } from '../events';
 import { HttpProblem, notFound } from '../http/problems';
+import { HUB_TEXTS, ownerLocale } from '../i18n';
 
 type TaskRow = typeof tasks.$inferSelect;
 type BotRow = typeof bots.$inferSelect;
@@ -90,7 +91,9 @@ export class TaskService {
       from: creator,
       task: row,
       depth,
-      display: [`**Tâche** · ${row.title}`, row.details].filter(Boolean).join('\n\n'),
+      display: [`**${HUB_TEXTS[await ownerLocale(this.db)].task}** · ${row.title}`, row.details]
+        .filter(Boolean)
+        .join('\n\n'),
       text: [
         `Nouvelle tâche (id ${row.id}) : « ${row.title} »`,
         row.details,
@@ -137,12 +140,15 @@ export class TaskService {
       const [other] = otherId ? await this.db.select().from(bots).where(eq(bots.id, otherId)) : [];
       if (other && other.id !== actor?.id) {
         const status = TASK_STATUS_LABELS[row.status];
+        const texts = HUB_TEXTS[await ownerLocale(this.db)];
         await this.notify({
           to: other,
           from: actor,
           task: row,
           depth,
-          display: [`**Tâche ${status}** · ${row.title}`, row.result].filter(Boolean).join('\n\n'),
+          display: [`**${texts.task} ${texts.taskStatus[row.status]}** · ${row.title}`, row.result]
+            .filter(Boolean)
+            .join('\n\n'),
           text: [
             `La tâche « ${row.title} » (id ${row.id}) est maintenant ${status}.`,
             row.result ? `Résultat : ${row.result}` : '',

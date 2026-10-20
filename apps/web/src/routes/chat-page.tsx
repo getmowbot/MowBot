@@ -14,12 +14,14 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityGroup, type ActivityPart } from '../components/activity';
 import { BotAvatar } from '../components/bot-avatar';
 import { BotMenu, RenameField } from '../components/bot-menu';
 import { StatusBadge } from '../components/computer-status';
 import { Markdown } from '../components/markdown';
 import { Button } from '../components/ui/button';
+import { i18n } from '../i18n';
 import { api, problemMessage } from '../lib/auth';
 import { moodOf, statusLabel } from '../lib/bot-mood';
 import { reveal } from '../lib/motion';
@@ -39,25 +41,39 @@ const DesktopView = lazy(() =>
 );
 
 const SUGGESTIONS = [
-  'Présente-toi et dis-moi ce que tu sais faire',
-  'Monte une équipe de veille sur l’IA avec deux bots',
-  'Ouvre example.com et décris-moi la page',
-  'Crée une note de bienvenue dans outputs',
-];
+  'chat.suggestions.intro',
+  'chat.suggestions.team',
+  'chat.suggestions.browse',
+  'chat.suggestions.note',
+] as const;
 
 const BOT_SUGGESTIONS = [
-  'Présente-toi',
-  'Où en es-tu de ta mission ?',
-  'Que fait ton équipe en ce moment ?',
-];
+  'chat.botSuggestions.intro',
+  'chat.botSuggestions.mission',
+  'chat.botSuggestions.team',
+] as const;
 
-const KIND_LABELS = { chat: 'message', ask: 'question', task: 'tâche' } as const;
+/** Why an answer failed, worded in the app's language: the hub gives a code and a detail. */
+function failure(message: Message): string {
+  switch (message.errorCode) {
+    case 'no_model':
+    case 'hub_restart':
+      return i18n.t(`chat.errors.${message.errorCode}`);
+    case 'run_failed':
+      return message.error
+        ? i18n.t('chat.errors.run_failed', { detail: message.error })
+        : i18n.t('chat.errors.generic');
+    default:
+      return message.error ?? i18n.t('chat.errors.generic');
+  }
+}
 
 /** What another bot (or the user, for a task) gave this bot: a quieter, outlined bubble. */
 function IncomingMessage({ message }: { message: Message }) {
+  const { t } = useTranslation();
   const bots = useBots();
   const from = bots.data?.find((b) => b.id === message.fromBotId);
-  const name = from?.name ?? message.fromName ?? 'Toi';
+  const name = from?.name ?? message.fromName ?? t('chat.you');
   const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('');
   return (
     <div className="flex justify-end">
@@ -66,7 +82,7 @@ function IncomingMessage({ message }: { message: Message }) {
           {(from || message.fromName) && <BotAvatar seed={from?.avatarSeed ?? name} size={16} />}
           {from ? (
             <Link
-              to={from.isChef ? '/' : '/bots/$botId'}
+              to={from.isChef ? '/chef' : '/bots/$botId'}
               params={{ botId: from.id }}
               className="font-medium text-foreground/90 hover:underline"
             >
@@ -75,7 +91,7 @@ function IncomingMessage({ message }: { message: Message }) {
           ) : (
             <span className="font-medium text-foreground/90">{name}</span>
           )}
-          <span>· {KIND_LABELS[message.kind]}</span>
+          <span>· {t(`common.kinds.${message.kind}`)}</span>
         </p>
         <Markdown text={text} className="text-[14.5px]" />
       </div>
@@ -114,6 +130,7 @@ function segments(parts: MessagePart[]): Segment[] {
 }
 
 function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
+  const { t } = useTranslation();
   const streaming = message.status === 'streaming';
   const blocks = segments(message.parts);
   const empty = blocks.length === 0;
@@ -128,7 +145,9 @@ function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
       {/* First lines (24px tall) are centred on the 30px avatar. */}
       <div className="min-w-0 flex-1 space-y-2.5 pt-[3px]">
         {empty && streaming && (
-          <p className="shimmer-text text-[14.5px] leading-6">{bot.name} réfléchit…</p>
+          <p className="shimmer-text text-[14.5px] leading-6">
+            {t('chat.thinking', { name: bot.name })}
+          </p>
         )}
         {blocks.map((block, i) => {
           const last = i === blocks.length - 1;
@@ -148,16 +167,17 @@ function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
         })}
         {message.status === 'error' && (
           <p className="rounded-xl border border-destructive/25 bg-destructive/[0.07] px-3 py-2 text-sm text-destructive">
-            {message.error ?? 'Une erreur est survenue.'}
+            {failure(message)}
           </p>
         )}
-        {message.status === 'stopped' && <p className="text-xs text-faint">Interrompu.</p>}
+        {message.status === 'stopped' && <p className="text-xs text-faint">{t('chat.stopped')}</p>}
       </div>
     </div>
   );
 }
 
 function EmptyState({ bot, onPick }: { bot: Bot; onPick(text: string): void }) {
+  const { t } = useTranslation();
   return (
     <motion.div
       initial="hidden"
@@ -170,24 +190,20 @@ function EmptyState({ bot, onPick }: { bot: Bot; onPick(text: string): void }) {
       </motion.div>
       <motion.div variants={reveal} className="space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Salut, je suis {bot.isChef ? 'le Chef' : bot.name}.
+          {bot.isChef ? t('chat.greetingChef') : t('chat.greeting', { name: bot.name })}
         </h1>
-        <p className="text-muted-foreground">
-          {bot.isChef
-            ? 'Dis-moi ce que tu veux faire : je travaille sur le PC de l’équipe, je monte des équipes de bots et je dépose les résultats dans vos fichiers.'
-            : bot.role}
-        </p>
+        <p className="text-muted-foreground">{bot.isChef ? t('chat.chefIntro') : bot.role}</p>
         {!bot.isChef && bot.mission && <p className="text-sm text-faint">{bot.mission}</p>}
       </motion.div>
       <motion.div variants={reveal} className="flex flex-wrap justify-center gap-2">
-        {(bot.isChef ? SUGGESTIONS : BOT_SUGGESTIONS).map((suggestion) => (
+        {(bot.isChef ? SUGGESTIONS : BOT_SUGGESTIONS).map((key) => (
           <button
-            key={suggestion}
+            key={key}
             type="button"
-            onClick={() => onPick(suggestion)}
+            onClick={() => onPick(t(key))}
             className="rounded-full border border-border-strong bg-white/[0.02] px-3.5 py-1.5 text-[13px] text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.06] hover:text-foreground"
           >
-            {suggestion}
+            {t(key)}
           </button>
         ))}
       </motion.div>
@@ -196,6 +212,7 @@ function EmptyState({ bot, onPick }: { bot: Bot; onPick(text: string): void }) {
 }
 
 function Composer({ bot, onSend }: { bot: Bot; onSend(text: string): void }) {
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const area = useRef<HTMLTextAreaElement>(null);
   const queryClient = useQueryClient();
@@ -236,7 +253,7 @@ function Composer({ bot, onSend }: { bot: Bot; onSend(text: string): void }) {
         onChange={(event) => setText(event.target.value)}
         onKeyDown={onKeyDown}
         rows={1}
-        placeholder={`Écris à ${bot.name}…`}
+        placeholder={t('chat.placeholder', { name: bot.name })}
         className="max-h-[220px] min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 text-[14.5px] leading-relaxed outline-none placeholder:text-faint"
       />
       {working ? (
@@ -245,12 +262,12 @@ function Composer({ bot, onSend }: { bot: Bot; onSend(text: string): void }) {
           size="icon"
           variant="outline"
           onClick={() => stop.mutate()}
-          aria-label="Arrêter"
+          aria-label={t('chat.stop')}
         >
           <Square className="size-3.5 fill-current" />
         </Button>
       ) : (
-        <Button type="submit" size="icon" disabled={!text.trim()} aria-label="Envoyer">
+        <Button type="submit" size="icon" disabled={!text.trim()} aria-label={t('chat.send')}>
           <ArrowUp className="size-4" />
         </Button>
       )}
@@ -259,6 +276,7 @@ function Composer({ bot, onSend }: { bot: Bot; onSend(text: string): void }) {
 }
 
 function ComputerPanel({ computerId, onClose }: { computerId: string; onClose(): void }) {
+  const { t } = useTranslation();
   const computer = useComputer(computerId);
   const action = useComputerAction(computerId);
   const pc = computer.data;
@@ -274,7 +292,7 @@ function ComputerPanel({ computerId, onClose }: { computerId: string; onClose():
         <Monitor className="size-4 text-muted-foreground" />
         <span className="flex-1 truncate text-sm font-medium">{pc?.name ?? 'PC'}</span>
         {pc && <StatusBadge status={pc.status} />}
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fermer le PC">
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label={t('chat.closePc')}>
           <PanelRightClose className="size-4" />
         </Button>
       </div>
@@ -285,28 +303,23 @@ function ComputerPanel({ computerId, onClose }: { computerId: string; onClose():
       ) : (
         <div className="grid aspect-[16/10] place-items-center rounded-lg border border-dashed border-border-strong text-center text-sm text-muted-foreground">
           <div className="space-y-3">
-            <p>
-              {pc?.status === 'starting'
-                ? 'Démarrage du PC…'
-                : 'Le PC dort. Il s’allume tout seul quand le bot en a besoin.'}
-            </p>
+            <p>{pc?.status === 'starting' ? t('chat.pcStarting') : t('chat.pcAsleep')}</p>
             {(pc?.status === 'stopped' || pc?.status === 'error') && (
               <Button size="sm" variant="outline" onClick={() => action.mutate('start')}>
-                <Power className="size-3.5" /> Allumer
+                <Power className="size-3.5" /> {t('common.turnOn')}
               </Button>
             )}
           </div>
         </div>
       )}
-      <p className="text-xs text-faint">
-        Vue en lecture seule. Pour prendre la main, ouvre le Bureau de l’équipe.
-      </p>
+      <p className="text-xs text-faint">{t('chat.readOnly')}</p>
     </motion.aside>
   );
 }
 
 /** Conversation with a bot: the Chef on `/`, any bot on `/bots/$botId`. */
 export function ChatPage() {
+  const { t } = useTranslation();
   const { botId } = useParams({ strict: false }) as { botId?: string };
   const navigate = useNavigate();
   const chef = useChef();
@@ -340,7 +353,7 @@ export function ChatPage() {
         list && !list.some((m) => m.id === message.id) ? [...list, message] : list,
       );
     },
-    onError: (err) => setError(problemMessage(err, 'Message non envoyé.')),
+    onError: (err) => setError(problemMessage(err, t('chat.notSent'))),
   });
 
   // Follow the conversation while the user is at the bottom.
@@ -359,7 +372,7 @@ export function ChatPage() {
   if (!bot) {
     return (
       <div className="grid h-full place-items-center text-sm text-muted-foreground">
-        {chef.isPending || byId.isPending ? 'Chargement…' : 'Bot introuvable.'}
+        {chef.isPending || byId.isPending ? t('common.loading') : t('chat.notFound')}
       </div>
     );
   }
@@ -400,7 +413,8 @@ export function ChatPage() {
               onClick={() => setShowPc((v) => !v)}
               aria-pressed={showPc}
             >
-              <Monitor className="size-4" /> <span className="hidden sm:inline">Voir le PC</span>
+              <Monitor className="size-4" />{' '}
+              <span className="hidden sm:inline">{t('chat.viewPc')}</span>
             </Button>
           )}
           <BotMenu bot={bot} onRename={() => setRenamingId(bot.id)} />
@@ -423,11 +437,9 @@ export function ChatPage() {
                 className="glass flex flex-wrap items-center gap-3 rounded-2xl p-4"
               >
                 <Sparkles className="size-5 text-primary" />
-                <p className="min-w-0 flex-1 text-sm">
-                  Connecte un modèle (Command Code, OpenAI ou compatible) pour réveiller {bot.name}.
-                </p>
+                <p className="min-w-0 flex-1 text-sm">{t('chat.noModel', { name: bot.name })}</p>
                 <Button size="sm" onClick={() => void navigate({ to: '/settings/models' })}>
-                  Connecter un modèle
+                  {t('chat.connectModel')}
                 </Button>
               </motion.div>
             )}

@@ -1,5 +1,6 @@
 import type { Bot, Message } from '@mowbot/contract';
 import type { BotMood } from '../components/bot-avatar';
+import { i18n } from '../i18n';
 
 /** Expression of a bot's character from its status and what it is doing right now. */
 export function moodOf(bot: Pick<Bot, 'status'>, live?: Message): BotMood {
@@ -20,16 +21,19 @@ export function moodOf(bot: Pick<Bot, 'status'>, live?: Message): BotMood {
   }
 }
 
+/** What the bot is doing, in the app's language: "réfléchit…", "waiting for Nova". */
 export function statusLabel(bot: Pick<Bot, 'status' | 'statusDetail'>, mood: BotMood): string {
-  // "Attend Nova": waiting for another bot's answer.
+  const { t } = i18n;
+  // waiting_bot: statusDetail is the name of the bot whose answer it waits for.
   if (bot.status === 'waiting_bot') {
-    const detail = bot.statusDetail ?? 'Attend un autre bot';
-    return detail.charAt(0).toLowerCase() + detail.slice(1);
+    return bot.statusDetail
+      ? t('mood.waitingFor', { name: bot.statusDetail })
+      : t('mood.waitingForBot');
   }
-  if (mood === 'working') return 'travaille sur son PC…';
-  if (mood === 'thinking') return 'réfléchit…';
-  if (bot.status === 'waiting_user') return 'attend ta réponse';
-  if (bot.status === 'error') return 'a rencontré un problème';
-  if (bot.status === 'paused') return 'en pause';
-  return 'disponible';
+  if (mood === 'working') return t('mood.working');
+  if (mood === 'thinking') return t('mood.thinking');
+  if (bot.status === 'waiting_user') return t('mood.waitingUser');
+  if (bot.status === 'error') return t('mood.error');
+  if (bot.status === 'paused') return t('mood.paused');
+  return t('mood.idle');
 }

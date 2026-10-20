@@ -2,16 +2,22 @@ import type { MessagePart } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useQuery } from '@tanstack/react-query';
 import {
+  AlarmClock,
   AppWindow,
+  Bell,
   Brain,
   BrushCleaning,
+  CalendarClock,
+  CalendarX,
   Camera,
   Check,
   ChevronDown,
+  ClipboardList,
   FilePen,
   FileText,
   FolderOpen,
   Globe,
+  LayoutDashboard,
   ListChecks,
   ListPlus,
   Lock,
@@ -30,6 +36,8 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { i18n } from '../i18n';
 import { client } from '../lib/auth';
 import { cn } from '../lib/utils';
 
@@ -57,15 +65,17 @@ function searchQuery(value: unknown): string | null {
 
 function describeUrl(value: unknown): string {
   const query = searchQuery(value);
-  if (query) return `Cherche « ${query} »`;
+  if (query) return i18n.t('activity.search', { query });
   try {
-    return `Ouvre ${new URL(str(value)).hostname.replace(/^www\./, '')}`;
+    return i18n.t('activity.open', {
+      target: new URL(str(value)).hostname.replace(/^www\./, ''),
+    });
   } catch {
-    return `Ouvre ${str(value)}`;
+    return i18n.t('activity.open', { target: str(value) });
   }
 }
 
-/** `cd /tmp && curl -sL …` → `Lance curl`. */
+/** `cd /tmp && curl -sL …` → `Lance curl` / `Running curl`. */
 function describeCommand(value: unknown): string {
   const step = str(value)
     .split(/&&|\|\||;|\n/)
@@ -76,30 +86,31 @@ function describeCommand(value: unknown): string {
     .split(/\s+/)[0]
     ?.split('/')
     .at(-1);
-  return program ? `Lance ${program}` : 'Lance une commande';
+  return program ? i18n.t('activity.run', { program }) : i18n.t('activity.runAny');
 }
 
 function describeComputer(input: Input): string {
+  const { t } = i18n;
   const at = typeof input.x === 'number' ? ` (${input.x}, ${input.y})` : '';
   switch (input.action) {
     case 'click':
-      return `Clic${at}`;
+      return t('activity.click', { at });
     case 'double_click':
-      return `Double clic${at}`;
+      return t('activity.doubleClick', { at });
     case 'right_click':
-      return `Clic droit${at}`;
+      return t('activity.rightClick', { at });
     case 'move':
-      return `Déplace la souris${at}`;
+      return t('activity.move', { at });
     case 'type':
-      return `Tape « ${str(input.text).slice(0, 60)} »`;
+      return t('activity.type', { text: str(input.text).slice(0, 60) });
     case 'key':
-      return `Touches ${str(input.keys)}`;
+      return t('activity.keys', { keys: str(input.keys) });
     case 'scroll':
-      return `Défile vers ${input.direction === 'up' ? 'le haut' : 'le bas'}`;
+      return t(input.direction === 'up' ? 'activity.scrollUp' : 'activity.scrollDown');
     case 'drag':
-      return `Glisse${at} → (${input.to_x}, ${input.to_y})`;
+      return t('activity.drag', { at, x: String(input.to_x), y: String(input.to_y) });
     default:
-      return 'Agit à l’écran';
+      return t('activity.screenAny');
   }
 }
 
@@ -116,30 +127,14 @@ type Kind =
   | 'message'
   | 'question'
   | 'task'
-  | 'created';
+  | 'created'
+  | 'routine'
+  | 'canvas'
+  | 'notified';
 
-const NOUNS: Record<Kind, [string, string]> = {
-  search: ['recherche', 'recherches'],
-  page: ['page', 'pages'],
-  capture: ['capture', 'captures'],
-  command: ['commande', 'commandes'],
-  screen: ['action à l’écran', 'actions à l’écran'],
-  write: ['fichier écrit', 'fichiers écrits'],
-  read: ['lecture', 'lectures'],
-  tidy: ['rangement', 'rangements'],
-  message: ['message', 'messages'],
-  question: ['question', 'questions'],
-  task: ['tâche', 'tâches'],
-  created: ['création', 'créations'],
-};
-
-const TASK_STATUSES: Record<string, string> = {
-  todo: 'à faire',
-  doing: 'en cours',
-  blocked: 'bloquée',
-  done: 'terminée',
-  cancelled: 'annulée',
-};
+const TASK_STATUSES = ['todo', 'doing', 'blocked', 'done', 'cancelled'] as const;
+const isTaskStatus = (value: string): value is (typeof TASK_STATUSES)[number] =>
+  (TASK_STATUSES as readonly string[]).includes(value);
 
 interface ToolMeta {
   icon(input: Input): LucideIcon;
@@ -155,17 +150,17 @@ const TOOLS: Record<string, ToolMeta> = {
   },
   read_file: {
     icon: () => FileText,
-    title: (i) => `Lit ${workspacePath(i.path)}`,
+    title: (i) => i18n.t('activity.readFile', { path: workspacePath(i.path) }),
     kind: () => 'read',
   },
   write_file: {
     icon: () => FilePen,
-    title: (i) => `Écrit ${workspacePath(i.path)}`,
+    title: (i) => i18n.t('activity.writeFile', { path: workspacePath(i.path) }),
     kind: () => 'write',
   },
   list_files: {
     icon: () => FolderOpen,
-    title: (i) => `Parcourt ${workspacePath(i.path)}`,
+    title: (i) => i18n.t('activity.listFiles', { path: workspacePath(i.path) }),
     kind: () => 'read',
   },
   open_url: {
@@ -173,67 +168,140 @@ const TOOLS: Record<string, ToolMeta> = {
     title: (i) => describeUrl(i.url),
     kind: (i) => (searchQuery(i.url) ? 'search' : 'page'),
   },
-  screenshot: { icon: () => Camera, title: () => 'Regarde l’écran', kind: () => 'capture' },
+  screenshot: {
+    icon: () => Camera,
+    title: () => i18n.t('activity.screenshot'),
+    kind: () => 'capture',
+  },
   computer: { icon: () => MousePointer2, title: describeComputer, kind: () => 'screen' },
   list_windows: {
     icon: () => AppWindow,
-    title: () => 'Regarde ce qui est ouvert',
+    title: () => i18n.t('activity.listWindows'),
     kind: () => null,
   },
   close_windows: {
     icon: () => BrushCleaning,
     title: (i) =>
       Array.isArray(i.ids) && i.ids.length > 0
-        ? `Ferme ${i.ids.length} onglet${i.ids.length > 1 ? 's' : ''} ou fenêtre${i.ids.length > 1 ? 's' : ''}`
-        : 'Range ce qu’il a ouvert',
+        ? i18n.t('activity.closeWindows', { count: i.ids.length })
+        : i18n.t('activity.tidy'),
     kind: () => 'tidy',
   },
   pc_status: {
     icon: () => Monitor,
-    title: () => 'Regarde qui fait quoi sur le PC',
+    title: () => i18n.t('activity.pcStatus'),
     kind: () => null,
   },
   lock_file: {
     icon: () => Lock,
-    title: (i) => `Réserve ${workspacePath(i.path)}`,
+    title: (i) => i18n.t('activity.lockFile', { path: workspacePath(i.path) }),
     kind: () => null,
   },
   unlock_file: {
     icon: () => LockOpen,
-    title: (i) => `Libère ${workspacePath(i.path)}`,
+    title: (i) => i18n.t('activity.unlockFile', { path: workspacePath(i.path) }),
     kind: () => null,
   },
-  list_bots: { icon: () => Users, title: () => 'Consulte l’annuaire', kind: () => null },
+  list_bots: { icon: () => Users, title: () => i18n.t('activity.listBots'), kind: () => null },
   send_message: {
     icon: () => Send,
-    title: (i) => `Écrit à ${str(i.to)}`,
+    title: (i) => i18n.t('activity.sendMessage', { name: str(i.to) }),
     kind: () => 'message',
   },
   ask_bot: {
     icon: () => MessageCircleQuestion,
-    title: (i) => `Demande à ${str(i.to)}`,
+    title: (i) => i18n.t('activity.askBot', { name: str(i.to) }),
     kind: () => 'question',
   },
   assign_task: {
     icon: () => ListPlus,
-    title: (i) => `Confie « ${str(i.title)} » à ${str(i.to)}`,
+    title: (i) => i18n.t('activity.assignTask', { title: str(i.title), name: str(i.to) }),
     kind: () => 'task',
   },
   update_task: {
     icon: () => ListChecks,
-    title: (i) => `Tâche ${TASK_STATUSES[str(i.status)] ?? 'mise à jour'}`,
+    title: (i) => {
+      const status = str(i.status);
+      return isTaskStatus(status)
+        ? i18n.t('activity.updateTask', { status: i18n.t(`activity.taskStatus.${status}`) })
+        : i18n.t('activity.updateTaskAny');
+    },
     kind: () => null,
   },
-  list_tasks: { icon: () => ListChecks, title: () => 'Revoit ses tâches', kind: () => null },
+  list_tasks: {
+    icon: () => ListChecks,
+    title: () => i18n.t('activity.listTasks'),
+    kind: () => null,
+  },
   create_team: {
     icon: () => Users,
-    title: (i) => `Crée l’équipe ${str(i.name)}`,
+    title: (i) => i18n.t('activity.createTeam', { name: str(i.name) }),
     kind: () => 'created',
   },
-  create_bot: { icon: () => UserPlus, title: (i) => `Crée ${str(i.name)}`, kind: () => 'created' },
+  create_bot: {
+    icon: () => UserPlus,
+    title: (i) => i18n.t('activity.createBot', { name: str(i.name) }),
+    kind: () => 'created',
+  },
   update_bot: {
     icon: () => UserPen,
-    title: (i) => `Met à jour ${str(i.bot)}`,
+    title: (i) => i18n.t('activity.updateBot', { name: str(i.bot) }),
+    kind: () => null,
+  },
+  create_routine: {
+    icon: () => CalendarClock,
+    title: (i) => i18n.t('activity.createRoutine', { name: str(i.name) }),
+    kind: () => 'routine',
+  },
+  list_routines: {
+    icon: () => CalendarClock,
+    title: () => i18n.t('activity.listRoutines'),
+    kind: () => null,
+  },
+  update_routine: {
+    icon: () => CalendarClock,
+    title: () => i18n.t('activity.updateRoutine'),
+    kind: () => null,
+  },
+  delete_routine: {
+    icon: () => CalendarX,
+    title: () => i18n.t('activity.deleteRoutine'),
+    kind: () => null,
+  },
+  set_heartbeat: {
+    icon: () => AlarmClock,
+    title: (i) =>
+      i18n.t(typeof i.minutes === 'number' ? 'activity.setHeartbeat' : 'activity.heartbeatOff'),
+    kind: () => null,
+  },
+  notify_user: {
+    icon: () => Bell,
+    title: (i) => i18n.t('activity.notifyUser', { title: str(i.title) }),
+    kind: () => 'notified',
+  },
+  activity_report: {
+    icon: () => ClipboardList,
+    title: () => i18n.t('activity.activityReport'),
+    kind: () => null,
+  },
+  canvas_set: {
+    icon: () => LayoutDashboard,
+    title: (i) => i18n.t('activity.canvasSet', { title: str(i.title) }),
+    kind: () => 'canvas',
+  },
+  canvas_get: {
+    icon: () => LayoutDashboard,
+    title: () => i18n.t('activity.canvasGet'),
+    kind: () => null,
+  },
+  canvas_list: {
+    icon: () => LayoutDashboard,
+    title: () => i18n.t('activity.canvasList'),
+    kind: () => null,
+  },
+  canvas_remove: {
+    icon: () => LayoutDashboard,
+    title: () => i18n.t('activity.canvasRemove'),
     kind: () => null,
   },
 };
@@ -253,19 +321,20 @@ function toolTitle(part: ToolPart): string {
   return (TOOLS[part.toolName] ?? FALLBACK).title(input(part)) || part.toolName;
 }
 
-/** `2 recherches · 1 page · 5 captures` */
+/** `2 recherches · 1 page · 5 captures`, in the app's language. */
 function summarize(tools: ToolPart[]): string {
   const counts = new Map<Kind, number>();
   for (const part of tools) {
     const kind = (TOOLS[part.toolName] ?? FALLBACK).kind(input(part));
     if (kind) counts.set(kind, (counts.get(kind) ?? 0) + 1);
   }
-  const words = [...counts].map(([kind, n]) => `${n} ${NOUNS[kind][n > 1 ? 1 : 0]}`);
-  if (words.length === 0) return `${tools.length} action${tools.length > 1 ? 's' : ''}`;
+  const words = [...counts].map(([kind, count]) => i18n.t(`activity.summary.${kind}`, { count }));
+  if (words.length === 0) return i18n.t('activity.summary.actions', { count: tools.length });
   return words.join(' · ');
 }
 
 function Screenshot({ workspaceId, path }: { workspaceId: string; path: string }) {
+  const { t } = useTranslation();
   const image = useQuery({
     queryKey: ['file-blob', workspaceId, path],
     staleTime: Number.POSITIVE_INFINITY,
@@ -283,7 +352,7 @@ function Screenshot({ workspaceId, path }: { workspaceId: string; path: string }
   return (
     <img
       src={image.data}
-      alt="Capture de l'écran du PC"
+      alt={t('activity.screenshotAlt')}
       className="w-full rounded-lg border border-border"
     />
   );
@@ -297,6 +366,7 @@ const expand = {
 };
 
 function ToolStep({ part }: { part: ToolPart }) {
+  useTranslation(); // re-render the labels when the language changes
   const [open, setOpen] = useState(false);
   const Icon = toolIcon(part);
   const intent = str(input(part).intent).trim();
@@ -368,6 +438,7 @@ function ReasoningStep({ part }: { part: ReasoningPart }) {
  * now while it works, a summary once done. Opens on the history, each step expandable.
  */
 export function ActivityGroup({ parts, live }: { parts: ActivityPart[]; live: boolean }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const tools = parts.filter((p): p is ToolPart => p.type === 'tool');
   const steps = parts.filter((p) => p.type === 'tool' || p.text.trim());
@@ -378,10 +449,10 @@ export function ActivityGroup({ parts, live }: { parts: ActivityPart[]; live: bo
   const title = live
     ? running
       ? toolTitle(running)
-      : 'Réfléchit…'
+      : t('activity.thinking')
     : tools.length > 0
       ? summarize(tools)
-      : 'Raisonnement';
+      : t('activity.reasoning');
   const Icon = running ? toolIcon(running) : live || tools.length === 0 ? Brain : Check;
 
   return (
@@ -421,7 +492,7 @@ export function ActivityGroup({ parts, live }: { parts: ActivityPart[]; live: bo
         </span>
         {!live && errors > 0 && (
           <span className="shrink-0 text-destructive/80">
-            · {errors} échec{errors > 1 ? 's' : ''}
+            · {t('activity.failures', { count: errors })}
           </span>
         )}
         {steps.length > 0 && (

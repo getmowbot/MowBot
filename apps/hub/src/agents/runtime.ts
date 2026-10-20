@@ -1,19 +1,24 @@
 import { randomUUID } from 'node:crypto';
-import type { Message, MessageKind, MessagePart } from '@mowbot/contract';
+import type { Message, MessageKind, MessagePart, ModelRef } from '@mowbot/contract';
 import { type LanguageModel, type ModelMessage, stepCountIs, streamText } from 'ai';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import { type BotRow, type BotService, toMessage } from '../bots/service';
 import type { AgentClient, ExecResult } from '../computers/agent-client';
 import type { ComputerService, Logger } from '../computers/service';
 import type { Db } from '../db/client';
-import { bots, type MessageMeta, messages, owner, teams } from '../db/schema';
+import { bots, type MessageMeta, messages, owner, routineRuns, teams } from '../db/schema';
 import type { EventBus } from '../events';
 import type { OrgService } from '../org/service';
 import { TaskService } from '../org/tasks';
+import type { CanvasService } from '../proactivity/canvases';
+import type { NotificationService, SystemService } from '../proactivity/notifications';
+import { IDLE_ANSWER, MAX_FAILURES, type RoutineService } from '../proactivity/routines';
 import type { ProviderService } from '../providers/service';
 import type { WorkspaceFiles } from '../workspaces/files';
+import { buildCanvasTools } from './canvas-tools';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
 import { buildOrgTools } from './org-tools';
+import { buildProactiveTools } from './proactive-tools';
 import { systemPrompt } from './prompt';
 import { FileLocks, ScreenLeases } from './shared-pc';
 import { buildTools, clip } from './tools';
@@ -31,6 +36,9 @@ const ASK_TIMEOUT_MS = 15 * 60_000;
 
 type MessageRow = typeof messages.$inferSelect;
 
+/** Written by the user (a message, or a task they gave), not by a bot or a routine. */
+const fromOwner = (m: MessageRow) => !m.fromBotId && !m.meta?.fromName && m.kind !== 'routine';
+
 export interface RuntimeDeps {
   db: Db;
   events: EventBus;
@@ -39,8 +47,12 @@ export interface RuntimeDeps {
   computers: ComputerService;
   files: WorkspaceFiles;
   org: OrgService;
-  /** Tests inject a scripted model. */
-  modelFor?: (bot: BotRow) => LanguageModel | null;
+  routines: RoutineService;
+  notifications: NotificationService;
+  system: SystemService;
+  canvases: CanvasService;
+  /** Tests inject scripted models (several: a fallback chain). */
+  modelFor?: (bot: BotRow) => LanguageModel | LanguageModel[] | null;
   tidyAfterMs?: number;
   askTimeoutMs?: number;
 }
@@ -173,10 +185,34 @@ export class BotRuntime {
       .returning();
     if (!row) throw new Error('Message insert returned no row');
     this.publish(row);
+    // Paused: bots don't act on their own; the message waits for the resume. A task from the
+    // user is the user asking, so it runs.
+    const fromUser = !delivery.from && delivery.kind === 'task';
+    if (!fromUser && (await this.deps.system.get()).paused) return;
     this.schedule(toBotId);
   }
 
+  /** Kill switch: every bot stops what it is doing now. */
+  pauseAll(): void {
+    for (const controller of this.controllers.values()) controller.abort();
+  }
+
+  /** Bots pick up what reached them while paused. */
+  async resumeAll(): Promise<void> {
+    for (const bot of await this.deps.db.select({ id: bots.id }).from(bots)) {
+      const [last] = await this.deps.db
+        .select({ role: messages.role })
+        .from(messages)
+        .where(eq(messages.botId, bot.id))
+        .orderBy(desc(messages.createdAt))
+        .limit(1);
+      if (last?.role === 'user' && !this.chains.has(bot.id)) this.schedule(bot.id);
+    }
+  }
+
   private async header({ from, kind }: Delivery): Promise<string> {
+    // Routines write their own header (their name, how they fired).
+    if (kind === 'routine') return '';
     if (!from) {
       const [account] = await this.deps.db.select({ name: owner.displayName }).from(owner);
       return `[De la part de ${account?.name ?? "l'utilisateur"}]`;
@@ -259,7 +295,8 @@ export class BotRuntime {
     this.waiting.set(from.id, to.id);
     await this.deps.bots.update(from.id, {
       status: 'waiting_bot',
-      statusDetail: `Attend ${to.name}`,
+      // The name of the bot it waits for; clients word it ("attend Nova", "waiting for Nova").
+      statusDetail: to.name,
     });
     const timeoutMs = this.deps.askTimeoutMs ?? ASK_TIMEOUT_MS;
     let timer: NodeJS.Timeout | undefined;
@@ -404,7 +441,7 @@ export class BotRuntime {
   async recover(): Promise<void> {
     await this.deps.db
       .update(messages)
-      .set({ status: 'error', error: 'Interrompu par un redémarrage du hub' })
+      .set({ status: 'error', errorCode: 'hub_restart', error: null })
       .where(eq(messages.status, 'streaming'));
     await this.deps.db
       .update(bots)
@@ -440,13 +477,26 @@ export class BotRuntime {
     return row;
   }
 
-  private resolveModel(bot: BotRow): LanguageModel | Promise<LanguageModel | null> | null {
-    if (this.deps.modelFor) return this.deps.modelFor(bot);
-    if (!bot.providerId || !bot.model) return null;
-    return this.deps.providers
-      .row(bot.providerId)
-      .then((provider) => this.deps.providers.languageModel(provider, bot.model as string))
-      .catch(() => null);
+  /**
+   * Models to try in order: the main one (or the light one for check-ins), then the
+   * fallbacks. Models of deleted providers are left out.
+   */
+  private async modelChain(bot: BotRow, light: boolean): Promise<LanguageModel[]> {
+    if (this.deps.modelFor) {
+      const scripted = this.deps.modelFor(bot);
+      return scripted ? [scripted].flat() : [];
+    }
+    const refs: ModelRef[] = [
+      ...(light && bot.lightModel ? [bot.lightModel] : []),
+      ...(bot.providerId && bot.model ? [{ providerId: bot.providerId, model: bot.model }] : []),
+      ...bot.fallbacks,
+    ];
+    const models: LanguageModel[] = [];
+    for (const ref of refs) {
+      const provider = await this.deps.providers.row(ref.providerId).catch(() => null);
+      if (provider) models.push(this.deps.providers.languageModel(provider, ref.model));
+    }
+    return models;
   }
 
   /** Previous turns, oldest first, starting with a user message. */
@@ -526,6 +576,62 @@ export class BotRuntime {
     this.planTidy(botId, computerId);
   }
 
+  /** The routine runs a run answers: close them, tidy idle check-ins, tell the user if asked. */
+  private async settleRoutines(
+    runIds: string[],
+    bot: BotRow,
+    outcome:
+      | {
+          ok: true;
+          answer: string;
+          usedTools: boolean;
+          messageIds: string[];
+          /** Only check-ins came in: an idle answer can be tidied away. */
+          tidyable: boolean;
+        }
+      | { ok: false; stopped: boolean; error: string },
+  ): Promise<void> {
+    const { routines, notifications } = this.deps;
+    for (const runId of runIds) {
+      const [run] = await this.deps.db.select().from(routineRuns).where(eq(routineRuns.id, runId));
+      const routine = run ? await routines.row(run.routineId).catch(() => null) : null;
+      if (!run || !routine) continue;
+      if (!outcome.ok) {
+        const settled = await routines.finishRun(runId, outcome.stopped ? 'skipped' : 'error', {
+          detail: outcome.stopped ? 'Interrompu' : outcome.error,
+        });
+        if (settled?.disabled) {
+          await notifications.create({
+            botId: bot.id,
+            priority: 'normal',
+            title: `Routine « ${routine.name} » désactivée`,
+            body: `${bot.name} a échoué ${MAX_FAILURES} fois de suite : ${outcome.error}`,
+          });
+        }
+        continue;
+      }
+      const idle = !outcome.usedTools && IDLE_ANSWER.test(outcome.answer);
+      if (idle && outcome.tidyable) {
+        // Nothing to do: the check-in leaves no trace in the conversation.
+        for (const id of outcome.messageIds) {
+          await this.deps.db.delete(messages).where(eq(messages.id, id));
+          this.deps.events.publish({ type: 'message.deleted', botId: bot.id, messageId: id });
+        }
+        await routines.finishRun(runId, 'idle', { messageId: null });
+        continue;
+      }
+      await routines.finishRun(runId, 'done', { messageId: outcome.messageIds.at(-1) ?? null });
+      if (!routine.silent && outcome.answer) {
+        await notifications.create({
+          botId: bot.id,
+          priority: 'normal',
+          title: routine.name,
+          body: outcome.answer.slice(0, 500),
+        });
+      }
+    }
+  }
+
   private async run(botId: string): Promise<void> {
     const { db, events } = this.deps;
     const bot = await this.deps.bots.row(botId);
@@ -540,27 +646,51 @@ export class BotRuntime {
     // What arrived since the bot last spoke: the user resets the bot-to-bot hop count.
     const answered = recent.findIndex((m) => m.role !== 'user');
     const incoming = answered < 0 ? recent : recent.slice(0, answered);
-    const depth = incoming.some((m) => !m.fromBotId && !m.meta?.fromName)
-      ? 0
-      : Math.max(0, ...incoming.map((m) => m.meta?.depth ?? 0));
+    const autonomous = !incoming.some(fromOwner);
+    const depth = autonomous ? Math.max(0, ...incoming.map((m) => m.meta?.depth ?? 0)) : 0;
     const askIds = incoming.flatMap((m) =>
       m.kind === 'ask' && m.meta?.askId ? [m.meta.askId] : [],
     );
+    const routineRunIds = incoming.flatMap((m) => (m.meta?.runId ? [m.meta.runId] : []));
+    // A run made only of check-ins can use the bot's cheaper model.
+    const checkInOnly =
+      routineRunIds.length === incoming.length &&
+      (
+        await Promise.all(
+          incoming.map((m) =>
+            m.meta?.routineId
+              ? this.deps.routines.row(m.meta.routineId).then(
+                  (r) => r.kind !== 'custom',
+                  () => false,
+                )
+              : false,
+          ),
+        )
+      ).every(Boolean);
 
     const [created] = await db
       .insert(messages)
-      .values({ botId, role: 'assistant', parts: [], modelMessages: [], status: 'streaming' })
+      .values({
+        botId,
+        role: 'assistant',
+        parts: [],
+        modelMessages: [],
+        status: 'streaming',
+        ...(autonomous ? { meta: { autonomous: true } } : {}),
+      })
       .returning();
     if (!created) throw new Error('Message insert returned no row');
     this.publish(created);
 
-    const model = await this.resolveModel(bot);
-    if (!model) {
-      await this.save(created.id, {
-        status: 'error',
-        error: 'Aucun modèle configuré : ajoute un fournisseur dans Réglages → Modèles.',
-      });
+    const models = await this.modelChain(bot, checkInOnly);
+    if (models.length === 0) {
+      await this.save(created.id, { status: 'error', errorCode: 'no_model', error: null });
       await this.settleAsks(askIds, bot, `${bot.name} n'a pas de modèle configuré.`);
+      await this.settleRoutines(routineRunIds, bot, {
+        ok: false,
+        stopped: false,
+        error: 'Aucun modèle configuré',
+      });
       return;
     }
 
@@ -573,7 +703,10 @@ export class BotRuntime {
     const watch: { windowsBefore: Promise<Set<string> | null> | null } = { windowsBefore: null };
 
     try {
-      const [account] = await db.select({ name: owner.displayName }).from(owner).limit(1);
+      const [account] = await db
+        .select({ name: owner.displayName, locale: owner.locale })
+        .from(owner)
+        .limit(1);
       const allTeams = await this.deps.org.listTeams();
       const allBots = await db.select().from(bots).orderBy(bots.createdAt);
       const pendingImages: string[] = [];
@@ -617,46 +750,27 @@ export class BotRuntime {
           bots: this.deps.bots,
           db,
         })),
-      };
-
-      const result = streamText({
-        model,
-        system: systemPrompt({
-          bot,
-          ownerName: account?.name ?? "l'utilisateur",
-          teams: allTeams,
-          bots: allBots,
-          hasComputer: Boolean(computerId),
-          sharesComputer: allBots.some((b) => b.id !== botId && b.computerId === computerId),
-          now: new Date(),
+        ...buildProactiveTools({
+          self: bot,
+          routines: this.deps.routines,
+          notifications: this.deps.notifications,
+          bots: this.deps.bots,
+          db,
         }),
-        messages: await this.history(botId, created.createdAt),
-        tools,
-        stopWhen: stepCountIs(MAX_STEPS),
-        // Screenshots taken during a step are shown once, at the next step, as images.
-        prepareStep: ({ messages: stepMessages }) => {
-          if (pendingImages.length === 0) return undefined;
-          const images = pendingImages.splice(0);
-          return {
-            messages: [
-              ...stepMessages,
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: "Capture de l'écran de ton PC (1280×800) :" },
-                  ...images.map((image) => ({
-                    type: 'file' as const,
-                    data: image,
-                    mediaType: 'image/png',
-                  })),
-                ],
-              },
-            ],
-          };
-        },
-        abortSignal: controller.signal,
-        maxRetries: 2,
+        ...buildCanvasTools({ self: bot, canvases: this.deps.canvases }),
+      };
+      const system = systemPrompt({
+        bot,
+        ownerName: account?.name ?? "l'utilisateur",
+        locale: account?.locale ?? 'fr',
+        teams: allTeams,
+        bots: allBots,
+        hasComputer: Boolean(computerId),
+        sharesComputer: allBots.some((b) => b.id !== botId && b.computerId === computerId),
+        timeZone: this.deps.routines.timeZone,
+        now: new Date(),
       });
+      const history = await this.history(botId, created.createdAt);
 
       const appendText = (kind: 'text' | 'reasoning', text: string) => {
         const tail = parts.at(-1);
@@ -678,60 +792,120 @@ export class BotRuntime {
         );
       const checkpoint = () => this.save(created.id, { parts: structuredClone(parts) });
 
-      for await (const chunk of result.fullStream) {
-        switch (chunk.type) {
-          case 'text-delta':
-            appendText('text', chunk.text);
-            break;
-          case 'reasoning-delta':
-            appendText('reasoning', chunk.text);
-            break;
-          case 'tool-call':
-            parts.push({
-              type: 'tool',
-              toolCallId: chunk.toolCallId,
-              toolName: chunk.toolName,
-              input: chunk.input,
-              state: 'running',
-            });
-            await checkpoint();
-            break;
-          case 'tool-result': {
-            const part = toolPart(chunk.toolCallId);
-            if (part) {
-              part.state = 'done';
-              Object.assign(
-                part,
-                summarize(chunk.toolName, chunk.input, chunk.output, bot.workspaceId),
-              );
+      const streamWith = async (model: LanguageModel) => {
+        const result = streamText({
+          model,
+          system,
+          messages: history,
+          tools,
+          stopWhen: stepCountIs(MAX_STEPS),
+          // Screenshots taken during a step are shown once, at the next step, as images.
+          prepareStep: ({ messages: stepMessages }) => {
+            if (pendingImages.length === 0) return undefined;
+            const images = pendingImages.splice(0);
+            return {
+              messages: [
+                ...stepMessages,
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: "Capture de l'écran de ton PC (1280×800) :" },
+                    ...images.map((image) => ({
+                      type: 'file' as const,
+                      data: image,
+                      mediaType: 'image/png',
+                    })),
+                  ],
+                },
+              ],
+            };
+          },
+          abortSignal: controller.signal,
+          maxRetries: 2,
+        });
+
+        for await (const chunk of result.fullStream) {
+          switch (chunk.type) {
+            case 'text-delta':
+              appendText('text', chunk.text);
+              break;
+            case 'reasoning-delta':
+              appendText('reasoning', chunk.text);
+              break;
+            case 'tool-call':
+              parts.push({
+                type: 'tool',
+                toolCallId: chunk.toolCallId,
+                toolName: chunk.toolName,
+                input: chunk.input,
+                state: 'running',
+              });
+              await checkpoint();
+              break;
+            case 'tool-result': {
+              const part = toolPart(chunk.toolCallId);
+              if (part) {
+                part.state = 'done';
+                Object.assign(
+                  part,
+                  summarize(chunk.toolName, chunk.input, chunk.output, bot.workspaceId),
+                );
+              }
+              await checkpoint();
+              break;
             }
-            await checkpoint();
-            break;
-          }
-          case 'tool-error': {
-            const part = toolPart(chunk.toolCallId);
-            if (part) {
-              part.state = 'error';
-              part.output = errorMessage(chunk.error);
+            case 'tool-error': {
+              const part = toolPart(chunk.toolCallId);
+              if (part) {
+                part.state = 'error';
+                part.output = errorMessage(chunk.error);
+              }
+              await checkpoint();
+              break;
             }
-            await checkpoint();
-            break;
+            case 'error':
+              throw chunk.error;
           }
-          case 'error':
-            throw chunk.error;
+        }
+        return {
+          transcript: await result.responseMessages,
+          usage: await result.totalUsage,
+        };
+      };
+
+      // The main model, then the fallbacks, as long as nothing was produced yet.
+      let outcome: Awaited<ReturnType<typeof streamWith>> | null = null;
+      for (const [index, model] of models.entries()) {
+        try {
+          outcome = await streamWith(model);
+          break;
+        } catch (error) {
+          const last = index === models.length - 1;
+          if (last || controller.signal.aborted || parts.length > 0) throw error;
+          this.log.warn({ err: error, botId }, 'Model failed, trying the next one');
         }
       }
+      if (!outcome) throw new Error('No model answered');
 
-      const transcript = await result.responseMessages;
-      const usage = await result.totalUsage;
       await this.save(created.id, {
         parts,
-        modelMessages: stripBinary(transcript) as ModelMessage[],
+        modelMessages: stripBinary(outcome.transcript) as ModelMessage[],
         status: 'done',
-        usage: { inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0 },
+        usage: {
+          inputTokens: outcome.usage.inputTokens ?? 0,
+          outputTokens: outcome.usage.outputTokens ?? 0,
+        },
       });
       await this.deps.bots.update(botId, { status: 'idle', statusDetail: null });
-      await this.settleAsks(askIds, bot, textOf(parts) || '(pas de réponse écrite)');
+      const answer = textOf(parts);
+      await this.settleAsks(askIds, bot, answer || '(pas de réponse écrite)');
+      await this.settleRoutines(routineRunIds, bot, {
+        ok: true,
+        answer,
+        usedTools: parts.some((p) => p.type === 'tool'),
+        messageIds: [...incoming.map((m) => m.id), created.id],
+        tidyable: checkInOnly,
+      });
     } catch (error) {
       const stopped = controller.signal.aborted;
       const text = textOf(parts);
@@ -742,6 +916,7 @@ export class BotRuntime {
         // Keep what was said so the next turn has context.
         modelMessages: text ? [{ role: 'assistant', content: text }] : [],
         status: stopped ? 'stopped' : 'error',
+        errorCode: stopped ? null : 'run_failed',
         error: stopped ? null : errorMessage(error),
       });
       await this.deps.bots.update(botId, {
@@ -756,6 +931,11 @@ export class BotRuntime {
           ? `${bot.name} a été interrompu avant de répondre.`
           : `${bot.name} n'a pas pu répondre : ${errorMessage(error)}`,
       );
+      await this.settleRoutines(routineRunIds, bot, {
+        ok: false,
+        stopped,
+        error: errorMessage(error),
+      });
     } finally {
       this.controllers.delete(botId);
       this.screen.releaseAll(botId);

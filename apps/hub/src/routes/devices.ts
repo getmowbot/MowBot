@@ -1,4 +1,10 @@
-import { type Device, deviceIdParamsSchema, deviceListSchema, meSchema } from '@mowbot/contract';
+import {
+  type Device,
+  deviceIdParamsSchema,
+  deviceListSchema,
+  meSchema,
+  meUpdateSchema,
+} from '@mowbot/contract';
 import { and, desc, eq } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -22,6 +28,24 @@ const toDevice = (row: DeviceRow, currentDeviceId: string): Device => ({
 export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
   const { db, sessions } = app.services;
 
+  const loadMe = async (deviceId: string) => {
+    const [row] = await db
+      .select({ owner, device: devices })
+      .from(devices)
+      .innerJoin(owner, eq(devices.ownerId, owner.id))
+      .where(eq(devices.id, deviceId));
+    if (!row) throw notFound('Device not found');
+    return {
+      owner: {
+        id: row.owner.id,
+        displayName: row.owner.displayName,
+        locale: row.owner.locale,
+        createdAt: row.owner.createdAt.toISOString(),
+      },
+      device: toDevice(row.device, deviceId),
+    };
+  };
+
   app.get(
     '/me',
     {
@@ -33,22 +57,30 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: meSchema, ...errorResponses },
       },
     },
+    async (request) => loadMe(authOf(request).deviceId),
+  );
+
+  app.patch(
+    '/me',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags: ['account'],
+        operationId: 'updateMe',
+        description: 'Name and language of the owner (bots answer in that language).',
+        security: bearerSecurity,
+        body: meUpdateSchema,
+        response: { 200: meSchema, ...errorResponses },
+      },
+    },
     async (request) => {
-      const auth = authOf(request);
-      const [row] = await db
-        .select({ owner, device: devices })
-        .from(devices)
-        .innerJoin(owner, eq(devices.ownerId, owner.id))
-        .where(eq(devices.id, auth.deviceId));
-      if (!row) throw notFound('Device not found');
-      return {
-        owner: {
-          id: row.owner.id,
-          displayName: row.owner.displayName,
-          createdAt: row.owner.createdAt.toISOString(),
-        },
-        device: toDevice(row.device, auth.deviceId),
-      };
+      const { displayName, locale } = request.body;
+      await db.update(owner).set({
+        ...(displayName !== undefined ? { displayName } : {}),
+        ...(locale !== undefined ? { locale } : {}),
+        updatedAt: new Date(),
+      });
+      return loadMe(authOf(request).deviceId);
     },
   );
 

@@ -13,7 +13,6 @@ import { type RequestContext, recordAudit } from '../audit';
 import { hashPassword, verifyPassword } from '../auth/passwords';
 import type { DeviceRow, IssuedSession } from '../auth/sessions';
 import { ownerExists } from '../auth/setup';
-import { bootstrapOrganization } from '../bots/bootstrap';
 import { isUniqueViolation } from '../db/errors';
 import { owner } from '../db/schema';
 import { authOf, bearerSecurity, requireAuth } from '../http/auth-hook';
@@ -28,7 +27,7 @@ const requestContext = (request: FastifyRequest): RequestContext => ({
 });
 
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
-  const { db, sessions, setup, config, files } = app.services;
+  const { db, sessions, setup, config } = app.services;
 
   /** Web devices get the refresh token as an httpOnly cookie, never in the JSON body. */
   const sendSession = (
@@ -101,7 +100,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       }
       if (!created) throw new Error('Owner insert returned no row');
       setup.complete();
-      await bootstrapOrganization(db, files, config.masterKey);
+      await app.services.bootstrap();
 
       const device = await sessions.createDevice(created.id, request.body.device);
       const session = await sessions.issue(created.id, device.id, device.scopes);

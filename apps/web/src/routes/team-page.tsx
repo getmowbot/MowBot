@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Crown, FolderOpen, Lock, Monitor, Settings2, Trash2, UserPlus } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BotAvatar, TeamAvatar } from '../components/bot-avatar';
 import { StatusBadge } from '../components/computer-status';
 import { useOrgDialogs } from '../components/org-dialogs';
@@ -16,12 +17,13 @@ import { useBots, useComputers, useTeam } from '../lib/queries';
 import { cn } from '../lib/utils';
 
 function MemberCard({ bot, lead }: { bot: Bot; lead: boolean }) {
+  const { t } = useTranslation();
   const dialogs = useOrgDialogs();
   const mood = moodOf(bot);
   return (
     <motion.div variants={reveal} className="glass flex items-center gap-3 rounded-2xl p-3">
       <Link
-        to={bot.isChef ? '/' : '/bots/$botId'}
+        to={bot.isChef ? '/chef' : '/bots/$botId'}
         params={{ botId: bot.id }}
         className="flex min-w-0 flex-1 items-center gap-3"
       >
@@ -30,7 +32,10 @@ function MemberCard({ bot, lead }: { bot: Bot; lead: boolean }) {
           <span className="flex items-center gap-1.5 font-medium">
             <span className="truncate">{bot.name}</span>
             {lead && (
-              <Crown className="size-3.5 shrink-0 text-muted-foreground" aria-label="Lead" />
+              <Crown
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-label={t('common.lead')}
+              />
             )}
           </span>
           <span className="block truncate text-xs text-muted-foreground">{bot.role}</span>
@@ -48,7 +53,7 @@ function MemberCard({ bot, lead }: { bot: Bot; lead: boolean }) {
         variant="ghost"
         size="icon"
         onClick={() => dialogs.botSettings(bot)}
-        aria-label={`Réglages de ${bot.name}`}
+        aria-label={t('common.settingsOf', { name: bot.name })}
       >
         <Settings2 className="size-4" />
       </Button>
@@ -57,6 +62,7 @@ function MemberCard({ bot, lead }: { bot: Bot; lead: boolean }) {
 }
 
 function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [isolated, setIsolated] = useState(team.isolated);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +82,7 @@ function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
       if (error) throw error;
     },
     onSuccess: () => setSaved(true),
-    onError: (err) => setError(problemMessage(err, 'Réglages non enregistrés.')),
+    onError: (err) => setError(problemMessage(err, t('common.settingsNotSaved'))),
   });
   const remove = useMutation({
     mutationFn: async () => {
@@ -86,12 +92,12 @@ function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
       if (error) throw error;
     },
     onSuccess: () => void navigate({ to: '/org' }),
-    onError: (err) => setError(problemMessage(err, 'Équipe non supprimée.')),
+    onError: (err) => setError(problemMessage(err, t('team.notDeleted'))),
   });
 
   return (
     <Card className="space-y-4">
-      <h2 className="font-medium">Réglages de l’équipe</h2>
+      <h2 className="font-medium">{t('team.settings')}</h2>
       <form
         className="space-y-4"
         onChange={() => setSaved(false)}
@@ -103,13 +109,13 @@ function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="team-name">Nom</Label>
+            <Label htmlFor="team-name">{t('common.name')}</Label>
             <Input id="team-name" name="name" required maxLength={60} defaultValue={team.name} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="team-lead">Lead</Label>
+            <Label htmlFor="team-lead">{t('common.lead')}</Label>
             <Select id="team-lead" name="lead" defaultValue={team.leadBotId ?? ''}>
-              <option value="">Aucun</option>
+              <option value="">{t('team.noLead')}</option>
               {members.map((bot) => (
                 <option key={bot.id} value={bot.id}>
                   {bot.name}
@@ -119,7 +125,7 @@ function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="team-mission">Mission</Label>
+          <Label htmlFor="team-mission">{t('common.mission')}</Label>
           <Textarea
             id="team-mission"
             name="mission"
@@ -139,30 +145,26 @@ function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
             className="mt-0.5 size-4 accent-white"
           />
           <span>
-            <span className="block text-sm">Cloisonnée</span>
-            <span className="block text-xs text-muted-foreground">
-              Seuls son lead et le Chef peuvent écrire à ses bots.
-            </span>
+            <span className="block text-sm">{t('common.isolated')}</span>
+            <span className="block text-xs text-muted-foreground">{t('team.isolatedHint')}</span>
           </span>
         </label>
         <FormError message={error} />
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={save.isPending}>
-            {save.isPending ? 'Enregistrement…' : saved ? 'Enregistré' : 'Enregistrer'}
+            {save.isPending ? t('common.saving') : saved ? t('common.saved') : t('common.save')}
           </Button>
           {!team.isMain && (
             <Button
               variant="destructive"
               className="ml-auto"
               disabled={members.length > 0 || remove.isPending}
-              title={members.length > 0 ? 'Supprime ou déplace d’abord ses bots' : undefined}
+              title={members.length > 0 ? t('team.deleteBotsFirst') : undefined}
               onClick={() =>
-                confirm(
-                  `Supprimer l’équipe ${team.name} ? Son PC est supprimé, ses fichiers vont dans la corbeille de l’Équipe principale.`,
-                ) && remove.mutate()
+                confirm(t('team.confirmDelete', { name: team.name })) && remove.mutate()
               }
             >
-              <Trash2 className="size-3.5" /> Supprimer l’équipe
+              <Trash2 className="size-3.5" /> {t('team.delete')}
             </Button>
           )}
         </div>
@@ -173,19 +175,20 @@ function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
 
 /** A team: its members, its PC and files, its settings. */
 export function TeamPage() {
+  const { t } = useTranslation();
   const { teamId } = useParams({ strict: false }) as { teamId?: string };
   const team = useTeam(teamId);
   const bots = useBots();
   const computers = useComputers();
   const dialogs = useOrgDialogs();
 
-  if (team.isPending) return <p className="text-sm text-muted-foreground">Chargement…</p>;
-  if (!team.data) return <p className="text-sm text-destructive">Équipe introuvable.</p>;
-  const t = team.data;
+  if (team.isPending) return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
+  if (!team.data) return <p className="text-sm text-destructive">{t('team.notFound')}</p>;
+  const current = team.data;
   const members = (bots.data ?? [])
-    .filter((b) => b.teamId === t.id)
-    .sort((a, b) => Number(b.id === t.leadBotId) - Number(a.id === t.leadBotId));
-  const pc = computers.data?.find((c) => c.id === t.computerId);
+    .filter((b) => b.teamId === current.id)
+    .sort((a, b) => Number(b.id === current.leadBotId) - Number(a.id === current.leadBotId));
+  const pc = computers.data?.find((c) => c.id === current.computerId);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -193,42 +196,40 @@ export function TeamPage() {
         <TeamAvatar seeds={members.map((b) => b.avatarSeed)} size={64} />
         <div className="min-w-0 flex-1 space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <span className="truncate">{t.name}</span>
-            {t.isolated && (
-              <Lock className="size-4 text-muted-foreground" aria-label="Cloisonnée" />
+            <span className="truncate">{current.name}</span>
+            {current.isolated && (
+              <Lock className="size-4 text-muted-foreground" aria-label={t('common.isolated')} />
             )}
           </h1>
-          <p className="text-sm text-muted-foreground">{t.mission ?? 'Pas encore de mission.'}</p>
+          <p className="text-sm text-muted-foreground">{current.mission ?? t('team.noMission')}</p>
         </div>
-        <Button onClick={() => dialogs.newBot(t.id)}>
-          <UserPlus className="size-4" /> Nouveau bot
+        <Button onClick={() => dialogs.newBot(current.id)}>
+          <UserPlus className="size-4" /> {t('common.newBot')}
         </Button>
       </Reveal>
 
       <Reveal delay={0.04} className="flex flex-wrap gap-2">
         <Link
           to="/teams/$teamId/desktop"
-          params={{ teamId: t.id }}
+          params={{ teamId: current.id }}
           className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors hover:border-white/20"
         >
-          <Monitor className="size-4 text-muted-foreground" /> PC de l’équipe
+          <Monitor className="size-4 text-muted-foreground" /> {t('common.teamPc')}
           {pc && <StatusBadge status={pc.status} />}
         </Link>
         <Link
           to="/teams/$teamId/files"
-          params={{ teamId: t.id }}
+          params={{ teamId: current.id }}
           className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors hover:border-white/20"
         >
-          <FolderOpen className="size-4 text-muted-foreground" /> Fichiers
+          <FolderOpen className="size-4 text-muted-foreground" /> {t('common.files')}
         </Link>
       </Reveal>
 
       <section className="space-y-3">
-        <h2 className="font-medium">Membres</h2>
+        <h2 className="font-medium">{t('team.members')}</h2>
         {members.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Aucun bot. Crée-en un, ou demande au Chef de monter l’équipe.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('team.empty')}</p>
         ) : (
           <motion.div
             initial="hidden"
@@ -237,14 +238,14 @@ export function TeamPage() {
             className="grid gap-3 sm:grid-cols-2"
           >
             {members.map((bot) => (
-              <MemberCard key={bot.id} bot={bot} lead={bot.id === t.leadBotId} />
+              <MemberCard key={bot.id} bot={bot} lead={bot.id === current.leadBotId} />
             ))}
           </motion.div>
         )}
       </section>
 
       <Reveal delay={0.08}>
-        <TeamSettings key={t.id} team={t} members={members} />
+        <TeamSettings key={current.id} team={current} members={members} />
       </Reveal>
     </div>
   );

@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ellipsis, Eraser, type LucideIcon, Pencil, Settings2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api, problemMessage } from '../lib/auth';
 import { cn } from '../lib/utils';
 import { useOrgDialogs } from './org-dialogs';
@@ -40,6 +41,7 @@ function MenuItem({
 
 /** "…" menu of a conversation: rename the bot, start the conversation over. */
 export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const dialogs = useOrgDialogs();
@@ -52,7 +54,7 @@ export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
       if (error) throw error;
     },
     onSuccess: () => queryClient.setQueryData<Message[]>(['messages', bot.id], []),
-    onError: (err) => alert(problemMessage(err, 'La conversation n’a pas pu être vidée.')),
+    onError: (err) => alert(problemMessage(err, t('botMenu.clearFailed'))),
   });
 
   useEffect(() => {
@@ -75,7 +77,7 @@ export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
         variant="ghost"
         size="icon"
         onClick={() => setOpen((v) => !v)}
-        aria-label={`Options de ${bot.name}`}
+        aria-label={t('botMenu.options', { name: bot.name })}
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -98,7 +100,7 @@ export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
                 dialogs.botSettings(bot);
               }}
             >
-              Réglages
+              {t('botMenu.settings')}
             </MenuItem>
             <MenuItem
               icon={Pencil}
@@ -107,23 +109,17 @@ export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
                 onRename();
               }}
             >
-              Renommer
+              {t('botMenu.rename')}
             </MenuItem>
             <MenuItem
               icon={Eraser}
               danger
               onClick={() => {
                 setOpen(false);
-                if (
-                  confirm(
-                    `Vider la conversation avec ${bot.name} ? Il oublie tout ce qui a été dit et range son PC ; les fichiers sont gardés.`,
-                  )
-                ) {
-                  clear.mutate();
-                }
+                if (confirm(t('botMenu.clearConfirm', { name: bot.name }))) clear.mutate();
               }}
             >
-              Vider la conversation
+              {t('botMenu.clear')}
             </MenuItem>
           </motion.div>
         )}
@@ -134,6 +130,7 @@ export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
 
 /** The bot's name, edited in place: Enter or leaving the field saves, Escape cancels. */
 export function RenameField({ bot, onDone }: { bot: Bot; onDone(): void }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const rename = useMutation({
@@ -151,7 +148,7 @@ export function RenameField({ bot, onDone }: { bot: Bot; onDone(): void }) {
       );
       onDone();
     },
-    onError: (err) => setError(problemMessage(err, 'Nom refusé.')),
+    onError: (err) => setError(problemMessage(err, t('botMenu.nameRejected'))),
   });
   const submit = (value: string) => {
     const name = value.trim();
@@ -164,7 +161,7 @@ export function RenameField({ bot, onDone }: { bot: Bot; onDone(): void }) {
       autoFocus
       defaultValue={bot.name}
       maxLength={40}
-      aria-label="Nom du bot"
+      aria-label={t('botMenu.nameLabel')}
       aria-invalid={Boolean(error)}
       title={error ?? undefined}
       onFocus={(event) => event.currentTarget.select()}
