@@ -1,5 +1,6 @@
 import type { Bot, FeedItem, Task, TaskStatus } from '@mowbot/contract';
-import { ArrowRight } from 'lucide-react-native';
+import { router, Stack } from 'expo-router';
+import { ArrowRight, Plus } from 'lucide-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
@@ -9,13 +10,15 @@ import { openChat } from '../../../../components/bot-row';
 import { Markdown } from '../../../../components/markdown';
 import { reveal } from '../../../../components/reveal';
 import { Section, TabScroll } from '../../../../components/tab-scroll';
-import { Button } from '../../../../components/ui/button';
+import { Button, IconButton } from '../../../../components/ui/button';
 import { Segmented } from '../../../../components/ui/segmented';
 import { Surface } from '../../../../components/ui/surface';
 import { T } from '../../../../components/ui/text';
 import { Touchable } from '../../../../components/ui/touchable';
 import { markdownToPlain } from '../../../../lib/markdown';
 import { messageText } from '../../../../lib/message-cache';
+import { alertError } from '../../../../lib/options-menu';
+import { isIOS } from '../../../../lib/platform';
 import { botsById, useBots, useCancelTask, useFeed, useTasks } from '../../../../lib/queries';
 import { timeAgo } from '../../../../lib/time';
 import { colors } from '../../../../theme';
@@ -40,7 +43,11 @@ function TaskCard({ task, byId }: { task: Task; byId: Map<string, Bot> }) {
   const confirmCancel = () =>
     Alert.alert(t('tasks.cancelConfirm', { title: task.title }), undefined, [
       { text: t('tasks.keep'), style: 'cancel' },
-      { text: t('tasks.cancel'), style: 'destructive', onPress: () => cancel.mutate(task) },
+      {
+        text: t('tasks.cancel'),
+        style: 'destructive',
+        onPress: () => cancel.mutate(task, { onError: () => alertError(t('common.actionFailed')) }),
+      },
     ]);
 
   return (
@@ -96,9 +103,17 @@ function Tasks({ tasks, byId }: { tasks: Task[]; byId: Map<string, Bot> }) {
   const { t } = useTranslation();
   if (tasks.length === 0) {
     return (
-      <T variant="footnote" tone="faint" style={styles.indent}>
-        {t('tasks.empty')}
-      </T>
+      <View style={styles.list}>
+        <T variant="footnote" tone="faint" style={styles.indent}>
+          {t('tasks.empty')}
+        </T>
+        <Button
+          label={t('orgAdmin.task.assign')}
+          icon={Plus}
+          variant="secondary"
+          onPress={() => router.push('/task/new')}
+        />
+      </View>
     );
   }
   const recent = [...tasks].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -204,6 +219,18 @@ export default function ActivityScreen() {
 
   return (
     <TabScroll onRefresh={() => Promise.all([bots.refetch(), tasks.refetch(), feed.refetch()])}>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <IconButton
+              icon={Plus}
+              label={t('orgAdmin.task.title')}
+              onPress={() => router.push('/task/new')}
+              size={isIOS ? 36 : 40}
+            />
+          ),
+        }}
+      />
       <View style={styles.head}>
         <T variant="footnote" tone="muted" style={styles.indent}>
           {t('tasks.intro')}

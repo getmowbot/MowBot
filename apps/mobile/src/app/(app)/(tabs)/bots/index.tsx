@@ -1,5 +1,14 @@
-import type { Bot, Team } from '@mowbot/contract';
-import { Lock, MessageCircle, WifiOff } from 'lucide-react-native';
+import type { Bot, Computer, Team } from '@mowbot/contract';
+import { router, Stack } from 'expo-router';
+import {
+  ChevronRight,
+  Lock,
+  MessageCircle,
+  Plus,
+  UserPlus,
+  Users,
+  WifiOff,
+} from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -7,15 +16,18 @@ import Animated from 'react-native-reanimated';
 import { BotAvatar, TeamAvatar } from '../../../../components/bot-avatar';
 import { BotRow, BotStatusLine, openChat, useBotMood } from '../../../../components/bot-row';
 import { ListCard } from '../../../../components/list-card';
+import { PcStatus } from '../../../../components/org/pc-status';
 import { reveal } from '../../../../components/reveal';
 import { Section, TabScroll } from '../../../../components/tab-scroll';
-import { Button } from '../../../../components/ui/button';
+import { Button, IconButton } from '../../../../components/ui/button';
 import { Surface } from '../../../../components/ui/surface';
 import { T } from '../../../../components/ui/text';
 import { Touchable } from '../../../../components/ui/touchable';
 import { useLiveConnection } from '../../../../lib/events';
-import { isAndroid } from '../../../../lib/platform';
-import { useBots, useTeams } from '../../../../lib/queries';
+import { openOptions } from '../../../../lib/options-menu';
+import { orgChart } from '../../../../lib/org-forms';
+import { isAndroid, isIOS } from '../../../../lib/platform';
+import { useBots, useComputers, useTeams } from '../../../../lib/queries';
 import { colors, shape } from '../../../../theme';
 
 /** True once the event stream has been down for a moment (not during the first connect). */
@@ -31,6 +43,26 @@ function useOffline(): boolean {
     return () => clearTimeout(timer);
   }, [connected]);
   return offline;
+}
+
+/** New team / new bot, from the header's "+". */
+function useAddMenu(): () => void {
+  const { t } = useTranslation();
+  return () =>
+    openOptions({
+      options: [
+        {
+          label: t('orgAdmin.newTeam.title'),
+          icon: Users,
+          onPress: () => router.push('/team/new'),
+        },
+        {
+          label: t('orgAdmin.newBot.title'),
+          icon: UserPlus,
+          onPress: () => router.push('/bot/new'),
+        },
+      ],
+    });
 }
 
 function ChefCard({ chef }: { chef: Bot }) {
@@ -57,47 +89,71 @@ function ChefCard({ chef }: { chef: Bot }) {
   );
 }
 
-function TeamSection({ team, members }: { team: Team; members: Bot[] }) {
+/** The team's own row: opens the team (settings, PC, files, members). */
+function TeamHeader({
+  team,
+  members,
+  size,
+  computer,
+}: {
+  team: Team;
+  members: Bot[];
+  size: number;
+  computer: Computer | undefined;
+}) {
   const { t } = useTranslation();
-  const sorted = [...members].sort(
-    (a, b) => Number(b.id === team.leadBotId) - Number(a.id === team.leadBotId),
-  );
   return (
-    <View style={styles.team}>
-      <View style={styles.teamHeader}>
-        <TeamAvatar seeds={members.map((b) => b.avatarSeed)} size={24} />
-        <T variant="headline" numberOfLines={1} style={styles.shrink}>
-          {team.name}
-        </T>
-        {team.isolated && (
-          <Lock size={13} color={colors.textMuted} accessibilityLabel={t('org.isolated')} />
-        )}
+    <Touchable
+      accessibilityRole="button"
+      accessibilityHint={t('orgAdmin.tab.openTeam')}
+      onPress={() => router.push(`/team/${team.id}`)}
+      style={styles.teamHeader}
+    >
+      <TeamAvatar seeds={members.map((b) => b.avatarSeed)} size={40} />
+      <View style={styles.teamText}>
+        <View style={styles.teamName}>
+          <T variant="headline" numberOfLines={1} style={styles.shrink}>
+            {team.name}
+          </T>
+          {team.isolated && (
+            <Lock size={13} color={colors.textMuted} accessibilityLabel={t('org.isolated')} />
+          )}
+        </View>
+        <PcStatus computer={computer} suffix={t('org.members', { count: size })} />
       </View>
-      {sorted.length > 0 ? (
-        <ListCard>
-          {sorted.map((bot) => (
-            <BotRow key={bot.id} bot={bot} lead={bot.id === team.leadBotId} />
-          ))}
-        </ListCard>
-      ) : (
-        <T variant="footnote" tone="faint" style={styles.indent}>
-          {t('home.noBots')}
-        </T>
-      )}
-    </View>
+      <ChevronRight size={16} color={colors.textFaint} />
+    </Touchable>
   );
 }
 
-/** The Chef on top, then every team with its bots (live status), then the solo bots. */
-export default function HomeScreen() {
+/** Bots: the Chef on top, every team with its bots (live status), then the solo bots. */
+export default function BotsScreen() {
   const { t } = useTranslation();
   const bots = useBots();
   const teams = useTeams();
+  const computers = useComputers();
   const offline = useOffline();
+  const add = useAddMenu();
+
+  const header = (
+    <Stack.Screen
+      options={{
+        headerRight: () => (
+          <IconButton
+            icon={Plus}
+            label={t('orgAdmin.tab.add')}
+            onPress={add}
+            size={isIOS ? 36 : 40}
+          />
+        ),
+      }}
+    />
+  );
 
   if (bots.isPending || teams.isPending) {
     return (
       <View style={styles.center}>
+        {header}
         <ActivityIndicator color={colors.textMuted} />
       </View>
     );
@@ -105,6 +161,7 @@ export default function HomeScreen() {
   if (bots.isError || teams.isError) {
     return (
       <View style={styles.center}>
+        {header}
         <T tone="muted">{t('errors.generic')}</T>
         <Button
           label={t('common.retry')}
@@ -118,17 +175,14 @@ export default function HomeScreen() {
     );
   }
 
-  const all = bots.data;
-  const chef = all.find((b) => b.isChef);
-  const solo = all.filter((b) => !b.teamId);
-  // The main team comes first; it only shows when someone besides the Chef is in it.
-  const visibleTeams = [...teams.data]
-    .sort((a, b) => Number(b.isMain) - Number(a.isMain))
-    .map((team) => ({ team, members: all.filter((b) => b.teamId === team.id && !b.isChef) }))
-    .filter(({ team, members }) => !team.isMain || members.length > 0);
+  const chart = orgChart(bots.data, teams.data);
+  const computerOf = (id: string | null) => computers.data?.find((c) => c.id === id);
 
   return (
-    <TabScroll onRefresh={() => Promise.all([bots.refetch(), teams.refetch()])}>
+    <TabScroll
+      onRefresh={() => Promise.all([bots.refetch(), teams.refetch(), computers.refetch()])}
+    >
+      {header}
       {offline && (
         <Animated.View entering={reveal()} style={styles.offline}>
           <WifiOff size={14} color={colors.textMuted} />
@@ -138,31 +192,44 @@ export default function HomeScreen() {
         </Animated.View>
       )}
 
-      {chef && <ChefCard chef={chef} />}
+      {chart.chef && <ChefCard chef={chart.chef} />}
 
       <Section title={t('home.teams')}>
-        {visibleTeams.length === 0 ? (
+        <View style={styles.teams}>
+          {chart.teams.map(({ team, members, size }) => (
+            <ListCard key={team.id}>
+              <TeamHeader
+                team={team}
+                members={members}
+                size={size}
+                computer={computerOf(team.computerId)}
+              />
+              {members.map((bot) => (
+                <BotRow key={bot.id} bot={bot} lead={bot.id === team.leadBotId} />
+              ))}
+            </ListCard>
+          ))}
+        </View>
+        {chart.teams.length <= 1 && (
           <T variant="footnote" tone="faint" style={styles.indent}>
             {t('home.empty')}
           </T>
-        ) : (
-          <View style={styles.teams}>
-            {visibleTeams.map(({ team, members }) => (
-              <TeamSection key={team.id} team={team} members={members} />
-            ))}
-          </View>
         )}
       </Section>
 
-      {solo.length > 0 && (
+      {chart.solo.length > 0 && (
         <Section title={t('home.solo')}>
           <ListCard>
-            {solo.map((bot) => (
+            {chart.solo.map((bot) => (
               <BotRow key={bot.id} bot={bot} />
             ))}
           </ListCard>
         </Section>
       )}
+
+      <T variant="footnote" tone="faint" style={styles.indent}>
+        {t('org.intro')}
+      </T>
     </TabScroll>
   );
 }
@@ -190,9 +257,17 @@ const styles = StyleSheet.create({
   chef: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 },
   chefText: { flex: 1, minWidth: 0, gap: 3 },
   chefCta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  teams: { gap: 18 },
-  team: { gap: 8 },
-  teamHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
+  teams: { gap: 14 },
+  teamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 64,
+  },
+  teamText: { flex: 1, minWidth: 0, gap: 3 },
+  teamName: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   shrink: { flexShrink: 1 },
   indent: { paddingHorizontal: 4 },
 });
