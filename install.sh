@@ -258,7 +258,7 @@ sync_code() {
     [[ -z $(ls -A "$dir" 2>/dev/null) ]] || die "$dir existe déjà et n'est pas un dépôt MowBot."
     step "Téléchargement de MowBot dans $dir"
     git clone --quiet --branch "$BRANCH" "$REPO_URL" "$dir" ||
-      die "impossible de cloner $REPO_URL. Dépôt privé : clone-le avec ta clé SSH puis lance install.sh depuis ce dossier."
+      die "impossible de cloner $REPO_URL. Si le dépôt est privé, clone-le avec ta clé SSH puis lance install.sh depuis ce dossier."
     return
   fi
   step "Mise à jour du code"
