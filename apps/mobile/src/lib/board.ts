@@ -111,6 +111,17 @@ export function scoreText(content: Extract<CanvasContent, { kind: 'score' }>): s
     : '–';
 }
 
+/** The one line a folded card keeps: the score, or the first figure; null for the others. */
+export function foldedSummary(content: CanvasContent): string | null {
+  if (content.kind === 'score') {
+    return `${content.home.name} ${scoreText(content)} ${content.away.name}`;
+  }
+  if (content.kind === 'stats' && content.items[0]) {
+    return `${content.items[0].label} : ${content.items[0].value}`;
+  }
+  return null;
+}
+
 /**
  * The bot's page, in the strictest sandbox (JavaScript is also off in the WebView): no network,
  * nothing loaded from outside, no refresh that would show another page in its place.

@@ -21,6 +21,7 @@ import { BotMessage, IncomingMessage, UserMessage } from '../../../components/ch
 import { ChatQuestions } from '../../../components/questions';
 import { reveal } from '../../../components/reveal';
 import { Button } from '../../../components/ui/button';
+import { EdgeFade } from '../../../components/ui/edge-fade';
 import { Surface } from '../../../components/ui/surface';
 import { T } from '../../../components/ui/text';
 import { moodOf } from '../../../lib/bot-mood';
@@ -37,6 +38,8 @@ import { colors } from '../../../theme';
 /** Under the message field: above the home indicator, and above the keyboard once open. */
 const DOCK_GAP = 8;
 const KEYBOARD_GAP = 12;
+/** Between the last message and the message field. */
+const LAST_MESSAGE_GAP = 28;
 
 function Separator() {
   return <View style={styles.separator} />;
@@ -132,7 +135,7 @@ export default function ChatScreen() {
         renderScrollComponent={renderScroll}
         ItemSeparatorComponent={Separator}
         // Inverted: the header sits at the bottom (room for the composer), the footer on top.
-        ListHeaderComponent={<View style={{ height: dockHeight + 8 }} />}
+        ListHeaderComponent={<View style={{ height: dockHeight + LAST_MESSAGE_GAP }} />}
         ListFooterComponent={
           <View style={[styles.top, { paddingTop: headerHeight + 8 }]}>
             {conversation.loadingOlder ? (
@@ -170,6 +173,7 @@ export default function ChatScreen() {
       />
 
       <KeyboardStickyView offset={{ closed: 0, opened: keyboardOffset }} style={styles.dock}>
+        <EdgeFade edge="bottom" style={styles.dockFade} />
         <View
           onLayout={(event) => setDockHeight(event.nativeEvent.layout.height)}
           style={[styles.dockInner, { paddingBottom: insets.bottom + DOCK_GAP }]}
@@ -204,6 +208,8 @@ const styles = StyleSheet.create({
   top: { alignItems: 'center', paddingBottom: 12 },
   empty: { flex: 1, justifyContent: 'center', paddingVertical: 24 },
   dock: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  // From a little above the field down to the screen's edge: what scrolls under it blurs away.
+  dockFade: { position: 'absolute', top: -20, left: 0, right: 0, bottom: 0 },
   dockInner: { paddingHorizontal: 12, gap: 8 },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
   noticeText: { flex: 1 },

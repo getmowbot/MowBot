@@ -516,6 +516,8 @@ export const fr = {
   },
   canvas: {
     menu: 'Options de « {{title}} »',
+    fold: 'Plier',
+    unfold: 'Déplier',
     size: 'Taille',
     sizes: { s: 'Petite', m: 'Moyenne', l: 'Large' },
     moveEarlier: 'Avancer',

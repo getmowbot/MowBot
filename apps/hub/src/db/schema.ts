@@ -380,6 +380,7 @@ export const canvases = pgTable(
     content: jsonb('content').$type<CanvasContent>().notNull(),
     position: integer('position').notNull().default(0),
     hidden: boolean('hidden').notNull().default(false),
+    collapsed: boolean('collapsed').notNull().default(false),
     createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

@@ -40,6 +40,8 @@ export const fr = {
   },
   canvas: {
     menu: 'Options de « {{title}} »',
+    fold: 'Plier la carte',
+    unfold: 'Déplier la carte',
     moveUp: 'Monter',
     moveDown: 'Descendre',
     sizeTo: {
@@ -126,6 +128,8 @@ export const en: Widen<typeof fr> = {
   },
   canvas: {
     menu: 'Options for “{{title}}”',
+    fold: 'Fold the card',
+    unfold: 'Unfold the card',
     moveUp: 'Move up',
     moveDown: 'Move down',
     sizeTo: {

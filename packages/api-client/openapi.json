@@ -15105,6 +15105,9 @@
                           "hidden": {
                             "type": "boolean"
                           },
+                          "collapsed": {
+                            "type": "boolean"
+                          },
                           "updatedAt": {
                             "type": "string",
                             "format": "date-time",
@@ -15125,6 +15128,7 @@
                           "content",
                           "position",
                           "hidden",
+                          "collapsed",
                           "updatedAt",
                           "createdAt"
                         ],
@@ -15257,7 +15261,7 @@
         "tags": [
           "canvases"
         ],
-        "description": "Size and visibility; the content belongs to the bot.",
+        "description": "Size, visibility and folding; the content belongs to the bot.",
         "requestBody": {
           "required": true,
           "content": {
@@ -15274,6 +15278,9 @@
                     ]
                   },
                   "hidden": {
+                    "type": "boolean"
+                  },
+                  "collapsed": {
                     "type": "boolean"
                   }
                 }
@@ -15566,6 +15573,9 @@
                     "hidden": {
                       "type": "boolean"
                     },
+                    "collapsed": {
+                      "type": "boolean"
+                    },
                     "updatedAt": {
                       "type": "string",
                       "format": "date-time",
@@ -15586,6 +15596,7 @@
                     "content",
                     "position",
                     "hidden",
+                    "collapsed",
                     "updatedAt",
                     "createdAt"
                   ],
@@ -16302,6 +16313,9 @@
                     "hidden": {
                       "type": "boolean"
                     },
+                    "collapsed": {
+                      "type": "boolean"
+                    },
                     "updatedAt": {
                       "type": "string",
                       "format": "date-time",
@@ -16322,6 +16336,7 @@
                     "content",
                     "position",
                     "hidden",
+                    "collapsed",
                     "updatedAt",
                     "createdAt"
                   ],
@@ -16762,6 +16777,9 @@
                     "hidden": {
                       "type": "boolean"
                     },
+                    "collapsed": {
+                      "type": "boolean"
+                    },
                     "updatedAt": {
                       "type": "string",
                       "format": "date-time",
@@ -16782,6 +16800,7 @@
                     "content",
                     "position",
                     "hidden",
+                    "collapsed",
                     "updatedAt",
                     "createdAt"
                   ],
@@ -17200,6 +17219,9 @@
                     "hidden": {
                       "type": "boolean"
                     },
+                    "collapsed": {
+                      "type": "boolean"
+                    },
                     "updatedAt": {
                       "type": "string",
                       "format": "date-time",
@@ -17220,6 +17242,7 @@
                     "content",
                     "position",
                     "hidden",
+                    "collapsed",
                     "updatedAt",
                     "createdAt"
                   ],

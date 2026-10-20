@@ -1,5 +1,4 @@
 import type { Bot } from '@mowbot/contract';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft, ChevronLeft, Ellipsis, EllipsisVertical } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +9,7 @@ import { isAndroid, useLiquidGlass } from '../../lib/platform';
 import { colors } from '../../theme';
 import { BotAvatar } from '../bot-avatar';
 import { IconButton } from '../ui/button';
+import { EdgeFade } from '../ui/edge-fade';
 import { ShimmerText } from '../ui/shimmer-text';
 import { Surface } from '../ui/surface';
 import { T } from '../ui/text';
@@ -69,12 +69,7 @@ export function ChatHeader({ bot, mood, onLayout }: Props) {
 
   return (
     <View onLayout={onLayout} style={[styles.floating, { paddingTop: insets.top + 4 }]}>
-      <LinearGradient
-        colors={['rgba(6, 7, 10, 0.92)', 'rgba(6, 7, 10, 0.6)', 'rgba(6, 7, 10, 0)']}
-        locations={[0, 0.55, 1]}
-        style={styles.fade}
-        pointerEvents="none"
-      />
+      <EdgeFade edge="top" style={styles.fade} />
       <IconButton icon={ChevronLeft} label={t('common.back')} onPress={back} raised size={44} />
       <View style={styles.center}>
         <Surface variant="bar" radius={glass ? 20 : 18} style={styles.capsule}>

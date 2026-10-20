@@ -503,6 +503,8 @@ export const en: Catalog = {
   },
   canvas: {
     menu: 'Options for “{{title}}”',
+    fold: 'Fold',
+    unfold: 'Unfold',
     size: 'Size',
     sizes: { s: 'Small', m: 'Medium', l: 'Wide' },
     moveEarlier: 'Move earlier',

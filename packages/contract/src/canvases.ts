@@ -81,6 +81,8 @@ export const canvasSchema = z.object({
   position: z.number().int(),
   /** Removed from the home page by the user: kept, but not shown. */
   hidden: z.boolean(),
+  /** Folded by the user: only its title shows (same on every device). */
+  collapsed: z.boolean(),
   updatedAt: z.iso.datetime(),
   createdAt: z.iso.datetime(),
 });
@@ -93,6 +95,7 @@ export const canvasIdParamsSchema = z.object({ id: z.uuid() });
 export const canvasUpdateSchema = z.object({
   size: canvasSizeSchema.optional(),
   hidden: z.boolean().optional(),
+  collapsed: z.boolean().optional(),
 });
 
 export const canvasOrderSchema = z.object({ ids: z.array(z.uuid()).max(100) });

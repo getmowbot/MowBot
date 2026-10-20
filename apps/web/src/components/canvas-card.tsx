@@ -1,10 +1,11 @@
 import type { Bot, Canvas, CanvasContent, CanvasSize } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ArrowRight,
   Check,
+  ChevronDown,
   Ellipsis,
   Eye,
   EyeOff,
@@ -399,6 +400,38 @@ function CardMenu({
   );
 }
 
+/** One line that says the essentials of a folded card (a score, the first figure). */
+function foldedSummary(content: CanvasContent): string | null {
+  if (content.kind === 'score') {
+    const score = (n: number | null) => (n === null ? '–' : String(n));
+    return `${content.home.name} ${score(content.homeScore)}–${score(content.awayScore)} ${content.away.name}`;
+  }
+  if (content.kind === 'stats' && content.items[0]) {
+    return `${content.items[0].label} : ${content.items[0].value}`;
+  }
+  return null;
+}
+
+/** Folds or unfolds a card at once; the hub's event confirms it on every device. */
+function useFoldCanvas(canvas: Canvas) {
+  const queryClient = useQueryClient();
+  const setFolded = (collapsed: boolean) =>
+    queryClient.setQueryData<Canvas[]>(['canvases'], (list) =>
+      list?.map((c) => (c.id === canvas.id ? { ...c, collapsed } : c)),
+    );
+  return useMutation({
+    mutationFn: async (collapsed: boolean) => {
+      const { error } = await api.PATCH('/api/v1/canvases/{id}', {
+        params: { path: { id: canvas.id } },
+        body: { collapsed },
+      });
+      if (error) throw error;
+    },
+    onMutate: (collapsed) => setFolded(collapsed),
+    onError: (_, collapsed) => setFolded(!collapsed),
+  });
+}
+
 /** A bot's card on the home page. */
 export function CanvasCard({
   canvas,
@@ -416,15 +449,36 @@ export function CanvasCard({
   const { t } = useTranslation();
   const { content } = canvas;
   const workspaceId = bot?.workspaceId ?? null;
+  const fold = useFoldCanvas(canvas);
+  const folded = canvas.collapsed;
+  const summary = folded ? foldedSummary(content) : null;
   return (
     <article
       className={cn(
-        'glass flex h-full flex-col gap-3 rounded-2xl p-4',
+        'glass flex flex-col gap-3 rounded-2xl p-4',
+        !folded && 'h-full',
         canvas.hidden && 'opacity-50',
       )}
     >
       <header className="flex items-center gap-2">
-        <h3 className="min-w-0 flex-1 truncate font-medium">{canvas.title}</h3>
+        <button
+          type="button"
+          onClick={() => fold.mutate(!folded)}
+          aria-expanded={!folded}
+          title={folded ? t('canvas.unfold') : t('canvas.fold')}
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+        >
+          <ChevronDown
+            className={cn(
+              'size-4 shrink-0 text-faint transition-transform duration-200',
+              folded && '-rotate-90',
+            )}
+          />
+          <h3 className="min-w-0 truncate font-medium">{canvas.title}</h3>
+          {summary && (
+            <span className="min-w-0 truncate text-sm text-muted-foreground">· {summary}</span>
+          )}
+        </button>
         {content.kind === 'checklist' && content.items.length > 0 && (
           <span className="text-xs tabular-nums text-faint">
             {content.items.filter((i) => i.done).length}/{content.items.length}
@@ -432,29 +486,31 @@ export function CanvasCard({
         )}
         <CardMenu canvas={canvas} bot={bot} first={first} last={last} onMove={onMove} />
       </header>
-      <div className="min-h-0 flex-1">
-        {content.kind === 'score' && (
-          <Score content={content} workspaceId={workspaceId} version={canvas.updatedAt} />
-        )}
-        {content.kind === 'checklist' && <Checklist canvas={canvas} content={content} />}
-        {content.kind === 'stats' && <Stats content={content} />}
-        {content.kind === 'note' && (
-          <div className="space-y-3">
-            {content.image && workspaceId && (
-              <WorkspaceImage
-                workspaceId={workspaceId}
-                path={content.image}
-                alt={canvas.title}
-                version={canvas.updatedAt}
-                className="max-h-56 w-full rounded-lg object-cover"
-                placeholderClassName="h-40 aspect-auto"
-              />
-            )}
-            <Markdown text={content.markdown} className="text-sm" />
-          </div>
-        )}
-        {content.kind === 'html' && <HtmlFrame html={content.html} size={canvas.size} />}
-      </div>
+      {!folded && (
+        <div className="min-h-0 flex-1">
+          {content.kind === 'score' && (
+            <Score content={content} workspaceId={workspaceId} version={canvas.updatedAt} />
+          )}
+          {content.kind === 'checklist' && <Checklist canvas={canvas} content={content} />}
+          {content.kind === 'stats' && <Stats content={content} />}
+          {content.kind === 'note' && (
+            <div className="space-y-3">
+              {content.image && workspaceId && (
+                <WorkspaceImage
+                  workspaceId={workspaceId}
+                  path={content.image}
+                  alt={canvas.title}
+                  version={canvas.updatedAt}
+                  className="max-h-56 w-full rounded-lg object-cover"
+                  placeholderClassName="h-40 aspect-auto"
+                />
+              )}
+              <Markdown text={content.markdown} className="text-sm" />
+            </div>
+          )}
+          {content.kind === 'html' && <HtmlFrame html={content.html} size={canvas.size} />}
+        </div>
+      )}
       <footer className="flex items-center gap-1.5 text-[11px] text-faint">
         {bot && <BotAvatar seed={bot.avatarSeed} size={14} />}
         <span className="truncate">

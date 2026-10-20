@@ -9,6 +9,7 @@ import {
   editChecklist,
   FRAME_HEIGHT,
   firstName,
+  foldedSummary,
   frameMayLoad,
   groupByDay,
   htmlCanvasPage,
@@ -38,6 +39,7 @@ function canvas(id: string, overrides: Partial<Canvas> = {}): Canvas {
     content: { kind: 'note', markdown: 'hi' },
     position: 0,
     hidden: false,
+    collapsed: false,
     updatedAt: '2026-10-20T10:00:00.000Z',
     createdAt: '2026-10-20T10:00:00.000Z',
     ...overrides,
@@ -168,6 +170,12 @@ describe('canvases', () => {
     };
     expect(scoreText(score)).toBe('2 – 0');
     expect(scoreText({ ...score, awayScore: null })).toBe('–');
+    // Folded, a card keeps one line: the score, the first figure, or nothing.
+    expect(foldedSummary(score)).toBe('PSG 2 – 0 OM');
+    expect(foldedSummary({ kind: 'stats', items: [{ label: 'Articles', value: '42' }] })).toBe(
+      'Articles : 42',
+    );
+    expect(foldedSummary({ kind: 'note', markdown: 'x' })).toBeNull();
   });
 });
 
