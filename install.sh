@@ -401,11 +401,13 @@ deploy() {
   if [[ -z $(docker images -q "$(env_get MOWBOT_WORKSTATION_IMAGE)" 2>/dev/null) ]]; then
     note "La première fois : 10 à 20 minutes (le PC des bots embarque Ubuntu, un bureau et Chrome)."
   fi
-  compose --profile build build
+  # Without attestations, an unchanged image keeps its id: nothing restarts for nothing.
+  BUILDX_NO_DEFAULT_ATTESTATIONS=1 compose --profile build build
   step "Démarrage"
   compose pull --quiet --ignore-buildable 2>/dev/null || true
   compose up -d --remove-orphans
   docker image prune -f >/dev/null 2>&1 || true
+  docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
   wait_hub
 }
 
