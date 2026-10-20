@@ -6,6 +6,7 @@ import {
   Outlet,
   useLocation,
 } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { BotAvatar } from './components/bot-avatar';
 import { useAuth } from './lib/auth';
 import { ActivityPage } from './routes/activity-page';
@@ -24,6 +25,7 @@ const PUBLIC_PATHS = ['/setup', '/login'];
 
 /** Sends every visitor to the page matching their auth state. */
 function AuthGate() {
+  const { t } = useTranslation();
   const { status } = useAuth();
   const { pathname } = useLocation();
 
@@ -40,9 +42,7 @@ function AuthGate() {
             status === 'loading' ? 'shimmer-text text-sm' : 'text-sm text-muted-foreground'
           }
         >
-          {status === 'loading'
-            ? 'Connexion au hub…'
-            : "Le hub MowBot est injoignable. Vérifie qu'il est démarré puis recharge la page."}
+          {status === 'loading' ? t('gate.connecting') : t('gate.offline')}
         </p>
       </div>
     );

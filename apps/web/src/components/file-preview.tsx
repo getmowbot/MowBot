@@ -2,6 +2,7 @@ import type { FileEntry } from '@mowbot/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Code, Download, FileText, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { client } from '../lib/auth';
 import { MarkdownDocument } from './markdown-document';
 import { Button } from './ui/button';
@@ -47,6 +48,7 @@ interface Props {
  * source; Markdown is laid out as a document (its source one click away).
  */
 export function FilePreview({ workspaceId, entry, onClose, onDownload, onOpenPath }: Props) {
+  const { t } = useTranslation();
   const kind = kindOf(entry);
   const markdown = kind === 'text' && MARKDOWN.test(entry.name);
   const [source, setSource] = useState(false);
@@ -78,7 +80,7 @@ export function FilePreview({ workspaceId, entry, onClose, onDownload, onOpenPat
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-8">
       <button
         type="button"
-        aria-label="Fermer l'aperçu"
+        aria-label={t('preview.close')}
         tabIndex={-1}
         className="absolute inset-0 cursor-default bg-black/60"
         onClick={onClose}
@@ -99,24 +101,24 @@ export function FilePreview({ workspaceId, entry, onClose, onDownload, onOpenPat
               aria-pressed={source}
             >
               {source ? <FileText className="size-4" /> : <Code className="size-4" />}
-              {source ? 'Mise en forme' : 'Source'}
+              {source ? t('preview.rendered') : t('preview.source')}
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => onDownload(entry)}>
-            <Download className="size-4" /> Télécharger
+            <Download className="size-4" /> {t('preview.download')}
           </Button>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fermer l'aperçu">
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label={t('preview.close')}>
             <X className="size-4" />
           </Button>
         </div>
         <div className="min-h-48 flex-1 overflow-auto">
           {kind === null && (
-            <p className="p-6 text-sm text-muted-foreground">Pas d'aperçu pour ce fichier.</p>
+            <p className="p-6 text-sm text-muted-foreground">{t('preview.none')}</p>
           )}
           {kind && content.isPending && (
-            <p className="p-6 text-sm text-muted-foreground">Chargement…</p>
+            <p className="p-6 text-sm text-muted-foreground">{t('common.loading')}</p>
           )}
-          {content.isError && <p className="p-6 text-sm text-destructive">Aperçu impossible.</p>}
+          {content.isError && <p className="p-6 text-sm text-destructive">{t('preview.failed')}</p>}
           {content.data && 'text' in content.data && markdown && !source && (
             <MarkdownDocument
               text={content.data.text ?? ''}

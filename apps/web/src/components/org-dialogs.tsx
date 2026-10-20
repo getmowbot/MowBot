@@ -5,6 +5,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { FolderOpen, Monitor, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { createContext, type FormEvent, type ReactNode, useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api, problemMessage } from '../lib/auth';
 import { useComputers, useTeams } from '../lib/queries';
 import { cn } from '../lib/utils';
@@ -97,6 +98,7 @@ function Check({
 }
 
 function NewTeamForm({ onDone }: { onDone(): void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [isolated, setIsolated] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +115,7 @@ function NewTeamForm({ onDone }: { onDone(): void }) {
       onDone();
       void navigate({ to: '/teams/$teamId', params: { teamId: team.id } });
     },
-    onError: (err) => setError(problemMessage(err, 'Équipe non créée.')),
+    onError: (err) => setError(problemMessage(err, t('dialogs.newTeam.notCreated'))),
   });
   return (
     <form
@@ -125,42 +127,40 @@ function NewTeamForm({ onDone }: { onDone(): void }) {
       }}
     >
       <div className="space-y-1.5">
-        <Label htmlFor="team-name">Nom</Label>
+        <Label htmlFor="team-name">{t('common.name')}</Label>
         <Input
           id="team-name"
           name="name"
           required
           maxLength={60}
           autoFocus
-          placeholder="Marketing"
+          placeholder={t('dialogs.newTeam.namePlaceholder')}
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="team-mission">Mission</Label>
+        <Label htmlFor="team-mission">{t('common.mission')}</Label>
         <Textarea
           id="team-mission"
           name="mission"
           rows={3}
           maxLength={4000}
-          placeholder="Ce dont l'équipe s'occupe, sur la durée"
+          placeholder={t('dialogs.newTeam.missionPlaceholder')}
         />
       </div>
       <Check
         checked={isolated}
         onChange={setIsolated}
-        label="Cloisonnée"
-        hint="Seuls son lead et le Chef peuvent écrire à ses bots. Pour les données sensibles."
+        label={t('common.isolated')}
+        hint={t('dialogs.newTeam.isolatedHint')}
       />
-      <p className="text-xs text-muted-foreground">
-        L’équipe a son propre PC (allumé au premier besoin) et son propre dossier de fichiers.
-      </p>
+      <p className="text-xs text-muted-foreground">{t('dialogs.newTeam.note')}</p>
       <FormError message={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={create.isPending}>
-          {create.isPending ? 'Création…' : 'Créer l’équipe'}
+          {create.isPending ? t('common.creating') : t('dialogs.newTeam.create')}
         </Button>
         <Button variant="ghost" onClick={onDone}>
-          Annuler
+          {t('common.cancel')}
         </Button>
       </div>
     </form>
@@ -168,6 +168,7 @@ function NewTeamForm({ onDone }: { onDone(): void }) {
 }
 
 function NewBotForm({ teamId, onDone }: { teamId: string | null; onDone(): void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const teams = useTeams();
   const [team, setTeam] = useState<string>(teamId ?? teams.data?.[0]?.id ?? 'solo');
@@ -195,7 +196,7 @@ function NewBotForm({ teamId, onDone }: { teamId: string | null; onDone(): void 
       onDone();
       void navigate({ to: '/bots/$botId', params: { botId: bot.id } });
     },
-    onError: (err) => setError(problemMessage(err, 'Bot non créé.')),
+    onError: (err) => setError(problemMessage(err, t('dialogs.newBot.notCreated'))),
   });
   return (
     <form
@@ -208,45 +209,43 @@ function NewBotForm({ teamId, onDone }: { teamId: string | null; onDone(): void 
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="bot-name">Nom</Label>
+          <Label htmlFor="bot-name">{t('common.name')}</Label>
           <Input id="bot-name" name="name" required maxLength={40} autoFocus placeholder="Nova" />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="bot-role">Rôle</Label>
+          <Label htmlFor="bot-role">{t('common.role')}</Label>
           <Input
             id="bot-role"
             name="role"
             required
             maxLength={120}
-            placeholder="Veille concurrentielle"
+            placeholder={t('dialogs.newBot.rolePlaceholder')}
           />
         </div>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="bot-mission">Mission</Label>
+        <Label htmlFor="bot-mission">{t('common.mission')}</Label>
         <Textarea
           id="bot-mission"
           name="mission"
           rows={3}
           maxLength={4000}
-          placeholder="Ce qu'il doit accomplir, ce qu'on attend de lui"
+          placeholder={t('dialogs.newBot.missionPlaceholder')}
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="bot-team">Équipe</Label>
+        <Label htmlFor="bot-team">{t('common.team')}</Label>
         <Select id="bot-team" value={team} onChange={(event) => setTeam(event.target.value)}>
           {teams.data?.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
             </option>
           ))}
-          <option value="solo">Solo (hors équipe)</option>
+          <option value="solo">{t('dialogs.newBot.solo')}</option>
         </Select>
       </div>
       {solo ? (
-        <p className="text-xs text-muted-foreground">
-          Un bot solo a son propre PC et son propre dossier de fichiers.
-        </p>
+        <p className="text-xs text-muted-foreground">{t('dialogs.newBot.soloNote')}</p>
       ) : (
         <>
           <Choice<BotComputerChoice>
@@ -254,25 +253,29 @@ function NewBotForm({ teamId, onDone }: { teamId: string | null; onDone(): void 
             value={computer}
             onChange={setComputer}
             options={[
-              { value: 'team', label: 'PC de l’équipe', hint: 'Partagé avec ses collègues' },
-              { value: 'dedicated', label: 'PC dédié', hint: 'Rien qu’à lui (lourd ou sensible)' },
+              { value: 'team', label: t('common.teamPc'), hint: t('dialogs.newBot.teamPcHint') },
+              {
+                value: 'dedicated',
+                label: t('dialogs.newBot.dedicatedPc'),
+                hint: t('dialogs.newBot.dedicatedPcHint'),
+              },
             ]}
           />
           <Check
             checked={lead}
             onChange={setLead}
-            label="Lead de l’équipe"
-            hint="Il répartit le travail et peut créer des bots dans l’équipe."
+            label={t('dialogs.newBot.lead')}
+            hint={t('dialogs.newBot.leadHint')}
           />
         </>
       )}
       <FormError message={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={create.isPending}>
-          {create.isPending ? 'Création…' : 'Créer le bot'}
+          {create.isPending ? t('common.creating') : t('dialogs.newBot.create')}
         </Button>
         <Button variant="ghost" onClick={onDone}>
-          Annuler
+          {t('common.cancel')}
         </Button>
       </div>
     </form>
@@ -280,6 +283,7 @@ function NewBotForm({ teamId, onDone }: { teamId: string | null; onDone(): void 
 }
 
 function BotSettingsForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const teams = useTeams();
@@ -307,7 +311,7 @@ function BotSettingsForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
       }
     },
     onSuccess: onDone,
-    onError: (err) => setError(problemMessage(err, 'Réglages non enregistrés.')),
+    onError: (err) => setError(problemMessage(err, t('common.settingsNotSaved'))),
   });
   const remove = useMutation({
     mutationFn: async () => {
@@ -319,7 +323,7 @@ function BotSettingsForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
       onDone();
       void navigate({ to: '/' });
     },
-    onError: (err) => setError(problemMessage(err, 'Bot non supprimé.')),
+    onError: (err) => setError(problemMessage(err, t('dialogs.botSettings.notDeleted'))),
   });
   const filesLink = team
     ? { to: '/teams/$teamId/files', params: { teamId: team.id } }
@@ -337,11 +341,11 @@ function BotSettingsForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
       }}
     >
       <div className="space-y-1.5">
-        <Label htmlFor="settings-role">Rôle</Label>
+        <Label htmlFor="settings-role">{t('common.role')}</Label>
         <Input id="settings-role" name="role" required maxLength={120} defaultValue={bot.role} />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="settings-mission">Mission</Label>
+        <Label htmlFor="settings-mission">{t('common.mission')}</Label>
         <Textarea
           id="settings-mission"
           name="mission"
@@ -351,7 +355,11 @@ function BotSettingsForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
         />
       </div>
       {team && !bot.isChef && (
-        <Check checked={lead} onChange={setLead} label={`Lead de l’équipe ${team.name}`} />
+        <Check
+          checked={lead}
+          onChange={setLead}
+          label={t('dialogs.botSettings.leadOf', { team: team.name })}
+        />
       )}
       <div className="flex flex-wrap gap-2 text-sm">
         {pc && (
@@ -362,7 +370,7 @@ function BotSettingsForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
             className="flex items-center gap-1.5 rounded-lg border border-border-strong px-2.5 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
           >
             <Monitor className="size-3.5" />{' '}
-            {pc.kind === 'dedicated' ? 'Son PC dédié' : 'PC de l’équipe'}
+            {pc.kind === 'dedicated' ? t('dialogs.botSettings.ownPc') : t('common.teamPc')}
           </Link>
         )}
         {filesLink && (
@@ -371,17 +379,17 @@ function BotSettingsForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
             onClick={onDone}
             className="flex items-center gap-1.5 rounded-lg border border-border-strong px-2.5 py-1.5 text-muted-foreground transition-colors hover:text-foreground"
           >
-            <FolderOpen className="size-3.5" /> Fichiers
+            <FolderOpen className="size-3.5" /> {t('common.files')}
           </Link>
         )}
       </div>
       <FormError message={error} />
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
+          {save.isPending ? t('common.saving') : t('common.save')}
         </Button>
         <Button variant="ghost" onClick={onDone}>
-          Annuler
+          {t('common.cancel')}
         </Button>
         {!bot.isChef && (
           <Button
@@ -389,20 +397,17 @@ function BotSettingsForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
             className="ml-auto"
             disabled={remove.isPending}
             onClick={() => {
-              const what =
+              const question = t(
                 pc?.kind === 'dedicated'
-                  ? ', sa conversation et son PC dédié'
-                  : ' et sa conversation';
-              if (
-                confirm(
-                  `Supprimer ${bot.name}${what} ?${team ? '' : ' Ses fichiers iront dans la corbeille de l’Équipe principale.'}`,
-                )
-              ) {
-                remove.mutate();
-              }
+                  ? 'dialogs.botSettings.confirmDeleteDedicated'
+                  : 'dialogs.botSettings.confirmDelete',
+                { name: bot.name },
+              );
+              const filesNote = team ? '' : ` ${t('dialogs.botSettings.soloFilesNote')}`;
+              if (confirm(question + filesNote)) remove.mutate();
             }}
           >
-            <Trash2 className="size-3.5" /> Supprimer
+            <Trash2 className="size-3.5" /> {t('common.delete')}
           </Button>
         )}
       </div>
@@ -412,6 +417,7 @@ function BotSettingsForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
 
 /** Opens the org dialogs (new team, new bot, bot settings) from anywhere in the app. */
 export function OrgDialogsProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState<
     | { kind: 'team' }
     | { kind: 'bot'; teamId: string | null }
@@ -430,16 +436,16 @@ export function OrgDialogsProvider({ children }: { children: ReactNode }) {
       <Dialog
         open={open?.kind === 'team'}
         onClose={close}
-        title="Nouvelle équipe"
-        description="Un groupe de bots avec son PC partagé et ses fichiers."
+        title={t('common.newTeam')}
+        description={t('dialogs.newTeam.description')}
       >
         <NewTeamForm onDone={close} />
       </Dialog>
       <Dialog
         open={open?.kind === 'bot'}
         onClose={close}
-        title="Nouveau bot"
-        description="Il rejoint une équipe, ou travaille seul sur son propre PC."
+        title={t('common.newBot')}
+        description={t('dialogs.newBot.description')}
       >
         <NewBotForm teamId={open?.kind === 'bot' ? open.teamId : null} onDone={close} />
       </Dialog>

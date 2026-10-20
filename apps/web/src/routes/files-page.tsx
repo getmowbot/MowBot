@@ -12,35 +12,40 @@ import {
   Upload,
 } from 'lucide-react';
 import { type DragEvent, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FilePreview } from '../components/file-preview';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/form';
+import { i18n } from '../i18n';
 import { api, apiBaseUrl, client, problemMessage } from '../lib/auth';
 import { useBots, useTeams } from '../lib/queries';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 
-const label = (name: string) => (name === TRASH_FOLDER ? 'Corbeille' : name);
+const label = (name: string) => (name === TRASH_FOLDER ? i18n.t('files.trash') : name);
 
+const UNITS = ['kb', 'mb', 'gb', 'tb'] as const;
+
+/** `1,5 Mo` / `1.5 MB` */
 const formatSize = (bytes: number) => {
-  if (bytes < 1024) return `${bytes} o`;
-  const units = ['Ko', 'Mo', 'Go', 'To'];
+  if (bytes < 1024) return `${bytes} ${i18n.t('files.units.b')}`;
   let value = bytes / 1024;
   let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
+  while (value >= 1024 && unit < UNITS.length - 1) {
     value /= 1024;
     unit++;
   }
-  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
+  const digits = value < 10 ? 1 : 0;
+  const number = new Intl.NumberFormat(i18n.language, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value);
+  return `${number} ${i18n.t(`files.units.${UNITS[unit] ?? 'tb'}`)}`;
 };
-
-const formatDate = (iso: string) =>
-  new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(
-    new Date(iso),
-  );
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
 export function FilesPage() {
+  const { t } = useTranslation();
   // A team's files (/teams/:id/files) or any workspace (/workspaces/:id/files), e.g. a solo bot's.
   const route = useParams({ strict: false }) as { teamId?: string; workspaceId?: string };
   const search = useSearch({ strict: false }) as { path?: string };
@@ -79,7 +84,7 @@ export function FilesPage() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['files', workspaceId] });
   const params = { params: { path: { id: workspaceId as string } } };
-  const onError = (err: unknown) => setError(problemMessage(err, 'Action impossible.'));
+  const onError = (err: unknown) => setError(problemMessage(err, t('common.actionFailed')));
 
   /** A document links to another file (its preview opens) or folder (the explorer goes there). */
   const openPath = async (path: string) => {
@@ -90,7 +95,7 @@ export function FilesPage() {
     const entry = data?.entries.find((e) => e.path === path);
     if (!entry) {
       setPreview(null);
-      setError(`Introuvable : ${path}`);
+      setError(t('files.pathNotFound', { path }));
       return;
     }
     if (entry.type === 'directory') {
@@ -173,20 +178,22 @@ export function FilesPage() {
     if (files.length > 0) upload.mutate(files);
   };
 
-  if (teams.isPending) return <p className="text-sm text-muted-foreground">Chargement…</p>;
-  if (!workspaceId) return <p className="text-sm text-destructive">Dossier introuvable.</p>;
+  if (teams.isPending) {
+    return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
+  }
+  if (!workspaceId) return <p className="text-sm text-destructive">{t('files.notFound')}</p>;
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-muted-foreground">{owner ?? 'Fichiers'}</p>
+          <p className="text-sm text-muted-foreground">{owner ?? t('common.files')}</p>
           <nav
-            aria-label="Dossier courant"
+            aria-label={t('files.currentFolder')}
             className="flex flex-wrap items-center gap-1 text-xl font-semibold"
           >
             <Link to="." search={{}} className="hover:underline">
-              Fichiers
+              {t('common.files')}
             </Link>
             {crumbs.map((segment, index) => (
               <span key={crumbs.slice(0, index + 1).join('/')} className="flex items-center gap-1">
@@ -206,17 +213,18 @@ export function FilesPage() {
           <Button
             variant="outline"
             onClick={() => {
-              const name = prompt('Nom du nouveau dossier');
+              const name = prompt(t('files.newFolderPrompt'));
               if (name?.trim()) mkdir.mutate(name.trim());
             }}
           >
-            <FolderPlus className="size-4" /> Dossier
+            <FolderPlus className="size-4" /> {t('files.folder')}
           </Button>
           <Button variant="outline" onClick={() => void download(dir)}>
-            <Download className="size-4" /> Tout télécharger
+            <Download className="size-4" /> {t('files.downloadAll')}
           </Button>
           <Button onClick={() => uploadInput.current?.click()} disabled={upload.isPending}>
-            <Upload className="size-4" /> {upload.isPending ? 'Envoi…' : 'Importer'}
+            <Upload className="size-4" />{' '}
+            {upload.isPending ? t('files.uploading') : t('files.upload')}
           </Button>
           <input
             ref={uploadInput}
@@ -236,7 +244,7 @@ export function FilesPage() {
         <p role="alert" className="text-sm text-destructive">
           {error}{' '}
           <button type="button" className="underline" onClick={() => setError(null)}>
-            OK
+            {t('common.ok')}
           </button>
         </p>
       )}
@@ -250,12 +258,12 @@ export function FilesPage() {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
       >
-        {listing.isPending && <p className="p-4 text-sm text-muted-foreground">Chargement…</p>}
-        {listing.isError && <p className="p-4 text-sm text-destructive">Dossier introuvable.</p>}
+        {listing.isPending && (
+          <p className="p-4 text-sm text-muted-foreground">{t('common.loading')}</p>
+        )}
+        {listing.isError && <p className="p-4 text-sm text-destructive">{t('files.notFound')}</p>}
         {listing.data?.length === 0 && (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            Dossier vide. Glisse des fichiers ici pour les importer.
-          </p>
+          <p className="p-8 text-center text-sm text-muted-foreground">{t('files.empty')}</p>
         )}
         <ul className="divide-y">
           {listing.data?.map((entry) => (
@@ -288,14 +296,14 @@ export function FilesPage() {
                 )}
                 <p className="text-xs text-muted-foreground">
                   {entry.type === 'file' ? `${formatSize(entry.size)} · ` : ''}
-                  {formatDate(entry.modifiedAt)}
+                  {formatDate(entry.modifiedAt, { dateStyle: 'short', timeStyle: 'short' })}
                 </p>
               </div>
               <div className="flex shrink-0 gap-1 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100">
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Télécharger ${entry.name}`}
+                  aria-label={t('files.download', { name: entry.name })}
                   onClick={() => void download(entry.path)}
                 >
                   <Download className="size-4" />
@@ -305,9 +313,9 @@ export function FilesPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      aria-label={`Renommer ${entry.name}`}
+                      aria-label={t('files.rename', { name: entry.name })}
                       onClick={() => {
-                        const name = prompt('Nouveau nom', entry.name);
+                        const name = prompt(t('files.renamePrompt'), entry.name);
                         if (name?.trim() && name.trim() !== entry.name) {
                           rename.mutate({ entry, name: name.trim() });
                         }
@@ -318,11 +326,11 @@ export function FilesPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      aria-label={`Supprimer ${entry.name}`}
+                      aria-label={t('common.deleteNamed', { name: entry.name })}
                       onClick={() => {
-                        const question = inTrash
-                          ? `Supprimer définitivement « ${entry.name} » ?`
-                          : `Mettre « ${entry.name} » à la corbeille ?`;
+                        const question = t(inTrash ? 'files.confirmPurge' : 'files.confirmTrash', {
+                          name: entry.name,
+                        });
                         if (confirm(question)) remove.mutate(entry);
                       }}
                     >

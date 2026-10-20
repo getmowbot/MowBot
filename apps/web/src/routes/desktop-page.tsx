@@ -1,6 +1,7 @@
 import { useParams } from '@tanstack/react-router';
 import { Hand, Maximize, Play, Power, RotateCw, Undo2 } from 'lucide-react';
 import { lazy, Suspense, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { StatusBadge } from '../components/computer-status';
 import type { DesktopViewHandle } from '../components/desktop-view';
 import { Button } from '../components/ui/button';
@@ -14,6 +15,7 @@ const DesktopView = lazy(() =>
 );
 
 export function DesktopPage() {
+  const { t } = useTranslation();
   // A team's PC (/teams/:id/desktop) or any computer (/computers/:id), e.g. a dedicated one.
   const params = useParams({ strict: false }) as { teamId?: string; computerId?: string };
   const team = useTeam(params.teamId);
@@ -25,10 +27,10 @@ export function DesktopPage() {
   const view = useRef<DesktopViewHandle>(null);
 
   if (team.isPending || (computerId && computer.isPending)) {
-    return <p className="text-sm text-muted-foreground">Chargement…</p>;
+    return <p className="text-sm text-muted-foreground">{t('common.loading')}</p>;
   }
   if (!computer.data) {
-    return <p className="text-sm text-destructive">Ordinateur introuvable.</p>;
+    return <p className="text-sm text-destructive">{t('desktop.notFound')}</p>;
   }
 
   const pc = computer.data;
@@ -44,7 +46,7 @@ export function DesktopPage() {
             {(bots.data ?? [])
               .filter((b) => b.computerId === pc.id)
               .map((b) => b.name)
-              .join(', ') || 'Aucun bot'}
+              .join(', ') || t('common.noBots')}
           </p>
           <h1 className="flex items-center gap-2 text-xl font-semibold">
             <span className="truncate">{pc.name}</span>
@@ -56,18 +58,18 @@ export function DesktopPage() {
             <>
               {inControl ? (
                 <Button onClick={() => action.mutate('release')} disabled={busy}>
-                  <Undo2 className="size-4" /> Rendre la main
+                  <Undo2 className="size-4" /> {t('desktop.release')}
                 </Button>
               ) : (
                 <Button onClick={() => action.mutate('takeover')} disabled={busy}>
-                  <Hand className="size-4" /> Prendre le contrôle
+                  <Hand className="size-4" /> {t('desktop.takeover')}
                 </Button>
               )}
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => view.current?.fullscreen()}
-                aria-label="Plein écran"
+                aria-label={t('desktop.fullscreen')}
               >
                 <Maximize className="size-4" />
               </Button>
@@ -76,7 +78,7 @@ export function DesktopPage() {
                 size="icon"
                 onClick={() => action.mutate('restart')}
                 disabled={busy}
-                aria-label="Redémarrer"
+                aria-label={t('desktop.restart')}
               >
                 <RotateCw className="size-4" />
               </Button>
@@ -85,7 +87,7 @@ export function DesktopPage() {
                 size="icon"
                 onClick={() => action.mutate('stop')}
                 disabled={busy}
-                aria-label="Éteindre"
+                aria-label={t('desktop.turnOff')}
               >
                 <Power className="size-4" />
               </Button>
@@ -93,7 +95,7 @@ export function DesktopPage() {
           )}
           {(pc.status === 'stopped' || pc.status === 'error') && (
             <Button onClick={() => action.mutate('start')} disabled={busy}>
-              <Play className="size-4" /> Allumer
+              <Play className="size-4" /> {t('common.turnOn')}
             </Button>
           )}
         </div>
@@ -101,40 +103,35 @@ export function DesktopPage() {
 
       {action.isError && (
         <p role="alert" className="text-sm text-destructive">
-          {problemMessage(action.error, 'Action impossible.')}
+          {problemMessage(action.error, t('common.actionFailed'))}
         </p>
       )}
 
       {pc.status === 'running' && control && (
         <p className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm">
-          {inControl
-            ? 'Tu as la main : les bots sont en pause sur ce PC. Clique dans le bureau pour taper.'
-            : 'Un autre de tes appareils a la main sur ce PC.'}
+          {inControl ? t('desktop.inControl') : t('desktop.otherDevice')}
         </p>
       )}
 
       {pc.status === 'running' ? (
-        <Suspense fallback={<p className="text-sm text-muted-foreground">Chargement du bureau…</p>}>
+        <Suspense
+          fallback={<p className="text-sm text-muted-foreground">{t('desktop.loading')}</p>}
+        >
           <DesktopView ref={view} computerId={pc.id} interactive={inControl} />
         </Suspense>
       ) : (
         <Card className="flex aspect-[16/10] max-h-[calc(100dvh-11rem)] w-full flex-col items-center justify-center gap-2 text-center">
-          {pc.status === 'starting' && (
-            <p>Démarrage du PC… (quelques secondes, plus au premier lancement)</p>
-          )}
-          {pc.status === 'stopping' && <p>Arrêt du PC…</p>}
+          {pc.status === 'starting' && <p>{t('desktop.starting')}</p>}
+          {pc.status === 'stopping' && <p>{t('desktop.stopping')}</p>}
           {pc.status === 'stopped' && (
             <>
-              <p className="font-medium">Le PC est éteint.</p>
-              <p className="max-w-md text-sm text-muted-foreground">
-                Il s'éteint tout seul après une période d'inactivité. Ses fichiers et ses
-                installations sont conservés.
-              </p>
+              <p className="font-medium">{t('desktop.off')}</p>
+              <p className="max-w-md text-sm text-muted-foreground">{t('desktop.offHint')}</p>
             </>
           )}
           {pc.status === 'error' && (
             <>
-              <p className="font-medium text-destructive">Le PC n'a pas pu démarrer.</p>
+              <p className="font-medium text-destructive">{t('desktop.failed')}</p>
               {pc.statusDetail && (
                 <p className="max-w-xl break-words font-mono text-xs text-muted-foreground">
                   {pc.statusDetail}

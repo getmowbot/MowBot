@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { ImageOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { client } from '../lib/auth';
@@ -58,6 +59,7 @@ function WorkspaceImage({
  * otherwise tell a third party when and from where it is read.
  */
 function ExternalImage({ src, alt }: { src: string; alt: string }) {
+  const { t } = useTranslation();
   const [shown, setShown] = useState(false);
   if (shown) return <img src={src} alt={alt} className="my-4 max-w-full rounded-lg" />;
   return (
@@ -68,7 +70,7 @@ function ExternalImage({ src, alt }: { src: string; alt: string }) {
     >
       <ImageOff className="size-4 shrink-0" />
       <span className="min-w-0 truncate">
-        Image externe non chargée{alt ? ` (${alt})` : ''} : afficher
+        {t('preview.externalImage', { alt: alt ? ` (${alt})` : '' })}
       </span>
     </button>
   );
