@@ -34,6 +34,10 @@ import {
 } from '../../../lib/queries';
 import { colors } from '../../../theme';
 
+/** Under the message field: above the home indicator, and above the keyboard once open. */
+const DOCK_GAP = 8;
+const KEYBOARD_GAP = 12;
+
 function Separator() {
   return <View style={styles.separator} />;
 }
@@ -62,17 +66,19 @@ export default function ChatScreen() {
   const data = useMemo(() => [...(items ?? [])].reverse(), [items]);
   const byId = useMemo(() => botsById(bots.data), [bots.data]);
 
+  // Keyboard open: the home-indicator inset gives way to the keyboard, leaving KEYBOARD_GAP.
+  const keyboardOffset = insets.bottom + DOCK_GAP - KEYBOARD_GAP;
   const renderScroll = useMemo(
     () => (props: ScrollViewProps) => (
       <KeyboardChatScrollView
         {...props}
         inverted
-        offset={insets.bottom}
+        offset={keyboardOffset}
         automaticallyAdjustContentInsets={false}
         contentInsetAdjustmentBehavior="never"
       />
     ),
-    [insets.bottom],
+    [keyboardOffset],
   );
 
   if (!bot) {
@@ -163,10 +169,10 @@ export default function ChatScreen() {
         onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
       />
 
-      <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }} style={styles.dock}>
+      <KeyboardStickyView offset={{ closed: 0, opened: keyboardOffset }} style={styles.dock}>
         <View
           onLayout={(event) => setDockHeight(event.nativeEvent.layout.height)}
-          style={[styles.dockInner, { paddingBottom: insets.bottom + 8 }]}
+          style={[styles.dockInner, { paddingBottom: insets.bottom + DOCK_GAP }]}
         >
           {noModel && (
             <Surface style={styles.notice}>
