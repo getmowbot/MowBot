@@ -13,6 +13,7 @@ import {
   displayName,
   isInTrash,
   moveTarget,
+  normalizePath,
   parentOf,
   pathSegments,
   TRASH_FOLDER,
@@ -29,7 +30,7 @@ import { colors, spacing } from '../../../../theme';
 export default function MoveScreen() {
   const params = useLocalSearchParams<{ workspaceId: string; from: string }>();
   const workspaceId = params.workspaceId;
-  const from = params.from ?? '';
+  const from = normalizePath(params.from);
   const { t } = useTranslation();
   const trashLabel = t('filesView.trash');
   // Restoring starts from the root: the original folder of a trashed entry is not known.

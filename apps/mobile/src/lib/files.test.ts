@@ -15,6 +15,7 @@ import {
   localFileName,
   mimeTypeFor,
   moveTarget,
+  normalizePath,
   originalName,
   parentOf,
   pathSegments,
@@ -43,6 +44,8 @@ describe('workspace paths', () => {
     expect(baseName('outputs')).toBe('outputs');
     expect(pathSegments('')).toEqual([]);
     expect(pathSegments('a/b/c')).toEqual(['a', 'b', 'c']);
+    expect(normalizePath(undefined)).toBe('');
+    expect(normalizePath('/outputs//reports/')).toBe('outputs/reports');
   });
 
   it('knows the trash', () => {

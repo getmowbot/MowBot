@@ -27,6 +27,11 @@ export function pathSegments(path: string): string[] {
   return path.split('/').filter(Boolean);
 }
 
+/** A path from a link (`/outputs/`, undefined) in the hub's form (`outputs`, `''`). */
+export function normalizePath(input: string | undefined): string {
+  return pathSegments(input ?? '').join('/');
+}
+
 /** The trash folder or anything in it (deleting there is for good). */
 export function isInTrash(path: string): boolean {
   return path === TRASH_FOLDER || path.startsWith(`${TRASH_FOLDER}/`);

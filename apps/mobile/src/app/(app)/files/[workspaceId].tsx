@@ -17,7 +17,13 @@ import { useFileActions } from '../../../components/files/use-file-actions';
 import { Screen } from '../../../components/screen';
 import { Button, IconButton } from '../../../components/ui/button';
 import { T } from '../../../components/ui/text';
-import { displayName, isInTrash, pathSegments, TRASH_FOLDER } from '../../../lib/files';
+import {
+  displayName,
+  isInTrash,
+  normalizePath,
+  pathSegments,
+  TRASH_FOLDER,
+} from '../../../lib/files';
 import { useFolder, useWorkspaceOwner } from '../../../lib/files-queries';
 import { colors, spacing } from '../../../theme';
 
@@ -28,7 +34,7 @@ import { colors, spacing } from '../../../theme';
 export default function FilesScreen() {
   const params = useLocalSearchParams<{ workspaceId: string; path?: string }>();
   const workspaceId = params.workspaceId;
-  const dir = params.path ?? '';
+  const dir = normalizePath(params.path);
   const { t } = useTranslation();
   const metaOf = useEntryMeta();
   const insets = useSafeAreaInsets();
@@ -163,6 +169,8 @@ export default function FilesScreen() {
         data={entries}
         keyExtractor={(entry) => entry.path}
         renderItem={renderItem}
+        // Rows know whether they close the card: redraw them when the count changes.
+        extraData={entries.length}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
         contentInsetAdjustmentBehavior="automatic"

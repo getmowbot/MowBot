@@ -16,7 +16,7 @@ import {
 import { useFileActions } from '../../../../components/files/use-file-actions';
 import { Screen } from '../../../../components/screen';
 import { IconButton } from '../../../../components/ui/button';
-import { displayName, parentOf, previewKind } from '../../../../lib/files';
+import { displayName, normalizePath, parentOf, previewKind } from '../../../../lib/files';
 import { useFileEntry, useFileText, useWorkspaceOwner } from '../../../../lib/files-queries';
 import { isIOS } from '../../../../lib/platform';
 import { spacing } from '../../../../theme';
@@ -28,7 +28,7 @@ import { spacing } from '../../../../theme';
 export default function FilePreviewScreen() {
   const params = useLocalSearchParams<{ workspaceId: string; path: string }>();
   const workspaceId = params.workspaceId;
-  const path = params.path ?? '';
+  const path = normalizePath(params.path);
   const { t } = useTranslation();
   const focused = useIsFocused();
   const owner = useWorkspaceOwner(workspaceId);
