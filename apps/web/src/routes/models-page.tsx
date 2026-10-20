@@ -6,7 +6,17 @@ import {
 } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, KeyRound, Plug, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  Check,
+  KeyRound,
+  Plug,
+  Plus,
+  RefreshCw,
+  Settings2,
+  ShieldCheck,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
 import { BotAvatar } from '../components/bot-avatar';
@@ -46,9 +56,194 @@ function useModels(providerId: string | null | undefined) {
   });
 }
 
+interface HeaderRow {
+  key: number;
+  name: string;
+  value: string;
+}
+
+let headerKey = 0;
+const toRows = (headers: Record<string, string>): HeaderRow[] =>
+  Object.entries(headers).map(([name, value]) => ({ key: headerKey++, name, value }));
+const toHeaders = (rows: HeaderRow[]): Record<string, string> =>
+  Object.fromEntries(
+    rows.filter((row) => row.name.trim()).map((row) => [row.name.trim(), row.value.trim()]),
+  );
+
+/** Command Code only routes to upstreams that keep nothing when this header is set. */
+const ZDR_HEADER = 'x-cmd-zdr';
+
+function HeadersEditor({
+  kind,
+  rows,
+  onChange,
+}: {
+  kind: ProviderKind;
+  rows: HeaderRow[];
+  onChange(rows: HeaderRow[]): void;
+}) {
+  const zdr = rows.some((row) => row.name.trim().toLowerCase() === ZDR_HEADER);
+  const set = (key: number, patch: Partial<HeaderRow>) =>
+    onChange(rows.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[13px] font-medium text-muted-foreground">En-têtes HTTP</span>
+        {kind === 'command-code' && (
+          <button
+            type="button"
+            aria-pressed={zdr}
+            onClick={() =>
+              onChange(
+                zdr
+                  ? rows.filter((row) => row.name.trim().toLowerCase() !== ZDR_HEADER)
+                  : [...rows, { key: headerKey++, name: ZDR_HEADER, value: '1' }],
+              )
+            }
+            className={cn(
+              'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors duration-200',
+              zdr
+                ? 'border-primary/50 bg-primary/[0.08] text-foreground'
+                : 'border-border-strong text-muted-foreground hover:border-white/20',
+            )}
+          >
+            {zdr ? <Check className="size-3" /> : <ShieldCheck className="size-3" />}
+            Zero Data Retention
+          </button>
+        )}
+      </div>
+      <AnimatePresence initial={false}>
+        {rows.map((row) => (
+          <motion.div
+            key={row.key}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={springs.soft}
+            className="overflow-hidden"
+          >
+            <div className="flex gap-2 pb-0.5">
+              <Input
+                value={row.name}
+                onChange={(event) => set(row.key, { name: event.target.value })}
+                placeholder="Nom"
+                aria-label="Nom de l’en-tête"
+                className="flex-[2] font-mono text-[13px]"
+              />
+              <Input
+                value={row.value}
+                onChange={(event) => set(row.key, { value: event.target.value })}
+                placeholder="Valeur"
+                aria-label="Valeur de l’en-tête"
+                className="flex-[3] font-mono text-[13px]"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onChange(rows.filter((r) => r.key !== row.key))}
+                aria-label="Retirer l’en-tête"
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onChange([...rows, { key: headerKey++, name: '', value: '' }])}
+      >
+        <Plus className="size-3.5" /> Ajouter un en-tête
+      </Button>
+      <p className="text-xs text-faint">
+        Envoyés avec chaque requête à ce fournisseur, et visibles dans l’app : une clé secrète va
+        dans « Clé API ».
+        {kind === 'command-code' &&
+          ' Zero Data Retention : Command Code ne passe que par des fournisseurs qui ne conservent rien ; un modèle sans cette option peut être refusé.'}
+      </p>
+    </div>
+  );
+}
+
+function EditProvider({ provider, onDone }: { provider: Provider; onDone(): void }) {
+  const queryClient = useQueryClient();
+  const [rows, setRows] = useState(() => toRows(provider.headers));
+  const [error, setError] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: async (form: FormData) => {
+      const apiKey = String(form.get('apiKey') ?? '').trim();
+      const { error } = await api.PATCH('/api/v1/providers/{id}', {
+        params: { path: { id: provider.id } },
+        body: {
+          name: String(form.get('name')).trim(),
+          baseUrl: String(form.get('baseUrl')).trim(),
+          apiKey: apiKey || undefined,
+          headers: toHeaders(rows),
+        },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['providers'] });
+      void queryClient.invalidateQueries({ queryKey: ['models', provider.id] });
+      onDone();
+    },
+    onError: (err) => setError(problemMessage(err, 'Modifications non enregistrées.')),
+  });
+  return (
+    <form
+      className="space-y-4 pb-1 pt-2"
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setError(null);
+        save.mutate(new FormData(event.currentTarget));
+      }}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor={`name-${provider.id}`}>Nom</Label>
+          <Input id={`name-${provider.id}`} name="name" required defaultValue={provider.name} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`key-${provider.id}`}>Clé API</Label>
+          <Input
+            id={`key-${provider.id}`}
+            name="apiKey"
+            type="password"
+            autoComplete="off"
+            placeholder={provider.hasApiKey ? 'Inchangée' : 'Aucune'}
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor={`url-${provider.id}`}>URL de base</Label>
+          <Input
+            id={`url-${provider.id}`}
+            name="baseUrl"
+            type="url"
+            required
+            defaultValue={provider.baseUrl}
+          />
+        </div>
+      </div>
+      <HeadersEditor kind={provider.kind} rows={rows} onChange={setRows} />
+      <FormError message={error} />
+      <div className="flex gap-2">
+        <Button type="submit" disabled={save.isPending}>
+          {save.isPending ? 'Enregistrement…' : 'Enregistrer'}
+        </Button>
+        <Button variant="ghost" onClick={onDone}>
+          Annuler
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function AddProvider({ onDone }: { onDone(): void }) {
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<ProviderKind>('command-code');
+  const [rows, setRows] = useState<HeaderRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const create = useMutation({
     mutationFn: async (form: FormData) => {
@@ -61,6 +256,7 @@ function AddProvider({ onDone }: { onDone(): void }) {
           apiKey: String(form.get('apiKey') ?? '').trim() || undefined,
           baseUrl: baseUrl || undefined,
           defaultModel: defaultModel || undefined,
+          headers: toHeaders(rows),
         },
       });
       if (error || !data) throw error;
@@ -140,6 +336,7 @@ function AddProvider({ onDone }: { onDone(): void }) {
           />
         </div>
       </div>
+      <HeadersEditor kind={kind} rows={rows} onChange={setRows} />
       <FormError message={error} />
       <div className="flex gap-2">
         <Button type="submit" disabled={create.isPending}>
@@ -156,6 +353,8 @@ function AddProvider({ onDone }: { onDone(): void }) {
 function ProviderRow({ provider }: { provider: Provider }) {
   const queryClient = useQueryClient();
   const models = useModels(provider.id);
+  const [editing, setEditing] = useState(false);
+  const headerCount = Object.keys(provider.headers).length;
   const remove = useMutation({
     mutationFn: () =>
       api.DELETE('/api/v1/providers/{id}', { params: { path: { id: provider.id } } }),
@@ -171,7 +370,10 @@ function ProviderRow({ provider }: { provider: Provider }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="font-medium">{provider.name}</p>
-        <p className="truncate text-xs text-faint">{provider.baseUrl}</p>
+        <p className="truncate text-xs text-faint">
+          {provider.baseUrl}
+          {headerCount > 0 && ` · ${headerCount} en-tête${headerCount > 1 ? 's' : ''}`}
+        </p>
       </div>
       <span
         className={cn(
@@ -197,6 +399,15 @@ function ProviderRow({ provider }: { provider: Provider }) {
         <RefreshCw className="size-4" />
       </Button>
       <Button
+        variant={editing ? 'outline' : 'ghost'}
+        size="icon"
+        onClick={() => setEditing((v) => !v)}
+        aria-label={`Réglages de ${provider.name}`}
+        aria-expanded={editing}
+      >
+        <Settings2 className="size-4" />
+      </Button>
+      <Button
         variant="ghost"
         size="icon"
         onClick={() => confirm(`Supprimer « ${provider.name} » ?`) && remove.mutate()}
@@ -204,6 +415,19 @@ function ProviderRow({ provider }: { provider: Provider }) {
       >
         <Trash2 className="size-4" />
       </Button>
+      <AnimatePresence initial={false}>
+        {editing && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={springs.soft}
+            className="basis-full overflow-hidden"
+          >
+            <EditProvider provider={provider} onDone={() => setEditing(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "provider_profiles" ADD COLUMN "headers" jsonb DEFAULT '{}'::jsonb NOT NULL;

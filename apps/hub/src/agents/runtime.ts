@@ -9,12 +9,15 @@ import { bots, messages, owner, teams } from '../db/schema';
 import type { EventBus } from '../events';
 import type { ProviderService } from '../providers/service';
 import type { WorkspaceFiles } from '../workspaces/files';
+import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
 import { systemPrompt } from './prompt';
 import { buildTools, clip } from './tools';
 
 const HISTORY_MESSAGES = 40;
 const MAX_STEPS = 30;
 const UI_OUTPUT_CHARS = 4_000;
+/** After this long without work, what a bot left open on its computer gets closed. */
+const TIDY_AFTER_MS = 10 * 60_000;
 
 type MessageRow = typeof messages.$inferSelect;
 
@@ -27,6 +30,7 @@ export interface RuntimeDeps {
   files: WorkspaceFiles;
   /** Tests inject a scripted model. */
   modelFor?: (bot: BotRow) => LanguageModel | null;
+  tidyAfterMs?: number;
 }
 
 /** Binary payloads stay out of stored transcripts (screenshots are re-taken when needed). */
@@ -83,6 +87,7 @@ export class BotRuntime {
   private log: Logger = { warn: () => {}, error: () => {} };
   private readonly chains = new Map<string, Promise<void>>();
   private readonly controllers = new Map<string, AbortController>();
+  private readonly tidyTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(private readonly deps: RuntimeDeps) {}
 
@@ -115,12 +120,31 @@ export class BotRuntime {
     return Boolean(controller);
   }
 
+  /** Starts over: stops the bot, forgets the conversation, tidies its computer up. */
+  async clear(botId: string): Promise<void> {
+    const bot = await this.deps.bots.row(botId);
+    this.stop(botId);
+    await this.idle(botId);
+    await this.deps.db.delete(messages).where(eq(messages.botId, botId));
+    this.deps.events.publish({ type: 'messages.cleared', botId });
+    await this.deps.bots.update(botId, { status: 'idle', statusDetail: null });
+    if (bot.computerId) {
+      clearTimeout(this.tidyTimers.get(botId));
+      this.tidyTimers.delete(botId);
+      await this.tidy(botId, bot.computerId).catch((error) =>
+        this.log.warn({ err: error, botId }, 'Tidy-up failed'),
+      );
+    }
+  }
+
   /** Resolves when the bot's queue is empty (tests, shutdown). */
   async idle(botId: string): Promise<void> {
     while (this.chains.has(botId)) await this.chains.get(botId);
   }
 
   async close(): Promise<void> {
+    for (const timer of this.tidyTimers.values()) clearTimeout(timer);
+    this.tidyTimers.clear();
     for (const controller of this.controllers.values()) controller.abort();
     await Promise.allSettled(this.chains.values());
   }
@@ -138,6 +162,8 @@ export class BotRuntime {
   }
 
   private schedule(botId: string): void {
+    clearTimeout(this.tidyTimers.get(botId));
+    this.tidyTimers.delete(botId);
     const previous = this.chains.get(botId) ?? Promise.resolve();
     const next = previous
       .then(() => this.run(botId))
@@ -204,6 +230,51 @@ export class BotRuntime {
     return computers.agentFor(computerId);
   }
 
+  private planTidy(botId: string, computerId: string): void {
+    clearTimeout(this.tidyTimers.get(botId));
+    const timer = setTimeout(() => {
+      this.tidyTimers.delete(botId);
+      this.tidy(botId, computerId).catch((error) =>
+        this.log.warn({ err: error, botId }, 'Tidy-up failed'),
+      );
+    }, this.deps.tidyAfterMs ?? TIDY_AFTER_MS);
+    timer.unref();
+    this.tidyTimers.set(botId, timer);
+  }
+
+  /** Closes the tabs and apps an idle bot left open; never while the user has the mouse. */
+  async tidy(botId: string, computerId: string): Promise<void> {
+    if (this.chains.has(botId)) return; // Working: the end of that run plans the next one.
+    const pc = await this.deps.computers.get(computerId);
+    if (pc.status !== 'running') return; // Asleep: nothing is open.
+    const agent = await this.deps.computers.agentFor(computerId);
+    if ((await agent.health()).controlLocked) return this.planTidy(botId, computerId);
+    await closeOpened(agent, botId, openedBy(await inventory(agent, botId)));
+  }
+
+  /** Windows that appeared while the bot worked are its own (to close when tidying up). */
+  private async afterRun(
+    botId: string,
+    computerId: string,
+    windowsBefore: Promise<Set<string> | null> | null,
+  ): Promise<void> {
+    try {
+      const before = windowsBefore ? await windowsBefore : null;
+      if (before) {
+        const agent = await this.deps.computers.agentFor(computerId);
+        const opened = (await inventory(agent, botId)).windows.filter((w) => !before.has(w.id));
+        await rememberWindows(
+          agent,
+          botId,
+          opened.map((w) => w.id),
+        );
+      }
+    } catch (error) {
+      this.log.warn({ err: error, botId }, 'Could not record opened windows');
+    }
+    this.planTidy(botId, computerId);
+  }
+
   private async run(botId: string): Promise<void> {
     const { db, events } = this.deps;
     const bot = await this.deps.bots.row(botId);
@@ -236,20 +307,33 @@ export class BotRuntime {
     this.controllers.set(botId, controller);
     await this.deps.bots.update(botId, { status: 'working', statusDetail: null });
     const parts: MessagePart[] = [];
+    const computerId = bot.computerId;
+    // Windows open before the bot first touched its computer during this run.
+    const watch: { windowsBefore: Promise<Set<string> | null> | null } = { windowsBefore: null };
 
     try {
       const [account] = await db.select({ name: owner.displayName }).from(owner).limit(1);
       const [team] = bot.teamId
         ? await db.select({ name: teams.name }).from(teams).where(eq(teams.id, bot.teamId))
         : [];
-      const computerId = bot.computerId;
       const pendingImages: string[] = [];
       const tools = buildTools({
+        botId,
         botName: bot.name,
         workspaceId: bot.workspaceId,
         files: this.deps.files,
         events,
-        computer: computerId ? () => this.computerAgent(computerId) : null,
+        computer: computerId
+          ? async () => {
+              const agent = await this.computerAgent(computerId);
+              watch.windowsBefore ??= inventory(agent, botId).then(
+                (inv) => new Set(inv.windows.map((w) => w.id)),
+                () => null,
+              );
+              await watch.windowsBefore;
+              return agent;
+            }
+          : null,
         pendingImages,
       });
 
@@ -277,8 +361,8 @@ export class BotRuntime {
                 content: [
                   { type: 'text', text: "Capture de l'écran de ton PC (1280×800) :" },
                   ...images.map((image) => ({
-                    type: 'image' as const,
-                    image,
+                    type: 'file' as const,
+                    data: image,
                     mediaType: 'image/png',
                   })),
                 ],
@@ -386,5 +470,6 @@ export class BotRuntime {
     } finally {
       this.controllers.delete(botId);
     }
+    if (computerId) await this.afterRun(botId, computerId, watch.windowsBefore);
   }
 }

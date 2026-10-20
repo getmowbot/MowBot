@@ -19,7 +19,7 @@ import { errorResponses, HttpProblem } from '../http/problems';
 const tags = ['bots'];
 
 export const botRoutes: FastifyPluginAsyncZod = async (app) => {
-  const { bots, runtime, providers, db } = app.services;
+  const { bots, runtime, providers, db, files } = app.services;
 
   app.get(
     '/bots',
@@ -65,8 +65,9 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => {
-      await bots.row(request.params.id);
+      const row = await bots.row(request.params.id);
       const body = request.body;
+      if (body.name && body.name !== row.name) await bots.moveFolder(row, body.name, files);
       if (body.providerId) {
         const provider = await providers.row(body.providerId);
         // Switching provider without naming a model: take the provider's default.
@@ -135,6 +136,26 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request, reply) =>
       reply.code(202).send(await runtime.send(request.params.id, request.body.text)),
+  );
+
+  app.delete(
+    '/bots/:id/messages',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags,
+        operationId: 'clearMessages',
+        description:
+          'Starts the conversation over: stops the bot, deletes its messages and closes what it left open on its computer. Workspace files are kept.',
+        security: bearerSecurity,
+        params: botIdParamsSchema,
+        response: { 204: z.null(), ...errorResponses },
+      },
+    },
+    async (request, reply) => {
+      await runtime.clear(request.params.id);
+      return reply.code(204).send(null);
+    },
   );
 
   app.post(

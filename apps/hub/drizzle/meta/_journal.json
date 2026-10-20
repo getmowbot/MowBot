@@ -22,6 +22,13 @@
       "when": 1792515877516,
       "tag": "0002_bots_and_providers",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792520825080,
+      "tag": "0003_provider_headers",
+      "breakpoints": true
     }
   ]
 }

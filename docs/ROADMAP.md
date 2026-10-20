@@ -49,6 +49,10 @@
 - [x] Outils : `bash`, `read_file` / `write_file` / `list_files` (limités à `/workspace`), `open_url` (Chrome partagé via DevTools), `screenshot` (image jointe à l'étape suivante, jamais stockée dans l'historique), `computer` (souris et clavier, refusé pendant une prise de contrôle) ; le PC s'allume tout seul
 - [x] Interface : thème sombre noir et blanc (yin/yang), bots en personnages (couleur unie, yeux en pilules qui clignent et regardent, humeur selon l'état), chat en streaming avec cartes d'action, panneau « Voir le PC », page Modèles
 - [x] Accès depuis le LAN (dev : `host: true` ; prod : adresses LAN dans `MOWBOT_DOMAIN`)
+- [x] Chat lisible : les actions et le raisonnement entre deux réponses tiennent sur une ligne grise (ce que le bot fait en ce moment, puis un résumé), dépliable en historique ; les bots décrivent leurs actions (`intent`)
+- [x] PC rangé : `open_url` réutilise l'onglet du bot, `list_windows` / `close_windows`, consigne de ranger en fin de tâche ou de sujet, et filet de sécurité : ce qu'un bot a ouvert est fermé après 10 min d'inactivité (pas pendant une prise de contrôle)
+- [x] En-têtes HTTP par fournisseur (ex. `x-cmd-zdr: 1`, Zero Data Retention de Command Code), fournisseurs modifiables dans l'UI
+- [x] Renommer un bot (son dossier suit) et vider sa conversation
 - [x] Vérifié de bout en bout avec un fournisseur simulé sur le vrai PC Docker : commande, page ouverte, capture, fichier écrit, réponse Markdown
 - [ ] Abonnement ChatGPT (« Sign in with ChatGPT ») : en attente du choix de licence open source
 - [ ] Navigateur piloté via `@playwright/mcp` (arrive avec la passerelle MCP, P6) ; budgets par bot

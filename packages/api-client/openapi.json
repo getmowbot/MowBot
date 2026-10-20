@@ -5065,6 +5065,15 @@
                               "null"
                             ]
                           },
+                          "headers": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
                           "hasApiKey": {
                             "type": "boolean"
                           },
@@ -5080,6 +5089,7 @@
                           "kind",
                           "baseUrl",
                           "defaultModel",
+                          "headers",
                           "hasApiKey",
                           "createdAt"
                         ],
@@ -5244,6 +5254,19 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200
+                  },
+                  "headers": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 100,
+                      "pattern": "^[A-Za-z0-9!#$%&'*+.^_`|~-]+$"
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 2000,
+                      "pattern": "^[^\\r\\n]*$"
+                    }
                   }
                 },
                 "required": [
@@ -5292,6 +5315,15 @@
                         "null"
                       ]
                     },
+                    "headers": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
                     "hasApiKey": {
                       "type": "boolean"
                     },
@@ -5307,6 +5339,7 @@
                     "kind",
                     "baseUrl",
                     "defaultModel",
+                    "headers",
                     "hasApiKey",
                     "createdAt"
                   ],
@@ -5464,6 +5497,19 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "headers": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 100,
+                      "pattern": "^[A-Za-z0-9!#$%&'*+.^_`|~-]+$"
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 2000,
+                      "pattern": "^[^\\r\\n]*$"
+                    }
                   }
                 }
               }
@@ -5520,6 +5566,15 @@
                         "null"
                       ]
                     },
+                    "headers": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
                     "hasApiKey": {
                       "type": "boolean"
                     },
@@ -5535,6 +5590,7 @@
                     "kind",
                     "baseUrl",
                     "defaultModel",
+                    "headers",
                     "hasApiKey",
                     "createdAt"
                   ],
@@ -7381,6 +7437,143 @@
                 }
               }
             }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "clearMessages",
+        "tags": [
+          "bots"
+        ],
+        "description": "Starts the conversation over: stops the bot, deletes its messages and closes what it left open on its computer. Workspace files are kept.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
           },
           "4XX": {
             "description": "Default Response",

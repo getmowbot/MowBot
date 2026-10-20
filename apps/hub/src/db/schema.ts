@@ -172,6 +172,7 @@ export const providerProfiles = pgTable('provider_profiles', {
   baseUrl: text('base_url').notNull(),
   defaultModel: text('default_model'),
   apiKeySealed: text('api_key_sealed'),
+  headers: jsonb('headers').$type<Record<string, string>>().notNull().default({}),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

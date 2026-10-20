@@ -24,6 +24,7 @@ export function toProvider(row: ProviderRow): Provider {
     kind: row.kind,
     baseUrl: row.baseUrl,
     defaultModel: row.defaultModel,
+    headers: row.headers,
     hasApiKey: row.apiKeySealed !== null,
     createdAt: row.createdAt.toISOString(),
   };
@@ -60,6 +61,7 @@ export class ProviderService {
         kind: input.kind,
         baseUrl: trimSlash(baseUrl),
         defaultModel: input.defaultModel ?? null,
+        headers: input.headers ?? {},
         apiKeySealed: input.apiKey ? seal(this.masterKey, KEY_PURPOSE, input.apiKey) : null,
       })
       .returning();
@@ -79,6 +81,7 @@ export class ProviderService {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.baseUrl !== undefined ? { baseUrl: trimSlash(input.baseUrl) } : {}),
         ...(input.defaultModel !== undefined ? { defaultModel: input.defaultModel } : {}),
+        ...(input.headers !== undefined ? { headers: input.headers } : {}),
         ...(input.apiKey !== undefined
           ? { apiKeySealed: seal(this.masterKey, KEY_PURPOSE, input.apiKey) }
           : {}),
@@ -106,7 +109,7 @@ export class ProviderService {
     let response: Response;
     try {
       response = await fetch(`${row.baseUrl}/models`, {
-        headers: key ? { authorization: `Bearer ${key}` } : {},
+        headers: { ...(key ? { authorization: `Bearer ${key}` } : {}), ...row.headers },
         signal: AbortSignal.timeout(15_000),
       });
     } catch (error) {
@@ -126,12 +129,15 @@ export class ProviderService {
   languageModel(row: ProviderRow, modelId: string): LanguageModel {
     const apiKey = this.apiKey(row);
     if (row.kind === 'openai') {
-      return createOpenAI({ apiKey, baseURL: row.baseUrl }).responses(modelId);
+      return createOpenAI({ apiKey, baseURL: row.baseUrl, headers: row.headers }).responses(
+        modelId,
+      );
     }
     return createOpenAICompatible({
       name: row.kind === 'command-code' ? 'command-code' : `provider-${row.id.slice(0, 8)}`,
       baseURL: row.baseUrl,
       apiKey,
+      headers: row.headers,
     }).chatModel(modelId);
   }
 }

@@ -514,7 +514,8 @@ export interface paths {
         put?: never;
         /** @description Posts a message to the bot. Its answer streams through `message.delta` / `message.updated` events. */
         post: operations["sendMessage"];
-        delete?: never;
+        /** @description Starts the conversation over: stops the bot, deletes its messages and closes what it left open on its computer. Workspace files are kept. */
+        delete: operations["clearMessages"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2390,6 +2391,9 @@ export interface operations {
                             kind: "openai-compatible" | "command-code" | "openai";
                             baseUrl: string;
                             defaultModel: string | null;
+                            headers: {
+                                [key: string]: string;
+                            };
                             hasApiKey: boolean;
                             /** Format: date-time */
                             createdAt: string;
@@ -2454,6 +2458,9 @@ export interface operations {
                     baseUrl?: string;
                     apiKey?: string;
                     defaultModel?: string;
+                    headers?: {
+                        [key: string]: string;
+                    };
                 };
             };
         };
@@ -2472,6 +2479,9 @@ export interface operations {
                         kind: "openai-compatible" | "command-code" | "openai";
                         baseUrl: string;
                         defaultModel: string | null;
+                        headers: {
+                            [key: string]: string;
+                        };
                         hasApiKey: boolean;
                         /** Format: date-time */
                         createdAt: string;
@@ -2593,6 +2603,9 @@ export interface operations {
                     baseUrl?: string;
                     apiKey?: string;
                     defaultModel?: string | null;
+                    headers?: {
+                        [key: string]: string;
+                    };
                 };
             };
         };
@@ -2611,6 +2624,9 @@ export interface operations {
                         kind: "openai-compatible" | "command-code" | "openai";
                         baseUrl: string;
                         defaultModel: string | null;
+                        headers: {
+                            [key: string]: string;
+                        };
                         hasApiKey: boolean;
                         /** Format: date-time */
                         createdAt: string;
@@ -3134,6 +3150,64 @@ export interface operations {
                         createdAt: string;
                     };
                 };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    clearMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Default Response */
             "4XX": {

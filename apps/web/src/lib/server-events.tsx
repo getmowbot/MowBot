@@ -70,6 +70,9 @@ export function ServerEvents() {
         case 'bot.updated':
           updateBot(queryClient, event.bot);
           break;
+        case 'messages.cleared':
+          queryClient.setQueryData<Message[]>(['messages', event.botId], []);
+          break;
         case 'message.updated':
           upsertMessage(queryClient, event.message);
           break;
