@@ -56,61 +56,39 @@ lan=0
 http_port=''
 assume_yes=0
 services=()
-args=("$@")
-while (($#)); do
-  case $1 in
-    install | update | status | logs | start | stop | restart | help) command=$1 ;;
-    --domain)
-      domain=${2:?--domain attend un nom}
-      shift
-      ;;
-    --lan) lan=1 ;;
-    --port)
-      http_port=${2:?--port attend un numéro}
-      shift
-      ;;
-    --dir)
-      dir=${2:?--dir attend un dossier}
-      shift
-      ;;
-    -y | --yes) assume_yes=1 ;;
-    -h | --help) command=help ;;
-    *)
-      [[ $command == logs && $1 != -* ]] || die "option inconnue : $1 (voir --help)"
-      services+=("$1")
-      ;;
-  esac
-  shift
-done
-
-if [[ $command == help ]]; then
-  usage
-  exit 0
-fi
-
-# This script as a file (empty when piped into bash).
-self=${BASH_SOURCE[0]:-}
-if [[ -n $self && -f $self ]]; then self=$(readlink -f "$self"); else self=''; fi
-
-if ((EUID != 0)); then
-  [[ -n $self ]] || die "lance-le avec sudo (… | sudo bash)."
-  exec sudo --preserve-env=SSH_AUTH_SOCK,MOWBOT_REPO,MOWBOT_BRANCH bash "$self" "${args[@]}"
-fi
-
-if [[ -z $dir ]]; then
-  if [[ -n $self && -f $(dirname "$self")/deploy/docker-compose.yml ]]; then
-    dir=$(dirname "$self")
-  else
-    dir=$DEFAULT_DIR
-  fi
-fi
-dir=$(readlink -m "$dir")
-env_file=$dir/deploy/.env
-compose_file=$dir/deploy/docker-compose.yml
-
-# Questions read the terminal, even when the script itself comes through a pipe.
+args=()
+self=''
+env_file=''
+compose_file=''
 tty=''
-if [[ -r /dev/tty ]] && { : </dev/tty; } 2>/dev/null; then tty=/dev/tty; fi
+
+parse_args() {
+  while (($#)); do
+    case $1 in
+      install | update | status | logs | start | stop | restart | help) command=$1 ;;
+      --domain)
+        domain=${2:?--domain attend un nom}
+        shift
+        ;;
+      --lan) lan=1 ;;
+      --port)
+        http_port=${2:?--port attend un numéro}
+        shift
+        ;;
+      --dir)
+        dir=${2:?--dir attend un dossier}
+        shift
+        ;;
+      -y | --yes) assume_yes=1 ;;
+      -h | --help) command=help ;;
+      *)
+        [[ $command == logs && $1 != -* ]] || die "option inconnue : $1 (voir --help)"
+        services+=("$1")
+        ;;
+    esac
+    shift
+  done
+}
 
 # ask <question> <default>: prints the answer.
 ask() {
@@ -456,35 +434,71 @@ install_or_update() {
 
 installed() { [[ -f $env_file ]] || die "MowBot n'est pas installé dans $dir (lance install.sh)."; }
 
-case $command in
-  install | update) install_or_update ;;
-  status)
-    installed
-    compose ps
-    note "Adresse : $(public_url)"
-    ;;
-  logs)
-    installed
-    compose logs -f --tail=200 "${services[@]}"
-    ;;
-  start)
-    installed
-    compose up -d
-    wait_hub
-    note "MowBot tourne : $(public_url)"
-    ;;
-  stop)
-    installed
-    compose stop
-    # The bots' computers run beside the stack: stop them too (the hub restarts them on demand).
-    mapfile -t computers < <(docker ps -q --filter label=dev.mowbot.computer)
-    if ((${#computers[@]})); then docker stop "${computers[@]}" >/dev/null; fi
-    note "MowBot est arrêté (sudo mowbot start pour le relancer)."
-    ;;
-  restart)
-    installed
-    compose restart
-    wait_hub
-    note "MowBot tourne : $(public_url)"
-    ;;
-esac
+main() {
+  args=("$@")
+  parse_args "$@"
+  if [[ $command == help ]]; then
+    usage
+    return
+  fi
+
+  # This script as a file (empty when piped into bash).
+  self=${BASH_SOURCE[0]:-}
+  if [[ -n $self && -f $self ]]; then self=$(readlink -f "$self"); else self=''; fi
+
+  if ((EUID != 0)); then
+    [[ -n $self ]] || die "lance-le avec sudo (… | sudo bash)."
+    exec sudo --preserve-env=SSH_AUTH_SOCK,MOWBOT_REPO,MOWBOT_BRANCH bash "$self" "${args[@]}"
+  fi
+
+  if [[ -z $dir ]]; then
+    if [[ -n $self && -f $(dirname "$self")/deploy/docker-compose.yml ]]; then
+      dir=$(dirname "$self")
+    else
+      dir=$DEFAULT_DIR
+    fi
+  fi
+  dir=$(readlink -m "$dir")
+  env_file=$dir/deploy/.env
+  compose_file=$dir/deploy/docker-compose.yml
+
+  # Questions read the terminal, even when the script itself comes through a pipe.
+  if [[ -r /dev/tty ]] && { : </dev/tty; } 2>/dev/null; then tty=/dev/tty; fi
+
+  case $command in
+    install | update) install_or_update ;;
+    status)
+      installed
+      compose ps
+      note "Adresse : $(public_url)"
+      ;;
+    logs)
+      installed
+      compose logs -f --tail=200 "${services[@]}"
+      ;;
+    start)
+      installed
+      compose up -d
+      wait_hub
+      note "MowBot tourne : $(public_url)"
+      ;;
+    stop)
+      installed
+      compose stop
+      # The bots' computers run beside the stack: stop them too (the hub restarts them on demand).
+      local computers
+      mapfile -t computers < <(docker ps -q --filter label=dev.mowbot.computer)
+      if ((${#computers[@]})); then docker stop "${computers[@]}" >/dev/null; fi
+      note "MowBot est arrêté (sudo mowbot start pour le relancer)."
+      ;;
+    restart)
+      installed
+      compose restart
+      wait_hub
+      note "MowBot tourne : $(public_url)"
+      ;;
+  esac
+}
+
+# Last line: piped into bash, the whole script is read before anything runs.
+main "$@"
