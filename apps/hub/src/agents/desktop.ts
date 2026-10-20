@@ -44,8 +44,6 @@ const WINDOW_ID = /^\d{1,12}$/;
 export const isTabId = (id: string) => TAB_ID.test(id);
 export const isWindowId = (id: string) => WINDOW_ID.test(id);
 
-const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-
 function prelude(botId: string): string {
   if (!/^[0-9a-f-]{36}$/i.test(botId)) throw new Error('Invalid bot id');
   return [
@@ -58,32 +56,18 @@ function prelude(botId: string): string {
 }
 
 /**
- * Opens a page in the computer's shared Chrome, by default in place of the bot's current tab
- * (a new tab is opened, then the previous one closed, so bots don't pile tabs up). Waits for
- * Chrome after a cold boot and restarts it, with its DevTools port, if it was closed.
+ * Waits for the computer's Chrome after a cold boot, and starts it again (with its DevTools
+ * port) if it was closed. Exits 1 when Chrome does not come up.
  */
-export function openUrlScript(botId: string, url: string, newTab: boolean): string {
+export function chromeReadyScript(): string {
   return [
-    prelude(botId),
-    `URL=${quote(url)}`,
-    'for i in $(seq 1 75); do devtools && break; sleep 0.2; done',
-    'if ! devtools; then',
-    '  nohup /usr/local/bin/mowbot-chrome >/dev/null 2>&1 &',
-    '  for i in $(seq 1 100); do devtools && break; sleep 0.2; done',
-    'fi',
-    'devtools || { echo "Chrome ne répond pas" >&2; exit 1; }',
-    // Forget the tabs closed since (by the user, or by a click in the page).
-    `grep -Fxf <(printf '%s\\n' $(pages)) "$STATE/tabs" > "$STATE/tabs.next" || true`,
-    'ID=$(curl -fs -X PUT "$DEVTOOLS/json/new?$URL" | jq -r .id)',
-    '[ -n "$ID" ] || { echo "Chrome n\'a pas ouvert la page" >&2; exit 1; }',
-    'curl -fs -o /dev/null "$DEVTOOLS/json/activate/$ID"',
-    `if [ ${newTab ? 1 : 0} = 0 ] && [ -s "$STATE/tabs.next" ]; then`,
-    `  curl -fs -o /dev/null "$DEVTOOLS/json/close/$(tail -n 1 "$STATE/tabs.next")" || true`,
-    `  sed -i '$d' "$STATE/tabs.next"`,
-    'fi',
-    'echo "$ID" >> "$STATE/tabs.next" && mv "$STATE/tabs.next" "$STATE/tabs"',
-    'xdotool search --onlyvisible --class google-chrome windowactivate >/dev/null 2>&1 || true',
-    'sleep 1.5',
+    'DEVTOOLS=http://127.0.0.1:9222',
+    'devtools() { curl -fs -o /dev/null --max-time 2 "$DEVTOOLS/json/version"; }',
+    'for i in $(seq 1 75); do devtools && exit 0; sleep 0.2; done',
+    'nohup /usr/local/bin/mowbot-chrome >/dev/null 2>&1 &',
+    'for i in $(seq 1 100); do devtools && exit 0; sleep 0.2; done',
+    'echo "Chrome ne répond pas" >&2',
+    'exit 1',
   ].join('\n');
 }
 
@@ -220,6 +204,12 @@ export function openedBy(inv: Inventory): { tabs: string[]; windows: string[] } 
     tabs: inv.tabs.filter((t) => inv.mine.has(t.id)).map((t) => t.id),
     windows: inv.windows.filter((w) => inv.mine.has(w.id)).map((w) => w.id),
   };
+}
+
+/** Records a tab (by its DevTools id) as opened by the bot, to close it when tidying up. */
+export async function rememberTab(agent: AgentClient, botId: string, tabId: string): Promise<void> {
+  if (!isTabId(tabId)) return;
+  await agent.exec(`${prelude(botId)}\necho ${tabId} >> "$STATE/tabs"`, { timeoutMs: 10_000 });
 }
 
 /** Records windows as opened by the bot (seen appearing while it worked). */

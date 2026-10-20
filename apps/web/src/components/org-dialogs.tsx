@@ -18,6 +18,7 @@ interface OrgDialogs {
   newTeam(): void;
   newBot(teamId?: string | null): void;
   botSettings(bot: Bot): void;
+  moveBot(bot: Bot): void;
 }
 
 const OrgDialogsContext = createContext<OrgDialogs | null>(null);
@@ -415,6 +416,91 @@ function BotSettingsForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
   );
 }
 
+function MoveBotForm({ bot, onDone }: { bot: Bot; onDone(): void }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const teams = useTeams();
+  const computers = useComputers();
+  const pc = computers.data?.find((c) => c.id === bot.computerId);
+  const [team, setTeam] = useState<string>(bot.teamId ?? 'solo');
+  const [computer, setComputer] = useState<BotComputerChoice>(
+    pc?.kind === 'dedicated' ? 'dedicated' : 'team',
+  );
+  const [error, setError] = useState<string | null>(null);
+  const solo = team === 'solo';
+  const unchanged =
+    team === (bot.teamId ?? 'solo') &&
+    (solo || computer === (pc?.kind === 'dedicated' ? 'dedicated' : 'team'));
+  const move = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST('/api/v1/bots/{id}/move', {
+        params: { path: { id: bot.id } },
+        body: { teamId: solo ? null : team, computer: solo ? 'dedicated' : computer },
+      });
+      if (error || !data) throw error;
+      return data;
+    },
+    onSuccess: (moved) => {
+      queryClient.setQueryData<Bot[]>(['bots'], (list) =>
+        list?.map((b) => (b.id === moved.id ? moved : b)),
+      );
+      void queryClient.invalidateQueries({ queryKey: ['computers'] });
+      onDone();
+    },
+    onError: (err) => setError(problemMessage(err, t('dialogs.moveBot.notMoved'))),
+  });
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setError(null);
+        move.mutate();
+      }}
+    >
+      <div className="space-y-1.5">
+        <Label htmlFor="move-team">{t('common.team')}</Label>
+        <Select id="move-team" value={team} onChange={(event) => setTeam(event.target.value)}>
+          {teams.data?.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.id === bot.teamId
+                ? t('dialogs.moveBot.current', { team: option.name })
+                : option.name}
+            </option>
+          ))}
+          <option value="solo">{t('dialogs.newBot.solo')}</option>
+        </Select>
+      </div>
+      {solo ? (
+        <p className="text-xs text-muted-foreground">{t('dialogs.moveBot.soloNote')}</p>
+      ) : (
+        <Choice<BotComputerChoice>
+          name="move-computer"
+          value={computer}
+          onChange={setComputer}
+          options={[
+            { value: 'team', label: t('common.teamPc'), hint: t('dialogs.newBot.teamPcHint') },
+            {
+              value: 'dedicated',
+              label: t('dialogs.newBot.dedicatedPc'),
+              hint: t('dialogs.newBot.dedicatedPcHint'),
+            },
+          ]}
+        />
+      )}
+      <FormError message={error} />
+      <div className="flex gap-2">
+        <Button type="submit" disabled={move.isPending || unchanged}>
+          {move.isPending ? t('dialogs.moveBot.moving') : t('dialogs.moveBot.move')}
+        </Button>
+        <Button variant="ghost" onClick={onDone}>
+          {t('common.cancel')}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 /** Opens the org dialogs (new team, new bot, bot settings) from anywhere in the app. */
 export function OrgDialogsProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
@@ -422,6 +508,7 @@ export function OrgDialogsProvider({ children }: { children: ReactNode }) {
     | { kind: 'team' }
     | { kind: 'bot'; teamId: string | null }
     | { kind: 'settings'; bot: Bot }
+    | { kind: 'move'; bot: Bot }
     | null
   >(null);
   const close = () => setOpen(null);
@@ -429,6 +516,7 @@ export function OrgDialogsProvider({ children }: { children: ReactNode }) {
     newTeam: () => setOpen({ kind: 'team' }),
     newBot: (teamId = null) => setOpen({ kind: 'bot', teamId }),
     botSettings: (bot) => setOpen({ kind: 'settings', bot }),
+    moveBot: (bot) => setOpen({ kind: 'move', bot }),
   };
   return (
     <OrgDialogsContext.Provider value={value}>
@@ -463,6 +551,14 @@ export function OrgDialogsProvider({ children }: { children: ReactNode }) {
         }
       >
         {open?.kind === 'settings' && <BotSettingsForm bot={open.bot} onDone={close} />}
+      </Dialog>
+      <Dialog
+        open={open?.kind === 'move'}
+        onClose={close}
+        title={open?.kind === 'move' ? t('dialogs.moveBot.title', { name: open.bot.name }) : ''}
+        description={t('dialogs.moveBot.description')}
+      >
+        {open?.kind === 'move' && <MoveBotForm bot={open.bot} onDone={close} />}
       </Dialog>
     </OrgDialogsContext.Provider>
   );

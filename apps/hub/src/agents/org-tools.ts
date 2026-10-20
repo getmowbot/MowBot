@@ -2,13 +2,16 @@ import { taskStatusSchema } from '@mowbot/contract';
 import { type ToolSet, tool } from 'ai';
 import { eq, or } from 'drizzle-orm';
 import { z } from 'zod';
-import type { BotRow, BotService } from '../bots/service';
+import { type BotRow, type BotService, botFolder } from '../bots/service';
 import type { Db } from '../db/client';
 import { bots, computers, tasks, teams } from '../db/schema';
+import type { EventBus } from '../events';
 import { HttpProblem } from '../http/problems';
 import { eqName, type OrgService } from '../org/service';
 import { TASK_STATUS_LABELS, type TaskService } from '../org/tasks';
+import { parentOf, type WorkspaceFiles } from '../workspaces/files';
 import type { BotRuntime } from './runtime';
+import { workspacePath } from './tools';
 
 /** What the organisation and communication tools of a bot act on. */
 export interface OrgToolContext {
@@ -19,6 +22,8 @@ export interface OrgToolContext {
   org: OrgService;
   tasks: TaskService;
   bots: BotService;
+  files: WorkspaceFiles;
+  events: EventBus;
   db: Db;
 }
 
@@ -198,6 +203,56 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
     },
   });
 
+  const ownWorkspace = self.workspaceId;
+  if (ownWorkspace) {
+    tools.share_file = tool({
+      description:
+        "Envoie une copie d'un fichier ou d'un dossier de ton /workspace à un bot ou une équipe qui ne voit pas tes fichiers : elle arrive dans leur /workspace/inbox/, et le bot (ou le lead de l'équipe) est prévenu. Entre bots d'une même équipe, donne simplement le chemin.",
+      inputSchema: z.object({
+        path: z.string().describe('Chemin dans /workspace'),
+        to: z.string().describe("Nom d'un bot ou d'une équipe"),
+        note: z.string().max(2000).optional().describe("Ce que c'est, ce qu'il faut en faire"),
+      }),
+      execute: async ({ path: file, to, note }) => {
+        const bot = await findBot(to).catch(() => null);
+        const team = bot ? null : await findTeam(to);
+        const workspaceId = bot ? bot.workspaceId : (team?.workspaceId ?? null);
+        const name = bot?.name ?? `l'équipe ${team?.name}`;
+        if (!workspaceId) throw new Error(`${name} n'a pas de fichiers.`);
+        if (workspaceId === ownWorkspace) {
+          throw new Error(
+            `${name} voit déjà tes fichiers (même /workspace) : donne-lui le chemin.`,
+          );
+        }
+        const lead = team?.leadBotId ? await findBot(team.leadBotId) : null;
+        const recipient = bot ?? lead;
+        if (recipient) await runtime.checkReach(self, recipient, ctx.depth);
+        const entry = await ctx.files
+          .copyInto(
+            ownWorkspace,
+            workspacePath(file),
+            workspaceId,
+            `inbox/${botFolder(self.name).split('/').at(-1)}`,
+          )
+          .catch(toolError);
+        ctx.events.publish({
+          type: 'workspace.changed',
+          workspaceId,
+          paths: [parentOf(entry.path)],
+        });
+        if (recipient) {
+          await runtime.deliver(recipient.id, {
+            from: self,
+            kind: 'chat',
+            text: `[Fichier partagé${team ? ` avec l'équipe ${team.name}` : ''}] /workspace/${entry.path}${note ? `\n${note}` : ''}`,
+            meta: { depth: ctx.depth },
+          });
+        }
+        return `Copié chez ${name} : /workspace/${entry.path}. ${recipient ? `${recipient.name} est prévenu.` : "L'équipe n'a pas de lead : personne n'est prévenu."}`;
+      },
+    });
+  }
+
   tools.update_bot = tool({
     description:
       "Change ton rôle ou ta mission (ou ceux d'un bot de ton équipe si tu en es le lead ; le Chef : de n'importe quel bot).",
@@ -241,6 +296,25 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
       execute: async ({ name, mission, isolated }) => {
         const team = await org.createTeam({ name, mission, isolated }).catch(toolError);
         return `Équipe « ${team.name} » créée (son PC s'allumera au premier besoin). Crée maintenant ses bots avec create_bot.`;
+      },
+    });
+
+    tools.move_bot = tool({
+      description:
+        "Change un bot d'équipe (ou le rend solo) : il travaille ensuite sur le PC de sa nouvelle équipe (ou un PC dédié) et son dossier le suit. S'il travaillait, il est interrompu.",
+      inputSchema: z.object({
+        bot: z.string().describe('Nom du bot'),
+        team: z.string().describe("Nom de l'équipe ; « solo » pour un bot hors équipe"),
+        computer: z.enum(['team', 'dedicated']).default('team'),
+      }),
+      execute: async ({ bot, team, computer }) => {
+        const target = await findBot(bot);
+        if (target.id === self.id) throw new Error("Tu restes dans l'équipe principale.");
+        const destination = team.trim().toLowerCase() === 'solo' ? null : await findTeam(team);
+        const moved = await runtime
+          .moveBot(target.id, { teamId: destination?.id ?? null, computer })
+          .catch(toolError);
+        return `${moved.name} est maintenant ${destination ? `dans l'équipe ${destination.name}` : 'solo, avec son propre PC et ses fichiers'}${destination && computer === 'dedicated' ? ', sur un PC dédié' : ''}. Préviens-le de ce qui change pour lui.`;
       },
     });
   }

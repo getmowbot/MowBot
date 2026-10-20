@@ -1,7 +1,9 @@
 import {
+  botBrowserSchema,
   botCreateSchema,
   botIdParamsSchema,
   botListSchema,
+  botMoveSchema,
   botSchema,
   botUpdateSchema,
   messageListQuerySchema,
@@ -229,6 +231,67 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request) => {
       await bots.row(request.params.id);
       return { stopped: runtime.stop(request.params.id) };
+    },
+  );
+
+  app.post(
+    '/bots/:id/move',
+    {
+      preHandler: requireAuth('control'),
+      schema: {
+        tags,
+        operationId: 'moveBot',
+        description:
+          "Moves a bot to another team (teamId null: solo), on the team's PC or a dedicated one. The bot stops, tidies its old computer up, and its folder follows it to the new workspace. Not the Chef.",
+        security: bearerSecurity,
+        params: botIdParamsSchema,
+        body: botMoveSchema,
+        response: { 200: botSchema, ...errorResponses },
+      },
+    },
+    async (request) => runtime.moveBot(request.params.id, request.body),
+  );
+
+  app.get(
+    '/bots/:id/browser',
+    {
+      preHandler: requireAuth('read'),
+      schema: {
+        tags,
+        operationId: 'getBotBrowser',
+        description:
+          "What the bot's own Chrome window shows now (a JPEG capture), for a live view. Poll it.",
+        security: bearerSecurity,
+        params: botIdParamsSchema,
+        response: { 200: botBrowserSchema, ...errorResponses },
+      },
+    },
+    async (request) => {
+      await bots.row(request.params.id);
+      return runtime.browser.view(request.params.id);
+    },
+  );
+
+  app.post(
+    '/bots/:id/browser/front',
+    {
+      preHandler: requireAuth('control'),
+      schema: {
+        tags,
+        operationId: 'showBotBrowser',
+        description:
+          "Puts the bot's Chrome window in front on its computer's screen, e.g. before taking over.",
+        security: bearerSecurity,
+        params: botIdParamsSchema,
+        response: { 204: z.null(), ...errorResponses },
+      },
+    },
+    async (request, reply) => {
+      await bots.row(request.params.id);
+      if (!(await runtime.browser.front(request.params.id))) {
+        throw new HttpProblem(409, 'no_page', 'This bot has no page open.');
+      }
+      return reply.code(204).send(null);
     },
   );
 };

@@ -94,6 +94,33 @@ export function useBots() {
   });
 }
 
+/** The bot's own Chrome window, re-captured while shown. */
+export function useBotBrowser(botId: string) {
+  return useQuery({
+    queryKey: ['bot-browser', botId],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/bots/{id}/browser', {
+        params: { path: { id: botId } },
+      });
+      if (error || !data) throw error;
+      return data;
+    },
+    refetchInterval: 1_500,
+    gcTime: 0,
+  });
+}
+
+export function useShowBotBrowser(botId: string) {
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await api.POST('/api/v1/bots/{id}/browser/front', {
+        params: { path: { id: botId } },
+      });
+      if (error) throw error;
+    },
+  });
+}
+
 export function useBot(botId: string | undefined) {
   const bots = useBots();
   return { ...bots, data: bots.data?.find((bot) => bot.id === botId) };

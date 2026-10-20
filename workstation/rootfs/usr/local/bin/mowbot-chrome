@@ -7,7 +7,8 @@ fi
 /usr/local/bin/mowbot-wait-x
 sleep 2 # let the window manager come up so the window opens maximized
 # The container is the sandbox, hence --no-sandbox. A non-default profile directory is
-# required for the DevTools port the bots will use (127.0.0.1 only).
+# required for the DevTools port the bots use (127.0.0.1 only). Each bot browses in its own
+# window: windows behind others must keep rendering, hence the anti-throttling flags.
 exec google-chrome \
   --user-data-dir="$HOME/.config/mowbot-chrome" \
   --remote-debugging-address=127.0.0.1 \
@@ -17,4 +18,7 @@ exec google-chrome \
   --password-store=basic \
   --no-sandbox \
   --test-type \
+  --disable-backgrounding-occluded-windows \
+  --disable-renderer-backgrounding \
+  --disable-background-timer-throttling \
   --start-maximized

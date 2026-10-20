@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { type WebSocket, WebSocketServer } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 import { z } from 'zod';
 
 export interface RunResult {
@@ -29,6 +29,8 @@ export interface AgentOptions {
   display?: string;
   /** Default working directory for `exec`. */
   workdir?: string;
+  /** Chrome's DevTools HTTP endpoint (local to the computer). */
+  devtoolsUrl?: string;
   /** Process runner, replaced in tests. */
   run?: Runner;
 }
@@ -214,6 +216,42 @@ function bridgeVnc(ws: WebSocket, host: string, port: number): void {
   tcp.on('error', closeAll);
 }
 
+/**
+ * Relays a client (the hub's browser automation) to Chrome's browser-level DevTools socket, which
+ * only listens on the computer's loopback. Messages are passed through untouched.
+ */
+async function bridgeCdp(ws: WebSocket, devtoolsUrl: string): Promise<void> {
+  const pending: Buffer[] = [];
+  const queue = (data: Buffer) => pending.push(data);
+  ws.on('message', queue);
+  let chrome: WebSocket;
+  try {
+    const version = (await (await fetch(`${devtoolsUrl}/json/version`)).json()) as {
+      webSocketDebuggerUrl?: string;
+    };
+    if (!version.webSocketDebuggerUrl) throw new Error('Chrome has no DevTools socket');
+    chrome = new WebSocket(version.webSocketDebuggerUrl, { perMessageDeflate: false });
+  } catch {
+    ws.close(1011, 'Chrome is not reachable');
+    return;
+  }
+  const closeAll = () => {
+    if (chrome.readyState === chrome.OPEN || chrome.readyState === chrome.CONNECTING)
+      chrome.close();
+    if (ws.readyState === ws.OPEN || ws.readyState === ws.CONNECTING) ws.close();
+  };
+  chrome.on('open', () => {
+    ws.off('message', queue);
+    for (const data of pending.splice(0)) chrome.send(data.toString());
+    ws.on('message', (data: Buffer) => chrome.send(data.toString()));
+  });
+  chrome.on('message', (data: Buffer) => ws.send(data.toString()));
+  chrome.on('close', closeAll);
+  chrome.on('error', closeAll);
+  ws.on('close', closeAll);
+  ws.on('error', closeAll);
+}
+
 export function createAgent(options: AgentOptions): Agent {
   const vncHost = options.vncHost ?? '127.0.0.1';
   const vncPort = options.vncPort ?? 5900;
@@ -298,11 +336,15 @@ export function createAgent(options: AgentOptions): Agent {
   const wss = new WebSocketServer({ noServer: true });
   server.on('upgrade', (request, socket, head) => {
     const pathname = new URL(request.url ?? '/', 'http://agent').pathname;
-    if (pathname !== '/vnc' || !authorized(request.headers.authorization)) {
+    const known = pathname === '/vnc' || pathname === '/cdp';
+    if (!known || !authorized(request.headers.authorization)) {
       socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
       return;
     }
-    wss.handleUpgrade(request, socket, head, (ws) => bridgeVnc(ws, vncHost, vncPort));
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      if (pathname === '/vnc') bridgeVnc(ws, vncHost, vncPort);
+      else void bridgeCdp(ws, options.devtoolsUrl ?? 'http://127.0.0.1:9222');
+    });
   });
 
   return {

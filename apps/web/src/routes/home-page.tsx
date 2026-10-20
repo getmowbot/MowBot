@@ -7,6 +7,7 @@ import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BotAvatar } from '../components/bot-avatar';
 import { CanvasCard, SPAN } from '../components/canvas-card';
+import { QuestionCard } from '../components/question-card';
 import { Button } from '../components/ui/button';
 import { api } from '../lib/auth';
 import { reveal } from '../lib/motion';
@@ -15,6 +16,7 @@ import {
   useCanvases,
   useMarkNotificationsRead,
   useNotifications,
+  useQuestions,
   useSystem,
   useUpdateSystem,
 } from '../lib/proactivity';
@@ -156,6 +158,7 @@ export function HomePage() {
   const me = useMe();
   const bots = useBots();
   const canvases = useCanvases();
+  const asked = useQuestions().data ?? [];
   const system = useSystem();
   const updateSystem = useUpdateSystem();
   const [showHidden, setShowHidden] = useState(false);
@@ -227,6 +230,25 @@ export function HomePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {asked.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            {t('questions.title', { count: asked.length })}
+          </h2>
+          <div className="grid gap-3 md:grid-cols-2">
+            <AnimatePresence initial={false}>
+              {asked.map((question) => (
+                <QuestionCard
+                  key={question.id}
+                  question={question}
+                  bot={bots.data?.find((b) => b.id === question.botId)}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+        </section>
+      )}
 
       <AskChef />
 

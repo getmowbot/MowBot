@@ -12,6 +12,7 @@ import type {
   ModelRef,
   NotificationPriority,
   ProviderKind,
+  QuestionStatus,
   RoutineKind,
   RoutineRunStatus,
   RoutineTrigger,
@@ -345,6 +346,24 @@ export const notifications = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('notifications_created_idx').on(t.createdAt)],
+);
+
+/** A question a bot asked the user, with suggested answers (buttons). */
+export const questions = pgTable(
+  'questions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id, { onDelete: 'cascade' }),
+    question: text('question').notNull(),
+    options: jsonb('options').$type<string[]>().notNull(),
+    status: text('status').$type<QuestionStatus>().notNull().default('open'),
+    answer: text('answer'),
+    answeredAt: timestamp('answered_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('questions_status_created_idx').on(t.status, t.createdAt)],
 );
 
 /** A card a bot pins on the home page (score, list, note…), updated in place by its key. */

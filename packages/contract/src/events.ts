@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { botSchema, messageSchema } from './bots';
 import { canvasSchema } from './canvases';
 import { computerSchema } from './computers';
+import { questionSchema } from './questions';
 import { notificationSchema, routineSchema, systemSettingsSchema } from './routines';
 import { taskSchema } from './tasks';
 import { teamSchema } from './teams';
@@ -30,6 +31,8 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('routine.updated'), routine: routineSchema }),
   z.object({ type: z.literal('routine.deleted'), routineId: z.uuid() }),
   z.object({ type: z.literal('notification.created'), notification: notificationSchema }),
+  /** A bot asked the user something, or the question was answered. */
+  z.object({ type: z.literal('question.updated'), question: questionSchema }),
   z.object({ type: z.literal('system.updated'), settings: systemSettingsSchema }),
   /** The bot's conversation was cleared. */
   z.object({ type: z.literal('messages.cleared'), botId: z.uuid() }),

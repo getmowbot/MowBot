@@ -104,4 +104,12 @@ export class AgentClient {
       headers: { authorization: `Bearer ${this.token}` },
     });
   }
+
+  /** Where to reach the computer's Chrome DevTools (bridged by the agent), and how to sign in. */
+  cdpEndpoint(): { url: string; headers: Record<string, string> } {
+    return {
+      url: this.url('/cdp', 'ws'),
+      headers: { authorization: `Bearer ${this.token}` },
+    };
+  }
 }

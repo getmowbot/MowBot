@@ -1,6 +1,6 @@
 import net from 'node:net';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import WebSocket from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
 import { type Agent, createAgent, type Runner, xdotoolCommands } from '../src/server';
 
 const TOKEN = 'agent-test-token';
@@ -87,6 +87,46 @@ describe('mow-agent', () => {
     ws.send(Buffer.from('RFB 003.008\n'));
     expect((await echoed).toString()).toBe('RFB 003.008\n');
     ws.close();
+  });
+
+  it('bridges the DevTools WebSocket to Chrome', async () => {
+    // Fake Chrome: /json/version points to a WebSocket that answers every command.
+    const devtools = new WebSocketServer({ port: 0, host: '127.0.0.1' });
+    devtools.on('connection', (socket) =>
+      socket.on('message', (data) => {
+        const { id } = JSON.parse(String(data)) as { id: number };
+        socket.send(JSON.stringify({ id, result: { product: 'Chrome/155' } }));
+      }),
+    );
+    await new Promise((resolve) => devtools.once('listening', resolve));
+    const wsPort = (devtools.address() as net.AddressInfo).port;
+    const http = await import('node:http');
+    const versions = http.createServer((_req, res) => {
+      res.setHeader('content-type', 'application/json');
+      res.end(
+        JSON.stringify({ webSocketDebuggerUrl: `ws://127.0.0.1:${wsPort}/devtools/browser/x` }),
+      );
+    });
+    await new Promise<void>((resolve) => versions.listen(0, '127.0.0.1', resolve));
+    const cdpAgent = createAgent({
+      token: TOKEN,
+      devtoolsUrl: `http://127.0.0.1:${(versions.address() as net.AddressInfo).port}`,
+    });
+    const { port } = await cdpAgent.listen(0, '127.0.0.1');
+    try {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/cdp`, { headers: auth });
+      // Sent before Chrome is connected: kept until it is.
+      ws.once('open', () => ws.send(JSON.stringify({ id: 1, method: 'Browser.getVersion' })));
+      const reply = await new Promise<string>((resolve) =>
+        ws.once('message', (data) => resolve(String(data))),
+      );
+      expect(JSON.parse(reply)).toEqual({ id: 1, result: { product: 'Chrome/155' } });
+      ws.close();
+    } finally {
+      await cdpAgent.close();
+      versions.close();
+      devtools.close();
+    }
   });
 
   it('refuses the VNC WebSocket without the token', async () => {

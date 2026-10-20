@@ -1,4 +1,5 @@
-import type { Bot, BotCreate, Team, TeamCreate, TeamUpdate } from '@mowbot/contract';
+import path from 'node:path';
+import type { Bot, BotCreate, BotMove, Team, TeamCreate, TeamUpdate } from '@mowbot/contract';
 import { newBotSeed } from '@mowbot/design';
 import { and, count, eq, ne, sql } from 'drizzle-orm';
 import { botFolder, toBot } from '../bots/service';
@@ -9,7 +10,7 @@ import { bots, computers, teams, workspaces } from '../db/schema';
 import type { EventBus } from '../events';
 import { HttpProblem, notFound } from '../http/problems';
 import { newAgentTokenSealed } from '../teams/bootstrap';
-import type { WorkspaceFiles } from '../workspaces/files';
+import { parentOf, type WorkspaceFiles } from '../workspaces/files';
 
 export const MAX_BOTS = 20;
 export const MAX_TEAMS = 10;
@@ -246,6 +247,108 @@ export class OrgService {
       // The lead may have been cleared by the foreign key.
       await this.publishTeam(row.teamId).catch(() => undefined);
     }
+  }
+
+  /**
+   * Moves a bot to another team (or makes it solo): it then works on that team's PC (or a
+   * dedicated one) and its folder follows it to the new workspace. A solo bot's former
+   * workspace goes to the main team's trash. Not the Chef. The caller stops the bot and tidies
+   * its windows first.
+   */
+  async moveBot(id: string, input: BotMove): Promise<Bot> {
+    const [row] = await this.db.select().from(bots).where(eq(bots.id, id));
+    if (!row) throw notFound('Bot not found');
+    if (row.isChef) throw new HttpProblem(409, 'chef', 'The Chef stays in the main team');
+    const team = input.teamId ? await this.team(input.teamId) : null;
+    const [oldPc] = row.computerId
+      ? await this.db.select().from(computers).where(eq(computers.id, row.computerId))
+      : [];
+    const teamPc = team && input.computer === 'team' ? team.computerId : null;
+    const sameTeam = (team?.id ?? null) === row.teamId;
+    if (sameTeam && (teamPc ? oldPc?.id === teamPc : oldPc?.kind === 'dedicated')) {
+      return toBot(row);
+    }
+
+    const moved = await this.db.transaction(async (tx) => {
+      let workspaceId = team ? team.workspaceId : row.teamId ? null : row.workspaceId;
+      if (!workspaceId) {
+        const [workspace] = await tx
+          .insert(workspaces)
+          .values({ name: row.name, ownerType: 'bot' })
+          .returning();
+        if (!workspace) throw new Error('Workspace insert returned no row');
+        workspaceId = workspace.id;
+      }
+      let computerId = teamPc;
+      if (!computerId && oldPc?.kind === 'dedicated' && oldPc.workspaceId === workspaceId) {
+        computerId = oldPc.id;
+      }
+      if (!computerId) {
+        const [pc] = await tx
+          .insert(computers)
+          .values({
+            name: `PC de ${row.name}`,
+            kind: 'dedicated',
+            teamId: team?.id ?? null,
+            workspaceId,
+            agentTokenSealed: newAgentTokenSealed(this.masterKey),
+          })
+          .returning();
+        if (!pc) throw new Error('Computer insert returned no row');
+        computerId = pc.id;
+      }
+      if (row.teamId && !sameTeam) {
+        await tx
+          .update(teams)
+          .set({ leadBotId: null })
+          .where(and(eq(teams.id, row.teamId), eq(teams.leadBotId, id)));
+      }
+      const [updated] = await tx
+        .update(bots)
+        .set({ teamId: team?.id ?? null, workspaceId, computerId })
+        .where(eq(bots.id, id))
+        .returning();
+      if (!updated) throw new Error('Bot update returned no row');
+      return updated;
+    });
+
+    // First, as it mounts the workspace that may be archived below.
+    if (oldPc?.kind === 'dedicated' && oldPc.id !== moved.computerId) {
+      const [other] = await this.db
+        .select({ id: bots.id })
+        .from(bots)
+        .where(eq(bots.computerId, oldPc.id));
+      if (!other) await this.computers.remove(oldPc.id);
+    }
+    if (row.workspaceId && moved.workspaceId && moved.workspaceId !== row.workspaceId) {
+      await this.files.ensure(moved.workspaceId);
+      const folder = botFolder(row.name);
+      const taken = await this.files.stat(moved.workspaceId, folder).then(
+        () => true,
+        () => false,
+      );
+      const stamp = new Date().toISOString().slice(0, 10);
+      await this.files
+        .moveInto(
+          row.workspaceId,
+          folder,
+          moved.workspaceId,
+          // Its name is taken there: what it brings goes inside.
+          taken ? folder : parentOf(folder),
+          taken ? `apporte-le-${stamp}` : path.posix.basename(folder),
+        )
+        .catch(() => this.files.writeFile(moved.workspaceId as string, `${folder}/.keep`, ''));
+      for (const workspaceId of [row.workspaceId, moved.workspaceId]) {
+        this.events.publish({ type: 'workspace.changed', workspaceId, paths: ['bots'] });
+      }
+      if (!row.teamId) await this.archiveWorkspace(row.workspaceId, `espace solo de ${row.name}`);
+    }
+    const bot = toBot(moved);
+    this.events.publish({ type: 'bot.updated', bot });
+    for (const teamId of new Set([row.teamId, moved.teamId])) {
+      if (teamId) await this.publishTeam(teamId).catch(() => undefined);
+    }
+    return bot;
   }
 
   private async archiveWorkspace(workspaceId: string, label: string): Promise<void> {
