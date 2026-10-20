@@ -189,7 +189,7 @@ export const fr = {
   tasks: {
     segment: 'Tâches',
     exchanges: 'Échanges',
-    intro: 'Les tâches que les bots se confient, et ce qu’ils se disent.',
+    intro: 'Les tâches confiées aux bots (par toi ou entre eux), et ce qu’ils se disent.',
     column: {
       doing: 'En cours',
       todo: 'À faire',
@@ -207,7 +207,8 @@ export const fr = {
     cancel: 'Annuler la tâche',
     cancelConfirm: 'Annuler « {{title}} » ?',
     keep: 'Garder',
-    empty: 'Aucune tâche pour l’instant. Les bots s’en confient quand ils travaillent ensemble.',
+    empty:
+      'Aucune tâche pour l’instant. Confie-en une à un bot, ou laisse-les s’en confier entre eux.',
     feedEmpty: 'Rien pour l’instant. Quand tes bots se parleront, tu verras tout ici.',
     feedTo: '{{from}} à {{to}}',
     loadMore: 'Charger plus',

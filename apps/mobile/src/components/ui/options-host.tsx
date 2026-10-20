@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { closeMenu, useOpenMenu } from '../../lib/options-menu';
 import { colors, shape } from '../../theme';
@@ -11,6 +11,7 @@ export function OptionsHost() {
   const { t } = useTranslation();
   const menu = useOpenMenu();
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   return (
     <Modal
       visible={menu !== null}
@@ -36,26 +37,28 @@ export function OptionsHost() {
             ) : null}
           </View>
         )}
-        {menu?.options.map((option) => {
-          const Icon = option.icon;
-          const ink = option.destructive ? colors.danger : colors.text;
-          return (
-            <Touchable
-              key={option.label}
-              accessibilityRole="button"
-              onPress={() => {
-                closeMenu();
-                option.onPress();
-              }}
-              style={styles.row}
-            >
-              {Icon ? <Icon size={20} color={ink} strokeWidth={2} /> : null}
-              <T variant="body" style={{ color: ink }}>
-                {option.label}
-              </T>
-            </Touchable>
-          );
-        })}
+        <ScrollView style={{ maxHeight: height * 0.6 }} bounces={false}>
+          {menu?.options.map((option) => {
+            const Icon = option.icon;
+            const ink = option.destructive ? colors.danger : colors.text;
+            return (
+              <Touchable
+                key={option.label}
+                accessibilityRole="button"
+                onPress={() => {
+                  closeMenu();
+                  option.onPress();
+                }}
+                style={styles.row}
+              >
+                {Icon ? <Icon size={20} color={ink} strokeWidth={2} /> : null}
+                <T variant="body" style={{ color: ink }}>
+                  {option.label}
+                </T>
+              </Touchable>
+            );
+          })}
+        </ScrollView>
         <Touchable
           accessibilityRole="button"
           onPress={closeMenu}

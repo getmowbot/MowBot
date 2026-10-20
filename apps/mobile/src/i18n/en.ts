@@ -189,7 +189,7 @@ export const en: Catalog = {
   tasks: {
     segment: 'Tasks',
     exchanges: 'Exchanges',
-    intro: 'The tasks bots hand to each other, and what they tell each other.',
+    intro: 'Tasks given to bots (by you or by each other), and what they tell each other.',
     column: {
       doing: 'In progress',
       todo: 'To do',
@@ -207,7 +207,7 @@ export const en: Catalog = {
     cancel: 'Cancel task',
     cancelConfirm: 'Cancel “{{title}}”?',
     keep: 'Keep',
-    empty: 'No tasks yet. Bots hand tasks to each other when they work together.',
+    empty: 'No tasks yet. Give one to a bot, or let them hand tasks to each other.',
     feedEmpty: 'Nothing yet. When your bots talk to each other, you’ll see it all here.',
     feedTo: '{{from}} to {{to}}',
     loadMore: 'Load more',
