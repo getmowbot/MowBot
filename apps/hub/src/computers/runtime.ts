@@ -21,6 +21,8 @@ export interface ComputerRuntime {
   /** Creates the container on first use, then starts it. */
   start(spec: ComputerSpec): Promise<{ containerId: string }>;
   stop(containerId: string): Promise<void>;
+  /** Deletes the computer for good: its container and its home volume. */
+  remove(computerId: string): Promise<void>;
   /** `null` when the container no longer exists. */
   isRunning(containerId: string): Promise<boolean | null>;
   agentEndpoint(containerId: string): Promise<AgentEndpoint>;
@@ -64,6 +66,15 @@ export class DockerComputerRuntime implements ComputerRuntime {
         // 304: already stopped, 404: gone. Both mean "stopped".
         if (statusOf(error) !== 304 && statusOf(error) !== 404) throw error;
       });
+  }
+
+  async remove(computerId: string): Promise<void> {
+    const name = DockerComputerRuntime.containerName(computerId);
+    const gone = (error: unknown) => {
+      if (statusOf(error) !== 404) throw error;
+    };
+    await this.docker.getContainer(name).remove({ force: true }).catch(gone);
+    await this.docker.getVolume(`${name}-home`).remove().catch(gone);
   }
 
   async isRunning(containerId: string): Promise<boolean | null> {

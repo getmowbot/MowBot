@@ -29,6 +29,13 @@
       "when": 1792520825080,
       "tag": "0003_provider_headers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792521924297,
+      "tag": "0004_teams_and_tasks",
+      "breakpoints": true
     }
   ]
 }

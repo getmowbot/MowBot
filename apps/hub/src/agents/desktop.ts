@@ -24,6 +24,8 @@ export interface Inventory {
   windows: AppWindow[];
   /** Ids of the tabs and windows the bot opened. */
   mine: Set<string>;
+  /** Which bot opened each tracked tab (tab id → bot id), for every bot of the computer. */
+  owners: Map<string, string>;
 }
 
 /** Window classes that belong to the desktop or to Chrome (whose tabs are handled apart). */
@@ -98,8 +100,35 @@ export function inventoryScript(botId: string): string {
     'done',
     'echo "#mine"',
     'cat "$STATE/tabs" "$STATE/windows"',
+    'echo "#owners"',
+    'for dir in "$HOME"/.mowbot/bots/*/; do',
+    `  while read -r tab; do [ -n "$tab" ] && printf '%s\\t%s\\n' "$tab" "$(basename "$dir")"; done < "$dir/tabs"`,
+    'done 2>/dev/null',
     'true',
   ].join('\n');
+}
+
+/** Processes started by bots, tagged `MOWBOT_BOT` by the bash tool: pid, bot id, command. */
+export function processesScript(): string {
+  return [
+    'for p in /proc/[0-9]*; do',
+    `  bot=$(tr '\\0' '\\n' < "$p/environ" 2>/dev/null | sed -n 's/^MOWBOT_BOT=//p')`,
+    `  [ -n "$bot" ] && printf '%s\\t%s\\t%s\\n' "\${p#/proc/}" "$bot" "$(tr '\\0\\n' '  ' < "$p/cmdline" | cut -c1-150)"`,
+    'done',
+    'true',
+  ].join('\n');
+}
+
+export function parseProcesses(stdout: string): { pid: string; botId: string; command: string }[] {
+  return (
+    stdout
+      .split('\n')
+      .map((line) => line.split('\t'))
+      .filter(([pid, botId, command]) => pid && botId && command?.trim())
+      .map(([pid = '', botId = '', command = '']) => ({ pid, botId, command: command.trim() }))
+      // The shell that runs a tagged command is not worth listing.
+      .filter((p) => !p.command.startsWith('bash -lc export MOWBOT_BOT='))
+  );
 }
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" };
@@ -109,7 +138,7 @@ const unescapeHtml = (text: string) =>
   text.replace(/&(amp|lt|gt|quot|#39);/g, (_, name: string) => ENTITIES[name] ?? '');
 
 export function parseInventory(stdout: string): Inventory {
-  const inventory: Inventory = { tabs: [], windows: [], mine: new Set() };
+  const inventory: Inventory = { tabs: [], windows: [], mine: new Set(), owners: new Map() };
   let section = '';
   for (const line of stdout.split('\n')) {
     if (line.startsWith('#')) {
@@ -125,6 +154,7 @@ export function parseInventory(stdout: string): Inventory {
       inventory.windows.push({ id, className: a, name: b });
     }
     if (section === 'mine') inventory.mine.add(id.trim());
+    if (section === 'owners' && isTabId(id)) inventory.owners.set(id, a.trim());
   }
   return inventory;
 }

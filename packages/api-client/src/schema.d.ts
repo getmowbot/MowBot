@@ -160,11 +160,29 @@ export interface paths {
         };
         get: operations["listTeams"];
         put?: never;
-        post?: never;
+        /** @description Creates a team with its own workspace and shared PC (started on first use). */
+        post: operations["createTeam"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Deletes a team without bots: its PC is removed, its files move to the main team's trash. */
+        delete: operations["deleteTeam"];
+        options?: never;
+        head?: never;
+        patch: operations["updateTeam"];
         trace?: never;
     };
     "/api/v1/computers": {
@@ -478,7 +496,8 @@ export interface paths {
         };
         get: operations["listBots"];
         put?: never;
-        post?: never;
+        /** @description Creates a bot in a team (on the team's PC or a dedicated one) or solo (own PC and workspace). */
+        post: operations["createBot"];
         delete?: never;
         options?: never;
         head?: never;
@@ -495,7 +514,8 @@ export interface paths {
         get: operations["getBot"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Deletes a bot (not the Chef) and its conversation. A dedicated PC goes with it; a solo bot's files move to the main team's trash. */
+        delete: operations["deleteBot"];
         options?: never;
         head?: never;
         /** @description Identity, mission, provider and model of a bot. */
@@ -532,6 +552,58 @@ export interface paths {
         put?: never;
         /** @description Interrupts the bot's current run. */
         post: operations["stopBot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Most recently updated first (200 at most). */
+        get: operations["listTasks"];
+        put?: never;
+        /** @description Gives a task to a bot, which is woken up to do it. */
+        post: operations["createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description A status change is reported to the bot doing the task. */
+        patch: operations["updateTask"];
+        trace?: never;
+    };
+    "/api/v1/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What bots write to each other, newest page first (items oldest → newest). */
+        get: operations["listFeed"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1155,12 +1227,232 @@ export interface operations {
                             mission: string | null;
                             isMain: boolean;
                             isolated: boolean;
+                            leadBotId: string | null;
                             /** Format: uuid */
                             workspaceId: string;
                             computerId: string | null;
                             /** Format: date-time */
                             createdAt: string;
                         }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    createTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    mission?: string;
+                    isolated?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        mission: string | null;
+                        isMain: boolean;
+                        isolated: boolean;
+                        leadBotId: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                        computerId: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    deleteTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    updateTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    mission?: string | null;
+                    isolated?: boolean;
+                    leadBotId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        mission: string | null;
+                        isMain: boolean;
+                        isolated: boolean;
+                        leadBotId: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                        computerId: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
                     };
                 };
             };
@@ -2761,17 +3053,112 @@ export interface operations {
                             mission: string | null;
                             isChef: boolean;
                             teamId: string | null;
+                            managerId: string | null;
                             computerId: string | null;
                             workspaceId: string | null;
                             providerId: string | null;
                             model: string | null;
                             /** @enum {string} */
-                            status: "idle" | "working" | "waiting_user" | "error" | "paused";
+                            status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                             statusDetail: string | null;
                             avatarSeed: string;
                             /** Format: date-time */
                             createdAt: string;
                         }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    createBot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    role: string;
+                    mission?: string;
+                    teamId: string | null;
+                    /**
+                     * @default team
+                     * @enum {string}
+                     */
+                    computer?: "team" | "dedicated";
+                    providerId?: string | null;
+                    model?: string | null;
+                    lead?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        role: string;
+                        mission: string | null;
+                        isChef: boolean;
+                        teamId: string | null;
+                        managerId: string | null;
+                        computerId: string | null;
+                        workspaceId: string | null;
+                        providerId: string | null;
+                        model: string | null;
+                        /** @enum {string} */
+                        status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
+                        statusDetail: string | null;
+                        avatarSeed: string;
+                        /** Format: date-time */
+                        createdAt: string;
                     };
                 };
             };
@@ -2840,18 +3227,77 @@ export interface operations {
                         mission: string | null;
                         isChef: boolean;
                         teamId: string | null;
+                        managerId: string | null;
                         computerId: string | null;
                         workspaceId: string | null;
                         providerId: string | null;
                         model: string | null;
                         /** @enum {string} */
-                        status: "idle" | "working" | "waiting_user" | "error" | "paused";
+                        status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
                         avatarSeed: string;
                         /** Format: date-time */
                         createdAt: string;
                     };
                 };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    deleteBot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Default Response */
             "4XX": {
@@ -2928,12 +3374,13 @@ export interface operations {
                         mission: string | null;
                         isChef: boolean;
                         teamId: string | null;
+                        managerId: string | null;
                         computerId: string | null;
                         workspaceId: string | null;
                         providerId: string | null;
                         model: string | null;
                         /** @enum {string} */
-                        status: "idle" | "working" | "waiting_user" | "error" | "paused";
+                        status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
                         avatarSeed: string;
                         /** Format: date-time */
@@ -3009,6 +3456,11 @@ export interface operations {
                             botId: string;
                             /** @enum {string} */
                             role: "user" | "assistant";
+                            fromBotId: string | null;
+                            fromName: string | null;
+                            /** @enum {string} */
+                            kind: "chat" | "ask" | "task";
+                            taskId: string | null;
                             parts: ({
                                 /** @enum {string} */
                                 type: "text";
@@ -3116,6 +3568,11 @@ export interface operations {
                         botId: string;
                         /** @enum {string} */
                         role: "user" | "assistant";
+                        fromBotId: string | null;
+                        fromName: string | null;
+                        /** @enum {string} */
+                        kind: "chat" | "ask" | "task";
+                        taskId: string | null;
                         parts: ({
                             /** @enum {string} */
                             type: "text";
@@ -3268,6 +3725,361 @@ export interface operations {
                 content: {
                     "application/json": {
                         stopped: boolean;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    listTasks: {
+        parameters: {
+            query?: {
+                botId?: string;
+                status?: "todo" | "doing" | "blocked" | "done" | "cancelled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            details: string | null;
+                            /** @enum {string} */
+                            status: "todo" | "doing" | "blocked" | "done" | "cancelled";
+                            result: string | null;
+                            /** Format: uuid */
+                            assigneeBotId: string;
+                            creatorBotId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    assigneeBotId: string;
+                    title: string;
+                    details?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        title: string;
+                        details: string | null;
+                        /** @enum {string} */
+                        status: "todo" | "doing" | "blocked" | "done" | "cancelled";
+                        result: string | null;
+                        /** Format: uuid */
+                        assigneeBotId: string;
+                        creatorBotId: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    updateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    details?: string | null;
+                    /** @enum {string} */
+                    status?: "todo" | "doing" | "blocked" | "done" | "cancelled";
+                    result?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        title: string;
+                        details: string | null;
+                        /** @enum {string} */
+                        status: "todo" | "doing" | "blocked" | "done" | "cancelled";
+                        result: string | null;
+                        /** Format: uuid */
+                        assigneeBotId: string;
+                        creatorBotId: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    listFeed: {
+        parameters: {
+            query?: {
+                before?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            botId: string;
+                            /** @enum {string} */
+                            role: "user" | "assistant";
+                            fromBotId: string | null;
+                            fromName: string | null;
+                            /** @enum {string} */
+                            kind: "chat" | "ask" | "task";
+                            taskId: string | null;
+                            parts: ({
+                                /** @enum {string} */
+                                type: "text";
+                                text: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "reasoning";
+                                text: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "tool";
+                                toolCallId: string;
+                                toolName: string;
+                                input: unknown;
+                                /** @enum {string} */
+                                state: "running" | "done" | "error";
+                                output?: string;
+                                image?: {
+                                    /** Format: uuid */
+                                    workspaceId: string;
+                                    path: string;
+                                };
+                            })[];
+                            /** @enum {string} */
+                            status: "streaming" | "done" | "error" | "stopped";
+                            error: string | null;
+                            usage: {
+                                inputTokens: number;
+                                outputTokens: number;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            toBotId: string;
+                        }[];
+                        nextCursor: string | null;
                     };
                 };
             };

@@ -14,7 +14,12 @@ async function ensureChef(db: Db, files: WorkspaceFiles): Promise<void> {
   const [main] = await db.select().from(teams).where(eq(teams.isMain, true));
   if (!main) return;
   const [chef] = await db.select({ id: bots.id }).from(bots).where(eq(bots.isChef, true));
-  if (chef) return;
+  if (chef) {
+    // Instances from before P3: the Chef leads the main team.
+    if (!main.leadBotId)
+      await db.update(teams).set({ leadBotId: chef.id }).where(eq(teams.id, main.id));
+    return;
+  }
 
   const [pc] = await db
     .select({ id: computers.id })
@@ -26,17 +31,21 @@ async function ensureChef(db: Db, files: WorkspaceFiles): Promise<void> {
     .orderBy(providerProfiles.createdAt)
     .limit(1);
   try {
-    await db.insert(bots).values({
-      name: CHEF_NAME,
-      role: "Chef d'équipe — ton point d'entrée",
-      isChef: true,
-      teamId: main.id,
-      computerId: pc?.id ?? null,
-      workspaceId: main.workspaceId,
-      providerId: provider?.id ?? null,
-      model: provider?.defaultModel ?? null,
-      avatarSeed: newBotSeed(),
-    });
+    const [created] = await db
+      .insert(bots)
+      .values({
+        name: CHEF_NAME,
+        role: "Chef d'équipe — ton point d'entrée",
+        isChef: true,
+        teamId: main.id,
+        computerId: pc?.id ?? null,
+        workspaceId: main.workspaceId,
+        providerId: provider?.id ?? null,
+        model: provider?.defaultModel ?? null,
+        avatarSeed: newBotSeed(),
+      })
+      .returning({ id: bots.id });
+    if (created) await db.update(teams).set({ leadBotId: created.id }).where(eq(teams.id, main.id));
   } catch (error) {
     if (!isUniqueViolation(error)) throw error;
   }

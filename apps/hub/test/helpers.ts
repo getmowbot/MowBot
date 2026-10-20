@@ -76,6 +76,12 @@ export class FakeRuntime implements ComputerRuntime {
     await new Promise((resolve) => machine.vnc.close(resolve));
   }
 
+  async remove(computerId: string): Promise<void> {
+    const containerId = `fake-${computerId}`;
+    await this.stop(containerId);
+    this.machines.delete(containerId);
+  }
+
   async isRunning(containerId: string): Promise<boolean | null> {
     const machine = this.machines.get(containerId);
     return machine ? machine.running : null;
@@ -97,6 +103,7 @@ export async function createTestApp(
   overrides: Partial<Config> = {},
   runtime = new FakeRuntime(),
   modelFor?: ServiceOverrides['modelFor'],
+  extra: Pick<ServiceOverrides, 'askTimeoutMs'> = {},
 ): Promise<TestApp & { runtime: FakeRuntime; workspacesDir: string }> {
   const workspacesDir = await mkdtemp(path.join(tmpdir(), 'mowbot-ws-'));
   const config: Config = {
@@ -111,7 +118,7 @@ export async function createTestApp(
   };
   const database: Database = await openDatabase(config.databaseUrl);
   await database.migrate();
-  const services = await createServices(config, database.db, { runtime, modelFor });
+  const services = await createServices(config, database.db, { runtime, modelFor, ...extra });
   const app = await buildApp(services);
   await app.ready();
   return {
