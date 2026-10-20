@@ -183,3 +183,40 @@ export function parseMarkdown(source: string): Block[] {
 export function isSafeLink(href: string): boolean {
   return /^(https?:|mailto:)/i.test(href);
 }
+
+function inlineText(nodes: Inline[]): string {
+  return nodes
+    .map((node) =>
+      node.type === 'text' || node.type === 'code' ? node.text : inlineText(node.children),
+    )
+    .join('');
+}
+
+function blocksText(blocks: Block[]): string[] {
+  return blocks.flatMap((block): string[] => {
+    switch (block.type) {
+      case 'paragraph':
+      case 'heading':
+        return [inlineText(block.children)];
+      case 'list':
+        return block.items.map(
+          (item, i) =>
+            `${block.ordered ? `${block.start + i}.` : '•'} ${blocksText(item).join(' ')}`,
+        );
+      case 'quote':
+        return blocksText(block.children);
+      case 'code':
+        return [block.text];
+      case 'table':
+        return [block.head, ...block.rows].map((row) => row.map(inlineText).join(' · '));
+      default:
+        // A rule has no text.
+        return [];
+    }
+  });
+}
+
+/** Markdown read as plain text, for short previews (no `**` or `#` left over). */
+export function markdownToPlain(source: string): string {
+  return blocksText(parseMarkdown(source)).join('\n');
+}

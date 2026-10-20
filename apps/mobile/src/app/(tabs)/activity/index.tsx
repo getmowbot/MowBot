@@ -14,6 +14,7 @@ import { Segmented } from '../../../components/ui/segmented';
 import { Surface } from '../../../components/ui/surface';
 import { T } from '../../../components/ui/text';
 import { Touchable } from '../../../components/ui/touchable';
+import { markdownToPlain } from '../../../lib/markdown';
 import { messageText } from '../../../lib/message-cache';
 import { botsById, useBots, useCancelTask, useFeed, useTasks } from '../../../lib/queries';
 import { timeAgo } from '../../../lib/time';
@@ -43,8 +44,13 @@ function TaskCard({ task, byId }: { task: Task; byId: Map<string, Bot> }) {
     ]);
 
   return (
-    <Touchable accessibilityRole="button" onPress={() => setOpen((value) => !value)}>
-      <Surface style={styles.card}>
+    <Surface style={styles.card}>
+      <Touchable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((value) => !value)}
+        style={styles.cardBody}
+      >
         <T
           variant="headline"
           style={task.status === 'cancelled' ? styles.cancelled : undefined}
@@ -72,17 +78,17 @@ function TaskCard({ task, byId }: { task: Task; byId: Map<string, Bot> }) {
             {task.result}
           </T>
         ) : null}
-        {open && !finished && (
-          <Button
-            label={t('tasks.cancel')}
-            variant="secondary"
-            loading={cancel.isPending}
-            onPress={confirmCancel}
-            style={styles.cancel}
-          />
-        )}
-      </Surface>
-    </Touchable>
+      </Touchable>
+      {open && !finished && (
+        <Button
+          label={t('tasks.cancel')}
+          variant="secondary"
+          loading={cancel.isPending}
+          onPress={confirmCancel}
+          style={styles.cancel}
+        />
+      )}
+    </Surface>
   );
 }
 
@@ -149,7 +155,7 @@ function FeedRow({ item, byId }: { item: FeedItem; byId: Map<string, Bot> }) {
             <Markdown text={text} style={styles.feedMarkdown} />
           ) : (
             <T variant="callout" numberOfLines={5} style={styles.feedPlain}>
-              {text}
+              {markdownToPlain(text)}
             </T>
           )}
         </Touchable>
@@ -229,11 +235,12 @@ const styles = StyleSheet.create({
   head: { gap: 14 },
   indent: { paddingHorizontal: 4 },
   list: { gap: 10 },
-  card: { padding: 14, gap: 8 },
+  card: { padding: 6, gap: 4 },
+  cardBody: { padding: 8, gap: 8, borderRadius: 12 },
   cancelled: { textDecorationLine: 'line-through', opacity: 0.6 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   shrink: { flexShrink: 1 },
-  cancel: { alignSelf: 'flex-start', minHeight: 40, marginTop: 4 },
+  cancel: { alignSelf: 'flex-start', minHeight: 40, margin: 8, marginTop: 0 },
   feed: { gap: 20 },
   feedRow: { flexDirection: 'row', gap: 12 },
   pair: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingTop: 2 },

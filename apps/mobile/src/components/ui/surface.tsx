@@ -63,7 +63,12 @@ export function Surface({
   if (variant === 'bar') {
     return (
       <View {...props} style={[styles.hairline, { borderRadius: radius }, styles.clip, style]}>
-        <BlurView tint="systemChromeMaterialDark" intensity={80} style={StyleSheet.absoluteFill} />
+        <BlurView
+          tint="systemChromeMaterialDark"
+          intensity={80}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
         {children}
       </View>
     );

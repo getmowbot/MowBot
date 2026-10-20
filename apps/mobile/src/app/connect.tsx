@@ -25,9 +25,9 @@ import { colors } from '../theme';
 function Welcome() {
   return (
     <View style={styles.welcome}>
-      <BotAvatar seed="nova" size={56} />
-      <BotAvatar seed="mowbot" size={80} />
-      <BotAvatar seed="atlas" size={56} />
+      <BotAvatar seed="echo" size={56} />
+      <BotAvatar seed="chef" size={80} />
+      <BotAvatar seed="milo" size={56} />
     </View>
   );
 }

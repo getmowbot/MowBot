@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSafeLink, parseMarkdown } from './markdown';
+import { isSafeLink, markdownToPlain, parseMarkdown } from './markdown';
 
 describe('markdown', () => {
   it('parses paragraphs with nested inline styles and links', () => {
@@ -77,5 +77,11 @@ describe('markdown', () => {
   it('survives a half-streamed answer', () => {
     expect(() => parseMarkdown('Liste :\n\n- un\n- **deu')).not.toThrow();
     expect(parseMarkdown('')).toEqual([]);
+  });
+
+  it('reads as plain text for previews', () => {
+    expect(markdownToPlain('Salut, prépare la **veille IA** :\n\n1. un\n2. `deux`')).toBe(
+      'Salut, prépare la veille IA :\n1. un\n2. deux',
+    );
   });
 });
