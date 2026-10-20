@@ -100,6 +100,8 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
   await app.register(fastifyCors, {
     origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,
     credentials: true,
+    // The default leaves out what the API uses to change things.
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
   });
   await app.register(fastifyCookie);
   await app.register(fastifyRateLimit, {

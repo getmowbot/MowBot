@@ -1,3 +1,8 @@
+import { en as appAdmin } from './areas/appAdmin';
+import { en as board } from './areas/board';
+import { en as filesView } from './areas/filesView';
+import { en as orgAdmin } from './areas/orgAdmin';
+import { en as pcView } from './areas/pcView';
 import type { Catalog } from './catalog';
 
 export const en: Catalog = {
@@ -10,9 +15,17 @@ export const en: Catalog = {
     you: 'you',
     deletedBot: 'Deleted bot',
     botNotFound: 'Bot not found.',
+    options: 'Options',
+    save: 'Save',
+    saving: 'Saving…',
+    delete: 'Delete',
+    confirm: 'Confirm',
+    close: 'Close',
+    actionFailed: 'That didn’t work.',
   },
   tabs: {
     home: 'Home',
+    bots: 'Bots',
     activity: 'Activity',
     org: 'Organization',
     settings: 'Settings',
@@ -59,6 +72,17 @@ export const en: Catalog = {
     empty: 'No other team yet. Ask the Chef to set one up.',
   },
   chat: {
+    options: '{{name}} options',
+    menuSettings: 'Settings',
+    menuRename: 'Rename',
+    menuMove: 'Move to another team',
+    menuPc: 'View the PC',
+    menuFiles: 'Files',
+    menuClear: 'Clear conversation',
+    clearConfirm:
+      'Clear the conversation with {{name}}? It forgets everything that was said and tidies up its PC; files are kept.',
+    menuDelete: 'Delete {{name}}',
+    deleteConfirm: 'Delete {{name}}? Its conversation is erased; its files are kept.',
     placeholder: 'Message {{name}}…',
     send: 'Send',
     stop: 'Stop',
@@ -165,7 +189,7 @@ export const en: Catalog = {
   tasks: {
     segment: 'Tasks',
     exchanges: 'Exchanges',
-    intro: 'The tasks bots hand to each other, and what they tell each other.',
+    intro: 'Tasks given to bots (by you or by each other), and what they tell each other.',
     column: {
       doing: 'In progress',
       todo: 'To do',
@@ -183,7 +207,7 @@ export const en: Catalog = {
     cancel: 'Cancel task',
     cancelConfirm: 'Cancel “{{title}}”?',
     keep: 'Keep',
-    empty: 'No tasks yet. Bots hand tasks to each other when they work together.',
+    empty: 'No tasks yet. Give one to a bot, or let them hand tasks to each other.',
     feedEmpty: 'Nothing yet. When your bots talk to each other, you’ll see it all here.',
     feedTo: '{{from}} to {{to}}',
     loadMore: 'Load more',
@@ -238,4 +262,10 @@ export const en: Catalog = {
     days_one: 'yesterday',
     days_other: '{{count}} days ago',
   },
+  // Each area has its own file (src/i18n/areas), filled independently.
+  board,
+  pcView,
+  orgAdmin,
+  appAdmin,
+  filesView,
 };

@@ -83,6 +83,17 @@ pnpm --filter @mowbot/mobile start
 
 Scanne le QR code avec Expo Go (même réseau local), puis connecte-toi avec l'adresse du hub (`http://<ip-de-cette-machine>:8787`) et ton mot de passe. Sous Windows, autorise Node.js dans le pare-feu (Metro écoute sur le port 8081).
 
+L'app fait tout ce que fait le site :
+- l'accueil : canvas, questions des bots, notifications, pause ;
+- les conversations : options du bot dans ⋯ ;
+- le PC de chaque bot : écran en direct, prise de contrôle avec clavier, fenêtre de chaque bot ;
+- la gestion des équipes et des bots ;
+- les modèles, les routines et la proactivité ;
+- les appareils ;
+- les fichiers.
+
+L'écran du PC charge noVNC depuis un CDN : le téléphone a besoin d'un accès à internet.
+
 ### Personnages des bots
 
 Chaque bot a son personnage, tiré de sa graine (`packages/design`) : couleur, forme, yeux, rythme de clignement. En dev, la galerie `/dev/avatars` montre les variantes et les humeurs.

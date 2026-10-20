@@ -24,7 +24,7 @@ export const queryClient = new QueryClient({
 });
 
 /** Unwraps an openapi-fetch result, throwing the problem details on error. */
-async function data<T>(call: Promise<{ data?: T; error?: unknown }>): Promise<T> {
+export async function data<T>(call: Promise<{ data?: T; error?: unknown }>): Promise<T> {
   const { data: value, error } = await call;
   if (error !== undefined || value === undefined) throw error ?? new Error('Empty response');
   return value;
