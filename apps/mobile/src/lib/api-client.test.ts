@@ -1,4 +1,5 @@
 import { createMowbotClient } from '@mowbot/api-client';
+import type { TokenResponse } from '@mowbot/contract';
 import { describe, expect, it } from 'vitest';
 
 /** Expo's native fetch answers with its own class, not `instanceof Response`. */
@@ -13,10 +14,12 @@ function expoLikeResponse(status: number, body: unknown) {
   } as unknown as Response;
 }
 
-const tokens = (accessToken: string) => ({
+const tokens = (accessToken: string): TokenResponse => ({
   accessToken,
   accessTokenExpiresAt: new Date(Date.now() + 600_000).toISOString(),
   refreshToken: `refresh-${accessToken}`,
+  refreshTokenExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+  deviceId: '00000000-0000-4000-8000-000000000001',
 });
 
 describe('api client on a native fetch', () => {
