@@ -1,0 +1,23 @@
+{
+  "name": "mowbot",
+  "private": true,
+  "description": "Self-hosted teams of AI bots, each team sharing a full Linux computer.",
+  "packageManager": "pnpm@11.4.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "openapi": "pnpm --filter @mowbot/hub openapi:export && pnpm --filter @mowbot/api-client generate"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "turbo": "^2.11.9",
+    "typescript": "^7.0.2"
+  }
+}

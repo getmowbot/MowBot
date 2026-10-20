@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.data
+.git
+.github
+.env
+deploy/.env
+docs
