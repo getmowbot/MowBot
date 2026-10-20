@@ -55,6 +55,13 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
     case 'task.updated':
       void client.invalidateQueries({ queryKey: keys.tasks });
       break;
+    case 'message.deleted':
+      client.setQueryData<Conversation>(keys.messages(event.botId), (current) =>
+        current
+          ? { ...current, items: current.items.filter((m) => m.id !== event.messageId) }
+          : current,
+      );
+      break;
     case 'messages.cleared':
       client.setQueryData<Conversation>(keys.messages(event.botId), (current) =>
         current ? { items: [], nextCursor: null } : current,

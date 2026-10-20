@@ -65,6 +65,8 @@ export const en: Catalog = {
     thinking: '{{name}} is thinking…',
     stopped: 'Stopped.',
     error: 'Something went wrong.',
+    errorNoModel: 'No model set up: add a provider under Models, on the web.',
+    hubRestart: 'Interrupted by a hub restart.',
     start: 'Start of the conversation',
     greetingChef: 'Hi, I’m the Chef.',
     greeting: 'Hi, I’m {{name}}.',
@@ -77,6 +79,7 @@ export const en: Catalog = {
       chat: 'message',
       ask: 'question',
       task: 'task',
+      routine: 'routine',
     },
     suggestions: {
       chef1: 'Introduce yourself and tell me what you can do',

@@ -64,6 +64,8 @@ export const fr = {
     thinking: '{{name}} réfléchit…',
     stopped: 'Interrompu.',
     error: 'Une erreur est survenue.',
+    errorNoModel: 'Aucun modèle configuré : ajoute un fournisseur dans Modèles, sur le web.',
+    hubRestart: 'Interrompu par un redémarrage du hub.',
     start: 'Début de la conversation',
     greetingChef: 'Salut, je suis le Chef.',
     greeting: 'Salut, je suis {{name}}.',
@@ -76,6 +78,7 @@ export const fr = {
       chat: 'message',
       ask: 'question',
       task: 'tâche',
+      routine: 'routine',
     },
     suggestions: {
       chef1: 'Présente-toi et dis-moi ce que tu sais faire',

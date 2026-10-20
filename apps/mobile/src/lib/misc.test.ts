@@ -60,7 +60,14 @@ describe('bot status', () => {
     expect(moodOf(bot({ status: 'paused' }))).toBe('sleeping');
   });
 
-  it('translates the hub’s "Attend Nova"', async () => {
+  it('says which bot a bot waits for', async () => {
+    expect(
+      statusLabel(
+        bot({ status: 'waiting_bot', statusDetail: 'Iris' }),
+        'waiting',
+        await translator('en'),
+      ),
+    ).toBe('waiting for Iris');
     const waiting = bot({ status: 'waiting_bot', statusDetail: 'Attend Nova' });
     expect(statusLabel(waiting, 'waiting', await translator('fr'))).toBe('attend Nova');
     expect(statusLabel(waiting, 'waiting', await translator('en'))).toBe('waiting for Nova');

@@ -22,7 +22,7 @@ export function moodOf(bot: Pick<Bot, 'status'>, live?: Message | null): BotMood
   }
 }
 
-/** The hub writes "Attend Nova" (French) while a bot waits for another one's answer. */
+/** While a bot waits for another one's answer, the hub gives that bot's name (older hubs wrote "Attend Nova"). */
 const WAITING_FOR = /^attend\s+(.+)$/i;
 
 export function statusLabel(
@@ -31,7 +31,7 @@ export function statusLabel(
   t: TFunction,
 ): string {
   if (bot.status === 'waiting_bot') {
-    const name = bot.statusDetail?.match(WAITING_FOR)?.[1];
+    const name = bot.statusDetail?.match(WAITING_FOR)?.[1] ?? bot.statusDetail;
     return name ? t('status.waitingFor', { name }) : t('status.waitingBot');
   }
   if (mood === 'working') return t('status.working');

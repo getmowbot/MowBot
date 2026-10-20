@@ -83,7 +83,11 @@ export function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
         {message.status === 'error' && (
           <View style={styles.error}>
             <T variant="footnote" tone="danger">
-              {message.error ?? t('chat.error')}
+              {message.errorCode === 'no_model'
+                ? t('chat.errorNoModel')
+                : message.errorCode === 'hub_restart'
+                  ? t('chat.hubRestart')
+                  : (message.error ?? t('chat.error'))}
             </T>
           </View>
         )}
