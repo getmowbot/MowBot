@@ -29,7 +29,9 @@ export type DesktopCommand =
   /** Pressed and released one after the other (typing). */
   | { type: 'keys'; keys: KeyPress[] }
   /** Pressed in order, released in reverse (Ctrl+C). */
-  | { type: 'combo'; keys: KeyPress[] };
+  | { type: 'combo'; keys: KeyPress[] }
+  /** Puts text on the PC's clipboard, then presses `keys` (Ctrl+V) to paste it. */
+  | { type: 'paste'; text: string; keys: KeyPress[] };
 
 /** Page → app. */
 export type DesktopEvent =
@@ -38,7 +40,9 @@ export type DesktopEvent =
   /** Size of the PC's screen, in pixels (0 if unknown). */
   | { type: 'connected'; width: number; height: number }
   | { type: 'disconnected' }
-  | { type: 'error'; reason: 'load' | 'security'; message: string };
+  | { type: 'error'; reason: 'load' | 'security'; message: string }
+  /** Something was copied on the PC (only while the user has control: noVNC's rule). */
+  | { type: 'clipboard'; text: string };
 
 /** Reads a message posted by the page; null when it is not one of ours. */
 export function parseDesktopEvent(raw: string): DesktopEvent | null {
@@ -66,6 +70,8 @@ export function parseDesktopEvent(raw: string): DesktopEvent | null {
         reason: event.reason === 'security' ? 'security' : 'load',
         message: typeof event.message === 'string' ? event.message : '',
       };
+    case 'clipboard':
+      return typeof event.text === 'string' ? { type: 'clipboard', text: event.text } : null;
     default:
       return null;
   }
@@ -141,6 +147,11 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
       rfb = null;
       post({ type: 'disconnected' });
     });
+    current.addEventListener('clipboard', function (event) {
+      if (rfb !== current) return;
+      var text = event && event.detail && event.detail.text;
+      if (typeof text === 'string') post({ type: 'clipboard', text: text });
+    });
     current.addEventListener('securityfailure', function (event) {
       var reason = event && event.detail && event.detail.reason;
       post({ type: 'error', reason: 'security', message: String(reason || '') });
@@ -148,6 +159,10 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
   }
   function press(key, down) {
     rfb.sendKey(key.keysym, key.code || null, down);
+  }
+  function combo(keys) {
+    keys.forEach(function (key) { press(key, true); });
+    keys.slice().reverse().forEach(function (key) { press(key, false); });
   }
   window.mowbot = {
     receive: function (command) {
@@ -165,9 +180,13 @@ body{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-c
           if (rfb) command.keys.forEach(function (key) { press(key); });
           break;
         case 'combo':
+          if (rfb) combo(command.keys);
+          break;
+        case 'paste':
           if (!rfb) break;
-          command.keys.forEach(function (key) { press(key, true); });
-          command.keys.slice().reverse().forEach(function (key) { press(key, false); });
+          // Sent on the same socket before the keys: the PC has the text when Ctrl+V arrives.
+          rfb.clipboardPasteFrom(command.text);
+          combo(command.keys);
           break;
       }
     }

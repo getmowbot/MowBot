@@ -382,6 +382,16 @@ export const fr = {
     noPageHint: 'Sa fenêtre de Chrome s’affiche ici dès qu’il navigue sur le web.',
     showOnScreen: 'Afficher à l’écran',
     takeOverPage: 'Prendre la main',
+    clipboard: {
+      hint: 'Ctrl+V colle ton presse-papiers sur le PC ; ce que tu copies sur le PC revient chez toi.',
+      copied: 'Copié depuis le PC dans ton presse-papiers.',
+      pasted: 'Collé sur le PC.',
+      copyFromPc: 'Copier le texte du PC',
+      copyFailed: 'Le navigateur a refusé la copie.',
+      pasteText: 'Coller du texte…',
+      placeholder: 'Texte ou mot de passe à coller sur le PC',
+      send: 'Coller sur le PC',
+    },
     botPage: 'Page ouverte par {{name}}',
   },
   files: {
