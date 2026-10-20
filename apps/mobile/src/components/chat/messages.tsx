@@ -1,0 +1,131 @@
+import type { Bot, Message } from '@mowbot/contract';
+import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { StyleSheet, View } from 'react-native';
+import { segments } from '../../lib/activity';
+import { moodOf } from '../../lib/bot-mood';
+import { messageText } from '../../lib/message-cache';
+import { colors } from '../../theme';
+import { ActivityLine } from '../activity-line';
+import { BotAvatar } from '../bot-avatar';
+import { Markdown } from '../markdown';
+import { ShimmerText } from '../ui/shimmer-text';
+import { T } from '../ui/text';
+
+export function UserMessage({ message }: { message: Message }) {
+  return (
+    <View style={styles.right}>
+      <View style={[styles.bubble, styles.userBubble]}>
+        <T style={styles.userText} selectable>
+          {messageText(message)}
+        </T>
+      </View>
+    </View>
+  );
+}
+
+/** What another bot (or the user, for a task) gave this bot: a quieter, outlined bubble. */
+export function IncomingMessage({ message, from }: { message: Message; from: Bot | undefined }) {
+  const { t } = useTranslation();
+  const name = from?.name ?? message.fromName ?? t('common.you');
+  return (
+    <View style={styles.right}>
+      <View style={[styles.bubble, styles.incomingBubble]}>
+        <View style={styles.sender}>
+          {(from || message.fromName) && (
+            <BotAvatar seed={from?.avatarSeed ?? name} size={16} still />
+          )}
+          <T
+            variant="caption"
+            tone="muted"
+            numberOfLines={1}
+            onPress={
+              from
+                ? () => router.push({ pathname: '/chat/[botId]', params: { botId: from.id } })
+                : undefined
+            }
+          >
+            {t('chat.from', { name, kind: t(`chat.kind.${message.kind}`) })}
+          </T>
+        </View>
+        <Markdown text={messageText(message)} style={styles.incomingText} />
+      </View>
+    </View>
+  );
+}
+
+export function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
+  const { t } = useTranslation();
+  const streaming = message.status === 'streaming';
+  const blocks = segments(message.parts);
+  return (
+    <View style={styles.bot}>
+      <BotAvatar seed={bot.avatarSeed} size={30} mood={streaming ? moodOf(bot, message) : 'idle'} />
+      {/* First lines are centred on the 30pt avatar. */}
+      <View style={styles.botBody}>
+        {blocks.length === 0 && streaming && (
+          <ShimmerText style={styles.thinking}>
+            {t('chat.thinking', { name: bot.name })}
+          </ShimmerText>
+        )}
+        {blocks.map((block, i) => {
+          const last = i === blocks.length - 1;
+          return block.kind === 'activity' ? (
+            <ActivityLine
+              key={`activity-${block.index}`}
+              parts={block.parts}
+              live={streaming && last}
+            />
+          ) : (
+            <Markdown key={`text-${block.index}`} text={block.text} caret={streaming && last} />
+          );
+        })}
+        {message.status === 'error' && (
+          <View style={styles.error}>
+            <T variant="footnote" tone="danger">
+              {message.error ?? t('chat.error')}
+            </T>
+          </View>
+        )}
+        {message.status === 'stopped' && (
+          <T variant="caption" tone="faint">
+            {t('chat.stopped')}
+          </T>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  right: { flexDirection: 'row', justifyContent: 'flex-end' },
+  bubble: {
+    maxWidth: '85%',
+    borderRadius: 20,
+    borderBottomRightRadius: 6,
+    borderCurve: 'continuous',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+  },
+  userBubble: { backgroundColor: colors.accent },
+  userText: { color: colors.accentInk },
+  incomingBubble: {
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    gap: 6,
+  },
+  incomingText: { fontSize: 14.5, lineHeight: 21 },
+  sender: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  bot: { flexDirection: 'row', gap: 12 },
+  botBody: { flex: 1, minWidth: 0, gap: 10, paddingTop: 3 },
+  thinking: { fontSize: 15, lineHeight: 23 },
+  error: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 133, 0.25)',
+    backgroundColor: 'rgba(255, 107, 133, 0.07)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+});
