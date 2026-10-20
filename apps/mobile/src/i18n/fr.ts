@@ -1,5 +1,6 @@
 import { fr as appAdmin } from './areas/appAdmin';
 import { fr as board } from './areas/board';
+import { fr as filesView } from './areas/filesView';
 import { fr as orgAdmin } from './areas/orgAdmin';
 import { fr as pcView } from './areas/pcView';
 
@@ -266,4 +267,5 @@ export const fr = {
   pcView,
   orgAdmin,
   appAdmin,
+  filesView,
 } as const;
