@@ -1,5 +1,6 @@
-import type { BotStatus, Team } from '@mowbot/contract';
+import type { BotStatus, Locale, Team } from '@mowbot/contract';
 import { botFolder } from '../bots/service';
+import { HUB_TEXTS } from '../i18n';
 
 interface PromptBot {
   id: string;
@@ -14,6 +15,7 @@ interface PromptBot {
 export interface PromptContext {
   bot: PromptBot;
   ownerName: string;
+  locale: Locale;
   teams: Team[];
   bots: PromptBot[];
   hasComputer: boolean;
@@ -55,7 +57,7 @@ export function systemPrompt(ctx: PromptContext): string {
     leads.length && !bot.isChef
       ? `Tu es le lead de l'équipe ${leads.map((t) => t.name).join(', ')} : tu répartis le travail entre ses bots et tu peux en créer.`
       : '',
-    `Tu parles avec ${ctx.ownerName}, ton utilisateur. Réponds en français, de façon concise et concrète. Utilise le Markdown quand ça aide (listes, code).`,
+    `Tu parles avec ${ctx.ownerName}, ton utilisateur. Réponds ${HUB_TEXTS[ctx.locale].replyIn}, de façon concise et concrète ; écris aussi aux autres bots dans cette langue (l'utilisateur lit vos échanges). Utilise le Markdown quand ça aide (listes, code).`,
     '',
     '## L’organisation',
     roster(ctx),

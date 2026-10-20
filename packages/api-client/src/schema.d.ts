@@ -116,7 +116,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** @description Name and language of the owner (bots answer in that language). */
+        patch: operations["updateMe"];
         trace?: never;
     };
     "/api/v1/devices": {
@@ -1015,6 +1016,97 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             displayName: string;
+                            /** @enum {string} */
+                            locale: "fr" | "en";
+                            /** Format: date-time */
+                            createdAt: string;
+                        };
+                        device: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            /** @enum {string} */
+                            kind: "web" | "ios" | "android" | "desktop" | "cli";
+                            scopes: ("read" | "chat" | "files:read" | "files:write" | "control" | "admin")[];
+                            /** Format: date-time */
+                            createdAt: string;
+                            lastSeenAt: string | null;
+                            revokedAt: string | null;
+                            current: boolean;
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    updateMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    displayName?: string;
+                    /** @enum {string} */
+                    locale?: "fr" | "en";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        owner: {
+                            /** Format: uuid */
+                            id: string;
+                            displayName: string;
+                            /** @enum {string} */
+                            locale: "fr" | "en";
                             /** Format: date-time */
                             createdAt: string;
                         };
@@ -3486,6 +3578,7 @@ export interface operations {
                             })[];
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
+                            errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                             error: string | null;
                             usage: {
                                 inputTokens: number;
@@ -3598,6 +3691,7 @@ export interface operations {
                         })[];
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
+                        errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                         error: string | null;
                         usage: {
                             inputTokens: number;
@@ -4069,6 +4163,7 @@ export interface operations {
                             })[];
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
+                            errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                             error: string | null;
                             usage: {
                                 inputTokens: number;

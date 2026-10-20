@@ -3,6 +3,8 @@ import type {
   ComputerKind,
   ComputerStatus,
   DeviceKind,
+  Locale,
+  Message,
   MessageKind,
   MessagePart,
   ProviderKind,
@@ -36,6 +38,7 @@ export const owner = pgTable(
     singleton: boolean('singleton').notNull().default(true),
     displayName: text('display_name').notNull(),
     passwordHash: text('password_hash').notNull(),
+    locale: text('locale').$type<Locale>().notNull().default('fr'),
     createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -228,6 +231,7 @@ export const messages = pgTable(
     parts: jsonb('parts').$type<MessagePart[]>().notNull(),
     modelMessages: jsonb('model_messages').$type<ModelMessage[]>().notNull(),
     status: text('status').$type<'streaming' | 'done' | 'error' | 'stopped'>().notNull(),
+    errorCode: text('error_code').$type<MessageErrorCode>(),
     error: text('error'),
     usage: jsonb('usage').$type<{ inputTokens: number; outputTokens: number }>(),
     createdAt: timestamp('created_at', { withTimezone: true, precision: 6 }).notNull().defaultNow(),
@@ -237,6 +241,8 @@ export const messages = pgTable(
     index('messages_from_bot_created_idx').on(t.createdAt).where(sql`${t.fromBotId} is not null`),
   ],
 );
+
+export type MessageErrorCode = NonNullable<Message['errorCode']>;
 
 export interface MessageMeta {
   /** Sender's name when it was sent (still shown if that bot is deleted). */

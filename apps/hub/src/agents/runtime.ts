@@ -259,7 +259,8 @@ export class BotRuntime {
     this.waiting.set(from.id, to.id);
     await this.deps.bots.update(from.id, {
       status: 'waiting_bot',
-      statusDetail: `Attend ${to.name}`,
+      // The name of the bot it waits for; clients word it ("attend Nova", "waiting for Nova").
+      statusDetail: to.name,
     });
     const timeoutMs = this.deps.askTimeoutMs ?? ASK_TIMEOUT_MS;
     let timer: NodeJS.Timeout | undefined;
@@ -404,7 +405,7 @@ export class BotRuntime {
   async recover(): Promise<void> {
     await this.deps.db
       .update(messages)
-      .set({ status: 'error', error: 'Interrompu par un redémarrage du hub' })
+      .set({ status: 'error', errorCode: 'hub_restart', error: null })
       .where(eq(messages.status, 'streaming'));
     await this.deps.db
       .update(bots)
@@ -558,7 +559,8 @@ export class BotRuntime {
     if (!model) {
       await this.save(created.id, {
         status: 'error',
-        error: 'Aucun modèle configuré : ajoute un fournisseur dans Réglages → Modèles.',
+        errorCode: 'no_model',
+        error: null,
       });
       await this.settleAsks(askIds, bot, `${bot.name} n'a pas de modèle configuré.`);
       return;
@@ -573,7 +575,10 @@ export class BotRuntime {
     const watch: { windowsBefore: Promise<Set<string> | null> | null } = { windowsBefore: null };
 
     try {
-      const [account] = await db.select({ name: owner.displayName }).from(owner).limit(1);
+      const [account] = await db
+        .select({ name: owner.displayName, locale: owner.locale })
+        .from(owner)
+        .limit(1);
       const allTeams = await this.deps.org.listTeams();
       const allBots = await db.select().from(bots).orderBy(bots.createdAt);
       const pendingImages: string[] = [];
@@ -624,6 +629,7 @@ export class BotRuntime {
         system: systemPrompt({
           bot,
           ownerName: account?.name ?? "l'utilisateur",
+          locale: account?.locale ?? 'fr',
           teams: allTeams,
           bots: allBots,
           hasComputer: Boolean(computerId),
@@ -742,6 +748,7 @@ export class BotRuntime {
         // Keep what was said so the next turn has context.
         modelMessages: text ? [{ role: 'assistant', content: text }] : [],
         status: stopped ? 'stopped' : 'error',
+        errorCode: stopped ? null : 'run_failed',
         error: stopped ? null : errorMessage(error),
       });
       await this.deps.bots.update(botId, {

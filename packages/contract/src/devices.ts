@@ -22,12 +22,23 @@ export const deviceIdParamsSchema = z.object({
   id: z.uuid(),
 });
 
+/** Languages of the apps; bots answer the owner in theirs. */
+export const localeSchema = z.enum(['fr', 'en']);
+export type Locale = z.infer<typeof localeSchema>;
+
 export const meSchema = z.object({
   owner: z.object({
     id: z.uuid(),
     displayName: z.string(),
+    locale: localeSchema,
     createdAt: z.iso.datetime(),
   }),
   device: deviceSchema,
 });
 export type Me = z.infer<typeof meSchema>;
+
+export const meUpdateSchema = z.object({
+  displayName: z.string().trim().min(1).max(100).optional(),
+  locale: localeSchema.optional(),
+});
+export type MeUpdate = z.infer<typeof meUpdateSchema>;

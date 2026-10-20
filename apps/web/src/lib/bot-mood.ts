@@ -22,10 +22,7 @@ export function moodOf(bot: Pick<Bot, 'status'>, live?: Message): BotMood {
 
 export function statusLabel(bot: Pick<Bot, 'status' | 'statusDetail'>, mood: BotMood): string {
   // "Attend Nova": waiting for another bot's answer.
-  if (bot.status === 'waiting_bot') {
-    const detail = bot.statusDetail ?? 'Attend un autre bot';
-    return detail.charAt(0).toLowerCase() + detail.slice(1);
-  }
+  if (bot.status === 'waiting_bot') return `attend ${bot.statusDetail ?? 'un autre bot'}`;
   if (mood === 'working') return 'travaille sur son PC…';
   if (mood === 'thinking') return 'réfléchit…';
   if (bot.status === 'waiting_user') return 'attend ta réponse';

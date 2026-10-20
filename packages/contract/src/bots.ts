@@ -98,6 +98,8 @@ export const messageSchema = z.object({
   taskId: z.uuid().nullable(),
   parts: z.array(messagePartSchema),
   status: z.enum(['streaming', 'done', 'error', 'stopped']),
+  /** Why the answer failed, for clients to word it; `error` keeps the technical detail. */
+  errorCode: z.enum(['no_model', 'hub_restart', 'run_failed']).nullable(),
   error: z.string().nullable(),
   usage: z.object({ inputTokens: z.number(), outputTokens: z.number() }).nullable(),
   createdAt: z.iso.datetime(),

@@ -148,7 +148,11 @@ function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
         })}
         {message.status === 'error' && (
           <p className="rounded-xl border border-destructive/25 bg-destructive/[0.07] px-3 py-2 text-sm text-destructive">
-            {message.error ?? 'Une erreur est survenue.'}
+            {message.errorCode === 'no_model'
+              ? 'Aucun modèle configuré : ajoute un fournisseur dans Réglages → Modèles.'
+              : message.errorCode === 'hub_restart'
+                ? 'Interrompu par un redémarrage du hub.'
+                : (message.error ?? 'Une erreur est survenue.')}
           </p>
         )}
         {message.status === 'stopped' && <p className="text-xs text-faint">Interrompu.</p>}

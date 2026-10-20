@@ -40,6 +40,7 @@ export function toMessage(row: MessageRow): Message {
     taskId: row.meta?.taskId ?? null,
     parts: row.parts,
     status: row.status,
+    errorCode: row.errorCode ?? null,
     error: row.error,
     usage: row.usage ?? null,
     createdAt: row.createdAt.toISOString(),

@@ -36,6 +36,13 @@
       "when": 1792521924297,
       "tag": "0004_teams_and_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792525171974,
+      "tag": "0005_owner_locale",
+      "breakpoints": true
     }
   ]
 }
