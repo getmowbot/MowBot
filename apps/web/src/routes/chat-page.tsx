@@ -51,7 +51,12 @@ const BOT_SUGGESTIONS = [
   'Que fait ton équipe en ce moment ?',
 ];
 
-const KIND_LABELS = { chat: 'message', ask: 'question', task: 'tâche' } as const;
+const KIND_LABELS = {
+  chat: 'message',
+  ask: 'question',
+  task: 'tâche',
+  routine: 'routine',
+} as const;
 
 /** What another bot (or the user, for a task) gave this bot: a quieter, outlined bubble. */
 function IncomingMessage({ message }: { message: Message }) {

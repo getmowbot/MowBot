@@ -21,7 +21,12 @@ const COLUMNS: { status: TaskStatus; title: string }[] = [
   { status: 'done', title: 'Terminées' },
 ];
 
-const KIND_LABELS = { chat: 'message', ask: 'question', task: 'tâche' } as const;
+const KIND_LABELS = {
+  chat: 'message',
+  ask: 'question',
+  task: 'tâche',
+  routine: 'routine',
+} as const;
 
 function Avatar({ bot, name, size = 22 }: { bot?: Bot; name: string; size?: number }) {
   return <BotAvatar seed={bot?.avatarSeed ?? name} size={size} title={name} />;
