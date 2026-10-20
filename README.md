@@ -73,6 +73,16 @@ Dans l'app, **Modèles → Ajouter** : Command Code (clé de ton abonnement), Op
 
 `pnpm dev` écoute sur toutes les interfaces : depuis un téléphone ou un autre PC du LAN, ouvre `http://<ip-de-cette-machine>:5173` (Vite affiche les adresses au démarrage). Sous Windows, autorise Node.js dans le pare-feu si une fenêtre le demande.
 
+### App mobile (Expo Go)
+
+L'app iOS / Android (`apps/mobile`, Expo SDK 57) se lance dans **Expo Go** :
+
+```bash
+pnpm --filter @mowbot/mobile start
+```
+
+Scanne le QR code avec Expo Go (même réseau local), puis connecte-toi avec l'adresse du hub (`http://<ip-de-cette-machine>:8787`) et ton mot de passe. Sous Windows, autorise Node.js dans le pare-feu (Metro écoute sur le port 8081).
+
 ### Personnages des bots
 
 Chaque bot a son personnage, tiré de sa graine (`packages/design`) : couleur, forme, yeux, rythme de clignement. En dev, la galerie `/dev/avatars` montre les variantes et les humeurs.

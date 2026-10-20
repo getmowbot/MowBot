@@ -148,7 +148,8 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
     }),
     execute: async ({ to, title, details }) => {
       const target = await findBot(to);
-      if (target.id !== self.id) await runtime.checkReach(self, target, ctx.depth);
+      // A task to itself wakes the bot up too: it counts against the same limits.
+      await runtime.checkReach(self, target, ctx.depth, { allowSelf: true });
       const task = await ctx.tasks.create({ assignee: target, title, details }, self, ctx.depth);
       return `Tâche créée (id ${task.id}) pour ${target.name}.`;
     },

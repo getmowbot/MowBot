@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "MowBot",
+    "slug": "mowbot",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "mowbot",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#06070a",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.mowbot.app",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "MowBot connects to your hub on the local network."
+      }
+    },
+    "android": {
+      "package": "dev.mowbot.app",
+      "softwareKeyboardLayoutMode": "resize",
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#06070a"
+        }
+      ]
+    ],
+    "experiments": {
+      "reactCompiler": true
+    }
+  }
+}

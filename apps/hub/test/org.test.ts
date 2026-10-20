@@ -254,6 +254,19 @@ describe('bots talking to each other', () => {
     expect(refused?.type === 'tool' && refused.output).toContain("Trop d'échanges");
   });
 
+  it('does not let a bot keep waking itself with tasks', async () => {
+    const { say, chef, get } = await start({
+      Chef: scriptedBy((_, call) =>
+        call % 2 === 0
+          ? toolTurn('assign_task', { to: 'Chef', title: `Encore ${call}` })
+          : textTurn('…'),
+      ),
+    });
+    await say(chef.id, 'Organise-toi');
+    const { items } = await get<{ items: Task[] }>('/api/v1/tasks');
+    expect(items).toHaveLength(MAX_DEPTH);
+  });
+
   it('runs a task from assignment to the result coming back', async () => {
     const taskId = /\(id ([0-9a-f-]{36})\)/;
     const { createBot, say, chef, conversation, get } = await start({
