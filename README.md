@@ -5,7 +5,7 @@ Des équipes de bots IA self-hosted. Chaque équipe partage un vrai PC Linux (bu
 - Spécification : [docs/SPEC.md](docs/SPEC.md)
 - Roadmap : [docs/ROADMAP.md](docs/ROADMAP.md)
 
-> **État : P3 (les équipes).** Le Chef monte des équipes et des bots (dans une équipe ou solo, sur le PC de l'équipe ou un PC dédié), leur pose des questions et leur confie des tâches ; les bots se parlent et partagent leur PC à tour de rôle. Organigramme, page Activité, PC en direct avec prise de contrôle, explorateur de fichiers, API sécurisée. Prochaine étape : la proactivité (P4).
+> **État : P4 (la proactivité).** Les bots agissent d'eux-mêmes : routines (cron, intervalle, webhook), réveils périodiques, notifications et bilan du soir, budgets et pause globale. Ils épinglent leurs résultats sur la page d'accueil (score, liste de courses, chiffres…). Équipes de bots qui se parlent et se confient des tâches, PC Linux partagés, fichiers, API sécurisée ; interface en français et en anglais. Prochaine étape : le coffre de sessions (P5).
 
 ## Structure
 

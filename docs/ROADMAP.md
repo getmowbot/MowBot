@@ -80,7 +80,9 @@
 - [x] Chaîne de modèles de repli et modèle léger pour les réveils
 - [x] Pause globale : tout s'arrête, les échanges entre bots attendent la reprise, les bots répondent encore à l'utilisateur
 - [x] Langue du compte (FR/EN) : les bots répondent dans la langue de l'utilisateur
-- [ ] Interface web P4 (routines, notifications, pause, réglages des bots) — en cours, après la traduction de l'interface
+- [x] Page d'accueil : les canvas que les bots y épinglent (score avec logos, liste à cocher, chiffres, note, HTML sans script), notifications, demande rapide au Chef, pause globale ; l'utilisateur range, redimensionne, retire ou supprime les cartes (4 par bot, 24 en tout)
+- [x] Pages Routines (déclencheur, prochain passage, historique, lancement à la main, URL de webhook) et Proactivité (pause, heures calmes, budgets, réveils, modèles léger et de secours)
+- [x] Interface web en français et en anglais (langue du compte) ; aperçu des fichiers Markdown mis en forme
 - [ ] Web Push et notifications sur mobile (P8)
 
 ## Risques
