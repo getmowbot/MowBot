@@ -5,7 +5,14 @@ Des équipes de bots IA self-hosted. Chaque équipe partage un vrai PC Linux (bu
 - Spécification : [docs/SPEC.md](docs/SPEC.md)
 - Roadmap : [docs/ROADMAP.md](docs/ROADMAP.md)
 
-> **État : P4 (la proactivité).** Les bots agissent d'eux-mêmes : routines (cron, intervalle, webhook), réveils périodiques, notifications et bilan du soir, budgets et pause globale. Ils épinglent leurs résultats sur la page d'accueil (score, liste de courses, chiffres…). Équipes de bots qui se parlent et se confient des tâches, PC Linux partagés, fichiers, API sécurisée ; interface en français et en anglais. Prochaine étape : le coffre de sessions (P5).
+> **État : P4 et P3b.**
+> - Les bots agissent d'eux-mêmes : routines (cron, intervalle, webhook), réveils périodiques, notifications et bilan du soir, budgets et pause globale.
+> - Ils épinglent leurs résultats sur la page d'accueil (score, liste de courses, chiffres…) et te posent leurs questions avec des réponses en boutons.
+> - Chaque bot navigue dans sa propre fenêtre de Chrome, sans prendre l'écran, et tu la vois en direct.
+> - Les équipes de bots se parlent, se confient des tâches et s'échangent des fichiers, sur des PC Linux partagés.
+> - L'API est sécurisée ; l'interface est en français et en anglais.
+>
+> Prochaine étape : le coffre de sessions (P5).
 
 ## Structure
 
@@ -56,7 +63,7 @@ Le compte, l'API et les fichiers marchent sans Docker. Pour allumer le PC d'une 
 docker build -f workstation/Dockerfile -t mowbot/workstation:local .
 ```
 
-Le hub publie l'agent de chaque ordinateur sur `127.0.0.1` et monte le workspace de l'équipe (`apps/hub/.data/workspaces/<id>`) sur `/workspace`.
+Le hub publie l'agent de chaque ordinateur sur `127.0.0.1` et monte le workspace de l'équipe (`apps/hub/.data/workspaces/<id>`) sur `/workspace`. Après une reconstruction de l'image, chaque PC est recréé à son prochain démarrage ; son dossier `/home/bot` est conservé.
 
 ### Réveiller le Chef
 
