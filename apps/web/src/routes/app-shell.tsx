@@ -17,12 +17,15 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { type ReactNode, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BotAvatar, TeamAvatar } from '../components/bot-avatar';
 import { StatusDot } from '../components/computer-status';
+import { LanguageMenu } from '../components/language-menu';
 import { OrgDialogsProvider, useOrgDialogs } from '../components/org-dialogs';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../lib/auth';
 import { moodOf, statusLabel } from '../lib/bot-mood';
+import { useAccountLocale } from '../lib/locale';
 import { useBots, useChef, useComputers, useMe, useTeams } from '../lib/queries';
 import { ServerEvents } from '../lib/server-events';
 import { cn } from '../lib/utils';
@@ -143,6 +146,7 @@ function useFolded(): [Set<string>, (teamId: string) => void] {
 }
 
 function BotNav({ bot, onNavigate }: { bot: Bot; onNavigate(): void }) {
+  useTranslation(); // re-render the status line when the language changes
   const mood = moodOf(bot);
   return (
     <NavItem
@@ -175,6 +179,7 @@ function TeamNav({
   onToggle(): void;
   onNavigate(): void;
 }) {
+  const { t } = useTranslation();
   const computers = useComputers();
   const pc = computers.data?.find((c) => c.id === team.computerId);
   return (
@@ -194,7 +199,7 @@ function TeamNav({
           type="button"
           onClick={onToggle}
           aria-expanded={!folded}
-          aria-label={folded ? `Déplier ${team.name}` : `Replier ${team.name}`}
+          aria-label={t(folded ? 'shell.expand' : 'shell.collapse', { name: team.name })}
           className="grid size-7 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-white/[0.06] hover:text-foreground"
         >
           <ChevronDown
@@ -224,7 +229,7 @@ function TeamNav({
                 className="py-1.5"
               >
                 <Monitor className="size-4 shrink-0" />
-                <span className="flex-1">Bureau</span>
+                <span className="flex-1">{t('common.desktop')}</span>
                 {pc && <StatusDot status={pc.status} />}
               </NavItem>
               <NavItem
@@ -233,7 +238,7 @@ function TeamNav({
                 onNavigate={onNavigate}
                 className="py-1.5"
               >
-                <FolderOpen className="size-4 shrink-0" /> Fichiers
+                <FolderOpen className="size-4 shrink-0" /> {t('common.files')}
               </NavItem>
             </div>
           </motion.div>
@@ -244,6 +249,7 @@ function TeamNav({
 }
 
 function Sidebar({ onNavigate }: { onNavigate(): void }) {
+  const { t } = useTranslation();
   const { logout } = useAuth();
   const me = useMe();
   const chef = useChef();
@@ -283,21 +289,21 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
       <div className="-mx-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1">
         <div className="space-y-0.5">
           <NavItem to="/org" onNavigate={onNavigate}>
-            <Network className="size-4 shrink-0" /> Organisation
+            <Network className="size-4 shrink-0" /> {t('shell.organization')}
           </NavItem>
           <NavItem to="/activity" onNavigate={onNavigate}>
-            <Activity className="size-4 shrink-0" /> Activité
+            <Activity className="size-4 shrink-0" /> {t('shell.activity')}
           </NavItem>
         </div>
 
         <Section
-          title="Équipes"
+          title={t('shell.teams')}
           action={
             <span className="flex">
-              <SectionButton label="Nouvelle équipe" onClick={() => dialogs.newTeam()}>
+              <SectionButton label={t('common.newTeam')} onClick={() => dialogs.newTeam()}>
                 <Users className="size-3.5" />
               </SectionButton>
-              <SectionButton label="Nouveau bot" onClick={() => dialogs.newBot()}>
+              <SectionButton label={t('common.newBot')} onClick={() => dialogs.newBot()}>
                 <Plus className="size-3.5" />
               </SectionButton>
             </span>
@@ -316,7 +322,7 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
         </Section>
 
         {solo.length > 0 && (
-          <Section title="Bots solo">
+          <Section title={t('common.soloBots')}>
             {solo.map((b) => (
               <BotNav key={b.id} bot={b} onNavigate={onNavigate} />
             ))}
@@ -326,21 +332,22 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
 
       <div className="space-y-0.5">
         <NavItem to="/settings/models" onNavigate={onNavigate}>
-          <Cpu className="size-4 shrink-0" /> Modèles
+          <Cpu className="size-4 shrink-0" /> {t('shell.models')}
         </NavItem>
         <NavItem to="/settings/devices" onNavigate={onNavigate}>
-          <MonitorSmartphone className="size-4 shrink-0" /> Appareils
+          <MonitorSmartphone className="size-4 shrink-0" /> {t('shell.devices')}
         </NavItem>
         <div className="mt-2 flex items-center gap-2 border-t border-border px-2.5 pt-3">
           <span className="grid size-7 place-items-center rounded-full bg-white/[0.07] text-xs font-semibold">
             {me.data?.owner.displayName.slice(0, 1).toUpperCase() ?? '·'}
           </span>
           <span className="flex-1 truncate text-sm">{me.data?.owner.displayName ?? '…'}</span>
+          <LanguageMenu />
           <Button
             variant="ghost"
             size="icon"
             onClick={() => void logout()}
-            aria-label="Se déconnecter"
+            aria-label={t('shell.signOut')}
           >
             <LogOut className="size-4" />
           </Button>
@@ -351,6 +358,8 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
 }
 
 export function AppShell() {
+  const { t } = useTranslation();
+  useAccountLocale();
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
   const fullBleed = pathname === '/' || pathname.startsWith('/bots/');
@@ -389,7 +398,7 @@ export function AppShell() {
                   size="icon"
                   className="absolute right-2 top-2.5"
                   onClick={() => setOpen(false)}
-                  aria-label="Fermer le menu"
+                  aria-label={t('shell.closeMenu')}
                 >
                   <X className="size-4" />
                 </Button>
@@ -407,7 +416,7 @@ export function AppShell() {
               variant="ghost"
               size="icon"
               onClick={() => setOpen(true)}
-              aria-label="Ouvrir le menu"
+              aria-label={t('shell.openMenu')}
             >
               <Menu className="size-4" />
             </Button>
