@@ -13,6 +13,8 @@ export const serverEventSchema = z.discriminatedUnion('type', [
     paths: z.array(z.string()),
   }),
   z.object({ type: z.literal('bot.updated'), bot: botSchema }),
+  /** The bot's conversation was cleared. */
+  z.object({ type: z.literal('messages.cleared'), botId: z.uuid() }),
   /** A message appeared or reached a checkpoint (tool call/result, end of run). */
   z.object({ type: z.literal('message.updated'), message: messageSchema }),
   /** Streaming text appended to part `partIndex` of a message. */

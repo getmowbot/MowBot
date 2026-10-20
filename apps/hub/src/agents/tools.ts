@@ -6,9 +6,11 @@ import type { AgentClient } from '../computers/agent-client';
 import type { EventBus } from '../events';
 import type { WorkspaceFiles } from '../workspaces/files';
 import { parentOf } from '../workspaces/files';
+import { closeOpened, inventory, isTabId, isWindowId, openedBy, openUrlScript } from './desktop';
 
 /** What a bot's tools act on. */
 export interface ToolContext {
+  botId: string;
   botName: string;
   workspaceId: string | null;
   files: WorkspaceFiles;
@@ -39,28 +41,14 @@ function workspacePath(input: string): string {
   return resolved.slice('/workspace'.length).replace(/^\//, '');
 }
 
-/**
- * Opens a tab in the computer's shared Chrome through its local DevTools endpoint (waiting
- * for Chrome after a cold boot), brings it to the front, and leaves the page time to load.
- * Falls back to launching Chrome when DevTools never answers.
- */
-export function openUrlScript(url: string): string {
-  const quoted = `'${url.replaceAll("'", "'\\''")}'`;
-  return [
-    `URL=${quoted}`,
-    'DEVTOOLS=http://127.0.0.1:9222',
-    'for i in $(seq 1 75); do curl -fs -o /dev/null "$DEVTOOLS/json/version" && break; sleep 0.2; done',
-    'if curl -fs -o /dev/null "$DEVTOOLS/json/version"; then',
-    `  ID=$(curl -fs -X PUT "$DEVTOOLS/json/new?$URL" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')`,
-    '  curl -fs -o /dev/null "$DEVTOOLS/json/activate/$ID"',
-    'else',
-    '  nohup google-chrome --user-data-dir="$HOME/.config/mowbot-chrome" "$URL" >/dev/null 2>&1 &',
-    '  sleep 3',
-    'fi',
-    'xdotool search --onlyvisible --class google-chrome windowactivate >/dev/null 2>&1 || true',
-    'sleep 1.5',
-  ].join('\n');
-}
+/** Shown to the user instead of the raw call ("Clic (749, 690)"). */
+const intentSchema = z
+  .string()
+  .max(80)
+  .optional()
+  .describe(
+    "Ce que tu fais, en quelques mots, pour l'utilisateur (ex. « Télécharge le programme TV », « Accepte les cookies »)",
+  );
 
 const pointSchema = {
   x: z.number().int().min(0).max(1279).optional().describe('Abscisse en pixels (0-1279)'),
@@ -120,6 +108,7 @@ export function buildTools(ctx: ToolContext): ToolSet {
     description:
       'Exécute une commande bash sur ton PC Linux (utilisateur bot, sudo sans mot de passe, dossier courant /workspace). Pour un programme graphique ou long, lance-le en arrière-plan avec `&` ou `nohup`.',
     inputSchema: z.object({
+      intent: intentSchema,
       command: z.string().min(1),
       timeout_seconds: z.number().int().min(1).max(600).default(120),
     }),
@@ -143,11 +132,13 @@ export function buildTools(ctx: ToolContext): ToolSet {
 
   tools.open_url = tool({
     description:
-      'Ouvre une adresse dans le Google Chrome de ton PC (nouvel onglet), visible sur le bureau.',
-    inputSchema: z.object({ url: z.url() }),
-    execute: async ({ url }) => {
+      'Ouvre une adresse dans le Google Chrome de ton PC, à la place de ta page courante (ton onglet est réutilisé). new_tab: true garde ta page et ouvre un onglet de plus.',
+    inputSchema: z.object({ url: z.url(), new_tab: z.boolean().default(false) }),
+    execute: async ({ url, new_tab }) => {
       const agent = await computer();
-      const result = await agent.exec(openUrlScript(url), { timeoutMs: 30_000 });
+      const result = await agent.exec(openUrlScript(ctx.botId, url, new_tab), {
+        timeoutMs: 45_000,
+      });
       if (result.exitCode !== 0) throw new Error(result.stderr || 'Chrome did not open the page');
       return `Ouvert dans Chrome : ${url}. Prends une capture pour voir la page.`;
     },
@@ -184,6 +175,7 @@ export function buildTools(ctx: ToolContext): ToolSet {
     description:
       "Agit sur l'écran de ton PC : clic, double clic, clic droit, déplacement, saisie de texte, touches (ex. 'ctrl+l', 'Return'), défilement, glisser-déposer. Refusé si l'utilisateur a pris la main.",
     inputSchema: z.object({
+      intent: intentSchema,
       action: z.enum([
         'click',
         'double_click',
@@ -247,6 +239,62 @@ export function buildTools(ctx: ToolContext): ToolSet {
           break;
       }
       return 'Fait.';
+    },
+  });
+
+  tools.list_windows = tool({
+    description:
+      "Liste ce qui est ouvert sur ton PC : onglets de Chrome et fenêtres d'applications, en indiquant ceux que tu as ouverts.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      const inv = await inventory(await computer(), ctx.botId);
+      const mine = (id: string) => (inv.mine.has(id) ? ' — ouvert par toi' : '');
+      return [
+        'Onglets de Chrome :',
+        ...(inv.tabs.length
+          ? inv.tabs.map((t) => `- [${t.id}] ${t.title || '(sans titre)'} — ${t.url}${mine(t.id)}`)
+          : ['- aucun']),
+        "Fenêtres d'applications :",
+        ...(inv.windows.length
+          ? inv.windows.map((w) => `- [${w.id}] ${w.name} (${w.className})${mine(w.id)}`)
+          : ['- aucune']),
+      ].join('\n');
+    },
+  });
+
+  tools.close_windows = tool({
+    description:
+      "Ferme des onglets de Chrome et des fenêtres d'applications. Sans ids, range tout ce que tu as ouvert (onglets et applis) ; avec ids (donnés par list_windows), ferme ceux-là.",
+    inputSchema: z.object({
+      ids: z.array(z.string()).max(50).optional().describe('Identifiants donnés par list_windows'),
+    }),
+    execute: async ({ ids }) => {
+      const agent = await computer();
+      const inv = await inventory(agent, ctx.botId);
+      const target = ids?.length
+        ? {
+            tabs: ids.filter((id) => isTabId(id) && inv.tabs.some((t) => t.id === id)),
+            windows: ids.filter((id) => isWindowId(id) && inv.windows.some((w) => w.id === id)),
+          }
+        : openedBy(inv);
+      const asked = [...target.tabs, ...target.windows];
+      if (asked.length === 0) {
+        return ids?.length
+          ? 'Rien à fermer : ces identifiants ne sont plus ouverts.'
+          : "Rien à ranger : tu n'as rien laissé d'ouvert.";
+      }
+      const closed = await closeOpened(agent, ctx.botId, target);
+      const tabs = target.tabs.filter((id) => closed.has(id)).length;
+      const windows = target.windows.filter((id) => closed.has(id)).length;
+      const stuck = target.windows.filter((id) => !closed.has(id));
+      return [
+        `Fermé : ${tabs} onglet(s), ${windows} fenêtre(s).`,
+        stuck.length
+          ? `Toujours ouvertes (une confirmation attend peut-être, prends une capture) : ${stuck.join(', ')}.`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
     },
   });
 

@@ -114,7 +114,8 @@ describe('providers', () => {
   it('stores keys sealed, assigns the first provider to the Chef and lists models', async () => {
     const models = http.createServer((req, res) => {
       res.setHeader('content-type', 'application/json');
-      if (req.url === '/v1/models' && req.headers.authorization === 'Bearer sk-test') {
+      const ok = req.headers.authorization === 'Bearer sk-test' && req.headers['x-cmd-zdr'] === '1';
+      if (req.url === '/v1/models' && ok) {
         res.end(JSON.stringify({ data: [{ id: 'mow-large' }, { id: 'mow-mini' }] }));
       } else {
         res.statusCode = 401;
@@ -135,10 +136,15 @@ describe('providers', () => {
           baseUrl,
           apiKey: 'sk-test',
           defaultModel: 'mow-mini',
+          headers: { 'x-cmd-zdr': '1' },
         },
       });
       expect(created.statusCode).toBe(201);
-      expect(created.json()).toMatchObject({ hasApiKey: true, baseUrl: baseUrl.slice(0, -1) });
+      expect(created.json()).toMatchObject({
+        hasApiKey: true,
+        baseUrl: baseUrl.slice(0, -1),
+        headers: { 'x-cmd-zdr': '1' },
+      });
       expect(created.body).not.toContain('sk-test');
 
       const updatedChef = (
@@ -173,6 +179,79 @@ describe('providers', () => {
       payload: { name: 'Nope', kind: 'openai-compatible' },
     });
     expect(missing.statusCode).toBe(400);
+  });
+
+  it('validates and replaces custom headers', async () => {
+    const { app, token } = await start();
+    const created = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/v1/providers',
+        headers: bearer(token),
+        payload: { name: 'CC', kind: 'command-code', headers: { 'x-a': '1', 'x-b': '2' } },
+      })
+    ).json();
+    const bad = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/providers/${created.id}`,
+      headers: bearer(token),
+      payload: { headers: { 'bad header': 'x' } },
+    });
+    expect(bad.statusCode).toBe(400);
+    const injected = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/providers/${created.id}`,
+      headers: bearer(token),
+      payload: { headers: { 'x-a': 'ok\r\nx-evil: 1' } },
+    });
+    expect(injected.statusCode).toBe(400);
+    const replaced = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/providers/${created.id}`,
+      headers: bearer(token),
+      payload: { headers: { 'x-cmd-zdr': '1' } },
+    });
+    expect(replaced.json().headers).toEqual({ 'x-cmd-zdr': '1' });
+  });
+});
+
+describe('conversation', () => {
+  it('starts over: stops the bot, deletes its messages, keeps its files', async () => {
+    const model = scripted([textTurn('un deux trois quatre cinq six')], 60);
+    const { send, conversation, services, chef, app, token, events } = await start(model);
+    await send('Compte');
+    await vi.waitFor(async () => {
+      expect((await conversation()).at(-1)?.status).toBe('streaming');
+    });
+    const cleared = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/bots/${chef.id}/messages`,
+      headers: bearer(token),
+    });
+    expect(cleared.statusCode).toBe(204);
+    expect(await conversation()).toEqual([]);
+    expect(events).toContainEqual({ type: 'messages.cleared', botId: chef.id });
+    expect((await services.bots.row(chef.id)).status).toBe('idle');
+  });
+
+  it('moves the bot folder and its screenshot links on rename', async () => {
+    const model = scripted([toolTurn('screenshot', {}), textTurn('Vu.')]);
+    const { send, conversation, services, chef, app, token } = await start(model);
+    await send('Regarde');
+    await services.runtime.idle(chef.id);
+    const renamed = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/bots/${chef.id}`,
+      headers: bearer(token),
+      payload: { name: 'Max Ölberg' },
+    });
+    expect(renamed.json().name).toBe('Max Ölberg');
+    const shot = (await conversation())[1]?.parts[0];
+    const shotPath = shot?.type === 'tool' ? shot.image?.path : undefined;
+    expect(shotPath).toMatch(/^bots\/max-olberg\/captures\/.+\.png$/);
+    await expect(
+      services.files.stat(chef.workspaceId as string, shotPath as string),
+    ).resolves.toMatchObject({ type: 'file' });
   });
 });
 

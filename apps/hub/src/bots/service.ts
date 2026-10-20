@@ -1,9 +1,10 @@
-import type { Bot, BotUpdate, Message } from '@mowbot/contract';
+import type { Bot, BotUpdate, Message, MessagePart } from '@mowbot/contract';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { bots, type messages } from '../db/schema';
+import { bots, messages } from '../db/schema';
 import type { EventBus } from '../events';
 import { notFound } from '../http/problems';
+import type { WorkspaceFiles } from '../workspaces/files';
 
 export type BotRow = typeof bots.$inferSelect;
 export type MessageRow = typeof messages.$inferSelect;
@@ -66,6 +67,39 @@ export class BotService {
     const [row] = await this.db.select().from(bots).where(eq(bots.id, id));
     if (!row) throw notFound('Bot not found');
     return row;
+  }
+
+  /**
+   * A renamed bot keeps its workspace folder: `bots/<old>` moves to `bots/<new>` (unless that
+   * one exists) and the screenshots shown in its conversation follow.
+   */
+  async moveFolder(row: BotRow, newName: string, files: WorkspaceFiles): Promise<void> {
+    const from = botFolder(row.name);
+    const to = botFolder(newName);
+    if (from === to || !row.workspaceId) return;
+    try {
+      await files.move(row.workspaceId, from, to);
+    } catch {
+      return; // No folder yet, or the new name's folder is taken: each keeps its own.
+    }
+    const rows = await this.db
+      .select({ id: messages.id, parts: messages.parts })
+      .from(messages)
+      .where(eq(messages.botId, row.id));
+    for (const message of rows) {
+      let moved = false;
+      const parts = message.parts.map((part): MessagePart => {
+        if (part.type !== 'tool' || !part.image?.path.startsWith(`${from}/`)) return part;
+        moved = true;
+        return { ...part, image: { ...part.image, path: to + part.image.path.slice(from.length) } };
+      });
+      if (moved) await this.db.update(messages).set({ parts }).where(eq(messages.id, message.id));
+    }
+    this.events.publish({
+      type: 'workspace.changed',
+      workspaceId: row.workspaceId,
+      paths: ['bots'],
+    });
   }
 
   async update(id: string, values: BotUpdate | Partial<BotRow>): Promise<Bot> {

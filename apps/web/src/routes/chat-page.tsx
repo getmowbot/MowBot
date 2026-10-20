@@ -1,4 +1,4 @@
-import type { Bot, Message } from '@mowbot/contract';
+import type { Bot, Message, MessagePart } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
@@ -14,10 +14,11 @@ import {
   useRef,
   useState,
 } from 'react';
+import { ActivityGroup, type ActivityPart } from '../components/activity';
 import { BotAvatar } from '../components/bot-avatar';
+import { BotMenu, RenameField } from '../components/bot-menu';
 import { StatusBadge } from '../components/computer-status';
 import { Markdown } from '../components/markdown';
-import { ToolCard } from '../components/tool-card';
 import { Button } from '../components/ui/button';
 import { api, problemMessage } from '../lib/auth';
 import { moodOf, statusLabel } from '../lib/bot-mood';
@@ -54,47 +55,55 @@ function UserMessage({ message }: { message: Message }) {
   );
 }
 
+type Segment =
+  | { kind: 'text'; text: string; index: number }
+  | { kind: 'activity'; parts: ActivityPart[]; index: number };
+
+/** Text stays as is; the tool calls and reasoning between two texts become one activity. */
+function segments(parts: MessagePart[]): Segment[] {
+  const out: Segment[] = [];
+  parts.forEach((part, index) => {
+    if (part.type === 'text') {
+      if (part.text.trim()) out.push({ kind: 'text', text: part.text, index });
+      return;
+    }
+    const tail = out.at(-1);
+    if (tail?.kind === 'activity') tail.parts.push(part);
+    else out.push({ kind: 'activity', parts: [part], index });
+  });
+  return out;
+}
+
 function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
   const streaming = message.status === 'streaming';
-  const lastText = message.parts.findLastIndex((p) => p.type === 'text');
-  const empty = message.parts.length === 0;
+  const blocks = segments(message.parts);
+  const empty = blocks.length === 0;
   return (
     <div className="flex gap-3">
-      <div className="pt-0.5">
-        <BotAvatar
-          seed={bot.avatarSeed}
-          size={30}
-          mood={streaming ? moodOf(bot, message) : 'idle'}
-        />
-      </div>
-      <div className="min-w-0 flex-1 space-y-2.5">
-        {empty && streaming && <p className="shimmer-text text-[14.5px]">{bot.name} réfléchit…</p>}
-        {message.parts.map((part, index) => {
-          const key = part.type === 'tool' ? part.toolCallId : `${part.type}-${index}`;
-          if (part.type === 'tool') return <ToolCard key={key} part={part} />;
-          if (part.type === 'reasoning') {
-            return (
-              <details key={key} className="group text-[13px] text-muted-foreground">
-                <summary className="cursor-pointer select-none list-none text-faint hover:text-muted-foreground">
-                  <span
-                    className={cn(
-                      streaming && index === message.parts.length - 1 && 'shimmer-text',
-                    )}
-                  >
-                    Raisonnement
-                  </span>
-                </summary>
-                <p className="mt-1.5 whitespace-pre-wrap border-l border-border-strong pl-3">
-                  {part.text}
-                </p>
-              </details>
-            );
-          }
-          return (
+      <BotAvatar
+        seed={bot.avatarSeed}
+        size={30}
+        mood={streaming ? moodOf(bot, message) : 'idle'}
+        className="shrink-0"
+      />
+      {/* First lines (24px tall) are centred on the 30px avatar. */}
+      <div className="min-w-0 flex-1 space-y-2.5 pt-[3px]">
+        {empty && streaming && (
+          <p className="shimmer-text text-[14.5px] leading-6">{bot.name} réfléchit…</p>
+        )}
+        {blocks.map((block, i) => {
+          const last = i === blocks.length - 1;
+          return block.kind === 'activity' ? (
+            <ActivityGroup
+              key={`activity-${block.index}`}
+              parts={block.parts}
+              live={streaming && last}
+            />
+          ) : (
             <Markdown
-              key={key}
-              text={part.text}
-              className={cn(streaming && index === lastText && 'streaming')}
+              key={`text-${block.index}`}
+              text={block.text}
+              className={cn(streaming && last && 'streaming')}
             />
           );
         })}
@@ -270,6 +279,7 @@ export function ChatPage() {
   const stickToBottom = useRef(true);
   const hydrated = useRef(false);
   const [showPc, setShowPc] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const send = useMutation({
@@ -324,7 +334,16 @@ export function ChatPage() {
         <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-6">
           <BotAvatar seed={bot.avatarSeed} size={44} mood={mood} />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold leading-tight">{bot.name}</p>
+            {renamingId === bot.id ? (
+              <RenameField bot={bot} onDone={() => setRenamingId(null)} />
+            ) : (
+              <p
+                className="truncate font-semibold leading-tight"
+                onDoubleClick={() => setRenamingId(bot.id)}
+              >
+                {bot.name}
+              </p>
+            )}
             <p
               className={cn(
                 'truncate text-[13px] text-muted-foreground',
@@ -344,6 +363,7 @@ export function ChatPage() {
               <Monitor className="size-4" /> <span className="hidden sm:inline">Voir le PC</span>
             </Button>
           )}
+          <BotMenu bot={bot} onRename={() => setRenamingId(bot.id)} />
         </header>
 
         <div
