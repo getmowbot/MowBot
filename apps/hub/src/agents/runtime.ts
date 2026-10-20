@@ -238,8 +238,13 @@ export class BotRuntime {
    * Whether `from` may write to `to` now: not itself, not past the hop limit, not into an
    * isolated team (except through its lead or by the Chef), not faster than the rate limit.
    */
-  async checkReach(from: BotRow, to: BotRow, depth: number): Promise<void> {
-    if (from.id === to.id) throw new Error("C'est toi.");
+  async checkReach(
+    from: BotRow,
+    to: BotRow,
+    depth: number,
+    options: { allowSelf?: boolean } = {},
+  ): Promise<void> {
+    if (from.id === to.id && !options.allowSelf) throw new Error("C'est toi.");
     if (depth > MAX_DEPTH) {
       throw new Error(
         "Trop d'échanges en chaîne entre bots sans l'utilisateur : termine ce que tu peux et fais le point avec l'utilisateur.",

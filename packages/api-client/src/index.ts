@@ -44,14 +44,17 @@ const PUBLIC_PATHS = new Set([
 const EXPIRY_MARGIN_MS = 30_000;
 const REFRESH_LOCK = 'mowbot-refresh';
 
+const isPublic = (url: string) => {
+  const { pathname } = new URL(url, 'http://hub');
+  return [...PUBLIC_PATHS].some((path) => pathname.endsWith(path));
+};
+
 export function createMowbotClient(options: MowbotClientOptions): MowbotClient {
   const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
   const credentials: RequestCredentials = options.mode === 'web' ? 'include' : 'omit';
-  const api = createClient<paths>({ baseUrl: options.baseUrl, credentials, fetch: fetchImpl });
 
   let access: { token: string; expiresAt: number } | null = null;
   let inflight: Promise<boolean> | null = null;
-  const retries = new Map<string, Request>();
 
   const setSession = (tokens: TokenResponse | null) => {
     access = tokens
@@ -88,26 +91,21 @@ export function createMowbotClient(options: MowbotClientOptions): MowbotClient {
     return inflight;
   };
 
-  api.use({
-    async onRequest({ request, schemaPath, id }) {
-      if (PUBLIC_PATHS.has(schemaPath)) return request;
-      if (access && access.expiresAt - Date.now() < EXPIRY_MARGIN_MS) await refresh();
-      if (access) request.headers.set('authorization', `Bearer ${access.token}`);
-      retries.set(id, request.clone());
-      return request;
-    },
-    async onResponse({ response, schemaPath, id }) {
-      const retry = retries.get(id);
-      retries.delete(id);
-      if (response.status !== 401 || PUBLIC_PATHS.has(schemaPath) || !retry) return response;
-      if (!(await refresh()) || !access) return response;
-      retry.headers.set('authorization', `Bearer ${access.token}`);
-      return fetchImpl(retry);
-    },
-    onError({ id }) {
-      retries.delete(id);
-    },
-  });
+  /**
+   * Typed calls go through here rather than through openapi-fetch middleware: the middleware
+   * only accepts `instanceof Response`, which Expo's native fetch does not return.
+   */
+  const typedFetch = async (request: Request): Promise<Response> => {
+    if (isPublic(request.url)) return fetchImpl(request);
+    if (access && access.expiresAt - Date.now() < EXPIRY_MARGIN_MS) await refresh();
+    const retry = request.clone();
+    if (access) request.headers.set('authorization', `Bearer ${access.token}`);
+    const response = await fetchImpl(request);
+    if (response.status !== 401 || !(await refresh()) || !access) return response;
+    retry.headers.set('authorization', `Bearer ${access.token}`);
+    return fetchImpl(retry);
+  };
+  const api = createClient<paths>({ baseUrl: options.baseUrl, credentials, fetch: typedFetch });
 
   /** Raw fetch with the same auth handling, for what typed calls cannot express (multipart, blobs). */
   const authorizedFetch = async (path: string, init: RequestInit = {}): Promise<Response> => {
