@@ -49,6 +49,8 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         'questions',
         'routines',
         'system',
+        'providers',
+        'devices',
       ]) {
         void client.invalidateQueries({ queryKey: [key] });
       }
