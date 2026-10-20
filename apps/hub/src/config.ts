@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { z } from 'zod';
 
 const booleanString = z
@@ -19,6 +20,21 @@ const envSchema = z.object({
   MOWBOT_CORS_ORIGINS: z.string().default(''),
   MOWBOT_COOKIE_SECURE: booleanString.optional(),
   MOWBOT_TRUST_PROXY: booleanString.default(false),
+  /** Where the hub reads and writes workspace files. */
+  MOWBOT_WORKSPACES_DIR: z.string().default('.data/workspaces'),
+  /**
+   * Named Docker volume holding MOWBOT_WORKSPACES_DIR when the hub runs in Docker: computers
+   * then mount `<volume>/<workspaceId>`. Unset: computers bind-mount the host directory.
+   */
+  MOWBOT_WORKSPACES_VOLUME: z.string().optional(),
+  MOWBOT_WORKSTATION_IMAGE: z.string().default('mowbot/workstation:local'),
+  MOWBOT_COMPUTER_NETWORK: z.string().default('mowbot-computers'),
+  /** `dns`: hub shares the computers' network. `host-port`: hub runs on the host (dev). */
+  MOWBOT_COMPUTER_REACH: z.enum(['dns', 'host-port']).default('host-port'),
+  /** Optional OCI runtime for computers, e.g. `sysbox-runc`. */
+  MOWBOT_COMPUTER_RUNTIME: z.string().optional(),
+  /** Stop computers nobody used for this long. 0 disables hibernation. */
+  MOWBOT_COMPUTER_IDLE_MINUTES: z.coerce.number().int().min(0).default(30),
 });
 
 export interface Config {
@@ -36,6 +52,15 @@ export interface Config {
   refreshTokenTtlSec: number;
   /** A refresh token reused within this window is treated as a client race, not as theft. */
   refreshReuseGraceSec: number;
+  workspacesDir: string;
+  workspacesVolume: string | undefined;
+  computers: {
+    image: string;
+    network: string;
+    reach: 'dns' | 'host-port';
+    runtime: string | undefined;
+    idleMinutes: number;
+  };
 }
 
 export function parseMasterKey(value: string): Buffer {
@@ -74,5 +99,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     accessTokenTtlSec: 10 * 60,
     refreshTokenTtlSec: 30 * 24 * 60 * 60,
     refreshReuseGraceSec: 10,
+    workspacesDir: path.resolve(e.MOWBOT_WORKSPACES_DIR),
+    workspacesVolume: e.MOWBOT_WORKSPACES_VOLUME,
+    computers: {
+      image: e.MOWBOT_WORKSTATION_IMAGE,
+      network: e.MOWBOT_COMPUTER_NETWORK,
+      reach: e.MOWBOT_COMPUTER_REACH,
+      runtime: e.MOWBOT_COMPUTER_RUNTIME,
+      idleMinutes: e.MOWBOT_COMPUTER_IDLE_MINUTES,
+    },
   };
 }

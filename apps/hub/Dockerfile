@@ -19,6 +19,8 @@ WORKDIR /app
 COPY --from=build /out/package.json ./
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
+# Owned by `node` (uid 1000, same as the computers' `bot`) so a fresh volume mounted here is writable.
+RUN mkdir -p /data/workspaces && chown node:node /data/workspaces
 USER node
 EXPOSE 8787
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s \

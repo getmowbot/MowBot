@@ -13,9 +13,11 @@ import { type RequestContext, recordAudit } from '../audit';
 import { hashPassword, verifyPassword } from '../auth/passwords';
 import type { DeviceRow, IssuedSession } from '../auth/sessions';
 import { ownerExists } from '../auth/setup';
+import { isUniqueViolation } from '../db/errors';
 import { owner } from '../db/schema';
 import { authOf, bearerSecurity, requireAuth } from '../http/auth-hook';
 import { errorResponses, HttpProblem, unauthorized } from '../http/problems';
+import { ensureMainTeam } from '../teams/bootstrap';
 
 export const REFRESH_COOKIE = 'mowbot_refresh';
 const REFRESH_COOKIE_PATH = '/api/v1/auth';
@@ -25,13 +27,8 @@ const requestContext = (request: FastifyRequest): RequestContext => ({
   userAgent: request.headers['user-agent'] ?? null,
 });
 
-const isUniqueViolation = (error: unknown): boolean => {
-  const err = error as { code?: string; cause?: { code?: string } };
-  return err.code === '23505' || err.cause?.code === '23505';
-};
-
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
-  const { db, sessions, setup, config } = app.services;
+  const { db, sessions, setup, config, files } = app.services;
 
   /** Web devices get the refresh token as an httpOnly cookie, never in the JSON body. */
   const sendSession = (
@@ -104,6 +101,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       }
       if (!created) throw new Error('Owner insert returned no row');
       setup.complete();
+      await ensureMainTeam(db, files, config.masterKey);
 
       const device = await sessions.createDevice(created.id, request.body.device);
       const session = await sessions.issue(created.id, device.id, device.scopes);

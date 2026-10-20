@@ -1,8 +1,10 @@
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
+import fastifyMultipart from '@fastify/multipart';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifySwagger from '@fastify/swagger';
+import fastifyWebsocket from '@fastify/websocket';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import {
   hasZodFastifySchemaValidationErrors,
@@ -14,9 +16,15 @@ import {
 import pkg from '../package.json' with { type: 'json' };
 import { HttpProblem, problemBody } from './http/problems';
 import { authRoutes } from './routes/auth';
+import { computerRoutes } from './routes/computers';
 import { deviceRoutes } from './routes/devices';
+import { eventRoutes } from './routes/events';
+import { fileRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
+import { teamRoutes } from './routes/teams';
 import type { Services } from './services';
+
+const MAX_UPLOAD_BYTES = 2 * 1024 ** 3;
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -88,7 +96,13 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
     credentials: true,
   });
   await app.register(fastifyCookie);
-  await app.register(fastifyRateLimit, { global: true, max: 300, timeWindow: '1 minute' });
+  await app.register(fastifyRateLimit, {
+    global: true,
+    max: 300,
+    timeWindow: '1 minute',
+    // Upgraded WebSocket requests can lack a socket address (e.g. injected in tests).
+    keyGenerator: (request) => request.ip ?? 'unknown',
+  });
   await app.register(fastifySwagger, {
     openapi: {
       openapi: '3.1.0',
@@ -107,15 +121,27 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
     transform: jsonSchemaTransform,
   });
 
+  await app.register(fastifyWebsocket, { options: { maxPayload: 16 * 1024 * 1024 } });
+  await app.register(fastifyMultipart, {
+    limits: { fileSize: MAX_UPLOAD_BYTES, files: 20, fields: 10 },
+  });
+
   await app.register(
     async (api) => {
       await api.register(healthRoutes);
       await api.register(authRoutes);
       await api.register(deviceRoutes);
+      await api.register(teamRoutes);
+      await api.register(computerRoutes);
+      await api.register(fileRoutes);
+      await api.register(eventRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: API_PREFIX },
   );
+
+  services.computers.setLogger(app.log);
+  app.addHook('onClose', () => services.computers.close());
 
   return app;
 }

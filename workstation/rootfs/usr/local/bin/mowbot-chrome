@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if ! command -v google-chrome >/dev/null; then
+  echo "Google Chrome is not installed on this architecture" >&2
+  exec sleep infinity
+fi
+/usr/local/bin/mowbot-wait-x
+sleep 2 # let the window manager come up so the window opens maximized
+# The container is the sandbox, hence --no-sandbox. A non-default profile directory is
+# required for the DevTools port the bots will use (127.0.0.1 only).
+exec google-chrome \
+  --user-data-dir="$HOME/.config/mowbot-chrome" \
+  --remote-debugging-address=127.0.0.1 \
+  --remote-debugging-port=9222 \
+  --no-first-run \
+  --no-default-browser-check \
+  --password-store=basic \
+  --no-sandbox \
+  --test-type \
+  --start-maximized

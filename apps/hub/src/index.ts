@@ -8,6 +8,10 @@ const database = await openDatabase(config.databaseUrl);
 await database.migrate();
 const services = await createServices(config, database.db);
 const app = await buildApp(services);
+await services.computers.reconcile().catch((error) => {
+  app.log.warn({ err: error }, 'Could not reconcile computers with Docker (is Docker reachable?)');
+});
+services.computers.startHibernation();
 
 const pendingSetupToken = services.setup.pendingToken;
 if (pendingSetupToken) {

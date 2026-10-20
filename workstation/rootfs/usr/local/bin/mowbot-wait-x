@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Waits until the X display answers (Xvnc starts in parallel).
+for _ in $(seq 1 150); do
+  xdpyinfo -display "${DISPLAY:-:0}" >/dev/null 2>&1 && exit 0
+  sleep 0.2
+done
+echo "X display ${DISPLAY:-:0} not ready" >&2
+exit 1

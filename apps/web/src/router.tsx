@@ -9,7 +9,9 @@ import {
 import { useAuth } from './lib/auth';
 import { AppShell, HomePage } from './routes/app-shell';
 import { LoginPage, SetupPage } from './routes/auth-pages';
+import { DesktopPage } from './routes/desktop-page';
 import { DevicesPage } from './routes/devices-page';
+import { FilesPage } from './routes/files-page';
 
 const PUBLIC_PATHS = ['/setup', '/login'];
 
@@ -57,11 +59,24 @@ const devicesRoute = createRoute({
   component: DevicesPage,
 });
 
+const desktopRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/teams/$teamId/desktop',
+  component: DesktopPage,
+});
+const filesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/teams/$teamId/files',
+  validateSearch: (search: Record<string, unknown>): { path?: string } =>
+    typeof search.path === 'string' && search.path ? { path: search.path } : {},
+  component: FilesPage,
+});
+
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
     setupRoute,
     loginRoute,
-    appRoute.addChildren([homeRoute, devicesRoute]),
+    appRoute.addChildren([homeRoute, devicesRoute, desktopRoute, filesRoute]),
   ]),
 });
 

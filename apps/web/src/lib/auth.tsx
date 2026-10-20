@@ -11,8 +11,10 @@ import {
 } from 'react';
 import { guessDeviceName } from './utils';
 
+export const apiBaseUrl: string = import.meta.env.VITE_MOWBOT_API_URL ?? '';
+
 export const client = createMowbotClient({
-  baseUrl: import.meta.env.VITE_MOWBOT_API_URL ?? '',
+  baseUrl: apiBaseUrl,
   mode: 'web',
 });
 export const api = client.api;

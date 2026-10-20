@@ -28,6 +28,19 @@
 - [x] Compose (caddy, hub, postgres, socket-proxy), Dockerfiles, CI — build des images à valider (job `docker` de la CI)
 - [ ] Passkeys, TOTP, appairage QR (reportés en P8)
 
+## État de P1
+
+- [x] Modèle `workspaces` / `teams` / `computers`, Équipe principale + PC + workspace créés au setup (et au démarrage pour les instances existantes)
+- [x] Image `mowbot/workstation` : Ubuntu 24.04, XFCE, TigerVNC (local uniquement), Chrome (amd64), sudo, Node 24, supervisord
+- [x] `mow-agent` : santé, verrou de prise de contrôle, exec, capture d'écran, entrées xdotool, pont VNC ↔ WebSocket authentifié
+- [x] Cycle de vie Docker (dockerode, réseau `mowbot-computers`, volume home par PC, workspace monté sur `/workspace`), démarrage en arrière-plan, réconciliation au redémarrage du hub
+- [x] Hibernation après inactivité (pas pendant qu'un bureau est ouvert)
+- [x] Bureau en direct (noVNC via le hub), prise de contrôle / rendre la main, retour automatique aux bots quand l'appareil qui a la main ferme le bureau
+- [x] Explorateur Fichiers : navigation, aperçu (texte, image, PDF, audio, vidéo), téléchargement fichier ou dossier (zip) par lien à usage unique, import, création de dossier, renommage, corbeille
+- [x] Flux d'événements WebSocket (`computer.updated`, `workspace.changed`)
+- [x] Vérifié de bout en bout sur Docker Desktop (Windows) : PC allumé en ~3 s, bureau XFCE + Chrome dans l'UI, souris et clavier transmis, fichier créé dans le PC visible dans l'explorateur, arrêt / redémarrage avec home conservé
+- [ ] Reportés : quotas de workspace, upload reprenable, arm64 avec navigateur, limites CPU/RAM par PC, réseau isolé par équipe, journal `provision.sh`
+
 ## Risques
 
 1. **Conditions des providers** : l'abonnement ChatGPT n'est utilisable que via le programme open-source officiel (MowBot doit être open source) ; Claude Pro/Max uniquement via le CLI Claude Code officiel non modifié. Les limites des abonnements supposent un « usage individuel ordinaire » → une proactivité massive consomme vite les quotas.

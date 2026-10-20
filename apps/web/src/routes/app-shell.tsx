@@ -1,20 +1,48 @@
-import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet } from '@tanstack/react-router';
-import { Bot, Crown, LogOut, Menu, MonitorSmartphone, Users, X } from 'lucide-react';
+import { Bot, Crown, FolderOpen, LogOut, Menu, Monitor, MonitorSmartphone, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
+import { StatusDot } from '../components/computer-status';
 import { Button } from '../components/ui/button';
-import { api, useAuth } from '../lib/auth';
+import { useAuth } from '../lib/auth';
+import { useComputers, useMe, useTeams } from '../lib/queries';
+import { ServerEvents } from '../lib/server-events';
 import { cn } from '../lib/utils';
 
-export function useMe() {
-  return useQuery({
-    queryKey: ['me'],
-    queryFn: async () => {
-      const { data, error } = await api.GET('/api/v1/me');
-      if (error || !data) throw error;
-      return data;
-    },
-  });
+function TeamsNav({ onNavigate }: { onNavigate(): void }) {
+  const teams = useTeams();
+  const computers = useComputers();
+  if (teams.isPending) return <p className="px-2 text-sm text-muted-foreground">…</p>;
+  return (
+    <>
+      {teams.data?.map((team) => {
+        const pc = computers.data?.find((c) => c.id === team.computerId);
+        return (
+          <div key={team.id} className="space-y-0.5">
+            <p className="truncate px-2 pt-1 text-sm font-medium">{team.name}</p>
+            <Link
+              to="/teams/$teamId/desktop"
+              params={{ teamId: team.id }}
+              className={cn(navLink, 'pl-4')}
+              onClick={onNavigate}
+            >
+              <Monitor className="size-4" />
+              <span className="flex-1">Bureau</span>
+              {pc && <StatusDot status={pc.status} />}
+            </Link>
+            <Link
+              to="/teams/$teamId/files"
+              params={{ teamId: team.id }}
+              search={{}}
+              className={cn(navLink, 'pl-4')}
+              onClick={onNavigate}
+            >
+              <FolderOpen className="size-4" /> Fichiers
+            </Link>
+          </div>
+        );
+      })}
+    </>
+  );
 }
 
 function SidebarSection({ title, children }: { title: string; children: ReactNode }) {
@@ -63,7 +91,7 @@ export function AppShell() {
         </Link>
       </SidebarSection>
       <SidebarSection title="Équipes">
-        <SoonItem icon={<Users className="size-4" />} label="Équipe principale" />
+        <TeamsNav onNavigate={() => setOpen(false)} />
       </SidebarSection>
       <SidebarSection title="Bots solo">
         <SoonItem icon={<Bot className="size-4" />} label="Aucun bot solo" />
@@ -128,6 +156,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <ServerEvents />
     </div>
   );
 }
@@ -138,8 +167,8 @@ export function HomePage() {
       <Crown className="size-10 text-primary" />
       <h1 className="text-2xl font-semibold">Le Chef arrive bientôt</h1>
       <p className="text-muted-foreground">
-        Les fondations sont en place : compte, appareils et API sécurisée. Le Chef, ses équipes et
-        leurs ordinateurs arrivent dans les prochaines phases.
+        L'Équipe principale a déjà son PC et ses fichiers : ouvre son bureau ou son dossier dans le
+        menu. Le Chef, qui pilotera les bots, arrive dans la prochaine phase.
       </p>
     </div>
   );

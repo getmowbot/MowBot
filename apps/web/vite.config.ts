@@ -10,7 +10,8 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: process.env.MOWBOT_HUB_URL ?? 'http://localhost:8787',
-        changeOrigin: false,
+        // Events and remote desktops are WebSockets.
+        ws: true,
       },
     },
   },
