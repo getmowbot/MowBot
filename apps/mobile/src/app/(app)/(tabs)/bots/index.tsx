@@ -95,11 +95,14 @@ function TeamHeader({
   members,
   size,
   computer,
+  chef,
 }: {
   team: Team;
   members: Bot[];
   size: number;
   computer: Computer | undefined;
+  /** The main team's face when the Chef is alone in it (it is listed apart). */
+  chef: Bot | undefined;
 }) {
   const { t } = useTranslation();
   return (
@@ -109,7 +112,16 @@ function TeamHeader({
       onPress={() => router.push(`/team/${team.id}`)}
       style={styles.teamHeader}
     >
-      <TeamAvatar seeds={members.map((b) => b.avatarSeed)} size={40} />
+      <TeamAvatar
+        seeds={
+          members.length > 0
+            ? members.map((b) => b.avatarSeed)
+            : team.isMain && chef
+              ? [chef.avatarSeed]
+              : []
+        }
+        size={40}
+      />
       <View style={styles.teamText}>
         <View style={styles.teamName}>
           <T variant="headline" numberOfLines={1} style={styles.shrink}>
@@ -203,6 +215,7 @@ export default function BotsScreen() {
                 members={members}
                 size={size}
                 computer={computerOf(team.computerId)}
+                chef={chart.chef}
               />
               {members.map((bot) => (
                 <BotRow key={bot.id} bot={bot} lead={bot.id === team.leadBotId} />

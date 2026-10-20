@@ -37,7 +37,7 @@ export function OptionsHost() {
             ) : null}
           </View>
         )}
-        <ScrollView style={{ maxHeight: height * 0.6 }} bounces={false}>
+        <ScrollView style={{ flexGrow: 0, maxHeight: height * 0.6 }} bounces={false}>
           {menu?.options.map((option) => {
             const Icon = option.icon;
             const ink = option.destructive ? colors.danger : colors.text;
