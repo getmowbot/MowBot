@@ -1,5 +1,6 @@
 export * from './auth';
 export * from './bots';
+export * from './canvases';
 export * from './common';
 export * from './computers';
 export * from './devices';

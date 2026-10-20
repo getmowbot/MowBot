@@ -17,6 +17,7 @@ import pkg from '../package.json' with { type: 'json' };
 import { HttpProblem, problemBody } from './http/problems';
 import { authRoutes } from './routes/auth';
 import { botRoutes } from './routes/bots';
+import { canvasRoutes } from './routes/canvases';
 import { computerRoutes } from './routes/computers';
 import { deviceRoutes } from './routes/devices';
 import { eventRoutes } from './routes/events';
@@ -143,6 +144,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
       await api.register(botRoutes);
       await api.register(taskRoutes);
       await api.register(proactivityRoutes);
+      await api.register(canvasRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: API_PREFIX },

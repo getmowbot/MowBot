@@ -1,5 +1,7 @@
 import type {
   BotStatus,
+  CanvasContent,
+  CanvasSize,
   ComputerKind,
   ComputerStatus,
   DeviceKind,
@@ -343,4 +345,24 @@ export const notifications = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('notifications_created_idx').on(t.createdAt)],
+);
+
+/** A card a bot pins on the home page (score, list, note…), updated in place by its key. */
+export const canvases = pgTable(
+  'canvases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    title: text('title').notNull(),
+    size: text('size').$type<CanvasSize>().notNull().default('s'),
+    content: jsonb('content').$type<CanvasContent>().notNull(),
+    position: integer('position').notNull().default(0),
+    hidden: boolean('hidden').notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('canvases_bot_key_unique').on(t.botId, t.key)],
 );

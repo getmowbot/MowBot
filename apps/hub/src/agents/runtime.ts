@@ -10,10 +10,12 @@ import { bots, type MessageMeta, messages, owner, routineRuns, teams } from '../
 import type { EventBus } from '../events';
 import type { OrgService } from '../org/service';
 import { TaskService } from '../org/tasks';
+import type { CanvasService } from '../proactivity/canvases';
 import type { NotificationService, SystemService } from '../proactivity/notifications';
 import { IDLE_ANSWER, MAX_FAILURES, type RoutineService } from '../proactivity/routines';
 import type { ProviderService } from '../providers/service';
 import type { WorkspaceFiles } from '../workspaces/files';
+import { buildCanvasTools } from './canvas-tools';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
 import { buildOrgTools } from './org-tools';
 import { buildProactiveTools } from './proactive-tools';
@@ -48,6 +50,7 @@ export interface RuntimeDeps {
   routines: RoutineService;
   notifications: NotificationService;
   system: SystemService;
+  canvases: CanvasService;
   /** Tests inject scripted models (several: a fallback chain). */
   modelFor?: (bot: BotRow) => LanguageModel | LanguageModel[] | null;
   tidyAfterMs?: number;
@@ -754,6 +757,7 @@ export class BotRuntime {
           bots: this.deps.bots,
           db,
         }),
+        ...buildCanvasTools({ self: bot, canvases: this.deps.canvases }),
       };
       const system = systemPrompt({
         bot,

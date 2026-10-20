@@ -50,6 +50,13 @@
       "when": 1792525450676,
       "tag": "0006_proactivity",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792527219770,
+      "tag": "0007_canvases",
+      "breakpoints": true
     }
   ]
 }

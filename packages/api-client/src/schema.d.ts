@@ -745,6 +745,88 @@ export interface paths {
         patch: operations["updateSystemSettings"];
         trace?: never;
     };
+    "/api/v1/canvases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description In the user’s order, hidden ones included (flagged). */
+        get: operations["listCanvases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteCanvas"];
+        options?: never;
+        head?: never;
+        /** @description Size and visibility; the content belongs to the bot. */
+        patch: operations["updateCanvas"];
+        trace?: never;
+    };
+    "/api/v1/canvases/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["orderCanvases"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvases/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addChecklistItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/canvases/{id}/items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteChecklistItem"];
+        options?: never;
+        head?: never;
+        patch: operations["updateChecklistItem"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5249,6 +5331,729 @@ export interface operations {
                         } | null;
                         dailyTokenBudget: number | null;
                         timeZone: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    listCanvases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            botId: string;
+                            key: string;
+                            title: string;
+                            /** @enum {string} */
+                            size: "s" | "m" | "l";
+                            content: {
+                                /** @enum {string} */
+                                kind: "note";
+                                markdown: string;
+                                image?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "score";
+                                home: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                away: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                homeScore: number | null;
+                                awayScore: number | null;
+                                status: string;
+                                detail?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "stats";
+                                items: {
+                                    label: string;
+                                    value: string;
+                                    hint?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "checklist";
+                                items: {
+                                    id: string;
+                                    text: string;
+                                    done: boolean;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "html";
+                                html: string;
+                            };
+                            position: number;
+                            hidden: boolean;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    deleteCanvas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    updateCanvas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    size?: "s" | "m" | "l";
+                    hidden?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        key: string;
+                        title: string;
+                        /** @enum {string} */
+                        size: "s" | "m" | "l";
+                        content: {
+                            /** @enum {string} */
+                            kind: "note";
+                            markdown: string;
+                            image?: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "score";
+                            home: {
+                                name: string;
+                                logo?: string;
+                            };
+                            away: {
+                                name: string;
+                                logo?: string;
+                            };
+                            homeScore: number | null;
+                            awayScore: number | null;
+                            status: string;
+                            detail?: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "stats";
+                            items: {
+                                label: string;
+                                value: string;
+                                hint?: string;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "checklist";
+                            items: {
+                                id: string;
+                                text: string;
+                                done: boolean;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "html";
+                            html: string;
+                        };
+                        position: number;
+                        hidden: boolean;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    orderCanvases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    addChecklistItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        key: string;
+                        title: string;
+                        /** @enum {string} */
+                        size: "s" | "m" | "l";
+                        content: {
+                            /** @enum {string} */
+                            kind: "note";
+                            markdown: string;
+                            image?: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "score";
+                            home: {
+                                name: string;
+                                logo?: string;
+                            };
+                            away: {
+                                name: string;
+                                logo?: string;
+                            };
+                            homeScore: number | null;
+                            awayScore: number | null;
+                            status: string;
+                            detail?: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "stats";
+                            items: {
+                                label: string;
+                                value: string;
+                                hint?: string;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "checklist";
+                            items: {
+                                id: string;
+                                text: string;
+                                done: boolean;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "html";
+                            html: string;
+                        };
+                        position: number;
+                        hidden: boolean;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    deleteChecklistItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        key: string;
+                        title: string;
+                        /** @enum {string} */
+                        size: "s" | "m" | "l";
+                        content: {
+                            /** @enum {string} */
+                            kind: "note";
+                            markdown: string;
+                            image?: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "score";
+                            home: {
+                                name: string;
+                                logo?: string;
+                            };
+                            away: {
+                                name: string;
+                                logo?: string;
+                            };
+                            homeScore: number | null;
+                            awayScore: number | null;
+                            status: string;
+                            detail?: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "stats";
+                            items: {
+                                label: string;
+                                value: string;
+                                hint?: string;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "checklist";
+                            items: {
+                                id: string;
+                                text: string;
+                                done: boolean;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "html";
+                            html: string;
+                        };
+                        position: number;
+                        hidden: boolean;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    updateChecklistItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text?: string;
+                    done?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        key: string;
+                        title: string;
+                        /** @enum {string} */
+                        size: "s" | "m" | "l";
+                        content: {
+                            /** @enum {string} */
+                            kind: "note";
+                            markdown: string;
+                            image?: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "score";
+                            home: {
+                                name: string;
+                                logo?: string;
+                            };
+                            away: {
+                                name: string;
+                                logo?: string;
+                            };
+                            homeScore: number | null;
+                            awayScore: number | null;
+                            status: string;
+                            detail?: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "stats";
+                            items: {
+                                label: string;
+                                value: string;
+                                hint?: string;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "checklist";
+                            items: {
+                                id: string;
+                                text: string;
+                                done: boolean;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "html";
+                            html: string;
+                        };
+                        position: number;
+                        hidden: boolean;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** Format: date-time */
+                        createdAt: string;
                     };
                 };
             };
