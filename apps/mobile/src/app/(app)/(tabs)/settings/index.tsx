@@ -1,143 +1,228 @@
 import Constants from 'expo-constants';
-import { LogOut, Server } from 'lucide-react-native';
+import { router } from 'expo-router';
+import {
+  ArrowLeftRight,
+  CalendarClock,
+  Cpu,
+  Gauge,
+  Info,
+  LogOut,
+  MonitorSmartphone,
+  Package,
+  Radio,
+  Server,
+  Smartphone,
+  UserRound,
+} from 'lucide-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Caption, StatusText } from '../../../../components/admin/parts';
 import { ListCard } from '../../../../components/list-card';
 import { Section, TabScroll } from '../../../../components/tab-scroll';
-import { Button } from '../../../../components/ui/button';
-import { Segmented } from '../../../../components/ui/segmented';
-import { T } from '../../../../components/ui/text';
-import { Touchable } from '../../../../components/ui/touchable';
-import { type LanguagePreference, setLanguagePreference, storedPreference } from '../../../../i18n';
+import { ChoiceRows, ICON_ROW_INSET, ListRow, ROW_INSET } from '../../../../components/ui/rows';
+import {
+  deviceLanguage,
+  type LanguagePreference,
+  setLanguagePreference,
+  storedPreference,
+} from '../../../../i18n';
+import { resolveLanguage } from '../../../../i18n/catalog';
+import { useDevices, useRoutines, useSystem, useUpdateMe } from '../../../../lib/admin-queries';
 import { useLiveConnection } from '../../../../lib/events';
-import { useMe } from '../../../../lib/queries';
+import { alertError, confirm } from '../../../../lib/options-menu';
+import { urlLabel } from '../../../../lib/provider-form';
+import { useMe, useProviders } from '../../../../lib/queries';
 import { deviceName, signOut, useSession } from '../../../../lib/session';
-import { colors, fonts } from '../../../../theme';
-
-function InfoRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <View style={styles.row}>
-      <T variant="callout" tone="muted">
-        {label}
-      </T>
-      <T variant="callout" numberOfLines={1} selectable style={[styles.value, mono && styles.mono]}>
-        {value}
-      </T>
-    </View>
-  );
-}
+import { colors } from '../../../../theme';
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
   const session = useSession();
   const me = useMe();
   const live = useLiveConnection();
+  const providers = useProviders();
+  const routines = useRoutines();
+  const system = useSystem();
+  const devices = useDevices();
+  const updateMe = useUpdateMe();
   const [language, setLanguage] = useState<LanguagePreference>(storedPreference);
 
   const chooseLanguage = (preference: LanguagePreference) => {
     setLanguage(preference);
     void setLanguagePreference(preference);
+    // Bots answer in the account's language, as when it is changed on the web.
+    const locale = resolveLanguage(preference, deviceLanguage());
+    if (me.data && me.data.owner.locale !== locale) {
+      updateMe.mutate(
+        { locale },
+        { onError: () => alertError(t('appAdmin.settings.languageNotSaved')) },
+      );
+    }
   };
 
-  const confirmSignOut = (title: string, message: string) =>
-    Alert.alert(title, message, [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('settings.logout'), style: 'destructive', onPress: () => void signOut() },
-    ]);
+  const leave = async (title: string, message: string, label: string) => {
+    if (await confirm(title, message, { label, destructive: true })) await signOut();
+  };
+
+  const providerCount = providers.data?.length;
+  const activeRoutines = routines.data?.filter((r) => r.enabled).length;
+  const activeDevices = devices.data?.filter((d) => !d.revokedAt).length;
+  const phoneLanguage = t(`languages.${resolveLanguage('system', deviceLanguage())}`);
 
   return (
-    <TabScroll>
-      <Section title={t('settings.language')}>
-        <Segmented<LanguagePreference>
-          label={t('settings.language')}
-          options={[
-            { value: 'system', label: t('settings.languageSystem') },
-            { value: 'fr', label: t('languages.fr') },
-            { value: 'en', label: t('languages.en') },
-          ]}
-          value={language}
-          onChange={chooseLanguage}
-        />
-        {language === 'system' && (
-          <T variant="caption" tone="faint" style={styles.indent}>
-            {t('settings.languageSystemHint')}
-          </T>
-        )}
-      </Section>
-
-      <Section title={t('settings.hub')}>
-        <ListCard inset={16}>
-          <InfoRow label={t('settings.address')} value={session.hubUrl ?? '—'} mono />
-          <View style={styles.row}>
-            <T variant="callout" tone="muted">
-              {t('settings.connection')}
-            </T>
-            <View style={styles.status}>
-              <View
-                style={[
-                  styles.dot,
-                  { backgroundColor: live ? colors.accentStrong : colors.textFaint },
-                ]}
-              />
-              <T variant="callout">{live ? t('settings.live') : t('settings.offline')}</T>
-            </View>
-          </View>
-          <Touchable
-            accessibilityRole="button"
-            onPress={() => confirmSignOut(t('settings.changeHub'), t('settings.changeHubConfirm'))}
-            style={styles.row}
-          >
-            <Server size={16} color={colors.text} />
-            <T variant="callout" style={styles.action}>
-              {t('settings.changeHub')}
-            </T>
-          </Touchable>
+    <TabScroll
+      onRefresh={() =>
+        Promise.all([
+          me.refetch(),
+          providers.refetch(),
+          routines.refetch(),
+          system.refetch(),
+          devices.refetch(),
+        ])
+      }
+    >
+      <Section title={t('appAdmin.settings.hub')}>
+        <ListCard inset={ICON_ROW_INSET}>
+          <ListRow
+            icon={Cpu}
+            label={t('appAdmin.models.title')}
+            value={
+              providerCount === undefined
+                ? undefined
+                : providerCount === 0
+                  ? t('appAdmin.settings.none')
+                  : t('appAdmin.settings.providers', { count: providerCount })
+            }
+            onPress={() => router.push('/models')}
+          />
+          <ListRow
+            icon={CalendarClock}
+            label={t('appAdmin.routines.title')}
+            value={
+              activeRoutines === undefined
+                ? undefined
+                : t('appAdmin.settings.routines', { count: activeRoutines })
+            }
+            onPress={() => router.push('/routines')}
+          />
+          <ListRow
+            icon={Gauge}
+            label={t('appAdmin.proactivity.title')}
+            value={
+              system.data
+                ? system.data.paused
+                  ? t('appAdmin.settings.paused')
+                  : t('appAdmin.settings.active')
+                : undefined
+            }
+            onPress={() => router.push('/proactivity')}
+          />
+          <ListRow
+            icon={MonitorSmartphone}
+            label={t('appAdmin.devices.title')}
+            value={
+              activeDevices === undefined
+                ? undefined
+                : t('appAdmin.settings.devices', { count: activeDevices })
+            }
+            onPress={() => router.push('/devices')}
+          />
         </ListCard>
       </Section>
 
       <Section title={t('settings.account')}>
-        <ListCard inset={16}>
-          <InfoRow label={t('settings.owner')} value={me.data?.owner.displayName ?? '…'} />
-          <InfoRow label={t('settings.device')} value={me.data?.device.name ?? deviceName()} />
+        <ListCard inset={ICON_ROW_INSET}>
+          <ListRow
+            icon={UserRound}
+            label={t('settings.owner')}
+            value={me.data?.owner.displayName ?? '…'}
+            onPress={() => router.push('/account')}
+          />
+          <ListRow
+            icon={Smartphone}
+            label={t('settings.device')}
+            value={me.data?.device.name ?? deviceName()}
+          />
         </ListCard>
-        <Button
-          label={t('settings.logout')}
-          variant="danger"
-          icon={LogOut}
-          onPress={() => confirmSignOut(t('settings.logoutConfirm'), t('settings.logoutHint'))}
-        />
+      </Section>
+
+      <Section title={t('settings.language')}>
+        <ListCard inset={ROW_INSET}>
+          <ChoiceRows<LanguagePreference>
+            options={[
+              {
+                value: 'system',
+                label: t('settings.languageSystem'),
+                hint: t('appAdmin.settings.languageAuto', { language: phoneLanguage }),
+              },
+              { value: 'fr', label: t('languages.fr') },
+              { value: 'en', label: t('languages.en') },
+            ]}
+            value={language}
+            onChange={chooseLanguage}
+          />
+        </ListCard>
+        <Caption>{t('appAdmin.settings.languageBots')}</Caption>
+      </Section>
+
+      <Section title={t('settings.hub')}>
+        <ListCard inset={ICON_ROW_INSET}>
+          <ListRow
+            icon={Server}
+            label={t('settings.address')}
+            value={session.hubUrl ? urlLabel(session.hubUrl) : '—'}
+          />
+          <ListRow
+            icon={Radio}
+            label={t('settings.connection')}
+            accessory={
+              <StatusText
+                color={live ? colors.accentStrong : colors.textFaint}
+                label={live ? t('settings.live') : t('settings.offline')}
+              />
+            }
+          />
+          <ListRow
+            icon={ArrowLeftRight}
+            label={t('settings.changeHub')}
+            chevron={false}
+            onPress={() =>
+              void leave(
+                t('settings.changeHub'),
+                t('settings.changeHubConfirm'),
+                t('settings.changeHub'),
+              )
+            }
+          />
+          <ListRow
+            icon={LogOut}
+            label={t('settings.logout')}
+            destructive
+            onPress={() =>
+              void leave(
+                t('settings.logoutConfirm'),
+                t('settings.logoutHint'),
+                t('settings.logout'),
+              )
+            }
+          />
+        </ListCard>
       </Section>
 
       <Section title={t('settings.about')}>
-        <ListCard inset={16}>
-          <InfoRow label={t('settings.version')} value={Constants.expoConfig?.version ?? '—'} />
-          <InfoRow label={t('settings.expoSdk')} value={Constants.expoConfig?.sdkVersion ?? '—'} />
+        <ListCard inset={ICON_ROW_INSET}>
+          <ListRow
+            icon={Info}
+            label={t('settings.version')}
+            value={Constants.expoConfig?.version ?? '—'}
+          />
+          <ListRow
+            icon={Package}
+            label={t('settings.expoSdk')}
+            value={Constants.expoConfig?.sdkVersion ?? '—'}
+          />
         </ListCard>
       </Section>
     </TabScroll>
   );
 }
-
-const styles = StyleSheet.create({
-  indent: { paddingHorizontal: 4 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 50,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  value: { flex: 1, textAlign: 'right' },
-  mono: { fontFamily: fonts.mono, fontSize: 13.5 },
-  status: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  action: { flex: 1 },
-});
