@@ -1,11 +1,11 @@
 import { PROVIDER_DEFAULT_URLS, type ProviderKind } from '@mowbot/contract';
 import { router } from 'expo-router';
-import { Plug } from 'lucide-react-native';
+import { Download, Plug } from 'lucide-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 import { HeadersEditor } from '../../../components/admin/headers-editor';
-import { FormError } from '../../../components/admin/parts';
+import { FormError, Note } from '../../../components/admin/parts';
 import { ListCard } from '../../../components/list-card';
 import { FormActions, Screen } from '../../../components/screen';
 import { Section } from '../../../components/tab-scroll';
@@ -13,9 +13,12 @@ import { Button } from '../../../components/ui/button';
 import { Field } from '../../../components/ui/field';
 import { ChoiceRows, ROW_INSET } from '../../../components/ui/rows';
 import { adminError, useCreateProvider } from '../../../lib/admin-queries';
+import { alertError } from '../../../lib/options-menu';
 import {
+  DESKTOP_DOWNLOAD_URL,
   type HeaderRow,
   headersRecord,
+  isChatgpt,
   kindHint,
   kindLabel,
   PROVIDER_KINDS,
@@ -23,7 +26,10 @@ import {
 } from '../../../lib/provider-form';
 import { fonts } from '../../../theme';
 
-/** Connects a provider: Command Code, OpenAI or any OpenAI-compatible endpoint. */
+/**
+ * Connects a provider: Command Code, OpenAI or any OpenAI-compatible endpoint. A ChatGPT account
+ * is signed in from the desktop app.
+ */
 export default function NewProviderScreen() {
   const { t } = useTranslation();
   const create = useCreateProvider();
@@ -83,6 +89,89 @@ export default function NewProviderScreen() {
         </ListCard>
       </Section>
 
+      {isChatgpt(kind) ? (
+        <ChatgptFromDesktop />
+      ) : (
+        <KeyFields
+          kind={kind}
+          nameValue={nameValue}
+          setName={setName}
+          baseUrl={baseUrl}
+          setBaseUrl={setBaseUrl}
+          apiKey={apiKey}
+          setApiKey={setApiKey}
+          defaultModel={defaultModel}
+          setDefaultModel={setDefaultModel}
+          rows={rows}
+          setRows={setRows}
+          error={error}
+          pending={create.isPending}
+          onSubmit={submit}
+        />
+      )}
+    </Screen>
+  );
+}
+
+/** ChatGPT accounts are signed in from the desktop app (the sign-in comes back to its computer). */
+function ChatgptFromDesktop() {
+  const { t } = useTranslation();
+  return (
+    <>
+      <Note>{t('appAdmin.models.chatgpt.desktopOnly')}</Note>
+      <FormActions>
+        <Button
+          label={t('appAdmin.models.chatgpt.download')}
+          icon={Download}
+          variant="secondary"
+          onPress={() =>
+            void Linking.openURL(DESKTOP_DOWNLOAD_URL).catch(() =>
+              alertError(t('common.actionFailed')),
+            )
+          }
+        />
+      </FormActions>
+    </>
+  );
+}
+
+interface KeyFieldsProps {
+  kind: ProviderKind;
+  nameValue: string;
+  setName(value: string): void;
+  baseUrl: string;
+  setBaseUrl(value: string): void;
+  apiKey: string;
+  setApiKey(value: string): void;
+  defaultModel: string;
+  setDefaultModel(value: string): void;
+  rows: HeaderRow[];
+  setRows(rows: HeaderRow[]): void;
+  error: string | null;
+  pending: boolean;
+  onSubmit(): void;
+}
+
+/** The fields of a provider reached with an API key. */
+function KeyFields({
+  kind,
+  nameValue,
+  setName,
+  baseUrl,
+  setBaseUrl,
+  apiKey,
+  setApiKey,
+  defaultModel,
+  setDefaultModel,
+  rows,
+  setRows,
+  error,
+  pending,
+  onSubmit,
+}: KeyFieldsProps) {
+  const { t } = useTranslation();
+  return (
+    <>
       <Field
         label={t('appAdmin.models.name')}
         value={nameValue}
@@ -128,14 +217,14 @@ export default function NewProviderScreen() {
       <FormError message={error} />
       <FormActions>
         <Button
-          label={create.isPending ? t('appAdmin.models.connecting') : t('appAdmin.models.connect')}
+          label={pending ? t('appAdmin.models.connecting') : t('appAdmin.models.connect')}
           icon={Plug}
-          onPress={submit}
-          loading={create.isPending}
+          onPress={onSubmit}
+          loading={pending}
           disabled={!nameValue.trim()}
         />
       </FormActions>
-    </Screen>
+    </>
   );
 }
 

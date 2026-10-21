@@ -1,9 +1,9 @@
-import type { Bot, Provider } from '@mowbot/contract';
+import { type Bot, CHATGPT_USAGE_URL, type Provider } from '@mowbot/contract';
 import { router, useLocalSearchParams } from 'expo-router';
-import { CircleAlert, CircleCheck, RefreshCw, Trash2 } from 'lucide-react-native';
+import { CircleAlert, CircleCheck, ExternalLink, RefreshCw, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet } from 'react-native';
 import { HeadersEditor } from '../../../components/admin/headers-editor';
 import { FormError, Loading, Note } from '../../../components/admin/parts';
 import { ListCard } from '../../../components/list-card';
@@ -23,6 +23,7 @@ import { alertError, confirm } from '../../../lib/options-menu';
 import {
   headerRows,
   headersRecord,
+  isChatgpt,
   kindLabel,
   providerFormProblem,
   sameHeaders,
@@ -151,8 +152,54 @@ function UsedBy({ provider, bots }: { provider: Provider; bots: Bot[] }) {
   );
 }
 
+/** The ChatGPT account of an `openai-chatgpt` provider (signed in from the desktop app). */
+function ChatgptAccount({ provider }: { provider: Provider }) {
+  const { t } = useTranslation();
+  const account = provider.chatgpt;
+  if (!account) return null;
+  const state =
+    account.status === 'needs_sign_in'
+      ? t('appAdmin.models.chatgpt.needsSignIn')
+      : account.status === 'usage_limited'
+        ? t('appAdmin.models.chatgpt.limited')
+        : t('appAdmin.models.chatgpt.connected');
+  const plan = account.planType
+    ? t('appAdmin.models.chatgpt.plan', {
+        plan: account.planType.charAt(0).toUpperCase() + account.planType.slice(1),
+      })
+    : null;
+  return (
+    <Section title={t('appAdmin.models.chatgpt.account')}>
+      <ListCard inset={ICON_ROW_INSET}>
+        <ListRow
+          icon={account.status === 'connected' ? CircleCheck : CircleAlert}
+          label={account.email ?? '—'}
+          hint={[plan, state].filter(Boolean).join(' · ')}
+        />
+        <ListRow
+          icon={ExternalLink}
+          label={t('appAdmin.models.chatgpt.manageUsage')}
+          chevron={false}
+          onPress={() =>
+            void Linking.openURL(CHATGPT_USAGE_URL).catch(() =>
+              alertError(t('common.actionFailed')),
+            )
+          }
+        />
+      </ListCard>
+      {account.status === 'needs_sign_in' && (
+        <Note>{t('appAdmin.models.chatgpt.needsSignInHint')}</Note>
+      )}
+      {account.status === 'usage_limited' && (
+        <Note>{t('appAdmin.models.chatgpt.limitedHint')}</Note>
+      )}
+    </Section>
+  );
+}
+
 function ProviderDetail({ provider, bots }: { provider: Provider; bots: Bot[] }) {
   const { t } = useTranslation();
+  const chatgpt = isChatgpt(provider.kind);
   const update = useUpdateProvider(provider.id);
   const remove = useDeleteProvider();
   const [name, setName] = useState(provider.name);
@@ -224,6 +271,7 @@ function ProviderDetail({ provider, bots }: { provider: Provider; bots: Bot[] })
   return (
     <>
       <Connection provider={provider} />
+      <ChatgptAccount provider={provider} />
 
       <Field
         label={t('appAdmin.models.name')}
@@ -232,33 +280,38 @@ function ProviderDetail({ provider, bots }: { provider: Provider; bots: Bot[] })
         maxLength={60}
         autoCorrect={false}
       />
-      <Field
-        label={t('appAdmin.models.apiKey')}
-        value={apiKey}
-        onChangeText={setApiKey}
-        placeholder={
-          provider.hasApiKey
-            ? t('appAdmin.models.apiKeyUnchanged')
-            : t('appAdmin.models.apiKeyNone')
-        }
-        hint={provider.hasApiKey ? t('appAdmin.models.apiKeyKeepHint') : undefined}
-        secureTextEntry
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoComplete="off"
-        textContentType="none"
-        importantForAutofill="no"
-        maxLength={1000}
-      />
-      <Field
-        label={t('appAdmin.models.baseUrl')}
-        value={baseUrl}
-        onChangeText={setBaseUrl}
-        keyboardType="url"
-        autoCapitalize="none"
-        autoCorrect={false}
-        style={styles.mono}
-      />
+      {/* A ChatGPT provider has no key, URL or headers: OpenAI's, with the account's tokens. */}
+      {!chatgpt && (
+        <>
+          <Field
+            label={t('appAdmin.models.apiKey')}
+            value={apiKey}
+            onChangeText={setApiKey}
+            placeholder={
+              provider.hasApiKey
+                ? t('appAdmin.models.apiKeyUnchanged')
+                : t('appAdmin.models.apiKeyNone')
+            }
+            hint={provider.hasApiKey ? t('appAdmin.models.apiKeyKeepHint') : undefined}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="off"
+            textContentType="none"
+            importantForAutofill="no"
+            maxLength={1000}
+          />
+          <Field
+            label={t('appAdmin.models.baseUrl')}
+            value={baseUrl}
+            onChangeText={setBaseUrl}
+            keyboardType="url"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.mono}
+          />
+        </>
+      )}
       <Field
         label={t('appAdmin.models.defaultModel')}
         value={defaultModel}
@@ -268,7 +321,7 @@ function ProviderDetail({ provider, bots }: { provider: Provider; bots: Bot[] })
         autoCorrect={false}
         maxLength={200}
       />
-      <HeadersEditor kind={provider.kind} rows={rows} onChange={setRows} />
+      {!chatgpt && <HeadersEditor kind={provider.kind} rows={rows} onChange={setRows} />}
 
       <FormError message={error} />
       <FormActions>

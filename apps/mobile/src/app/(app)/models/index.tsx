@@ -11,7 +11,7 @@ import { Button, IconButton } from '../../../components/ui/button';
 import { ICON_ROW_INSET, ListRow, ROW_INSET } from '../../../components/ui/rows';
 import { T } from '../../../components/ui/text';
 import { useProviderModels } from '../../../lib/admin-queries';
-import { kindLabel, urlLabel } from '../../../lib/provider-form';
+import { chatgptSummary, kindLabel, urlLabel } from '../../../lib/provider-form';
 import { useBots, useProviders } from '../../../lib/queries';
 import { colors } from '../../../theme';
 
@@ -47,7 +47,8 @@ function ProviderRow({ provider }: { provider: Provider }) {
   const headerCount = Object.keys(provider.headers).length;
   const hint = [
     kindLabel(provider.kind, t),
-    urlLabel(provider.baseUrl),
+    // A ChatGPT provider: its account rather than OpenAI's URL.
+    chatgptSummary(provider, t) ?? urlLabel(provider.baseUrl),
     headerCount > 0 ? t('appAdmin.models.headerCount', { count: headerCount }) : null,
   ]
     .filter(Boolean)

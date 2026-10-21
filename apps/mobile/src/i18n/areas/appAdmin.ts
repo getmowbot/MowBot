@@ -60,6 +60,23 @@ export const fr = {
       openaiHint: 'Clé API de platform.openai.com.',
       compatible: 'Compatible OpenAI',
       compatibleHint: 'OpenRouter, Ollama, xAI, DeepSeek… : URL de base + clé.',
+      chatgpt: 'OpenAI (compte ChatGPT)',
+      chatgptHint: 'Ton forfait ChatGPT (Plus, Pro…), sans clé API.',
+    },
+    chatgpt: {
+      desktopOnly:
+        'La connexion avec ChatGPT se fait dans l’app desktop MowBot, sur ton ordinateur : OpenAI ne renvoie la connexion qu’à l’ordinateur qui a ouvert le navigateur. Là-bas : Réglages → Modèles → Ajouter → OpenAI (compte ChatGPT).',
+      download: 'Télécharger l’app desktop',
+      account: 'Compte ChatGPT',
+      plan: 'Forfait {{plan}}',
+      connected: 'Connecté, utilise ton forfait ChatGPT',
+      needsSignIn: 'Déconnecté',
+      needsSignInHint:
+        'OpenAI a mis fin à cette session : reconnecte-toi depuis l’app desktop MowBot (Réglages → Modèles).',
+      limited: 'Limite d’utilisation atteinte',
+      limitedHint:
+        'Celle de ton forfait ou une limite propre à l’app. En attendant, les bots passent à leur modèle de secours.',
+      manageUsage: 'Gérer l’utilisation',
     },
     name: 'Nom',
     apiKey: 'Clé API',
@@ -448,6 +465,23 @@ export const en: Widen<typeof fr> = {
       openaiHint: 'API key from platform.openai.com.',
       compatible: 'OpenAI-compatible',
       compatibleHint: 'OpenRouter, Ollama, xAI, DeepSeek…: base URL + key.',
+      chatgpt: 'OpenAI (ChatGPT account)',
+      chatgptHint: 'Your ChatGPT plan (Plus, Pro…), no API key.',
+    },
+    chatgpt: {
+      desktopOnly:
+        'Signing in with ChatGPT happens in the MowBot desktop app, on your computer: OpenAI only hands the sign-in back to the computer that opened the browser. There: Settings → Models → Add → OpenAI (ChatGPT account).',
+      download: 'Get the desktop app',
+      account: 'ChatGPT account',
+      plan: '{{plan}} plan',
+      connected: 'Connected, uses your ChatGPT plan',
+      needsSignIn: 'Signed out',
+      needsSignInHint:
+        'OpenAI ended this session: sign in again from the MowBot desktop app (Settings → Models).',
+      limited: 'Usage limit reached',
+      limitedHint:
+        'Your plan’s, or a limit for this app. Meanwhile, bots use their fallback model.',
+      manageUsage: 'Manage usage',
     },
     name: 'Name',
     apiKey: 'API key',
