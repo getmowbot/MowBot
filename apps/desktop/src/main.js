@@ -82,3 +82,20 @@ form.addEventListener('submit', async (event) => {
 });
 
 init();
+
+// The window's buttons (the window has no frame).
+const appWindow = window.__TAURI__?.window.getCurrentWindow();
+if (appWindow) {
+  document.getElementById('win-minimize').addEventListener('click', () => appWindow.minimize());
+  document
+    .getElementById('win-maximize')
+    .addEventListener('click', () => appWindow.toggleMaximize());
+  document.getElementById('win-close').addEventListener('click', () => appWindow.close());
+}
+for (const [id, fr, en] of [
+  ['win-minimize', 'Réduire', 'Minimize'],
+  ['win-maximize', 'Agrandir', 'Maximize'],
+  ['win-close', 'Fermer', 'Close'],
+]) {
+  document.getElementById(id).setAttribute('aria-label', lang === 'en' ? en : fr);
+}

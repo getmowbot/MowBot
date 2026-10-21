@@ -50,6 +50,42 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// `--hub <address>` (or `--hub=<address>`) on the command line: the hub to use from now on,
+/// as if typed on the first-run page (an install command can set it this way).
+fn hub_argument(args: &[String]) -> Option<String> {
+    let value = args.iter().enumerate().find_map(|(i, arg)| {
+        arg.strip_prefix("--hub=")
+            .map(str::to_string)
+            .or_else(|| (arg == "--hub").then(|| args.get(i + 1).cloned()).flatten())
+    })?;
+    match hub::normalize(&value) {
+        Ok(hub) => Some(hub),
+        Err(error) => {
+            eprintln!("[mowbot] --hub ignoré : {error}");
+            None
+        }
+    }
+}
+
+/// Saves the hub given on the command line, lets its page call the app and shows it.
+fn use_hub_argument(app: &tauri::AppHandle, args: &[String]) {
+    let Some(hub) = hub_argument(args) else {
+        return;
+    };
+    let state = app.state::<AppState>();
+    if let Err(error) = state.set_hub(&hub) {
+        eprintln!("[mowbot] {error}");
+        return;
+    }
+    state.relink(false);
+    if let Err(error) = hub::grant(app, &hub) {
+        eprintln!("[mowbot] {error}");
+    }
+    if let Ok(url) = tauri::Url::parse(&hub) {
+        hub::navigate_main(app, url);
+    }
+}
+
 /// `MOWBOT_HUB_URL` shows that hub instead of the saved one (handy in development).
 fn hub_override() -> Option<String> {
     let value = std::env::var("MOWBOT_HUB_URL").ok()?;
@@ -68,7 +104,8 @@ fn hub_override() -> Option<String> {
 fn main() {
     tauri::Builder::default()
         // First: a second launch only brings the running app to the front.
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            use_hub_argument(app, &argv);
             hub::show_main(app);
         }))
         .plugin(tauri_plugin_dialog::init())
@@ -76,6 +113,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::hub_url_get,
             commands::hub_url_set,
+            commands::hub_change,
             commands::connector_status,
             commands::connector_link,
             commands::connector_unlink,
@@ -87,6 +125,12 @@ fn main() {
             let handle = app.handle().clone();
             let dir = app.path().app_config_dir()?;
             app.manage(AppState::new(dir, hub_override()));
+            let args: Vec<String> = std::env::args().collect();
+            if let Some(hub) = hub_argument(&args) {
+                if let Err(error) = app.state::<AppState>().set_hub(&hub) {
+                    eprintln!("[mowbot] {error}");
+                }
+            }
             if let Some(hub) = app.state::<AppState>().hub() {
                 if let Err(error) = hub::grant(&handle, &hub) {
                     eprintln!("[mowbot] {error}");
@@ -119,4 +163,27 @@ fn main() {
                 let _ = app;
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hub_argument;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn reads_the_hub_from_the_command_line() {
+        assert_eq!(
+            hub_argument(&args(&["mowbot", "--hub", "mowbot.example.com/"])),
+            Some("https://mowbot.example.com".to_string())
+        );
+        assert_eq!(
+            hub_argument(&args(&["mowbot", "--hub=http://localhost:5173"])),
+            Some("http://localhost:5173".to_string())
+        );
+        assert_eq!(hub_argument(&args(&["mowbot"])), None);
+        assert_eq!(hub_argument(&args(&["mowbot", "--hub"])), None);
+    }
 }

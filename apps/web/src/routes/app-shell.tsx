@@ -461,7 +461,10 @@ export function AppShell() {
           <main
             className={cn(
               'relative min-h-0 flex-1',
-              fullBleed ? 'overflow-hidden' : 'overflow-y-auto p-4 md:p-8',
+              fullBleed
+                ? 'overflow-hidden'
+                : // In the desktop app the window's buttons sit in the top corner.
+                  'overflow-y-auto p-4 md:p-8 [.desktop-app_&]:md:pt-12',
             )}
           >
             <motion.div

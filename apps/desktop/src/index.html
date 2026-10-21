@@ -8,6 +8,18 @@
     <script src="main.js" defer></script>
   </head>
   <body>
+    <!-- The window has no frame: this band moves it, with the window's buttons on the right. -->
+    <div class="titlebar" data-tauri-drag-region>
+      <button id="win-minimize" type="button" class="win" aria-label="Réduire">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+      </button>
+      <button id="win-maximize" type="button" class="win" aria-label="Agrandir">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>
+      </button>
+      <button id="win-close" type="button" class="win close" aria-label="Fermer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
     <main class="card">
       <img class="logo" src="logo.svg" alt="" width="64" height="64" />
       <h1 data-i18n="title">Bienvenue sur MowBot</h1>

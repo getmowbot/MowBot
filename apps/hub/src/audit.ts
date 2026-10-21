@@ -1,3 +1,4 @@
+import type { FastifyRequest } from 'fastify';
 import type { Db } from './db/client';
 import { auditLog } from './db/schema';
 
@@ -14,6 +15,11 @@ export interface RequestContext {
   ip: string;
   userAgent: string | null;
 }
+
+export const requestContext = (request: FastifyRequest): RequestContext => ({
+  ip: request.ip,
+  userAgent: request.headers['user-agent'] ?? null,
+});
 
 export async function recordAudit(db: Db, entry: AuditEntry): Promise<void> {
   await db.insert(auditLog).values({

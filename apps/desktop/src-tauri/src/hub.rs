@@ -13,15 +13,27 @@ use crate::state::AppState;
 pub const MAIN: &str = "main";
 
 /// Commands the hub's page may call (the same as the first-run page, see capabilities/).
-const COMMAND_PERMISSIONS: [&str; 8] = [
+const COMMAND_PERMISSIONS: [&str; 9] = [
     "allow-hub-url-get",
     "allow-hub-url-set",
+    "allow-hub-change",
     "allow-connector-status",
     "allow-connector-link",
     "allow-connector-unlink",
     "allow-project-pick",
     "allow-project-add",
     "allow-project-remove",
+];
+
+/// The window has no frame: the page draws its buttons and moves it (see the web app's
+/// `window-controls.tsx` and the first-run page).
+pub const WINDOW_PERMISSIONS: [&str; 6] = [
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-is-maximized",
 ];
 
 /// A hub address as typed (`mowbot.example.com`, `http://localhost:5173/`…) made canonical:
@@ -143,8 +155,8 @@ pub fn grant(app: &AppHandle, hub: &str) -> Result<(), String> {
         .window(MAIN)
         .permission("core:event:allow-listen")
         .permission("core:event:allow-unlisten");
-    for permission in COMMAND_PERMISSIONS {
-        capability = capability.permission(permission);
+    for permission in COMMAND_PERMISSIONS.iter().chain(WINDOW_PERMISSIONS.iter()) {
+        capability = capability.permission(*permission);
     }
     app.add_capability(capability)
         .map_err(|e| format!("Impossible d'autoriser le hub : {e}"))?;
@@ -219,6 +231,9 @@ pub fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .title("MowBot")
         .inner_size(1280.0, 840.0)
         .min_inner_size(420.0, 560.0)
+        // No system title bar: the interface has its own buttons (shadow and round corners kept).
+        .decorations(false)
+        .shadow(true)
         .background_color(tauri::window::Color(6, 7, 10, 255))
         .on_navigation(move |url| allow_navigation(&nav, url))
         .on_new_window(move |url, _features| {

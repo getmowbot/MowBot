@@ -33,6 +33,12 @@ pub async fn hub_url_set(app: AppHandle, url: String) -> Result<String, String> 
     Ok(hub)
 }
 
+/// Shows the first-run page to type another hub's address (it can go back to the current one).
+#[tauri::command]
+pub fn hub_change(app: AppHandle) {
+    hub::navigate_main(&app, hub::setup_page(&app));
+}
+
 #[tauri::command]
 pub fn connector_status(state: State<'_, AppState>) -> Status {
     state.status()

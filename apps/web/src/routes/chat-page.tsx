@@ -521,7 +521,7 @@ export function ChatPage() {
   return (
     <div className="flex h-full min-h-0">
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-6">
+        <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:px-6 [.desktop-app_&]:pr-36">
           <BotAvatar seed={bot.avatarSeed} size={44} mood={mood} />
           <div className="min-w-0 flex-1">
             {renamingId === bot.id ? (
@@ -530,6 +530,7 @@ export function ChatPage() {
               <p
                 className="truncate font-semibold leading-tight"
                 onDoubleClick={() => setRenamingId(bot.id)}
+                data-no-drag
               >
                 {bot.name}
               </p>

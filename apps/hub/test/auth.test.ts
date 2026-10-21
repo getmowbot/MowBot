@@ -277,3 +277,43 @@ async function meOf(accessToken: string) {
     await t.app.inject({ method: 'GET', url: '/api/v1/me', headers: bearer(accessToken) })
   ).json();
 }
+
+describe('changing the password', () => {
+  it('needs the current one, and can sign out the other devices', async () => {
+    const owner = await setupOwner(t.app);
+    const login = (password: string, name: string) =>
+      t.app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        payload: { password, device: { name, kind: 'ios' } },
+      });
+    const phone = (await login(PASSWORD, 'Téléphone')).json();
+    const change = (payload: object) =>
+      t.app.inject({
+        method: 'POST',
+        url: '/api/v1/me/password',
+        headers: bearer(owner.accessToken),
+        payload,
+      });
+
+    const wrong = await change({ currentPassword: 'nope', newPassword: 'a new long password' });
+    expect(wrong.statusCode).toBe(403);
+    expect(wrong.json().type).toBe('urn:mowbot:problem:wrong_password');
+    const short = await change({ currentPassword: PASSWORD, newPassword: 'short' });
+    expect(short.statusCode).toBe(400);
+
+    const ok = await change({
+      currentPassword: PASSWORD,
+      newPassword: 'a new long password',
+      signOutOthers: true,
+    });
+    expect(ok.statusCode).toBe(204);
+    expect((await login(PASSWORD, 'Vieux')).statusCode).toBe(401);
+    expect((await login('a new long password', 'Nouveau')).statusCode).toBe(200);
+    // The phone is signed out; this device stays signed in.
+    const me = (token: string) =>
+      t.app.inject({ method: 'GET', url: '/api/v1/me', headers: bearer(token) });
+    expect((await me(phone.accessToken)).statusCode).toBe(401);
+    expect((await me(owner.accessToken)).statusCode).toBe(200);
+  });
+});

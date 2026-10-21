@@ -5,6 +5,7 @@ fn main() {
         tauri_build::AppManifest::new().commands(&[
             "hub_url_get",
             "hub_url_set",
+            "hub_change",
             "connector_status",
             "connector_link",
             "connector_unlink",

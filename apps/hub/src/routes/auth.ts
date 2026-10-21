@@ -6,10 +6,10 @@ import {
   type TokenResponse,
   tokenResponseSchema,
 } from '@mowbot/contract';
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyReply } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { type RequestContext, recordAudit } from '../audit';
+import { recordAudit, requestContext } from '../audit';
 import { hashPassword, verifyPassword } from '../auth/passwords';
 import type { DeviceRow, IssuedSession } from '../auth/sessions';
 import { ownerExists } from '../auth/setup';
@@ -20,11 +20,6 @@ import { errorResponses, HttpProblem, unauthorized } from '../http/problems';
 
 export const REFRESH_COOKIE = 'mowbot_refresh';
 const REFRESH_COOKIE_PATH = '/api/v1/auth';
-
-const requestContext = (request: FastifyRequest): RequestContext => ({
-  ip: request.ip,
-  userAgent: request.headers['user-agent'] ?? null,
-});
 
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
   const { db, sessions, setup, config } = app.services;

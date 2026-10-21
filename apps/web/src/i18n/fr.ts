@@ -90,6 +90,12 @@ export const fr = {
     signingIn: 'Connexion…',
     signIn: 'Se connecter',
   },
+  window: {
+    minimize: 'Réduire',
+    maximize: 'Agrandir',
+    restore: 'Restaurer',
+    close: 'Fermer',
+  },
   shell: {
     home: 'Accueil',
     routines: 'Routines',

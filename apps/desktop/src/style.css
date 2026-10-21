@@ -124,3 +124,38 @@ button.ghost {
   color: var(--text-faint);
   font-size: 12px;
 }
+
+/* The window's own buttons (no system title bar). */
+.titlebar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 36px;
+  display: flex;
+  justify-content: flex-end;
+  z-index: 10;
+}
+
+.win {
+  width: 44px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: default;
+  transition:
+    background-color 150ms,
+    color 150ms;
+}
+
+.win:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+
+.win.close:hover {
+  background: #dc2626;
+  color: #fff;
+}

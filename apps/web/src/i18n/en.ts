@@ -85,6 +85,12 @@ export const en: Catalog = {
     signingIn: 'Signing in…',
     signIn: 'Sign in',
   },
+  window: {
+    minimize: 'Minimize',
+    maximize: 'Maximize',
+    restore: 'Restore',
+    close: 'Close',
+  },
   shell: {
     home: 'Home',
     routines: 'Routines',
