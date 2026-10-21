@@ -115,7 +115,7 @@ describe('organisation', () => {
     expect(again.statusCode).toBe(409);
   });
 
-  it('deletes bots and empty teams without losing their files', async () => {
+  it('deletes bots, and teams with their bots, without losing their files', async () => {
     const { app, auth, createBot, services, main, chef, get } = await start();
     const team: Team = (
       await app.inject({
@@ -129,33 +129,34 @@ describe('organisation', () => {
     const solo = await createBot({ name: 'Iris', teamId: null });
     await services.files.writeFile(solo.workspaceId as string, 'outputs/note.md', 'à garder');
 
-    const busy = await app.inject({
-      method: 'DELETE',
-      url: `/api/v1/teams/${team.id}`,
-      headers: auth,
-    });
-    expect(busy.statusCode).toBe(409);
     const notChef = await app.inject({
       method: 'DELETE',
       url: `/api/v1/bots/${chef.id}`,
       headers: auth,
     });
     expect(notChef.statusCode).toBe(409);
+    const notMain = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/teams/${main.id}`,
+      headers: auth,
+    });
+    expect(notMain.statusCode).toBe(409);
 
-    for (const bot of [leo, solo]) {
-      const res = await app.inject({
-        method: 'DELETE',
-        url: `/api/v1/bots/${bot.id}`,
-        headers: auth,
-      });
-      expect(res.statusCode).toBe(204);
-    }
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/bots/${solo.id}`,
+      headers: auth,
+    });
+    expect(res.statusCode).toBe(204);
+    // A team goes with its bots (and their dedicated PCs).
     const gone = await app.inject({
       method: 'DELETE',
       url: `/api/v1/teams/${team.id}`,
       headers: auth,
     });
     expect(gone.statusCode).toBe(204);
+    const { items: left } = await get<{ items: Bot[] }>('/api/v1/bots');
+    expect(left.map((b) => b.id)).not.toContain(leo.id);
 
     const { items: pcs } = await get<{ items: { id: string }[] }>('/api/v1/computers');
     expect(pcs.map((pc) => pc.id)).toEqual([main.computerId]);
@@ -167,6 +168,40 @@ describe('organisation', () => {
       `.trash/${archived?.name}/outputs/note.md`,
     );
     expect(kept.text).toBe('à garder');
+  });
+});
+
+describe('starting a team over', () => {
+  it('clears every conversation of a team, from the app or by the Chef', async () => {
+    const { app, auth, createBot, say, chef, main, conversation } = await start({
+      Chef: scripted([
+        toolTurn('clear_conversations', { team: 'Équipe principale' }),
+        textTurn('C’est vidé.'),
+      ]),
+      Nova: scripted([textTurn('Salut.')]),
+    });
+    const nova = await createBot({ name: 'Nova' });
+    await say(nova.id, 'Bonjour');
+    expect(await conversation(nova.id)).toHaveLength(2);
+
+    // The Chef clears its team, but not its own conversation.
+    await say(chef.id, 'Nouveau projet : repars de zéro');
+    expect(await conversation(nova.id)).toEqual([]);
+    const answer = (await conversation(chef.id)).at(-1);
+    const call = answer?.parts.find((p) => p.type === 'tool');
+    expect(call).toMatchObject({ toolName: 'clear_conversations', state: 'done' });
+    expect(call?.type === 'tool' && call.output).toBe('Conversations vidées : Nova.');
+
+    // The user clears the whole team, the Chef included.
+    await say(nova.id, 'Encore');
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/teams/${main.id}/messages`,
+      headers: auth,
+    });
+    expect(res.statusCode).toBe(204);
+    expect(await conversation(nova.id)).toEqual([]);
+    expect(await conversation(chef.id)).toEqual([]);
   });
 });
 

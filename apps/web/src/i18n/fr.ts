@@ -495,10 +495,16 @@ export const fr = {
     noLead: 'Aucun',
     isolatedHint: 'Seuls son lead et le Chef peuvent écrire à ses bots.',
     delete: 'Supprimer l’équipe',
-    deleteBotsFirst: 'Supprime ou déplace d’abord ses bots',
     confirmDelete:
       'Supprimer l’équipe {{name}} ? Son PC est supprimé, ses fichiers vont dans la corbeille de l’Équipe principale.',
+    confirmDeleteWithBots:
+      'Supprimer l’équipe {{name}} et ses bots ({{bots}}) ? Leurs conversations et leurs PC dédiés sont supprimés, le PC de l’équipe aussi ; ses fichiers vont dans la corbeille de l’Équipe principale.',
     notDeleted: 'Équipe non supprimée.',
+    clear: 'Vider les conversations',
+    confirmClear:
+      'Vider les conversations de tous les bots de {{name}} ({{bots}}) ? Ils s’arrêtent et repartent de zéro ; leurs fichiers et leurs tâches restent.',
+    cleared: 'Conversations vidées.',
+    notCleared: 'Conversations non vidées.',
   },
   desktop: {
     notFound: 'Ordinateur introuvable.',

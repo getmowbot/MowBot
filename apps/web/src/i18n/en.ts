@@ -480,10 +480,16 @@ export const en: Catalog = {
     noLead: 'None',
     isolatedHint: 'Only its lead and the Chef can message its bots.',
     delete: 'Delete team',
-    deleteBotsFirst: 'Delete or move its bots first',
     confirmDelete:
       'Delete the {{name}} team? Its PC will be deleted and its files moved to the Main team’s trash.',
+    confirmDeleteWithBots:
+      'Delete the {{name}} team and its bots ({{bots}})? Their conversations and dedicated PCs are deleted, the team’s PC too; its files move to the Main team’s trash.',
     notDeleted: 'Team not deleted.',
+    clear: 'Clear conversations',
+    confirmClear:
+      'Clear the conversations of every bot in {{name}} ({{bots}})? They stop and start over; their files and tasks stay.',
+    cleared: 'Conversations cleared.',
+    notCleared: 'Conversations not cleared.',
   },
   desktop: {
     notFound: 'Computer not found.',

@@ -69,6 +69,14 @@ export function useDeleteTeam() {
   });
 }
 
+/** Every conversation of a team starts over (the hub says so per bot). */
+export function useClearTeam() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      ok(api().DELETE('/api/v1/teams/{id}/messages', { params: { path: { id } } })),
+  });
+}
+
 export function useCreateBot() {
   const client = useQueryClient();
   return useMutation({

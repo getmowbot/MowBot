@@ -289,9 +289,8 @@ export function teamChanges(team: Team, form: TeamForm): TeamUpdate {
 }
 
 /** Why a team cannot be deleted, if it cannot. */
-export function teamDeleteBlock(team: Team, members: number): 'main' | 'notEmpty' | null {
-  if (team.isMain) return 'main';
-  return members > 0 ? 'notEmpty' : null;
+export function teamDeleteBlock(team: Team): 'main' | null {
+  return team.isMain ? 'main' : null;
 }
 
 // ── New bot, move ───────────────────────────────────────────────────────────

@@ -402,6 +402,38 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
   }
 
   if (self.isChef || (await isLead())) {
+    tools.clear_conversations = tool({
+      description:
+        "Vide les conversations des bots d'une équipe (ou de quelques bots) pour repartir de zéro, par exemple avant de passer à un autre projet : ils s'arrêtent et oublient leurs échanges, leurs fichiers et leurs tâches restent. Ta propre conversation n'est pas touchée. Le Chef : tous les bots ; un lead : ceux de son équipe. Dis à l'utilisateur ce que tu as vidé.",
+      inputSchema: z.object({
+        team: z.string().optional().describe("Nom de l'équipe dont vider toutes les conversations"),
+        bots: z.array(z.string()).max(30).optional().describe('Ou seulement ces bots (noms)'),
+      }),
+      execute: async ({ team, bots: names }) => {
+        const led = self.isChef ? [] : await ledTeams();
+        const allowed = (teamId: string | null) =>
+          self.isChef || (teamId !== null && led.includes(teamId));
+        if (team) {
+          const found = await findTeam(team);
+          if (!allowed(found.id)) throw new Error(`Tu ne peux vider que ton équipe.`);
+          const cleared = await runtime.clearTeam(found.id, self.id);
+          return cleared.length
+            ? `Conversations vidées : ${cleared.join(', ')}.`
+            : `Aucun autre bot dans l'équipe ${found.name}.`;
+        }
+        if (!names?.length) throw new Error('Donne team ou bots.');
+        const cleared: string[] = [];
+        for (const name of names) {
+          const target = await findBot(name);
+          if (target.id === self.id) continue;
+          if (!allowed(target.teamId)) throw new Error(`Tu ne peux pas vider ${target.name}.`);
+          await runtime.clear(target.id);
+          cleared.push(target.name);
+        }
+        return cleared.length ? `Conversations vidées : ${cleared.join(', ')}.` : 'Rien à vider.';
+      },
+    });
+
     tools.create_bot = tool({
       description: self.isChef
         ? "Crée un bot : dans une équipe (sur le PC de l'équipe, ou un PC dédié pour un travail lourd ou sensible) ou solo (son propre PC et ses propres fichiers). Donne-lui un rôle et une mission claire, puis écris-lui ou confie-lui une tâche. Réutilise plutôt les bots existants quand c'est possible."

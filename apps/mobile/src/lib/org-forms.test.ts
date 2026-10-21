@@ -249,9 +249,9 @@ describe('team settings', () => {
   });
 
   it('only deletes an empty team that is not the main one', () => {
-    expect(teamDeleteBlock(team({ isMain: true }), 0)).toBe('main');
-    expect(teamDeleteBlock(current, 2)).toBe('notEmpty');
-    expect(teamDeleteBlock(current, 0)).toBeNull();
+    expect(teamDeleteBlock(team({ isMain: true }))).toBe('main');
+    // A team goes with its bots.
+    expect(teamDeleteBlock(current)).toBeNull();
   });
 });
 

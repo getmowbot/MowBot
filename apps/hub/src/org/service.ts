@@ -124,7 +124,10 @@ export class OrgService {
     return this.publishTeam(id);
   }
 
-  /** Deletes an empty team: its PC goes, its files move to the main team's trash. */
+  /**
+   * Deletes an empty team: its PC goes, its files move to the main team's trash. Its bots go
+   * first through the runtime (`BotRuntime.deleteTeam`), which stops them.
+   */
   async deleteTeam(id: string): Promise<void> {
     const [row] = await this.db.select().from(teams).where(eq(teams.id, id));
     if (!row) throw notFound('Team not found');

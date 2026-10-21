@@ -1115,6 +1115,34 @@ export class BotRuntime {
     }
   }
 
+  /** Starts every conversation of a team over (but `keep`'s, the bot asking for it). */
+  async clearTeam(teamId: string, keep?: string): Promise<string[]> {
+    await this.deps.org.team(teamId);
+    const members = await this.deps.db.select().from(bots).where(eq(bots.teamId, teamId));
+    const cleared: string[] = [];
+    for (const bot of members) {
+      if (bot.id === keep) continue;
+      await this.clear(bot.id);
+      cleared.push(bot.name);
+    }
+    return cleared;
+  }
+
+  /** Deletes a team with its bots: each stops (whoever waits on one hears it), then goes. */
+  async deleteTeam(teamId: string): Promise<void> {
+    const team = await this.deps.org.team(teamId);
+    if (team.isMain) throw new HttpProblem(409, 'main_team', 'The main team cannot be deleted');
+    const members = await this.deps.db.select().from(bots).where(eq(bots.teamId, teamId));
+    if (members.some((bot) => bot.isChef)) {
+      throw new HttpProblem(409, 'chef', 'The Chef cannot be deleted');
+    }
+    for (const bot of members) {
+      await this.forget(bot.id);
+      await this.deps.org.retireBot(bot.id);
+    }
+    await this.deps.org.deleteTeam(teamId);
+  }
+
   /** Moves a bot to another team or computer: it stops and tidies its old computer up first. */
   async moveBot(botId: string, input: BotMove): Promise<Bot> {
     const bot = await this.deps.bots.row(botId);
