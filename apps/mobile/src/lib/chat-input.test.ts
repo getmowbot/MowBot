@@ -8,6 +8,7 @@ import {
   fold,
   insertMention,
   type MentionTrigger,
+  MODEL_PREFIX,
   matches,
   mentionSegments,
   mentionsToSend,
@@ -45,6 +46,7 @@ describe('commands', () => {
     expect(botCommands({ computerId: null, workspaceId: null })).toEqual([
       'stop',
       'clear',
+      'model',
       'settings',
       'mcp',
       'vault',
@@ -91,6 +93,15 @@ describe('commands', () => {
 });
 
 describe('triggerAt', () => {
+  it('lists the models once `/model` is followed by a space, narrowed by what comes next', () => {
+    expect(triggerAt('/model', 6)).toEqual({ kind: 'command', query: 'model' });
+    expect(commandOf('/model', COMMANDS)).toBe('model');
+    expect(triggerAt(MODEL_PREFIX, MODEL_PREFIX.length)).toEqual({ kind: 'model', query: '' });
+    expect(triggerAt('/model gpt mini', 15)).toEqual({ kind: 'model', query: 'gpt mini' });
+    expect(triggerAt('/model gpt\nplease', 17)).toBeNull();
+    expect(triggerAt('/models gpt', 11)).toBeNull();
+  });
+
   it('finds a command while the text is a slash and a word', () => {
     expect(triggerAt('/', 1)).toEqual({ kind: 'command', query: '' });
     expect(triggerAt('/sto', 4)).toEqual({ kind: 'command', query: 'sto' });

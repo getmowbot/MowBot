@@ -6,6 +6,7 @@ import { ArrowUp, Camera, FileText, Images, Paperclip, Square } from 'lucide-rea
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, TextInput, View } from 'react-native';
+import { useModelListings } from '../../lib/admin-queries';
 import {
   ATTACHMENT_MAX_BYTES,
   addAttachments,
@@ -22,6 +23,7 @@ import {
   insertMention,
   MENTION_LIMIT,
   type MentionTrigger,
+  MODEL_PREFIX,
   matches,
   mentionsToSend,
   pickerOpen,
@@ -30,7 +32,9 @@ import {
 } from '../../lib/chat-input';
 import { formatSize } from '../../lib/files';
 import { useFileSearch } from '../../lib/files-queries';
+import { type ModelChoice, modelGroups } from '../../lib/model-choices';
 import { alertError, openOptions, showInfo } from '../../lib/options-menu';
+import { useSetModel } from '../../lib/org-queries';
 import { isAndroid, isIOS } from '../../lib/platform';
 import { projectsFor } from '../../lib/projects';
 import { useProjects } from '../../lib/projects-queries';
@@ -38,16 +42,18 @@ import {
   type Outgoing,
   type OutgoingVoice,
   useBots,
+  useProviders,
   useStopBot,
   useTeams,
 } from '../../lib/queries';
 import { colors, shape, type } from '../../theme';
 import { Surface } from '../ui/surface';
+import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 import { AttachmentStrip } from './attachment-strip';
 import { useSizeUnits } from './message-files';
 import { ProjectChip } from './project-chip';
-import { CommandSuggestions, MentionSuggestions } from './suggestions';
+import { CommandSuggestions, MentionSuggestions, ModelSuggestions } from './suggestions';
 import { useChatCommands } from './use-chat-commands';
 import { HoldToRecord, RecordingBar, useVoiceRecorder } from './voice-recorder';
 
@@ -92,7 +98,12 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
   // Where the cursor goes once an inserted mention is on screen.
   const [placeCaret, setPlaceCaret] = useState<number | null>(null);
   const stop = useStopBot(bot.id);
-  const { commands, run } = useChatCommands(bot);
+  // `/model` lists the models over the field; the words typed after it narrow them down.
+  const { commands, run } = useChatCommands(bot, () => {
+    setText(MODEL_PREFIX);
+    setCaret(MODEL_PREFIX.length);
+    setPlaceCaret(MODEL_PREFIX.length);
+  });
   const working = bot.status === 'working';
   const empty = !canSend(text, attached);
 
@@ -117,6 +128,19 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
       : (files.data ?? []).filter((entry) => matches(query, entry.path)).slice(0, MENTION_LIMIT);
   const found = botMatches.length + teamMatches.length + projectMatches.length + fileMatches.length;
   const commandMatches = trigger?.kind === 'command' ? filterCommands(commands, trigger.query) : [];
+  const modelQuery = trigger?.kind === 'model' ? trigger.query : null;
+  const providers = useProviders();
+  const listings = useModelListings(providers.data ?? [], modelQuery !== null);
+  const models =
+    modelQuery === null ? [] : modelGroups(providers.data ?? [], listings, bot, modelQuery);
+  const setModel = useSetModel(bot.id);
+  // What `/model` just did ("Nova now uses …"), for a few seconds.
+  const [done, setDone] = useState<string | null>(null);
+  useEffect(() => {
+    if (!done) return;
+    const timer = setTimeout(() => setDone(null), 4000);
+    return () => clearTimeout(timer);
+  }, [done]);
 
   // After a mention is inserted, the cursor goes right after it (the new text is rendered).
   useEffect(() => {
@@ -142,6 +166,19 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     reset();
     run(name);
+  };
+
+  const pickModel = (choice: ModelChoice) => {
+    void Haptics.selectionAsync();
+    reset();
+    if (choice.current) return;
+    setModel.mutate(
+      { providerId: choice.providerId, model: choice.id },
+      {
+        onSuccess: () => setDone(t('chatInput.model.set', { name: bot.name, model: choice.id })),
+        onError: () => alertError(t('chatInput.model.failed')),
+      },
+    );
   };
 
   const pick = (item: MessageMention) => {
@@ -221,6 +258,15 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
     const value = text.trim();
     const sending = attached;
     if (!canSend(value, sending)) return;
+    // `/model gpt` picks the model that matches best, never goes to the bot.
+    if (modelQuery !== null && sending.length === 0) {
+      const best = models.flatMap((group) => group.models)[0];
+      if (best) pickModel(best);
+      else if (modelQuery.trim() && !models.some((group) => group.state === 'loading')) {
+        alertError(t('chatInput.model.none', { query: modelQuery.trim() }));
+      }
+      return;
+    }
     const names = commands.map((command) => command.name);
     const command = sending.length === 0 ? commandOf(value, names) : null;
     if (command) {
@@ -243,6 +289,13 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
       <ProjectChip bot={bot} />
       {commandMatches.length > 0 ? (
         <CommandSuggestions commands={commandMatches} onPick={runCommand} />
+      ) : modelQuery !== null ? (
+        <ModelSuggestions
+          groups={models}
+          query={modelQuery}
+          providers={providers.isPending ? null : (providers.data?.length ?? 0)}
+          onPick={pickModel}
+        />
       ) : query !== null && pickerOpen(query, found) ? (
         <MentionSuggestions
           bots={botMatches}
@@ -252,6 +305,11 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
           searching={files.searching}
           onPick={pick}
         />
+      ) : null}
+      {done ? (
+        <T variant="footnote" tone="muted" style={styles.done} accessibilityLiveRegion="polite">
+          {done}
+        </T>
       ) : null}
       {attached.length > 0 && (
         <AttachmentStrip
@@ -363,5 +421,6 @@ const styles = StyleSheet.create({
   attach: { backgroundColor: 'transparent' },
   inputAfterClip: { paddingLeft: 4 },
   sendIdle: { backgroundColor: 'rgba(243, 244, 246, 0.35)' },
+  done: { paddingHorizontal: 12, paddingBottom: 8 },
   stop: { borderWidth: 1, borderColor: colors.borderStrong },
 });

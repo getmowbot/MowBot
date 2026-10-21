@@ -1,9 +1,10 @@
 import type { Bot, FileEntry, MessageMention, Project, Team } from '@mowbot/contract';
-import { File as FileIcon, Folder, FolderCode, Users } from 'lucide-react-native';
+import { Check, Cpu, File as FileIcon, Folder, FolderCode, Users } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { CommandName } from '../../lib/chat-input';
+import type { ModelChoice, ModelGroup } from '../../lib/model-choices';
 import { colors, shape } from '../../theme';
 import { BotAvatar } from '../bot-avatar';
 import { Surface } from '../ui/surface';
@@ -85,6 +86,79 @@ export function CommandSuggestions({
             </T>
           </View>
         </Row>
+      ))}
+    </Panel>
+  );
+}
+
+/**
+ * What `/model` offers: the models of each provider, the bot's own checked. `providers`: how
+ * many there are (null while they load).
+ */
+export function ModelSuggestions({
+  groups,
+  query,
+  providers,
+  onPick,
+}: {
+  groups: ModelGroup[];
+  query: string;
+  providers: number | null;
+  onPick(model: ModelChoice): void;
+}) {
+  const { t } = useTranslation();
+  const empty =
+    providers === null
+      ? t('chatInput.model.loading')
+      : providers === 0
+        ? t('chatInput.model.noProvider')
+        : query.trim()
+          ? t('chatInput.model.none', { query: query.trim() })
+          : t('chatInput.model.noModels');
+  return (
+    <Panel>
+      {groups.length === 0 ? (
+        <T variant="footnote" tone="faint" style={styles.none}>
+          {empty}
+        </T>
+      ) : null}
+      {groups.map((group) => (
+        <Section
+          key={group.provider.id}
+          title={
+            group.state === 'unreachable'
+              ? `${group.provider.name} · ${t('chatInput.model.unreachable')}`
+              : group.provider.name
+          }
+        >
+          {group.models.map((model) => (
+            <Row
+              key={model.id}
+              label={model.current ? `${model.id}, ${t('chatInput.model.current')}` : model.id}
+              onPress={() => onPick(model)}
+            >
+              <View style={styles.icon}>
+                {model.current ? (
+                  <Check size={18} color={colors.accentStrong} />
+                ) : (
+                  <Cpu size={18} color={colors.textMuted} />
+                )}
+              </View>
+              <T variant="callout" numberOfLines={1} ellipsizeMode="middle" style={styles.text}>
+                {model.id}
+              </T>
+            </Row>
+          ))}
+          {group.state === 'loading' && group.models.length === 0 ? (
+            <T variant="footnote" tone="faint" style={styles.none}>
+              {t('chatInput.model.loading')}
+            </T>
+          ) : group.more > 0 ? (
+            <T variant="footnote" tone="faint" style={styles.none}>
+              {t('chatInput.model.more', { count: group.more })}
+            </T>
+          ) : null}
+        </Section>
       ))}
     </Panel>
   );

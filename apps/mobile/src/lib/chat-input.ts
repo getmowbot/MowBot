@@ -19,6 +19,7 @@ export const COMMANDS = [
   'stop',
   'clear',
   'project',
+  'model',
   'pc',
   'files',
   'settings',
@@ -70,14 +71,26 @@ export function commandOf<N extends string>(text: string, names: readonly N[]): 
 /** Past this many characters after an @, the user is writing, not looking for a name. */
 const MAX_MENTION_QUERY = 60;
 
-/** What the user is typing: a command (`/sto`), or a mention up to the cursor (`@No`). */
+/**
+ * What the user is typing: a command (`/sto`), a model to pick (`/model gpt`), or a mention up
+ * to the cursor (`@No`).
+ */
 export type Trigger =
   | { kind: 'command'; query: string }
+  | { kind: 'model'; query: string }
   | { kind: 'mention'; query: string; start: number; end: number };
 export type MentionTrigger = Extract<Trigger, { kind: 'mention' }>;
 
+/** What `/model` becomes once picked: the models show, the words typed after narrow them. */
+export const MODEL_PREFIX = '/model ';
+
+/** `/model `, then words to narrow the models down. */
+const MODEL_COMMAND = /^\/model\s+([^\n]*)$/i;
+
 export function triggerAt(text: string, caret: number): Trigger | null {
   if (/^\/\S*$/.test(text)) return { kind: 'command', query: text.slice(1) };
+  const model = MODEL_COMMAND.exec(text);
+  if (model) return { kind: 'model', query: model[1] ?? '' };
   const end = Math.min(Math.max(caret, 0), text.length);
   const before = text.slice(0, end);
   const at = before.lastIndexOf('@');

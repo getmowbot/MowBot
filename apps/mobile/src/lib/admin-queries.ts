@@ -15,11 +15,12 @@ import type {
   SystemSettings,
   SystemSettingsUpdate,
 } from '@mowbot/contract';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import i18n from '../i18n';
 import { isCanvasLive } from './automations';
 import { problemCode } from './hub-url';
+import type { Listing } from './model-choices';
 import { data, keys } from './queries';
 import { api } from './session';
 
@@ -97,21 +98,43 @@ export function useUpdatePushPrefs() {
 
 /* ------------------------------------------------------------------ providers */
 
+const listModels = async (providerId: string) =>
+  (
+    await data(api().GET('/api/v1/providers/{id}/models', { params: { path: { id: providerId } } }))
+  ).items.map((model) => model.id);
+
 export function useProviderModels(providerId: string | null | undefined) {
   return useQuery({
     queryKey: providerModelsKey(providerId ?? ''),
     enabled: Boolean(providerId),
     retry: false,
     staleTime: 5 * 60_000,
-    queryFn: async () =>
-      (
-        await data(
-          api().GET('/api/v1/providers/{id}/models', {
-            params: { path: { id: providerId as string } },
-          }),
-        )
-      ).items.map((model) => model.id),
+    queryFn: () => listModels(providerId as string),
   });
+}
+
+/** What each provider lists, fetched while `enabled` (for `/model`). */
+export function useModelListings(
+  providers: readonly Pick<Provider, 'id'>[],
+  enabled: boolean,
+): Map<string, Listing> {
+  const results = useQueries({
+    queries: providers.map((provider) => ({
+      queryKey: providerModelsKey(provider.id),
+      enabled,
+      retry: false,
+      staleTime: 5 * 60_000,
+      queryFn: () => listModels(provider.id),
+    })),
+  });
+  return new Map(
+    providers.map((provider, index): [string, Listing] => {
+      const result = results[index];
+      if (result?.isSuccess) return [provider.id, { state: 'ready', ids: result.data }];
+      if (result?.isError) return [provider.id, { state: 'unreachable' }];
+      return [provider.id, { state: 'loading' }];
+    }),
+  );
 }
 
 export function useCreateProvider() {
