@@ -366,6 +366,8 @@ export const en: Catalog = {
     canvasRemove: 'Removes a canvas from your home page',
     showInChat: 'Showing you something',
     stopBot: 'Stopping {{name}}',
+    setFocus: 'Shows: “{{text}}”',
+    clearFocus: 'Clears what it showed',
     requestTakeover: 'Asking you to take over its PC',
     vaultRequest: 'Asking you for {{service}} access',
     mcpTool: 'Using {{server}} · {{tool}}',

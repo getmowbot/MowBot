@@ -379,6 +379,8 @@ export const fr = {
     canvasRemove: 'Retire un canvas de l’accueil',
     showInChat: 'Te montre quelque chose',
     stopBot: 'Arrête {{name}}',
+    setFocus: 'Affiche : « {{text}} »',
+    clearFocus: 'Efface ce qu’il affichait',
     requestTakeover: 'Te demande la main sur son PC',
     vaultRequest: 'Te demande un accès à {{service}}',
     mcpTool: 'Utilise {{server}} · {{tool}}',

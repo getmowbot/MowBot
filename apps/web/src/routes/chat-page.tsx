@@ -831,7 +831,7 @@ export function ChatPage() {
               </p>
             )}
             <p
-              title={`${status} · ${about}`}
+              title={[bot.focus, status, about].filter(Boolean).join(' · ')}
               className="flex min-w-0 text-[13px] text-muted-foreground"
             >
               <span className={cn('max-w-[65%] shrink-0 truncate', isBusy(bot) && 'shimmer-text')}>

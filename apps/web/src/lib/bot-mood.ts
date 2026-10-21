@@ -67,10 +67,14 @@ export function statusLabel(
   }
 }
 
-/** A bot's line in a list: what it is doing, or its role while it rests. */
+/**
+ * A bot's line in a list: what it works on and, while at it, what it does right now
+ * ("Je développe la page d'accueil · Lance npm"); its role when it has nothing to say.
+ */
 export function botLine(
-  bot: Pick<Bot, 'status' | 'statusDetail' | 'activity' | 'role'>,
+  bot: Pick<Bot, 'status' | 'statusDetail' | 'activity' | 'focus' | 'role'>,
   live?: Live,
 ): string {
-  return bot.status === 'idle' ? bot.role : statusLabel(bot, live);
+  const status = bot.status === 'idle' ? null : statusLabel(bot, live);
+  return [bot.focus, status].filter(Boolean).join(' · ') || bot.role;
 }

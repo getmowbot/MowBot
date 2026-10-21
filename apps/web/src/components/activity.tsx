@@ -38,6 +38,7 @@ import {
   Send,
   Square,
   SquareTerminal,
+  Target,
   TextCursorInput,
   Undo2,
   Upload,
@@ -414,6 +415,14 @@ const TOOLS: Record<string, ToolMeta> = {
   show_in_chat: {
     icon: () => LayoutDashboard,
     title: () => i18n.t('activity.showInChat'),
+    kind: () => null,
+  },
+  set_focus: {
+    icon: () => Target,
+    title: (i) =>
+      str(i.text).trim()
+        ? i18n.t('activity.setFocus', { text: str(i.text).trim() })
+        : i18n.t('activity.clearFocus'),
     kind: () => null,
   },
   stop_bot: {
