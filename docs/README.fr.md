@@ -85,6 +85,9 @@ Dans l'app, **Modèles → Ajouter** : Command Code (clé de ton abonnement), Op
 
 ### App mobile (Expo Go)
 
+> **En développement.** L'app iOS et Android arrive bientôt sur TestFlight / l'App Store et sur
+> Android. En attendant, tu peux déjà l'utiliser avec **Expo Go**.
+
 L'app iOS / Android (`apps/mobile`, Expo SDK 57) se lance dans **Expo Go** :
 
 ```bash

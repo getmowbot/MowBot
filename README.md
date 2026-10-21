@@ -121,13 +121,20 @@ can reach your projects, and it updates itself when a new version is out. See
 
 ## Mobile app
 
-The iOS / Android app (`apps/mobile`, Expo SDK 57) runs in **Expo Go** for now:
+> **In development.** The iOS and Android app is coming soon to TestFlight / the App Store and
+> to Android. Until then, you can already use it through **Expo Go**.
+
+The app (`apps/mobile`, Expo SDK 57) does everything the web app does: conversations, the bots'
+PCs live with take-over, teams, files, the vault, MCP servers, routines and push notifications.
+To run it in [Expo Go](https://expo.dev/go) from a clone of this repository:
 
 ```bash
+pnpm install
 pnpm --filter @mowbot/mobile start
 ```
 
-Scan the QR code with Expo Go, then sign in with your hub's address and password.
+Scan the QR code with Expo Go (phone on the same network), then sign in with your hub's address
+and password.
 
 ## Development
 
