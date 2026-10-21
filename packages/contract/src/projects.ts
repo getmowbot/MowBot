@@ -47,6 +47,8 @@ export type ProjectScope = z.infer<typeof projectScopeSchema>;
 export const projectSchema = z.object({
   id: z.uuid(),
   connectorId: z.uuid(),
+  /** The desktop app's id for the folder (to stop sharing it from there). */
+  key: z.string(),
   name: z.string(),
   /** Where it is on the user's computer. */
   path: z.string(),

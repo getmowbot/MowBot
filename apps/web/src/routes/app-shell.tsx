@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ChevronDown,
   Cpu,
+  FolderGit2,
   FolderOpen,
   Gauge,
   House,
@@ -365,6 +366,9 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
         </NavItem>
         <NavItem to="/settings/mcp" onNavigate={onNavigate}>
           <Blocks className="size-4 shrink-0" /> {t('shell.mcp')}
+        </NavItem>
+        <NavItem to="/settings/projects" onNavigate={onNavigate}>
+          <FolderGit2 className="size-4 shrink-0" /> {t('shell.projects')}
         </NavItem>
         <NavItem to="/settings/devices" onNavigate={onNavigate}>
           <MonitorSmartphone className="size-4 shrink-0" /> {t('shell.devices')}

@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { api, client } from './auth';
 import { removeMcpServer, setMcpServer } from './mcp';
 import { alertOnThisDevice } from './proactivity';
+import { removeConnector, removeProject, setConnector, setProject } from './projects';
 import { setVaultItem } from './vault';
 
 const MAX_BACKOFF_MS = 30_000;
@@ -89,6 +90,8 @@ export function ServerEvents() {
             'system',
             'vault',
             'mcp',
+            'projects',
+            'connectors',
           ]) {
             void queryClient.invalidateQueries({ queryKey: [key] });
           }
@@ -177,6 +180,18 @@ export function ServerEvents() {
           break;
         case 'mcp.deleted':
           removeMcpServer(queryClient, event.serverId);
+          break;
+        case 'project.updated':
+          setProject(queryClient, event.project);
+          break;
+        case 'project.deleted':
+          removeProject(queryClient, event.projectId);
+          break;
+        case 'connector.updated':
+          setConnector(queryClient, event.connector);
+          break;
+        case 'connector.deleted':
+          removeConnector(queryClient, event.connectorId);
           break;
         case 'question.updated': {
           const { question } = event;

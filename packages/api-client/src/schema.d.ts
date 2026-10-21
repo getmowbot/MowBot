@@ -7942,6 +7942,7 @@ export interface operations {
                             id: string;
                             /** Format: uuid */
                             connectorId: string;
+                            key: string;
                             name: string;
                             path: string;
                             /** @enum {string} */
@@ -8035,6 +8036,7 @@ export interface operations {
                         id: string;
                         /** Format: uuid */
                         connectorId: string;
+                        key: string;
                         name: string;
                         path: string;
                         /** @enum {string} */

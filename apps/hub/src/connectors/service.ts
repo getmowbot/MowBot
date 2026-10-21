@@ -246,6 +246,7 @@ export class ConnectorService {
     return {
       id: row.id,
       connectorId: row.connectorId,
+      key: row.key,
       name: row.name,
       path: row.path,
       mode: row.mode,
