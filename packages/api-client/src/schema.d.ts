@@ -213,11 +213,28 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Deletes a team without bots: its PC is removed, its files move to the main team's trash. */
+        /** @description Deletes a team with its bots (not the main team): they stop, their conversations and dedicated PCs go, the team's PC is removed and its files move to the main team's trash. */
         delete: operations["deleteTeam"];
         options?: never;
         head?: never;
         patch: operations["updateTeam"];
+        trace?: never;
+    };
+    "/api/v1/teams/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Starts every conversation of the team's bots over (see `clearMessages`): for a new project, without the previous one's leftovers. Workspace files are kept. */
+        delete: operations["clearTeamMessages"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/computers": {
@@ -2604,6 +2621,64 @@ export interface operations {
                         createdAt: string;
                     };
                 };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    clearTeamMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Default Response */
             "4XX": {
