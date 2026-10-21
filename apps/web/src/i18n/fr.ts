@@ -155,7 +155,7 @@ export const fr = {
     greetingChef: 'Salut, je suis le Chef.',
     chefIntro:
       'Dis-moi ce que tu veux faire : je travaille sur le PC de l’équipe, je monte des équipes de bots et je dépose les résultats dans vos fichiers.',
-    placeholder: 'Écris à {{name}}…',
+    placeholder: 'Écris à {{name}}… @ pour mentionner, / pour une commande',
     stop: 'Arrêter',
     send: 'Envoyer',
     closePc: 'Fermer le PC',
@@ -169,6 +169,25 @@ export const fr = {
     noModel: 'Connecte un modèle (Command Code, OpenAI ou compatible) pour réveiller {{name}}.',
     connectModel: 'Connecter un modèle',
     steered: 'Pris en compte en cours de route',
+    /** Titles of the / commands of the composer (the names stay as typed). */
+    commands: {
+      stop: 'Arrêter ce qu’il fait',
+      clear: 'Recommencer la conversation',
+      pc: 'Afficher ou masquer le PC',
+      files: 'Ouvrir les fichiers',
+      settings: 'Réglages du bot',
+      rename: 'Renommer',
+      move: 'Changer d’équipe',
+      mcp: 'Outils (MCP)',
+      vault: 'Coffre',
+      routines: 'Routines',
+    },
+    mentions: {
+      sections: { commands: 'Commandes', bots: 'Bots', teams: 'Équipes', files: 'Fichiers' },
+      team: 'équipe',
+      file: 'fichier',
+      folder: 'dossier',
+    },
     vault: {
       totp: 'Code 2FA (graine ou lien otpauth://)',
       note: 'Envoyé directement au coffre de ton hub : ni la conversation ni l’IA ne voient ce que tu tapes.',

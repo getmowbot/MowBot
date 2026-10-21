@@ -1,35 +1,17 @@
-import type { Bot, CanvasKind, Message, MessagePart, Problem } from '@mowbot/contract';
+import type { Bot, CanvasKind, Mention, Message, MessagePart, Problem } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import {
-  ArrowUp,
-  Hand,
-  Maximize2,
-  Monitor,
-  PanelRightClose,
-  Power,
-  Sparkles,
-  Square,
-  Undo2,
-} from 'lucide-react';
+import { Hand, Maximize2, Monitor, PanelRightClose, Power, Sparkles, Undo2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import {
-  type FormEvent,
-  type KeyboardEvent,
-  lazy,
-  Suspense,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityGroup, type ActivityPart } from '../components/activity';
 import { BotAvatar } from '../components/bot-avatar';
 import { BotBrowserView, ViewSwitch } from '../components/bot-browser-view';
 import { BotMenu, RenameField } from '../components/bot-menu';
 import { CanvasBody } from '../components/canvas-body';
+import { ChatComposer } from '../components/chat-composer';
 import { StatusBadge } from '../components/computer-status';
 import { Markdown } from '../components/markdown';
 import { QuestionCard } from '../components/question-card';
@@ -38,6 +20,7 @@ import { VaultRequestCard } from '../components/vault-request-card';
 import { i18n } from '../i18n';
 import { api, problemMessage } from '../lib/auth';
 import { moodOf, statusLabel } from '../lib/bot-mood';
+import { mentionSegments } from '../lib/chat-input';
 import { reveal } from '../lib/motion';
 import { useQuestions } from '../lib/proactivity';
 import {
@@ -127,7 +110,19 @@ function UserMessage({ message }: { message: Message }) {
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-primary-foreground text-[14.5px] leading-relaxed">
-        {text}
+        {mentionSegments(text, message.mentions).map((segment, i) =>
+          segment.mention ? (
+            <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: segments of a fixed text
+              key={i}
+              className="rounded bg-primary-foreground/10 px-0.5 font-semibold"
+            >
+              {segment.text}
+            </span>
+          ) : (
+            segment.text
+          ),
+        )}
       </div>
       {message.steered && <SteeredHint />}
     </div>
@@ -354,70 +349,6 @@ function EmptyState({ bot, onPick }: { bot: Bot; onPick(text: string): void }) {
   );
 }
 
-function Composer({ bot, onSend }: { bot: Bot; onSend(text: string): void }) {
-  const { t } = useTranslation();
-  const [text, setText] = useState('');
-  const area = useRef<HTMLTextAreaElement>(null);
-  const queryClient = useQueryClient();
-  const working = bot.status === 'working';
-  const stop = useMutation({
-    mutationFn: () => api.POST('/api/v1/bots/{id}/stop', { params: { path: { id: bot.id } } }),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['bots'] }),
-  });
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure whenever the text changes
-  useLayoutEffect(() => {
-    const el = area.current;
-    if (!el) return;
-    el.style.height = '0px';
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-  }, [text]);
-
-  const submit = (event?: FormEvent) => {
-    event?.preventDefault();
-    const value = text.trim();
-    if (!value) return;
-    onSend(value);
-    setText('');
-  };
-
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) submit(event);
-  };
-
-  return (
-    <form
-      onSubmit={submit}
-      className="glass flex items-end gap-2 rounded-2xl p-2 transition-[border-color] duration-300 focus-within:border-white/30"
-    >
-      <textarea
-        ref={area}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={onKeyDown}
-        rows={1}
-        placeholder={t('chat.placeholder', { name: bot.name })}
-        className="max-h-[220px] min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 text-[14.5px] leading-relaxed outline-none placeholder:text-faint"
-      />
-      {working ? (
-        <Button
-          type="button"
-          size="icon"
-          variant="outline"
-          onClick={() => stop.mutate()}
-          aria-label={t('chat.stop')}
-        >
-          <Square className="size-3.5 fill-current" />
-        </Button>
-      ) : (
-        <Button type="submit" size="icon" disabled={!text.trim()} aria-label={t('chat.send')}>
-          <ArrowUp className="size-4" />
-        </Button>
-      )}
-    </form>
-  );
-}
-
 function ComputerPanel({
   computerId,
   bot,
@@ -542,10 +473,10 @@ export function ChatPage() {
   const [error, setError] = useState<string | null>(null);
 
   const send = useMutation({
-    mutationFn: async (text: string) => {
+    mutationFn: async ({ text, mentions }: { text: string; mentions?: Mention[] }) => {
       const { data, error } = await api.POST('/api/v1/bots/{id}/messages', {
         params: { path: { id: bot?.id as string } },
-        body: { text },
+        body: mentions?.length ? { text, mentions } : { text },
       });
       if (error || !data) throw error;
       return data;
@@ -650,7 +581,7 @@ export function ChatPage() {
               </motion.div>
             )}
             {messages.isSuccess && items.length === 0 && (
-              <EmptyState bot={bot} onPick={(text) => send.mutate(text)} />
+              <EmptyState bot={bot} onPick={(text) => send.mutate({ text })} />
             )}
             <AnimatePresence initial={false}>
               {items.map((message) => (
@@ -690,7 +621,12 @@ export function ChatPage() {
               <QuestionCard key={question.id} question={question} className="mb-2" />
             ))}
           </AnimatePresence>
-          <Composer bot={bot} onSend={(text) => send.mutate(text)} />
+          <ChatComposer
+            bot={bot}
+            onTogglePc={() => setShowPc((v) => !v)}
+            onRename={() => setRenamingId(bot.id)}
+            onSend={(text, mentions) => send.mutate({ text, mentions })}
+          />
         </div>
       </div>
 

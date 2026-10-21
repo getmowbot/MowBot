@@ -40,11 +40,9 @@ function MenuItem({
 }
 
 /** "…" menu of a conversation: rename the bot, start the conversation over. */
-export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
+/** Starts the conversation over, once the user confirms. */
+export function useClearConversation(bot: Bot): () => void {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const dialogs = useOrgDialogs();
   const queryClient = useQueryClient();
   const clear = useMutation({
     mutationFn: async () => {
@@ -56,6 +54,17 @@ export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
     onSuccess: () => queryClient.setQueryData<Message[]>(['messages', bot.id], []),
     onError: (err) => alert(problemMessage(err, t('botMenu.clearFailed'))),
   });
+  return () => {
+    if (confirm(t('botMenu.clearConfirm', { name: bot.name }))) clear.mutate();
+  };
+}
+
+export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const dialogs = useOrgDialogs();
+  const clear = useClearConversation(bot);
 
   useEffect(() => {
     if (!open) return;
@@ -127,7 +136,7 @@ export function BotMenu({ bot, onRename }: { bot: Bot; onRename(): void }) {
               danger
               onClick={() => {
                 setOpen(false);
-                if (confirm(t('botMenu.clearConfirm', { name: bot.name }))) clear.mutate();
+                clear();
               }}
             >
               {t('botMenu.clear')}
