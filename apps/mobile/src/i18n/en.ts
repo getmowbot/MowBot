@@ -114,7 +114,9 @@ export const en: Catalog = {
       'Tell me what you want to do: I work on the team’s PC, build teams of bots and drop the results in your files.',
     noModel: 'Connect a model from the web app (Models) to wake {{name}} up.',
     screenshot: 'Screenshot of the PC',
-    from: '{{name}} · {{kind}}',
+    incoming_one: 'Message from',
+    incoming_other: 'Messages from',
+    and: 'and',
     kind: {
       chat: 'message',
       ask: 'question',

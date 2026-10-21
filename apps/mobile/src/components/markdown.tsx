@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, Fragment, use, useEffect, useMemo, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, type TextStyle, View } from 'react-native';
+import { type ChipBot, nameSegments } from '../lib/incoming';
 import { type Block, type Inline, isSafeLink, parseMarkdown } from '../lib/markdown';
 import { colors, fonts, type } from '../theme';
+import { BotChip } from './bot-chip';
+
+/** Bots shown as chips where the text names them (none inside a link). */
+const BotsContext = createContext<ChipBot[]>([]);
 
 /** Blinking block caret at the end of a streaming answer. */
 function Caret() {
@@ -14,12 +19,21 @@ function Caret() {
 }
 
 function InlineNodes({ nodes }: { nodes: Inline[] }) {
+  const bots = use(BotsContext);
   return nodes.map((node, index) => {
     // Inline nodes never reorder: their position is their identity.
     const key = `${node.type}-${index}`;
     switch (node.type) {
       case 'text':
-        return node.text;
+        if (bots.length === 0) return node.text;
+        return (
+          <Fragment key={key}>
+            {nameSegments(node.text, bots).map(({ text, ref }, i) =>
+              // biome-ignore lint/suspicious/noArrayIndexKey: segments of a fixed text
+              ref ? <BotChip key={i} bot={ref} /> : text,
+            )}
+          </Fragment>
+        );
       case 'code':
         return (
           <Text key={key} style={styles.inlineCode}>
@@ -52,7 +66,9 @@ function InlineNodes({ nodes }: { nodes: Inline[] }) {
             accessibilityRole="link"
             onPress={isSafeLink(node.href) ? () => void Linking.openURL(node.href) : undefined}
           >
-            <InlineNodes nodes={node.children} />
+            <BotsContext value={[]}>
+              <InlineNodes nodes={node.children} />
+            </BotsContext>
           </Text>
         );
     }
@@ -169,14 +185,17 @@ interface Props {
   /** Streaming: show a blinking caret after the last word. */
   caret?: boolean;
   style?: TextStyle;
+  /** Bots shown as chips (character and colored name) where the text names them. */
+  bots?: ChipBot[];
 }
 
 /** Bot answers as native Markdown (paragraphs, lists, code, quotes, tables, links). */
-export function Markdown({ text, caret = false, style }: Props) {
+export function Markdown({ text, caret = false, style, bots }: Props) {
   const blocks = useMemo(() => parseMarkdown(text), [text]);
   const base = useMemo(() => StyleSheet.flatten([styles.base, style]), [style]);
   if (blocks.length === 0) return caret ? <Caret /> : null;
-  return <Blocks blocks={blocks} base={base} caret={caret} />;
+  const shown = <Blocks blocks={blocks} base={base} caret={caret} />;
+  return bots?.length ? <BotsContext value={bots}>{shown}</BotsContext> : shown;
 }
 
 const styles = StyleSheet.create({
