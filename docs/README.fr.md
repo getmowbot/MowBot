@@ -125,7 +125,7 @@ Chaque bot a son personnage, tiré de sa graine (`packages/design`) : couleur, f
 Sur un serveur Linux (Ubuntu, Debian, Fedora…), une seule commande installe tout, et la même met à jour :
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jorisleva/MowBot/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/getmowbot/MowBot/main/install.sh | sudo bash
 ```
 
 Le script :

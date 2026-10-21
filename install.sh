@@ -10,7 +10,7 @@
 # the code, rebuilds and restarts: deploy/.env and all data (Docker volumes) stay.
 set -Eeuo pipefail
 
-REPO_URL=${MOWBOT_REPO:-https://github.com/jorisleva/MowBot.git}
+REPO_URL=${MOWBOT_REPO:-https://github.com/getmowbot/MowBot.git}
 BRANCH=${MOWBOT_BRANCH:-main}
 DEFAULT_DIR=/opt/mowbot
 # The computers mount one sub-folder of the workspaces volume (Docker API 1.45).
