@@ -19,6 +19,8 @@ export const keys = {
   routineRuns: (routineId: string) => ['routine-runs', routineId] as const,
   system: ['system'] as const,
   devices: ['devices'] as const,
+  /** Whether the phone lets the app notify (asked of the phone, not the hub). */
+  pushPermission: ['push-permission'] as const,
   /** A folder of a workspace (`path` '' = its root). */
   files: (workspaceId: string, path = '') => ['files', workspaceId, path] as const,
   /** What a bot's own Chrome window shows (live view). */

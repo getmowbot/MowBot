@@ -107,7 +107,7 @@ export function deviceName(): string {
 }
 
 /** Aborts a request that hangs (a wrong LAN address can take a minute to time out). */
-function timeoutSignal(ms = REQUEST_TIMEOUT_MS): AbortSignal {
+export function timeoutSignal(ms = REQUEST_TIMEOUT_MS): AbortSignal {
   const controller = new AbortController();
   setTimeout(() => controller.abort(), ms);
   return controller.signal;
@@ -182,9 +182,21 @@ export async function signIn(rawHubUrl: string, password: string): Promise<void>
   setState({ status: 'signedIn', hubUrl, notice: null });
 }
 
+/** What must reach the hub while this device is still signed in (its push token…). */
+const signOutTasks = new Set<() => Promise<void>>();
+
+/** Runs `task` (best effort) before each sign-out; returns how to stop. */
+export function beforeSignOut(task: () => Promise<void>): () => void {
+  signOutTasks.add(task);
+  return () => {
+    signOutTasks.delete(task);
+  };
+}
+
 /** Revokes this device on the hub (best effort) and forgets the session. */
 export async function signOut(): Promise<void> {
   signingOut = true;
+  await Promise.allSettled([...signOutTasks].map((task) => task()));
   try {
     await client?.api.POST('/api/v1/auth/logout', { signal: timeoutSignal(4_000) });
   } catch {

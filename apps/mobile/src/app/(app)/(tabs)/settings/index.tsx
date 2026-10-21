@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import {
   ArrowLeftRight,
+  Bell,
   CalendarClock,
   Cpu,
   Gauge,
@@ -159,6 +160,14 @@ export default function SettingsScreen() {
             icon={Smartphone}
             label={t('settings.device')}
             value={me.data?.device.name ?? deviceName()}
+          />
+          <ListRow
+            icon={Bell}
+            label={t('push.title')}
+            value={
+              me.data ? (me.data.device.push.enabled ? t('push.on') : t('push.off')) : undefined
+            }
+            onPress={() => router.push('/notifications')}
           />
         </ListCard>
       </Section>

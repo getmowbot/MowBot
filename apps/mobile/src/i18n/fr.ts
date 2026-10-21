@@ -3,6 +3,7 @@ import { fr as board } from './areas/board';
 import { fr as filesView } from './areas/filesView';
 import { fr as orgAdmin } from './areas/orgAdmin';
 import { fr as pcView } from './areas/pcView';
+import { fr as push } from './areas/push';
 import { fr as vault } from './areas/vault';
 
 /** French catalog: the reference. Every other language must provide exactly these keys. */
@@ -290,4 +291,5 @@ export const fr = {
   appAdmin,
   filesView,
   vault,
+  push,
 } as const;

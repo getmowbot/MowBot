@@ -1,8 +1,8 @@
-import type { Bot, Me } from '@mowbot/contract';
+import type { Bot, Device, Me } from '@mowbot/contract';
 import type { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, describe, expect, it } from 'vitest';
 import { plainExcerpt } from '../src/push/service';
-import { bearer, createTestApp, setupOwner } from './helpers';
+import { bearer, createTestApp, PASSWORD, setupOwner } from './helpers';
 import { scripted, textTurn, toolTurn } from './models';
 
 let t: Awaited<ReturnType<typeof createTestApp>> | undefined;
@@ -165,5 +165,28 @@ describe('push notifications', () => {
       'Titre Un gras et un lien.',
     );
     expect(plainExcerpt('a'.repeat(300)).length).toBe(180);
+  });
+});
+
+describe('one phone, one device', () => {
+  it('moves the token to the newest session of the phone', async () => {
+    const { inject } = await start(fakeExpo());
+    await inject('PUT', '/api/v1/me/push', { token: TOKEN });
+    // The same phone signs in again (its old session was not signed out).
+    const login = await t?.app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { password: PASSWORD, device: { name: 'iPhone', kind: 'ios' } },
+    });
+    const again = bearer(login?.json().accessToken);
+    await t?.app.inject({
+      method: 'PUT',
+      url: '/api/v1/me/push',
+      headers: again,
+      payload: { token: TOKEN },
+    });
+    const devices = await inject<{ items: Device[] }>('GET', '/api/v1/devices');
+    expect(devices.body.items.filter((d) => d.push.enabled)).toHaveLength(1);
+    expect(devices.body.items.find((d) => d.current)?.push.enabled).toBe(false);
   });
 });

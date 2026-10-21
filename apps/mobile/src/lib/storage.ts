@@ -2,12 +2,14 @@ import * as SecureStore from 'expo-secure-store';
 
 /**
  * Everything the app keeps on the device, in the Keychain / Keystore. The refresh token must
- * live there; the hub URL and language ride along so they can be read synchronously at launch.
+ * live there; the hub URL, language and push state ride along so they can be read
+ * synchronously at launch.
  */
 const KEYS = {
   hubUrl: 'mowbot.hubUrl',
   refreshToken: 'mowbot.refreshToken',
   language: 'mowbot.language',
+  push: 'mowbot.push',
 } as const;
 
 export type StorageKey = keyof typeof KEYS;

@@ -7,7 +7,7 @@ import {
   meSchema,
   meUpdateSchema,
 } from '@mowbot/contract';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { recordAudit } from '../audit';
@@ -109,6 +109,13 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
       const [row] = await db.select().from(devices).where(eq(devices.id, deviceId));
       if (!row) throw notFound('Device not found');
       const { token, prefs } = request.body;
+      // One phone, one device: an older session of it (signed out offline…) stops getting pushes.
+      if (token) {
+        await db
+          .update(devices)
+          .set({ pushToken: null })
+          .where(and(eq(devices.pushToken, token), ne(devices.id, deviceId)));
+      }
       await db
         .update(devices)
         .set({
