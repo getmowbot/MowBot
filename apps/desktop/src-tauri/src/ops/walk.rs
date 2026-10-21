@@ -81,7 +81,11 @@ fn literal_prefix(pattern: &str) -> String {
 }
 
 /// The files under `start` (a directory inside `root`), in a stable order.
-fn walk_files(root: &Path, start: &Path, mut visit: impl FnMut(&Path, String) -> bool) -> bool {
+pub(super) fn walk_files(
+    root: &Path,
+    start: &Path,
+    mut visit: impl FnMut(&Path, String) -> bool,
+) -> bool {
     let walker = WalkBuilder::new(start)
         .hidden(false)
         .git_ignore(true)

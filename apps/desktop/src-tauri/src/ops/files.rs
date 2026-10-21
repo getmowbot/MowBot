@@ -83,7 +83,7 @@ pub fn list(root: &Path, args: &Value) -> Result<Value, String> {
 }
 
 /// The file at `rel`, which must exist and be a file.
-fn existing_file(root: &Path, rel: &str) -> Result<std::path::PathBuf, String> {
+pub(super) fn existing_file(root: &Path, rel: &str) -> Result<std::path::PathBuf, String> {
     if normalized(rel)?.is_empty() {
         return Err("Chemin de fichier attendu (pas la racine du projet).".into());
     }

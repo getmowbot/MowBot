@@ -2346,11 +2346,13 @@ dependencies = [
 
 [[package]]
 name = "mowbot-desktop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
+ "base64 0.22.1",
  "dunce",
  "futures-util",
  "globset",
+ "hex",
  "hostname",
  "ignore",
  "keyring",
@@ -2359,6 +2361,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

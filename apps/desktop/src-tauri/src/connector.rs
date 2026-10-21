@@ -12,6 +12,7 @@ use tokio::time::{sleep, timeout, Instant};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::{header, HeaderValue, StatusCode};
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
 use crate::hub;
@@ -27,6 +28,8 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 const SILENCE_TIMEOUT: Duration = Duration::from_secs(70);
 const BACKOFF_MIN: Duration = Duration::from_secs(1);
 const BACKOFF_MAX: Duration = Duration::from_secs(30);
+/// A hub message can carry a whole branch of files in base64 (`branch`): sent as one frame.
+const MESSAGE_MAX: usize = 96 << 20;
 
 #[derive(Deserialize)]
 struct Request {
@@ -120,7 +123,13 @@ async fn session(app: &AppHandle, link: &Link, links: &mut watch::Receiver<Optio
         Ok(request) => request,
         Err(error) => return End::Lost(error, false),
     };
-    let connecting = timeout(CONNECT_TIMEOUT, tokio_tungstenite::connect_async(request));
+    let config = WebSocketConfig::default()
+        .max_message_size(Some(MESSAGE_MAX))
+        .max_frame_size(Some(MESSAGE_MAX));
+    let connecting = timeout(
+        CONNECT_TIMEOUT,
+        tokio_tungstenite::connect_async_with_config(request, Some(config), false),
+    );
     let socket = tokio::select! {
         result = connecting => match result {
             Err(_) => return End::Lost("Le hub ne répond pas (délai dépassé).".into(), false),

@@ -1,6 +1,6 @@
 [package]
 name = "mowbot-desktop"
-version = "0.1.0"
+version = "0.2.0"
 description = "MowBot desktop app: the hub's interface and the connector to local projects"
 edition = "2021"
 publish = false
@@ -26,6 +26,9 @@ ignore = "0.4"
 globset = "0.4"
 regex = "1"
 hostname = "0.4"
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3.6", features = ["windows-native"] }

@@ -20,7 +20,17 @@ export type ConnectorRow = typeof connectors.$inferSelect;
 export type ProjectRow = typeof projects.$inferSelect;
 
 /** What a connector does on a project: see docs/DESKTOP.md. */
-export type ProjectOp = 'list' | 'read' | 'write' | 'edit' | 'find' | 'search' | 'exec';
+export type ProjectOp =
+  | 'list'
+  | 'read'
+  | 'write'
+  | 'edit'
+  | 'find'
+  | 'search'
+  | 'exec'
+  | 'manifest'
+  | 'read_files'
+  | 'branch';
 
 const KEEPALIVE_MS = 25_000;
 const REQUEST_TIMEOUT_MS = 60_000;

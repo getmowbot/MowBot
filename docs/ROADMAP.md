@@ -120,7 +120,7 @@
 - [x] Connecteur Rust : WebSocket sortante vers le hub avec son propre jeton (révocable), reconnexion automatique ; list, read, write, edit, find, search (.gitignore respecté), exec (PowerShell sous Windows) ; chemins vérifiés (liens symboliques compris), rien hors des dossiers partagés
 - [x] Hub : connecteurs et projets, outils local_* des bots, accord de l'utilisateur pour chaque commande (Autoriser / Tout autoriser dans ce projet / Refuser) ou mode auto, portée par équipes ou bots
 - [x] Pages Projets (web et app) : relier ce PC et partager un dossier depuis l'app desktop, mode, portée, ordinateurs reliés
-- [ ] Copier un projet sur le PC d'un bot (incrémental, .gitignore) et rapporter les changements en branche git ou diff à valider
+- [x] Copier un projet sur le PC d'un bot (local_pull : incrémental, .gitignore, garde les changements du bot) et rapporter ses changements en branche git (local_push), sans toucher au dossier de l'utilisateur
 - [x] Fenêtre sans barre système (boutons intégrés à l'interface), adresse du hub au premier lancement, dans Profil ou avec `--hub`
 - [x] Installeurs Windows, macOS et Linux (workflow « Desktop app ») et commande d'installation Linux
 - [x] Profil : nom, mot de passe du hub (avec déconnexion des autres appareils)

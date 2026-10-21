@@ -59,6 +59,29 @@ Les chemins sont relatifs à la racine du projet, avec des `/` ; `""` est la rac
 `find` et `search` respectent `.gitignore` et sautent `.git`. `exec` lance la commande avec le
 shell annoncé, dans la racine du projet (ou `cwd`).
 
+### Copie sur le PC d'un bot, retour en branche git
+
+| op | args | data |
+|---|---|---|
+| `manifest` | `path?` (dossier, défaut : tout le projet) | `{ files: [{ path, size, hash }], head, truncated }` |
+| `read_files` | `paths` (au plus 200) | `{ files: [{ path, data }] }` ; `data` en base64 |
+| `branch` | `name`, `message`, `author`, `base`, `files: [{ path, data }]`, `deletes` | `{ branch, commit }` |
+
+- `manifest` liste les fichiers comme `find` (`.gitignore` respecté, `.git` sauté, liens non
+  suivis), avec `hash` = SHA-256 en hexadécimal du contenu. Fichiers de plus de 20 Mo et listes de
+  plus de 50 000 fichiers : laissés de côté (`truncated`). `head` : le commit `HEAD` si le projet est
+  dans un dépôt git (`git rev-parse HEAD`), sinon `null`.
+- `read_files` renvoie le contenu de chaque fichier demandé ; le hub demande par lots (8 Mo au plus
+  par réponse). Un fichier qui manque ou sort du projet fait échouer la requête.
+- `branch` crée la branche `name` dans le dépôt du projet **sans toucher à son dossier de travail ni
+  à son index** : index temporaire (`GIT_INDEX_FILE`) chargé depuis `base` (`git read-tree`), fichiers
+  écrits avec `git hash-object -w` + `git update-index --cacheinfo` (mode d'origine gardé, sinon
+  100644), suppressions avec `git update-index --force-remove`, puis `git write-tree`,
+  `git commit-tree -p base` (auteur et committer : `author` = `{ name, email }`), et
+  `git update-ref refs/heads/<name> <commit> ""` (refuse d'écraser ; le hub choisit un nom libre).
+  Les chemins sont relatifs au projet : si le projet est un sous-dossier du dépôt, le préfixe
+  (`git rev-parse --show-prefix`) leur est ajouté. Pas de dépôt git ou pas de `git` : erreur lisible.
+
 ## Côté hub
 
 - Tables `connectors` (jeton haché, nom, OS, shell, dernière connexion) et `projects` (connecteur,
@@ -68,6 +91,13 @@ shell annoncé, dans la racine du projet (ou `cwd`).
 - Une commande en mode `ask` pose la question à l'utilisateur et répond au bot que la décision
   arrivera en message ; « Autoriser » vaut pour cette commande une fois, « Tout autoriser dans ce
   projet » passe le projet en `auto`.
+- `local_pull` copie le projet (ou un dossier) dans le workspace de l'équipe du bot,
+  `/workspace/projects/<projet>/`, pour qu'il le lance et le teste sur son PC : seuls les fichiers
+  changés depuis la dernière copie sont transférés, ceux disparus sont retirés. L'état copié est
+  gardé dans `.mowbot-sync.json` (hash de chaque fichier et commit de départ).
+- `local_push` rapporte les changements de cette copie (fichiers modifiés, ajoutés hors
+  `.gitignore`, supprimés) en une branche `mowbot/<bot>-<date>` du dépôt de l'utilisateur, partie du
+  commit de la copie : rien ne change dans son dossier, il relit et fusionne quand il veut.
 
 ## Installer et lancer l'app
 

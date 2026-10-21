@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import WebSocket from 'ws';
@@ -7,6 +8,8 @@ import WebSocket from 'ws';
  * the hub's requests on it. Commands are not run: their answer repeats them.
  */
 export class FakeConnector {
+  /** The commit the shared folder is at (null: not a git repository). */
+  static head: string | null = 'abc1234def5678';
   readonly socket: WebSocket;
   readonly requests: { op: string; args: Record<string, unknown> }[] = [];
 
@@ -122,6 +125,39 @@ async function run(root: string, op: string, args: Record<string, unknown>): Pro
     }
     case 'exec':
       return { exitCode: 0, stdout: `ran: ${String(args.command)}`, stderr: '', timedOut: false };
+    case 'manifest': {
+      // Like the real one: .git and node_modules skipped (no .gitignore parsing here).
+      const files: { path: string; size: number; hash: string }[] = [];
+      const walk = async (dir: string, rel: string) => {
+        for (const name of await readdir(dir)) {
+          if (name === '.git' || name === 'node_modules') continue;
+          const childRel = rel ? `${rel}/${name}` : name;
+          const info = await stat(path.join(dir, name));
+          if (info.isDirectory()) await walk(path.join(dir, name), childRel);
+          else {
+            const data = await readFile(path.join(dir, name));
+            files.push({
+              path: childRel,
+              size: data.length,
+              hash: createHash('sha256').update(data).digest('hex'),
+            });
+          }
+        }
+      };
+      await walk(at(args.path), args.path ? String(args.path) : '');
+      return { files, head: FakeConnector.head, truncated: false };
+    }
+    case 'read_files':
+      return {
+        files: await Promise.all(
+          (args.paths as string[]).map(async (rel) => ({
+            path: rel,
+            data: (await readFile(at(rel))).toString('base64'),
+          })),
+        ),
+      };
+    case 'branch':
+      return { branch: String(args.name), commit: 'c0ffee1234567890' };
     default:
       throw new Error(`Opération inconnue : ${op}`);
   }

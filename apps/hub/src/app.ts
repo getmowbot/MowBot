@@ -132,7 +132,8 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
     transform: jsonSchemaTransform,
   });
 
-  await app.register(fastifyWebsocket, { options: { maxPayload: 16 * 1024 * 1024 } });
+  // A desktop app sends a project's files to copy (one file up to 20 MB, base64 in JSON).
+  await app.register(fastifyWebsocket, { options: { maxPayload: 64 * 1024 * 1024 } });
   await app.register(fastifyMultipart, {
     limits: { fileSize: MAX_UPLOAD_BYTES, files: 20, fields: 10 },
   });
