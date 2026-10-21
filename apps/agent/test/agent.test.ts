@@ -1,3 +1,4 @@
+import http from 'node:http';
 import net from 'node:net';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
@@ -100,7 +101,6 @@ describe('mow-agent', () => {
     );
     await new Promise((resolve) => devtools.once('listening', resolve));
     const wsPort = (devtools.address() as net.AddressInfo).port;
-    const http = await import('node:http');
     const versions = http.createServer((_req, res) => {
       res.setHeader('content-type', 'application/json');
       res.end(
@@ -135,6 +135,113 @@ describe('mow-agent', () => {
       ws.once('unexpected-response', (_req, res) => resolve(res.statusCode ?? 0)),
     );
     expect(status).toBe(401);
+  });
+});
+
+/** Opens /tcp to `port`: the raw socket after a 101, or the status and body of a refusal. */
+function openTcp(
+  port: number | string,
+  headers: Record<string, string> = auth,
+  upgrade = 'mowbot-tcp',
+): Promise<{ status: number; socket?: net.Socket; body?: string }> {
+  return new Promise((resolve, reject) => {
+    const request = http.request(`${base}/tcp?port=${port}`, {
+      headers: { ...headers, connection: 'Upgrade', upgrade },
+    });
+    request.on('upgrade', (res, socket) => resolve({ status: res.statusCode ?? 0, socket }));
+    request.on('response', (res) => {
+      let body = '';
+      res.on('data', (chunk: Buffer) => {
+        body += chunk.toString();
+      });
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+    });
+    request.on('error', reject);
+    request.end();
+  });
+}
+
+describe('TCP relay (/tcp)', () => {
+  let target: http.Server;
+  let targetPort: number;
+  let seen: { host?: string; cookie?: string }[];
+
+  beforeEach(async () => {
+    seen = [];
+    // A dev server inside the computer, bound to the loopback only.
+    target = http.createServer((req, res) => {
+      seen.push({ host: req.headers.host, cookie: req.headers.cookie });
+      res.setHeader('content-type', 'text/plain');
+      res.end(`hello from ${req.url}`);
+    });
+    await new Promise<void>((resolve) => target.listen(0, '127.0.0.1', resolve));
+    targetPort = (target.address() as net.AddressInfo).port;
+  });
+
+  afterEach(async () => {
+    target.closeAllConnections();
+    await new Promise((resolve) => target.close(resolve));
+  });
+
+  it('carries HTTP to a loopback port, several requests on one tunnel', async () => {
+    const { status, socket } = await openTcp(targetPort);
+    expect(status).toBe(101);
+    // One tunnel serves as a keep-alive connection for successive requests.
+    const agentPool = new http.Agent({ keepAlive: true, maxSockets: 1 });
+    Object.assign(agentPool, { createConnection: () => socket });
+    const get = (path: string) =>
+      new Promise<string>((resolve, reject) => {
+        http
+          .get({ agent: agentPool, host: 'localhost', port: targetPort, path }, (res) => {
+            let body = '';
+            res.on('data', (chunk: Buffer) => {
+              body += chunk.toString();
+            });
+            res.on('end', () => resolve(body));
+          })
+          .on('error', reject);
+      });
+    expect(await get('/a')).toBe('hello from /a');
+    expect(await get('/b')).toBe('hello from /b');
+    expect(seen).toHaveLength(2);
+    agentPool.destroy();
+  });
+
+  it('needs the token', async () => {
+    expect((await openTcp(targetPort, {})).status).toBe(401);
+    expect((await openTcp(targetPort, { authorization: 'Bearer nope' })).status).toBe(401);
+  });
+
+  it('refuses invalid and reserved ports', async () => {
+    expect((await openTcp('nope')).status).toBe(400);
+    expect((await openTcp(70_000)).status).toBe(400);
+    // VNC, Chrome DevTools, X11 and the agent itself stay behind the agent.
+    expect((await openTcp((vnc.address() as net.AddressInfo).port)).status).toBe(403);
+    expect((await openTcp(9222)).status).toBe(403);
+    expect((await openTcp(6000)).status).toBe(403);
+    expect((await openTcp(new URL(base).port)).status).toBe(403);
+    // Only the raw relay upgrade.
+    expect((await openTcp(targetPort, auth, 'websocket')).status).toBe(400);
+  });
+
+  it('reports a closed port', async () => {
+    const closed = net.createServer();
+    await new Promise<void>((resolve) => closed.listen(0, '127.0.0.1', resolve));
+    const port = (closed.address() as net.AddressInfo).port;
+    await new Promise((resolve) => closed.close(resolve));
+    const refused = await openTcp(port);
+    expect(refused.status).toBe(502);
+    expect(JSON.parse(refused.body ?? '{}')).toEqual({ error: `Nothing listens on port ${port}` });
+  });
+
+  it('closes open tunnels when the agent stops', async () => {
+    const { socket } = await openTcp(targetPort);
+    const closed = new Promise((resolve) => socket?.once('close', resolve));
+    await agent.close();
+    await closed;
+    // afterEach closes it again: start a fresh one.
+    agent = createAgent({ token: TOKEN });
+    base = `http://127.0.0.1:${(await agent.listen(0, '127.0.0.1')).port}`;
   });
 });
 
