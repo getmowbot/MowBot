@@ -30,7 +30,21 @@
           "backgroundColor": "#06070a"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "MowBot uses the microphone to record the voice messages you send your bots."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MowBot lets you send photos to your bots.",
+          "cameraPermission": "MowBot lets you take a photo to send to your bots.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": true

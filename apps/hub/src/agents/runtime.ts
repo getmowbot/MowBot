@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { lstat, rm } from 'node:fs/promises';
+import nodePath from 'node:path';
 import type {
   Bot,
   BotMove,
@@ -37,7 +39,10 @@ import type { ProviderService } from '../providers/service';
 import type { PushService } from '../push/service';
 import type { SecretScope } from '../vault/secrets';
 import type { VaultService } from '../vault/service';
-import type { WorkspaceFiles } from '../workspaces/files';
+import { decodeRecording, peaksOf, playableEverywhere, SAMPLE_RATE } from '../voice/audio';
+import type { Transcriber } from '../voice/whisper';
+import { parentOf, type WorkspaceFiles } from '../workspaces/files';
+import { picturesOf, resolveAttachments } from './attachments';
 import { buildAutomationTools } from './automation-tools';
 import { BrowserHub } from './browser';
 import { buildBrowserTools } from './browser-tools';
@@ -66,8 +71,53 @@ export const MAX_DEPTH = 10;
 /** Messages, questions and tasks a bot may send other bots per hour. */
 const MAX_SENDS_PER_HOUR = 60;
 const ASK_TIMEOUT_MS = 15 * 60_000;
+/** A voice message not transcribed by then is given up (the first one downloads the model). */
+const TRANSCRIBE_TIMEOUT_MS = 15 * 60_000;
 
 type MessageRow = typeof messages.$inferSelect;
+type AudioPart = Extract<MessagePart, { type: 'audio' }>;
+
+/** What the bot reads of a voice message, as its transcription goes. */
+const VOICE_TEXT = {
+  pending: '[Message vocal, transcription en cours]',
+  done: (transcript: string) => `[Message vocal, transcrit automatiquement]\n${transcript}`,
+  silent: "[Message vocal où rien n'a pu être entendu]",
+  failed: (path: string) =>
+    `[Message vocal que la transcription n'a pas pu lire : /workspace/${path}]`,
+};
+
+const audioOf = (row: Pick<MessageRow, 'parts'>) =>
+  row.parts.find((p): p is AudioPart => p.type === 'audio');
+
+/** A voice message still being transcribed: the bot waits for its words. */
+const awaitingTranscript = (row: MessageRow) => audioOf(row)?.transcriptStatus === 'pending';
+
+/** A voice message the bot cannot hear (transcription failed, or nothing was said). */
+function unheard(row: MessageRow): boolean {
+  const audio = audioOf(row);
+  if (!audio) return false;
+  return (
+    audio.transcriptStatus === 'failed' || (audio.transcriptStatus === 'done' && !audio.transcript)
+  );
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+/** Voice messages: decoded with ffmpeg, then transcribed (Whisper on the hub). */
+export interface VoiceDeps {
+  transcriber: Transcriber;
+  ffmpeg: string;
+  /** Spoken language (ISO code); unset: the owner's. */
+  language?: string;
+}
 
 /** Tools whose result is drawn in the answer itself, not shown as a tool call. */
 const SHOWN_TOOLS = new Set([SHOW_IN_CHAT, VAULT_REQUEST, REQUEST_TAKEOVER]);
@@ -103,6 +153,8 @@ export interface RuntimeDeps {
   automations?: AutomationService;
   mcp?: McpService;
   connectors?: ConnectorService;
+  /** Transcribes voice messages; without it, they stay untranscribed. */
+  voice?: VoiceDeps;
   finishedPushAfterMs?: number;
   /** Shared with the vault, which reads and writes the computers' Chrome. */
   browser?: BrowserHub;
@@ -227,6 +279,8 @@ export class BotRuntime {
   private readonly live = new Map<string, MessagePart[]>();
   /** Takeover changes, applied one after the other. */
   private takeovers: Promise<void> = Promise.resolve();
+  /** Voice messages being transcribed. */
+  private readonly transcriptions = new Set<Promise<void>>();
   private unsubscribe: (() => void) | null = null;
   readonly screen = new ScreenLeases();
   readonly locks = new FileLocks();
@@ -468,21 +522,164 @@ export class BotRuntime {
     }
   }
 
-  async send(botId: string, text: string, mentions: Mention[] = []): Promise<Message> {
+  async send(
+    botId: string,
+    text: string,
+    mentions: Mention[] = [],
+    attachments: { path: string }[] = [],
+  ): Promise<Message> {
     const bot = await this.deps.bots.row(botId);
+    const attached = await resolveAttachments(this.deps.files, bot, attachments);
     // Writing to the bot moves on from the questions it asked.
     await this.deps.questions.closeOpen(botId);
     const { context, kept } = await resolveMentions(this.deps, bot, mentions);
     return this.post(
       botId,
-      context
-        ? `${text}
-
-${context}`
-        : text,
-      text,
+      [text, context, attached.context].filter(Boolean).join('\n\n'),
+      [...(text ? [{ type: 'text' as const, text }] : []), ...attached.parts],
       kept.length > 0 ? { mentions: kept } : undefined,
     );
+  }
+
+  /**
+   * A voice message from the user, stored in the bot's workspace: it shows at once with its
+   * waveform, is transcribed in the background, and the bot hears what was said.
+   */
+  async sendVoice(
+    botId: string,
+    voice: Pick<AudioPart, 'workspaceId' | 'path' | 'mimeType' | 'durationMs' | 'peaks'>,
+  ): Promise<Message> {
+    await this.deps.bots.row(botId);
+    await this.deps.questions.closeOpen(botId);
+    const [row] = await this.deps.db
+      .insert(messages)
+      .values({
+        botId,
+        role: 'user',
+        parts: [{ type: 'audio', ...voice, transcript: null, transcriptStatus: 'pending' }],
+        modelMessages: [{ role: 'user', content: VOICE_TEXT.pending }],
+        status: 'done',
+      })
+      .returning();
+    if (!row) throw new Error('Message insert returned no row');
+    this.publish(row);
+    this.transcribeLater(row.id);
+    return toMessage(row);
+  }
+
+  /**
+   * Transcribes again a voice message the bot could not hear. Answered past since, it moves to
+   * the end of the conversation, where the bot answers it.
+   */
+  async retryTranscript(botId: string, messageId: string): Promise<Message> {
+    const [row] = await this.deps.db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.id, messageId), eq(messages.botId, botId)));
+    if (!row || !audioOf(row)) {
+      throw new HttpProblem(404, 'voice_not_found', 'No voice message here');
+    }
+    if (!unheard(row)) {
+      throw new HttpProblem(409, 'transcript_settled', 'This voice message is not to transcribe');
+    }
+    const [newer] = await this.deps.db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(and(eq(messages.botId, botId), gt(messages.createdAt, row.createdAt)))
+      .limit(1);
+    const { steeredInto: _, ...meta } = row.meta ?? {};
+    if (newer) this.deps.events.publish({ type: 'message.deleted', botId, messageId });
+    const updated = await this.save(row.id, {
+      parts: row.parts.map((p) =>
+        p.type === 'audio' ? { ...p, transcript: null, transcriptStatus: 'pending' } : p,
+      ),
+      modelMessages: [{ role: 'user', content: VOICE_TEXT.pending }],
+      meta,
+      ...(newer ? { createdAt: new Date() } : {}),
+    });
+    this.transcribeLater(row.id);
+    return toMessage(updated);
+  }
+
+  private transcribeLater(messageId: string): void {
+    const job: Promise<void> = this.transcribe(messageId)
+      .catch((error) => this.log.error({ err: error, messageId }, 'Transcription crashed'))
+      .finally(() => this.transcriptions.delete(job));
+    this.transcriptions.add(job);
+  }
+
+  /**
+   * Decodes a voice message (converted to AAC when some players could not read it), fills in its
+   * real length and waveform, transcribes it, then wakes the bot up.
+   */
+  private async transcribe(messageId: string): Promise<void> {
+    const { db, files, voice } = this.deps;
+    const load = async () => {
+      const [row] = await db.select().from(messages).where(eq(messages.id, messageId));
+      return row;
+    };
+    const update = async (changes: Partial<AudioPart>, said?: string) => {
+      const current = await load();
+      if (!current) return null; // The conversation was cleared meanwhile.
+      return this.save(messageId, {
+        parts: current.parts.map((p) => (p.type === 'audio' ? { ...p, ...changes } : p)),
+        ...(said !== undefined ? { modelMessages: [{ role: 'user', content: said }] } : {}),
+      });
+    };
+    const row = await load();
+    const audio = row && audioOf(row);
+    if (!row || !audio) return;
+    let path = audio.path;
+    // Converted next to the original, which then goes.
+    let converted: { rel: string; abs: string } | null = null;
+    try {
+      if (!voice) throw new Error('No transcriber on this hub');
+      const file = await files.stat(audio.workspaceId, audio.path);
+      if (!playableEverywhere(file.name)) {
+        const base = nodePath.basename(file.name, nodePath.extname(file.name));
+        for (let n = 0; !converted; n++) {
+          const name = `${base}${n ? `-${n}` : ''}.m4a`;
+          const abs = nodePath.join(nodePath.dirname(file.abs), name);
+          if (!(await lstat(abs).catch(() => null))) {
+            const dir = parentOf(audio.path);
+            converted = { rel: dir ? `${dir}/${name}` : name, abs };
+          }
+        }
+      }
+      const samples = await decodeRecording(voice.ffmpeg, file.abs, converted?.abs);
+      if (converted) {
+        await files.unlink(audio.workspaceId, audio.path).catch(() => {});
+        path = converted.rel;
+        this.deps.events.publish({
+          type: 'workspace.changed',
+          workspaceId: audio.workspaceId,
+          paths: [parentOf(path)],
+        });
+      }
+      await update({
+        path,
+        ...(converted ? { mimeType: 'audio/mp4' } : {}),
+        durationMs: Math.round((samples.length / SAMPLE_RATE) * 1000),
+        ...(audio.peaks.length > 0 ? {} : { peaks: peaksOf(samples) }),
+      });
+      const [account] = await db.select({ locale: owner.locale }).from(owner).limit(1);
+      const transcript = await withTimeout(
+        voice.transcriber.transcribe(samples, voice.language ?? account?.locale ?? 'fr'),
+        TRANSCRIBE_TIMEOUT_MS,
+        'Transcription trop longue',
+      );
+      await update(
+        { transcript, transcriptStatus: 'done' },
+        transcript ? VOICE_TEXT.done(transcript) : VOICE_TEXT.silent,
+      );
+    } catch (error) {
+      this.log.warn({ err: error, messageId }, 'Voice message not transcribed');
+      // A conversion cut short leaves nothing behind.
+      if (converted && path !== converted.rel) await rm(converted.abs, { force: true });
+      await update({ transcriptStatus: 'failed' }, VOICE_TEXT.failed(path));
+    }
+    // Its words (or the messages that waited for them) call for an answer.
+    this.schedule(row.botId);
   }
 
   /** The user answered a bot's question: the answer reaches the bot as their message. */
@@ -502,11 +699,11 @@ ${context}`
     return question;
   }
 
-  /** A message from the user: `text` for the bot, `display` for the app. */
+  /** A message from the user: `text` for the bot, `display` for the app (a text, or parts). */
   private async post(
     botId: string,
     text: string,
-    display: string,
+    display: string | MessagePart[],
     meta?: MessageMeta,
   ): Promise<Message> {
     const [row] = await this.deps.db
@@ -514,7 +711,7 @@ ${context}`
       .values({
         botId,
         role: 'user',
-        parts: [{ type: 'text', text: display }],
+        parts: typeof display === 'string' ? [{ type: 'text', text: display }] : display,
         modelMessages: [{ role: 'user', content: text }],
         status: 'done',
         ...(meta ? { meta } : {}),
@@ -574,7 +771,8 @@ ${context}`
       .orderBy(asc(messages.createdAt));
     const taken: MessageRow[] = [];
     for (const row of rows) {
-      if (row.meta?.steeredInto) continue;
+      // A voice message joins once transcribed (the bot hears its words, not that it came).
+      if (row.meta?.steeredInto || awaitingTranscript(row)) continue;
       taken.push(await this.save(row.id, { meta: { ...row.meta, steeredInto: answer.id } }));
     }
     return taken;
@@ -924,10 +1122,16 @@ ${context}`
     while (this.chains.has(botId)) await this.chains.get(botId);
   }
 
-  /** Resolves when no bot has work queued, including work bots give each other (tests). */
+  /**
+   * Resolves when no bot has work queued, including work bots give each other and the answers
+   * to voice messages being transcribed (tests).
+   */
   async settle(): Promise<void> {
     await this.takeovers;
-    while (this.chains.size > 0) await Promise.allSettled([...this.chains.values()]);
+    while (this.chains.size > 0 || this.transcriptions.size > 0) {
+      await Promise.allSettled([...this.transcriptions]);
+      await Promise.allSettled([...this.chains.values()]);
+    }
   }
 
   async close(): Promise<void> {
@@ -939,6 +1143,8 @@ ${context}`
     for (const controller of this.controllers.values()) controller.abort();
     await Promise.allSettled(this.chains.values());
     await this.browser.close();
+    // Transcriptions under way start over at the next start (recover).
+    await this.deps.voice?.transcriber.close?.();
   }
 
   /** After a hub restart: interrupted runs are marked as such and bots go back to idle. */
@@ -951,6 +1157,14 @@ ${context}`
       .update(bots)
       .set({ status: 'idle', statusDetail: null })
       .where(inArray(bots.status, ['working', 'waiting_bot']));
+    // Voice messages left half-way are transcribed again.
+    const voices = await this.deps.db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(
+        sql`${messages.parts} @> ${JSON.stringify([{ type: 'audio', transcriptStatus: 'pending' }])}::jsonb`,
+      );
+    for (const { id } of voices) this.transcribeLater(id);
   }
 
   private schedule(botId: string): void {
@@ -1003,20 +1217,44 @@ ${context}`
     return models;
   }
 
-  /** Previous turns, oldest first, starting with a user message. */
-  private async history(botId: string, before: Date): Promise<ModelMessage[]> {
+  /**
+   * Previous turns, oldest first, starting with a user message. The pictures attached to the
+   * messages being answered (`fresh`) come along; older ones are only named.
+   */
+  private async history(botId: string, before: Date, fresh: Set<string>): Promise<ModelMessage[]> {
     const rows = await this.deps.db
       .select()
       .from(messages)
       .where(and(eq(messages.botId, botId), lt(messages.createdAt, before)))
       .orderBy(desc(messages.createdAt))
       .limit(HISTORY_MESSAGES);
-    const transcript = rows
-      .reverse()
-      .filter((row) => row.status !== 'streaming' && !row.meta?.steeredInto)
-      .flatMap((row) => row.modelMessages);
+    const transcript = (
+      await Promise.all(
+        rows
+          .reverse()
+          .filter((row) => row.status !== 'streaming' && !row.meta?.steeredInto)
+          .map((row) => (fresh.has(row.id) ? this.withPictures(row) : row.modelMessages)),
+      )
+    ).flat();
     const firstUser = transcript.findIndex((m) => m.role === 'user');
     return firstUser < 0 ? [] : transcript.slice(firstUser);
+  }
+
+  /** A user message as the model reads it, with the pictures attached to it. */
+  private async withPictures(
+    row: MessageRow,
+    modelMessages = row.modelMessages,
+  ): Promise<ModelMessage[]> {
+    const pictures = await picturesOf(this.deps.files, row.parts);
+    if (pictures.length === 0) return modelMessages;
+    return modelMessages.map((message, i): ModelMessage => {
+      if (i !== modelMessages.length - 1 || message.role !== 'user') return message;
+      const content =
+        typeof message.content === 'string'
+          ? [{ type: 'text' as const, text: message.content }]
+          : message.content;
+      return { ...message, content: [...content, ...pictures] };
+    });
   }
 
   /** The bot's computer, started on demand. */
@@ -1156,8 +1394,11 @@ ${context}`
     // What arrived since the bot last spoke: the user resets the bot-to-bot hop count.
     const answered = recent.findIndex((m) => m.role !== 'user');
     const incoming = answered < 0 ? recent : recent.slice(0, answered);
-    // Notes ("stopped by …") are context for later, not something to answer.
-    if (incoming.every((m) => m.meta?.silent)) return;
+    // A voice message still being transcribed: its words come first (they wake the bot up).
+    if (incoming.some(awaitingTranscript)) return;
+    // Notes ("stopped by …") are context for later, not something to answer; nor is a voice
+    // message the bot could not hear (the user can have it transcribed again).
+    if (incoming.every((m) => m.meta?.silent || unheard(m))) return;
     const autonomous = !incoming.some(fromOwner);
     const depth = autonomous ? Math.max(0, ...incoming.map((m) => m.meta?.depth ?? 0)) : 0;
     const askIds = incoming.flatMap((m) =>
@@ -1380,7 +1621,11 @@ ${context}`
             }
           : null,
       });
-      const history = await this.history(botId, created.createdAt);
+      const history = await this.history(
+        botId,
+        created.createdAt,
+        new Set(incoming.map((m) => m.id)),
+      );
 
       const appendText = (kind: 'text' | 'reasoning', text: string) => {
         const tail = parts.at(-1);
@@ -1404,12 +1649,13 @@ ${context}`
 
       // Messages that arrive while the bot works join its answer at its next step, where they
       // came in (a step's messages are rebuilt each time, so they are put back every step).
-      const steers: { at: number; messages: ModelMessage[] }[] = [];
-      const withSteers = (responses: ModelMessage[]) => {
+      // The model sees their pictures; the stored transcript only names them.
+      const steers: { at: number; messages: ModelMessage[]; stored: ModelMessage[] }[] = [];
+      const withSteers = (responses: ModelMessage[], as: 'messages' | 'stored' = 'messages') => {
         const out: ModelMessage[] = [];
         let from = 0;
         for (const steer of steers) {
-          out.push(...responses.slice(from, steer.at), ...steer.messages);
+          out.push(...responses.slice(from, steer.at), ...steer[as]);
           from = steer.at;
         }
         return [...out, ...responses.slice(from)];
@@ -1422,7 +1668,13 @@ ${context}`
             orgContext.depth = Math.max(orgContext.depth, (row.meta?.depth ?? 0) + 1);
           }
         }
-        steers.push({ at, messages: rows.flatMap(steeredMessages) });
+        steers.push({
+          at,
+          messages: (
+            await Promise.all(rows.map((row) => this.withPictures(row, steeredMessages(row))))
+          ).flat(),
+          stored: rows.flatMap(steeredMessages),
+        });
       };
 
       const maxSteps = autonomous ? MAX_AUTONOMOUS_STEPS : MAX_STEPS;
@@ -1537,7 +1789,7 @@ ${context}`
 
       await this.save(created.id, {
         parts,
-        modelMessages: stripBinary(withSteers(outcome.transcript)) as ModelMessage[],
+        modelMessages: stripBinary(withSteers(outcome.transcript, 'stored')) as ModelMessage[],
         status: 'done',
         ...(outcome.stepLimit ? { meta: { ...created.meta, stepLimit: true } } : {}),
         usage: {

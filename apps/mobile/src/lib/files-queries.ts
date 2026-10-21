@@ -1,7 +1,7 @@
 import type { FileEntry } from '@mowbot/contract';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DocumentPickerAsset } from 'expo-document-picker';
-import { Directory, File, Paths, UploadType } from 'expo-file-system';
+import { File } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useMemo, useState } from 'react';
 import { FILE_HEAD_BYTES, rangeTotal } from './board';
@@ -15,7 +15,10 @@ import {
   TEXT_PREVIEW_BYTES,
 } from './files';
 import { data, keys, useBots, useTeams } from './queries';
-import { api, authHeaders, hubUrl } from './session';
+import { api, hubUrl } from './session';
+import { cacheDirectory, freshAuthHeaders, postFile } from './uploads';
+
+export { uploadProblem } from './uploads';
 
 /** Every folder listing of a workspace (the event stream invalidates the same prefix). */
 const workspaceKey = (workspaceId: string) => ['files', workspaceId] as const;
@@ -93,15 +96,6 @@ export function useWorkspaceOwner(workspaceId: string): { name: string | null; p
     bots.data?.find((b) => !b.teamId && b.workspaceId === workspaceId) ??
     bots.data?.find((b) => b.workspaceId === workspaceId);
   return { name: team?.name ?? bot?.name ?? null, pending: teams.isPending || bots.isPending };
-}
-
-/**
- * Makes sure the access token held by the session is valid for a few more seconds: native
- * transfers (images, uploads) send it as is and cannot refresh it on a 401 like typed calls do.
- */
-async function freshAuthHeaders(): Promise<Record<string, string>> {
-  await api().GET('/api/v1/me');
-  return authHeaders();
 }
 
 /** Headers for an image loaded by URL, re-checked each time a preview opens. */
@@ -191,15 +185,6 @@ export function useFileHead(
   });
 }
 
-/** Fresh directory under the cache; `slot` is emptied first (its previous files are done). */
-function cacheDirectory(slot: string): Directory {
-  const root = new Directory(Paths.cache, slot);
-  if (root.exists) root.delete();
-  const dir = new Directory(root, String(Date.now()));
-  dir.create({ intermediates: true });
-  return dir;
-}
-
 interface DownloadOptions {
   /** `share` and `preview` use separate cache folders so one never deletes the other's file. */
   slot?: 'share' | 'preview';
@@ -242,55 +227,16 @@ export async function shareLocalFile(file: File, name: string): Promise<void> {
   await Sharing.shareAsync(file.uri, { mimeType: mimeTypeFor(name), dialogTitle: name });
 }
 
-class UploadFailed extends Error {
-  constructor(readonly problem: unknown) {
-    super('Upload failed');
-  }
-}
-
-/**
- * Stages a picked document under its real name (the multipart part is named after the local
- * file), then posts it like the web does: one `file` part, into `dir`.
- */
+/** A picked document, into a folder of the workspace (like the web's upload). */
 async function uploadOne(
   workspaceId: string,
   dir: string,
   asset: DocumentPickerAsset,
 ): Promise<void> {
-  const hub = hubUrl();
-  if (!hub) throw new Error('No hub');
-  const staged = new File(cacheDirectory('mowbot-upload'), localFileName(asset.name));
-  await new File(asset.uri).copy(staged);
-  const url = `${hub}/api/v1/workspaces/${encodeURIComponent(workspaceId)}/files/upload?path=${encodeURIComponent(dir)}`;
-  const send = async () =>
-    staged.upload(url, {
-      uploadType: UploadType.MULTIPART,
-      fieldName: 'file',
-      mimeType: asset.mimeType ?? mimeTypeFor(asset.name),
-      headers: await freshAuthHeaders(),
-      sessionType: 'foreground',
-    });
-  try {
-    let result = await send();
-    // The token expired mid-way: one more try with a refreshed one.
-    if (result.status === 401) result = await send();
-    if (result.status < 200 || result.status >= 300) {
-      let problem: unknown = null;
-      try {
-        problem = JSON.parse(result.body);
-      } catch {
-        // Not a problem document.
-      }
-      throw new UploadFailed(problem);
-    }
-  } finally {
-    if (staged.parentDirectory.exists) staged.parentDirectory.delete();
-  }
-}
-
-/** The error to inspect (`fileProblem`) when an upload fails. */
-export function uploadProblem(error: unknown): unknown {
-  return error instanceof UploadFailed ? error.problem : error;
+  await postFile(
+    `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/files/upload?path=${encodeURIComponent(dir)}`,
+    asset,
+  );
 }
 
 /** Changes to a workspace's files; every folder listing refreshes after each. */

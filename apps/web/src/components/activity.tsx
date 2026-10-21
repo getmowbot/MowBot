@@ -1,6 +1,5 @@
 import type { MessagePart } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
-import { useQuery } from '@tanstack/react-query';
 import {
   AlarmClock,
   AppWindow,
@@ -40,11 +39,11 @@ import {
   Wrench,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { i18n } from '../i18n';
-import { client } from '../lib/auth';
 import { cn } from '../lib/utils';
+import { useWorkspaceFileUrl } from './markdown-document';
 
 type ToolPart = Extract<MessagePart, { type: 'tool' }>;
 type ReasoningPart = Extract<MessagePart, { type: 'reasoning' }>;
@@ -400,23 +399,12 @@ function summarize(tools: ToolPart[]): string {
 
 function Screenshot({ workspaceId, path }: { workspaceId: string; path: string }) {
   const { t } = useTranslation();
-  const image = useQuery({
-    queryKey: ['file-blob', workspaceId, path],
-    staleTime: Number.POSITIVE_INFINITY,
-    queryFn: async () => {
-      const response = await client.fetch(
-        `/api/v1/workspaces/${workspaceId}/files/content?path=${encodeURIComponent(path)}`,
-      );
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return URL.createObjectURL(await response.blob());
-    },
-  });
-  useEffect(() => () => void (image.data && URL.revokeObjectURL(image.data)), [image.data]);
-  if (!image.data)
+  const image = useWorkspaceFileUrl(workspaceId, path);
+  if (!image.url)
     return <div className="aspect-[16/10] w-full animate-pulse rounded-lg bg-white/[0.04]" />;
   return (
     <img
-      src={image.data}
+      src={image.url}
       alt={t('activity.screenshotAlt')}
       className="w-full rounded-lg border border-border"
     />

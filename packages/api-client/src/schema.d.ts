@@ -601,10 +601,61 @@ export interface paths {
         /** @description Conversation with the bot, newest page first (items are oldest → newest). */
         get: operations["listMessages"];
         put?: never;
-        /** @description Posts a message to the bot. Its answer streams through `message.delta` / `message.updated` events. */
+        /** @description Posts a message to the bot, with files of its workspace attached if any (see `uploadAttachments`). Its answer streams through `message.delta` / `message.updated` events. */
         post: operations["sendMessage"];
         /** @description Starts the conversation over: stops the bot, deletes its messages and closes what it left open on its computer. Workspace files are kept. */
         delete: operations["clearMessages"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bots/{id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description multipart/form-data, one or more `file` parts (10 at most, 100 MB each), stored in the `inbox/` folder of the bot's workspace (`name (n).ext` when taken). Then send them with a message as `attachments`. */
+        post: operations["uploadAttachments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bots/{id}/messages/voice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description multipart/form-data: the recording as `file` (webm, m4a, ogg, mp3, wav…, 25 MB at most), and optionally `durationMs` and `peaks` (waveform bars, 0–1, comma-separated). Stored in `inbox/voice/` of the bot's workspace and shown at once; the hub transcribes it (`message.updated`), then the bot answers what was said. */
+        post: operations["sendVoiceMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bots/{id}/messages/{messageId}/transcribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Transcribes again a voice message the bot could not hear (failed, or nothing heard). Once done, the bot answers it; if the conversation went on since, it moves to its end. */
+        post: operations["retryTranscript"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4719,6 +4770,27 @@ export interface operations {
                                 text: string;
                             } | {
                                 /** @enum {string} */
+                                type: "attachment";
+                                /** Format: uuid */
+                                workspaceId: string;
+                                path: string;
+                                name: string;
+                                size: number;
+                                mimeType: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "audio";
+                                /** Format: uuid */
+                                workspaceId: string;
+                                path: string;
+                                mimeType: string;
+                                durationMs: number;
+                                peaks: number[];
+                                transcript: string | null;
+                                /** @enum {string} */
+                                transcriptStatus: "pending" | "done" | "failed";
+                            } | {
+                                /** @enum {string} */
                                 type: "tool";
                                 toolCallId: string;
                                 toolName: string;
@@ -4926,7 +4998,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    text: string;
+                    /** @default  */
+                    text?: string;
                     mentions?: ({
                         /** @enum {string} */
                         kind: "bot";
@@ -4947,6 +5020,9 @@ export interface operations {
                         /** Format: uuid */
                         id: string;
                     })[];
+                    attachments?: {
+                        path: string;
+                    }[];
                 };
             };
         };
@@ -4977,6 +5053,27 @@ export interface operations {
                             /** @enum {string} */
                             type: "reasoning";
                             text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "attachment";
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            name: string;
+                            size: number;
+                            mimeType: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "audio";
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            mimeType: string;
+                            durationMs: number;
+                            peaks: number[];
+                            transcript: string | null;
+                            /** @enum {string} */
+                            transcriptStatus: "pending" | "done" | "failed";
                         } | {
                             /** @enum {string} */
                             type: "tool";
@@ -5230,6 +5327,582 @@ export interface operations {
             };
         };
     };
+    uploadAttachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            name: string;
+                            size: number;
+                            mimeType: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    sendVoiceMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        /** @enum {string} */
+                        role: "user" | "assistant";
+                        fromBotId: string | null;
+                        fromName: string | null;
+                        /** @enum {string} */
+                        kind: "chat" | "ask" | "task" | "routine";
+                        taskId: string | null;
+                        parts: ({
+                            /** @enum {string} */
+                            type: "text";
+                            text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "reasoning";
+                            text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "attachment";
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            name: string;
+                            size: number;
+                            mimeType: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "audio";
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            mimeType: string;
+                            durationMs: number;
+                            peaks: number[];
+                            transcript: string | null;
+                            /** @enum {string} */
+                            transcriptStatus: "pending" | "done" | "failed";
+                        } | {
+                            /** @enum {string} */
+                            type: "tool";
+                            toolCallId: string;
+                            toolName: string;
+                            input: unknown;
+                            /** @enum {string} */
+                            state: "running" | "done" | "error";
+                            output?: string;
+                            image?: {
+                                /** Format: uuid */
+                                workspaceId: string;
+                                path: string;
+                            };
+                        } | {
+                            /** @enum {string} */
+                            type: "canvas";
+                            content: {
+                                /** @enum {string} */
+                                kind: "note";
+                                markdown: string;
+                                image?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "score";
+                                home: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                away: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                homeScore: number | null;
+                                awayScore: number | null;
+                                status: string;
+                                detail?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "stats";
+                                items: {
+                                    label: string;
+                                    value: string;
+                                    hint?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "checklist";
+                                items: {
+                                    id: string;
+                                    text: string;
+                                    done: boolean;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "html";
+                                html: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "card";
+                                title: string;
+                                subtitle?: string;
+                                text?: string;
+                                image?: string;
+                                /** Format: uri */
+                                url?: string;
+                                /** @default [] */
+                                buttons: {
+                                    label: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                    reply?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "file";
+                                path: string;
+                                name: string;
+                                /** @enum {string} */
+                                type: "file" | "directory";
+                                size: number;
+                                caption?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "gallery";
+                                images: {
+                                    src: string;
+                                    caption?: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                }[];
+                            };
+                            pressed: string | null;
+                        } | {
+                            /** @enum {string} */
+                            type: "vault_request";
+                            /** @enum {string} */
+                            kind: "login" | "secret";
+                            service: string;
+                            account: string | null;
+                            sites: string[];
+                            fields: ("username" | "password" | "totp" | "value")[];
+                            reason: string | null;
+                            itemId: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "saved" | "declined";
+                        } | {
+                            /** @enum {string} */
+                            type: "takeover_request";
+                            /** Format: uuid */
+                            computerId: string;
+                            reason: string;
+                            url: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "taken" | "returned";
+                        })[];
+                        steered: boolean;
+                        mentions: ({
+                            /** @enum {string} */
+                            kind: "bot";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "team";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "file";
+                            path: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "project";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        })[];
+                        /** @enum {string} */
+                        status: "streaming" | "done" | "error" | "stopped";
+                        stepLimit: boolean;
+                        errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
+                        error: string | null;
+                        usage: {
+                            inputTokens: number;
+                            outputTokens: number;
+                        } | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    retryTranscript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                messageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        /** @enum {string} */
+                        role: "user" | "assistant";
+                        fromBotId: string | null;
+                        fromName: string | null;
+                        /** @enum {string} */
+                        kind: "chat" | "ask" | "task" | "routine";
+                        taskId: string | null;
+                        parts: ({
+                            /** @enum {string} */
+                            type: "text";
+                            text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "reasoning";
+                            text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "attachment";
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            name: string;
+                            size: number;
+                            mimeType: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "audio";
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            mimeType: string;
+                            durationMs: number;
+                            peaks: number[];
+                            transcript: string | null;
+                            /** @enum {string} */
+                            transcriptStatus: "pending" | "done" | "failed";
+                        } | {
+                            /** @enum {string} */
+                            type: "tool";
+                            toolCallId: string;
+                            toolName: string;
+                            input: unknown;
+                            /** @enum {string} */
+                            state: "running" | "done" | "error";
+                            output?: string;
+                            image?: {
+                                /** Format: uuid */
+                                workspaceId: string;
+                                path: string;
+                            };
+                        } | {
+                            /** @enum {string} */
+                            type: "canvas";
+                            content: {
+                                /** @enum {string} */
+                                kind: "note";
+                                markdown: string;
+                                image?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "score";
+                                home: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                away: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                homeScore: number | null;
+                                awayScore: number | null;
+                                status: string;
+                                detail?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "stats";
+                                items: {
+                                    label: string;
+                                    value: string;
+                                    hint?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "checklist";
+                                items: {
+                                    id: string;
+                                    text: string;
+                                    done: boolean;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "html";
+                                html: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "card";
+                                title: string;
+                                subtitle?: string;
+                                text?: string;
+                                image?: string;
+                                /** Format: uri */
+                                url?: string;
+                                /** @default [] */
+                                buttons: {
+                                    label: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                    reply?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "file";
+                                path: string;
+                                name: string;
+                                /** @enum {string} */
+                                type: "file" | "directory";
+                                size: number;
+                                caption?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "gallery";
+                                images: {
+                                    src: string;
+                                    caption?: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                }[];
+                            };
+                            pressed: string | null;
+                        } | {
+                            /** @enum {string} */
+                            type: "vault_request";
+                            /** @enum {string} */
+                            kind: "login" | "secret";
+                            service: string;
+                            account: string | null;
+                            sites: string[];
+                            fields: ("username" | "password" | "totp" | "value")[];
+                            reason: string | null;
+                            itemId: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "saved" | "declined";
+                        } | {
+                            /** @enum {string} */
+                            type: "takeover_request";
+                            /** Format: uuid */
+                            computerId: string;
+                            reason: string;
+                            url: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "taken" | "returned";
+                        })[];
+                        steered: boolean;
+                        mentions: ({
+                            /** @enum {string} */
+                            kind: "bot";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "team";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "file";
+                            path: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "project";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        })[];
+                        /** @enum {string} */
+                        status: "streaming" | "done" | "error" | "stopped";
+                        stepLimit: boolean;
+                        errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
+                        error: string | null;
+                        usage: {
+                            inputTokens: number;
+                            outputTokens: number;
+                        } | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     pressMessageCard: {
         parameters: {
             query?: never;
@@ -5275,6 +5948,27 @@ export interface operations {
                             /** @enum {string} */
                             type: "reasoning";
                             text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "attachment";
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            name: string;
+                            size: number;
+                            mimeType: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "audio";
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            mimeType: string;
+                            durationMs: number;
+                            peaks: number[];
+                            transcript: string | null;
+                            /** @enum {string} */
+                            transcriptStatus: "pending" | "done" | "failed";
                         } | {
                             /** @enum {string} */
                             type: "tool";
@@ -5521,6 +6215,27 @@ export interface operations {
                             /** @enum {string} */
                             type: "reasoning";
                             text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "attachment";
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            name: string;
+                            size: number;
+                            mimeType: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "audio";
+                            /** Format: uuid */
+                            workspaceId: string;
+                            path: string;
+                            mimeType: string;
+                            durationMs: number;
+                            peaks: number[];
+                            transcript: string | null;
+                            /** @enum {string} */
+                            transcriptStatus: "pending" | "done" | "failed";
                         } | {
                             /** @enum {string} */
                             type: "tool";
@@ -6344,6 +7059,27 @@ export interface operations {
                                 /** @enum {string} */
                                 type: "reasoning";
                                 text: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "attachment";
+                                /** Format: uuid */
+                                workspaceId: string;
+                                path: string;
+                                name: string;
+                                size: number;
+                                mimeType: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "audio";
+                                /** Format: uuid */
+                                workspaceId: string;
+                                path: string;
+                                mimeType: string;
+                                durationMs: number;
+                                peaks: number[];
+                                transcript: string | null;
+                                /** @enum {string} */
+                                transcriptStatus: "pending" | "done" | "failed";
                             } | {
                                 /** @enum {string} */
                                 type: "tool";

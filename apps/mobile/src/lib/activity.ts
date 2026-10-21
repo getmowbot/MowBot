@@ -350,6 +350,8 @@ export function segments(parts: MessagePart[]): Segment[] {
       return;
     }
     if (part.type === 'tool' && part.toolName === SHOW_IN_CHAT && part.state === 'done') return;
+    // What the user sends (files, voice); never in an answer.
+    if (part.type === 'attachment' || part.type === 'audio') return;
     const tail = out.at(-1);
     if (tail?.kind === 'activity') tail.parts.push(part);
     else out.push({ kind: 'activity', parts: [part], index });

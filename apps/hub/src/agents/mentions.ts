@@ -10,8 +10,12 @@ import { projectPlace } from './local-tools';
 /** A text file this small is handed to the bot whole, as with @ in a code editor. */
 const INLINE_MAX_BYTES = 40_000;
 
-const size = (bytes: number) =>
-  bytes < 1024 ? `${bytes} o` : `${(bytes / 1024).toFixed(1).replace('.', ',')} Ko`;
+export const size = (bytes: number) =>
+  bytes < 1024
+    ? `${bytes} o`
+    : bytes < 1024 ** 2
+      ? `${(bytes / 1024).toFixed(1).replace('.', ',')} Ko`
+      : `${(bytes / 1024 ** 2).toFixed(1).replace('.', ',')} Mo`;
 
 /**
  * What the user pointed at with @ in a message: the bot reads who or what it is (a bot to write
@@ -98,16 +102,21 @@ export async function resolveMentions(
   return { context: `[Mentionnés avec @]\n${lines.join('\n')}`, kept };
 }
 
-/** A file or folder of the bot's workspace, as the bot sees it on its PC. */
-async function describeFile(
+/**
+ * A file or folder of the bot's workspace, as the bot sees it on its PC: a line starting with
+ * `label` (`@path` for a mention).
+ */
+export async function describeFile(
   files: WorkspaceFiles,
   bot: BotRow,
   input: string,
+  label?: string,
 ): Promise<{ path: string; text: string } | null> {
   if (!bot.workspaceId) return null;
   const entry = await files.stat(bot.workspaceId, input).catch(() => null);
   if (!entry) return null;
   const onPc = `/workspace/${entry.path}`;
+  const head = `- ${label ?? `@${entry.path}`} :`;
   if (entry.type === 'directory') {
     const { entries } = await files.list(bot.workspaceId, entry.path);
     const names = entries.map((e) => (e.type === 'directory' ? `${e.name}/` : e.name));
@@ -115,7 +124,7 @@ async function describeFile(
     const more = names.length > 30 ? ` et ${names.length - 30} autres` : '';
     return {
       path: entry.path,
-      text: `- @${entry.path} : le dossier ${onPc}/ (${names.length ? `${shown}${more}` : 'vide'}).`,
+      text: `${head} le dossier ${onPc}/ (${names.length ? `${shown}${more}` : 'vide'}).`,
     };
   }
   if (entry.size <= INLINE_MAX_BYTES) {
@@ -124,12 +133,12 @@ async function describeFile(
       const fence = text.includes('```') ? '~~~~' : '```';
       return {
         path: entry.path,
-        text: `- @${entry.path} : le fichier ${onPc} (${size(entry.size)}), son contenu :\n${fence}\n${text}\n${fence}`,
+        text: `${head} le fichier ${onPc} (${size(entry.size)}), son contenu :\n${fence}\n${text}\n${fence}`,
       };
     }
   }
   return {
     path: entry.path,
-    text: `- @${entry.path} : le fichier ${onPc} (${size(entry.size)}), à ouvrir sur ton PC si besoin.`,
+    text: `${head} le fichier ${onPc} (${size(entry.size)}), à ouvrir sur ton PC si besoin.`,
   };
 }

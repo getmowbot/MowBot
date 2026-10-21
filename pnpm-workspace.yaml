@@ -4,5 +4,7 @@ packages:
 allowBuilds:
   cpu-features: false
   esbuild: true
+  # CPU binaries ship in the package; its script only fetches the CUDA ones.
+  onnxruntime-node: false
   protobufjs: false
   ssh2: false

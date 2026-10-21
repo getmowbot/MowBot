@@ -126,7 +126,10 @@ export async function createTestApp(
   overrides: Partial<Config> = {},
   runtime = new FakeRuntime(),
   modelFor?: ServiceOverrides['modelFor'],
-  extra: Pick<ServiceOverrides, 'askTimeoutMs' | 'pushFetch' | 'finishedPushAfterMs'> = {},
+  extra: Pick<
+    ServiceOverrides,
+    'askTimeoutMs' | 'pushFetch' | 'finishedPushAfterMs' | 'transcriber'
+  > = {},
 ): Promise<TestApp & { runtime: FakeRuntime; workspacesDir: string }> {
   const workspacesDir = await mkdtemp(path.join(tmpdir(), 'mowbot-ws-'));
   const config: Config = {
@@ -141,7 +144,13 @@ export async function createTestApp(
   };
   const database: Database = await openDatabase(config.databaseUrl);
   await database.migrate();
-  const services = await createServices(config, database.db, { runtime, modelFor, ...extra });
+  const services = await createServices(config, database.db, {
+    runtime,
+    modelFor,
+    // Never Whisper in tests: no model download.
+    transcriber: { transcribe: () => Promise.reject(new Error('No transcriber in this test')) },
+    ...extra,
+  });
   const app = await buildApp(services);
   await app.ready();
   return {
@@ -172,6 +181,37 @@ export async function setupOwner(
 }
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
+
+/** multipart/form-data with fields first, then files (each with its own field name and type). */
+export function multipartForm(
+  fields: Record<string, string>,
+  files: { name: string; content: string | Buffer; type?: string; field?: string }[],
+) {
+  const boundary = `----mowbot${randomBytes(8).toString('hex')}`;
+  const chunks: Buffer[] = [];
+  for (const [name, value] of Object.entries(fields)) {
+    chunks.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`,
+      ),
+    );
+  }
+  for (const file of files) {
+    chunks.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${file.field ?? 'file'}"; filename="${file.name}"\r\n` +
+          `Content-Type: ${file.type ?? 'application/octet-stream'}\r\n\r\n`,
+      ),
+      Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content),
+      Buffer.from('\r\n'),
+    );
+  }
+  chunks.push(Buffer.from(`--${boundary}--\r\n`));
+  return {
+    payload: Buffer.concat(chunks),
+    headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+  };
+}
 
 /** Minimal multipart/form-data body with one `file` part per entry. */
 export function multipart(files: { name: string; content: string | Buffer }[]) {

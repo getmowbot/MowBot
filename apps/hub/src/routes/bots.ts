@@ -1,4 +1,5 @@
 import {
+  attachmentUploadSchema,
   botBrowserSchema,
   botCreateSchema,
   botIdParamsSchema,
@@ -7,6 +8,8 @@ import {
   botProjectSchema,
   botSchema,
   botUpdateSchema,
+  type FileEntry,
+  MAX_ATTACHMENTS,
   messageListQuerySchema,
   messageListSchema,
   messagePressParamsSchema,
@@ -14,19 +17,47 @@ import {
   messageSchema,
   sendMessageSchema,
   vaultRequestAnswerSchema,
+  voiceFieldsSchema,
 } from '@mowbot/contract';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { toBot, toMessage } from '../bots/service';
+import { INBOX, toAttachment } from '../agents/attachments';
+import { type BotRow, toBot, toMessage } from '../bots/service';
 import { messages } from '../db/schema';
 import { bearerSecurity, requireAuth } from '../http/auth-hook';
 import { errorResponses, HttpProblem } from '../http/problems';
+import { audioTypeOf, parsePeaks, voiceExtension } from '../voice/audio';
 
 const tags = ['bots'];
 
+/** A file sent in a conversation (a document, a photo, a video…). */
+const ATTACHMENT_MAX_BYTES = 100 * 1024 ** 2;
+/** About an hour of speech, whatever the format. */
+const VOICE_MAX_BYTES = 25 * 1024 ** 2;
+
+/** `voice-2026-10-21-143205`, in the hub's time zone. */
+function voiceName(now: Date, timeZone: string): string {
+  const stamp = new Intl.DateTimeFormat('sv-SE', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(now);
+  return `voice-${stamp.replace(' ', '-').replaceAll(':', '')}`;
+}
+
+function workspaceOf(bot: BotRow): string {
+  if (!bot.workspaceId) throw new HttpProblem(409, 'no_workspace', 'This bot has no workspace');
+  return bot.workspaceId;
+}
+
 export const botRoutes: FastifyPluginAsyncZod = async (app) => {
-  const { bots, runtime, providers, db, files, org, routines } = app.services;
+  const { bots, runtime, providers, db, files, org, routines, events } = app.services;
 
   app.get(
     '/bots',
@@ -206,7 +237,7 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
         tags,
         operationId: 'sendMessage',
         description:
-          'Posts a message to the bot. Its answer streams through `message.delta` / `message.updated` events.',
+          'Posts a message to the bot, with files of its workspace attached if any (see `uploadAttachments`). Its answer streams through `message.delta` / `message.updated` events.',
         security: bearerSecurity,
         params: botIdParamsSchema,
         body: sendMessageSchema,
@@ -216,7 +247,120 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request, reply) =>
       reply
         .code(202)
-        .send(await runtime.send(request.params.id, request.body.text, request.body.mentions)),
+        .send(
+          await runtime.send(
+            request.params.id,
+            request.body.text,
+            request.body.mentions,
+            request.body.attachments,
+          ),
+        ),
+  );
+
+  app.post(
+    '/bots/:id/attachments',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags,
+        operationId: 'uploadAttachments',
+        description:
+          "multipart/form-data, one or more `file` parts (10 at most, 100 MB each), stored in the `inbox/` folder of the bot's workspace (`name (n).ext` when taken). Then send them with a message as `attachments`.",
+        security: bearerSecurity,
+        params: botIdParamsSchema,
+        response: { 200: attachmentUploadSchema, ...errorResponses },
+      },
+    },
+    async (request) => {
+      const workspaceId = workspaceOf(await bots.row(request.params.id));
+      if (!request.isMultipart()) {
+        throw new HttpProblem(415, 'unsupported_media_type', 'Expected multipart/form-data');
+      }
+      await files.ensureDir(workspaceId, INBOX);
+      const entries: FileEntry[] = [];
+      for await (const part of request.files({
+        limits: { fileSize: ATTACHMENT_MAX_BYTES, files: MAX_ATTACHMENTS },
+      })) {
+        entries.push(await files.write(workspaceId, INBOX, part.filename, part.file));
+      }
+      if (entries.length > 0) {
+        events.publish({ type: 'workspace.changed', workspaceId, paths: [INBOX] });
+      }
+      return { items: entries.map((entry) => toAttachment(workspaceId, entry)) };
+    },
+  );
+
+  app.post(
+    '/bots/:id/messages/voice',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags,
+        operationId: 'sendVoiceMessage',
+        description:
+          "multipart/form-data: the recording as `file` (webm, m4a, ogg, mp3, wav…, 25 MB at most), and optionally `durationMs` and `peaks` (waveform bars, 0–1, comma-separated). Stored in `inbox/voice/` of the bot's workspace and shown at once; the hub transcribes it (`message.updated`), then the bot answers what was said.",
+        security: bearerSecurity,
+        params: botIdParamsSchema,
+        response: { 202: messageSchema, ...errorResponses },
+      },
+    },
+    async (request, reply) => {
+      const bot = await bots.row(request.params.id);
+      const workspaceId = workspaceOf(bot);
+      if (!request.isMultipart()) {
+        throw new HttpProblem(415, 'unsupported_media_type', 'Expected multipart/form-data');
+      }
+      const fields: Record<string, string> = {};
+      let stored: FileEntry | null = null;
+      for await (const part of request.parts({
+        limits: { fileSize: VOICE_MAX_BYTES, files: 1, fields: 5 },
+      })) {
+        if (part.type === 'field') {
+          fields[part.fieldname] = String(part.value);
+          continue;
+        }
+        const ext = voiceExtension(part.mimetype, part.filename);
+        if (!ext) {
+          part.file.resume();
+          throw new HttpProblem(415, 'unsupported_audio', 'Not a recording this hub can read');
+        }
+        const dir = await files.ensureDir(workspaceId, `${INBOX}/voice`);
+        const name = `${voiceName(new Date(), routines.timeZone)}${ext}`;
+        stored = await files.write(workspaceId, dir, name, part.file);
+      }
+      if (!stored) throw new HttpProblem(400, 'missing_file', 'Send the recording as `file`');
+      const parsed = voiceFieldsSchema.safeParse(fields);
+      const voice = parsed.success ? parsed.data : {};
+      events.publish({ type: 'workspace.changed', workspaceId, paths: [`${INBOX}/voice`] });
+      const message = await runtime.sendVoice(bot.id, {
+        workspaceId,
+        path: stored.path,
+        mimeType: audioTypeOf(stored.name),
+        durationMs: voice.durationMs ?? 0,
+        peaks: parsePeaks(voice.peaks) ?? [],
+      });
+      return reply.code(202).send(message);
+    },
+  );
+
+  app.post(
+    '/bots/:id/messages/:messageId/transcribe',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags,
+        operationId: 'retryTranscript',
+        description:
+          'Transcribes again a voice message the bot could not hear (failed, or nothing heard). Once done, the bot answers it; if the conversation went on since, it moves to its end.',
+        security: bearerSecurity,
+        params: messagePressParamsSchema,
+        response: { 202: messageSchema, ...errorResponses },
+      },
+    },
+    async (request, reply) =>
+      reply
+        .code(202)
+        .send(await runtime.retryTranscript(request.params.id, request.params.messageId)),
   );
 
   app.post(

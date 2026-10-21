@@ -1,6 +1,7 @@
 import { en as appAdmin } from './areas/appAdmin';
 import { en as board } from './areas/board';
 import { en as chatInput } from './areas/chatInput';
+import { en as chatMedia } from './areas/chatMedia';
 import { en as filesView } from './areas/filesView';
 import { en as mcp } from './areas/mcp';
 import { en as orgAdmin } from './areas/orgAdmin';
@@ -302,6 +303,7 @@ export const en: Catalog = {
   mcp,
   projects,
   chatInput,
+  chatMedia,
   push,
   takeoverCard,
 };

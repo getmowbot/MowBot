@@ -20,10 +20,12 @@ import { Composer } from '../../../components/chat/composer';
 import { ChatEmptyState } from '../../../components/chat/empty-state';
 import { KeepInViewContext, type Measurable } from '../../../components/chat/keep-in-view';
 import { BotMessage, IncomingMessage, UserMessage } from '../../../components/chat/messages';
+import { discardRecording } from '../../../components/chat/voice-recorder';
 import { ChatQuestions } from '../../../components/questions';
 import { reveal } from '../../../components/reveal';
 import { Button } from '../../../components/ui/button';
 import { EdgeFade } from '../../../components/ui/edge-fade';
+import { ShimmerText } from '../../../components/ui/shimmer-text';
 import { Surface } from '../../../components/ui/surface';
 import { T } from '../../../components/ui/text';
 import { moodOf } from '../../../lib/bot-mood';
@@ -32,10 +34,12 @@ import { incomingPlaces } from '../../../lib/incoming';
 import { liveMessage } from '../../../lib/message-cache';
 import {
   type Outgoing,
+  type OutgoingVoice,
   useBots,
   useConversation,
   useProviders,
   useSendMessage,
+  useSendVoice,
 } from '../../../lib/queries';
 import { colors } from '../../../theme';
 
@@ -57,6 +61,7 @@ export default function ChatScreen() {
   const conversation = useConversation(botId);
   const providers = useProviders();
   const send = useSendMessage(botId);
+  const sendVoice = useSendVoice(botId);
   const [headerHeight, setHeaderHeight] = useState(insets.top + 64);
   const [dockHeight, setDockHeight] = useState(insets.bottom + 64);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +154,19 @@ export default function ChatScreen() {
 
   const sendMessage = (message: Outgoing) => {
     setError(null);
-    send.mutate(message, { onError: () => setError(t('errors.messageNotSent')) });
+    return send.mutateAsync(message).catch((failure: unknown) => {
+      setError(t('errors.messageNotSent'));
+      throw failure;
+    });
+  };
+
+  /** Shown at once; the recording's file goes once the hub has it (or could not take it). */
+  const sendRecording = (voice: OutgoingVoice) => {
+    setError(null);
+    sendVoice.mutate(voice, {
+      onError: () => setError(t('chatMedia.voice.notSent')),
+      onSettled: () => discardRecording(voice.uri),
+    });
   };
 
   const renderItem: ListRenderItem<Message> = ({ item, index }) => {
@@ -165,7 +182,9 @@ export default function ChatScreen() {
           bot={bot}
           // Newest first: only the last answer can be resumed.
           onContinue={
-            index === 0 && !send.isPending ? () => sendMessage({ text: 'Continue' }) : undefined
+            index === 0 && !send.isPending
+              ? () => void sendMessage({ text: 'Continue' }).catch(() => {})
+              : undefined
           }
         />
       );
@@ -208,7 +227,10 @@ export default function ChatScreen() {
         ListEmptyComponent={
           conversation.isSuccess ? (
             <View style={styles.empty}>
-              <ChatEmptyState bot={bot} onPick={(text) => sendMessage({ text })} />
+              <ChatEmptyState
+                bot={bot}
+                onPick={(text) => void sendMessage({ text }).catch(() => {})}
+              />
             </View>
           ) : (
             <View style={styles.empty}>
@@ -251,7 +273,10 @@ export default function ChatScreen() {
             </T>
           )}
           <ChatQuestions botId={bot.id} />
-          <Composer bot={bot} onSend={sendMessage} />
+          {send.isPending && Boolean(send.variables?.files?.length) && (
+            <ShimmerText style={styles.sending}>{t('chatMedia.attach.sending')}</ShimmerText>
+          )}
+          <Composer bot={bot} onSend={sendMessage} onSendVoice={sendRecording} />
         </View>
       </KeyboardStickyView>
     </View>
@@ -274,4 +299,5 @@ const styles = StyleSheet.create({
   notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
   noticeText: { flex: 1 },
   error: { paddingHorizontal: 8 },
+  sending: { fontSize: 13, lineHeight: 18, paddingHorizontal: 8 },
 });

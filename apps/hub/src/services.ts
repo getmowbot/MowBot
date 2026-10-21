@@ -27,6 +27,7 @@ import { Scheduler } from './proactivity/scheduler';
 import { ProviderService } from './providers/service';
 import { PushService } from './push/service';
 import { VaultService } from './vault/service';
+import { type Transcriber, WhisperTranscriber } from './voice/whisper';
 import { WorkspaceFiles } from './workspaces/files';
 
 /** Everything route handlers need, built once at startup (and per test). */
@@ -71,6 +72,8 @@ export interface ServiceOverrides {
   pushFetch?: typeof fetch;
   /** Tests push "finished" right away. */
   finishedPushAfterMs?: number;
+  /** Tests transcribe voice messages without Whisper (no model download). */
+  transcriber?: Transcriber;
 }
 
 export async function createServices(
@@ -144,6 +147,13 @@ export async function createServices(
     automations,
     mcp,
     connectors,
+    voice: {
+      transcriber:
+        overrides.transcriber ??
+        new WhisperTranscriber({ model: config.voice.model, cacheDir: config.voice.modelsDir }),
+      ffmpeg: config.voice.ffmpeg,
+      language: config.voice.language,
+    },
     finishedPushAfterMs: overrides.finishedPushAfterMs,
     modelFor: overrides.modelFor,
     askTimeoutMs: overrides.askTimeoutMs,
