@@ -542,6 +542,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/bots/{id}/messages/{messageId}/press": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Presses a button of a card the bot showed in that message: its reply reaches the bot as your answer (once per card). Buttons that only open a link are opened by the app itself. */
+        post: operations["pressMessageCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bots/{id}/messages/{messageId}/vault-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Answers a vault request the bot showed in that message: the values go straight into the vault (the bot only learns the reference), or `declined: true`. */
+        post: operations["answerVaultRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/bots/{id}/stop": {
         parameters: {
             query?: never;
@@ -1031,6 +1065,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["updateChecklistItem"];
+        trace?: never;
+    };
+    "/api/v1/canvases/{id}/press": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Presses a button of a card pinned on the home page: its reply reaches the bot that pinned it. */
+        post: operations["pressCanvasCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -4057,7 +4108,91 @@ export interface operations {
                                     workspaceId: string;
                                     path: string;
                                 };
+                            } | {
+                                /** @enum {string} */
+                                type: "canvas";
+                                content: {
+                                    /** @enum {string} */
+                                    kind: "note";
+                                    markdown: string;
+                                    image?: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "score";
+                                    home: {
+                                        name: string;
+                                        logo?: string;
+                                    };
+                                    away: {
+                                        name: string;
+                                        logo?: string;
+                                    };
+                                    homeScore: number | null;
+                                    awayScore: number | null;
+                                    status: string;
+                                    detail?: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "stats";
+                                    items: {
+                                        label: string;
+                                        value: string;
+                                        hint?: string;
+                                    }[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "checklist";
+                                    items: {
+                                        id: string;
+                                        text: string;
+                                        done: boolean;
+                                    }[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "html";
+                                    html: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "card";
+                                    title: string;
+                                    subtitle?: string;
+                                    text?: string;
+                                    image?: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                    /** @default [] */
+                                    buttons: {
+                                        label: string;
+                                        /** Format: uri */
+                                        url?: string;
+                                        reply?: string;
+                                    }[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "gallery";
+                                    images: {
+                                        src: string;
+                                        caption?: string;
+                                        /** Format: uri */
+                                        url?: string;
+                                    }[];
+                                };
+                                pressed: string | null;
+                            } | {
+                                /** @enum {string} */
+                                type: "vault_request";
+                                /** @enum {string} */
+                                kind: "login" | "secret";
+                                service: string;
+                                account: string | null;
+                                sites: string[];
+                                fields: ("username" | "password" | "totp" | "value")[];
+                                reason: string | null;
+                                itemId: string | null;
+                                /** @enum {string} */
+                                status: "pending" | "saved" | "declined";
                             })[];
+                            steered: boolean;
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
                             errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
@@ -4170,7 +4305,91 @@ export interface operations {
                                 workspaceId: string;
                                 path: string;
                             };
+                        } | {
+                            /** @enum {string} */
+                            type: "canvas";
+                            content: {
+                                /** @enum {string} */
+                                kind: "note";
+                                markdown: string;
+                                image?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "score";
+                                home: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                away: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                homeScore: number | null;
+                                awayScore: number | null;
+                                status: string;
+                                detail?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "stats";
+                                items: {
+                                    label: string;
+                                    value: string;
+                                    hint?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "checklist";
+                                items: {
+                                    id: string;
+                                    text: string;
+                                    done: boolean;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "html";
+                                html: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "card";
+                                title: string;
+                                subtitle?: string;
+                                text?: string;
+                                image?: string;
+                                /** Format: uri */
+                                url?: string;
+                                /** @default [] */
+                                buttons: {
+                                    label: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                    reply?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "gallery";
+                                images: {
+                                    src: string;
+                                    caption?: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                }[];
+                            };
+                            pressed: string | null;
+                        } | {
+                            /** @enum {string} */
+                            type: "vault_request";
+                            /** @enum {string} */
+                            kind: "login" | "secret";
+                            service: string;
+                            account: string | null;
+                            sites: string[];
+                            fields: ("username" | "password" | "totp" | "value")[];
+                            reason: string | null;
+                            itemId: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "saved" | "declined";
                         })[];
+                        steered: boolean;
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
@@ -4241,6 +4460,406 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    pressMessageCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                messageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    part: number;
+                    button: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        /** @enum {string} */
+                        role: "user" | "assistant";
+                        fromBotId: string | null;
+                        fromName: string | null;
+                        /** @enum {string} */
+                        kind: "chat" | "ask" | "task" | "routine";
+                        taskId: string | null;
+                        parts: ({
+                            /** @enum {string} */
+                            type: "text";
+                            text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "reasoning";
+                            text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "tool";
+                            toolCallId: string;
+                            toolName: string;
+                            input: unknown;
+                            /** @enum {string} */
+                            state: "running" | "done" | "error";
+                            output?: string;
+                            image?: {
+                                /** Format: uuid */
+                                workspaceId: string;
+                                path: string;
+                            };
+                        } | {
+                            /** @enum {string} */
+                            type: "canvas";
+                            content: {
+                                /** @enum {string} */
+                                kind: "note";
+                                markdown: string;
+                                image?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "score";
+                                home: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                away: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                homeScore: number | null;
+                                awayScore: number | null;
+                                status: string;
+                                detail?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "stats";
+                                items: {
+                                    label: string;
+                                    value: string;
+                                    hint?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "checklist";
+                                items: {
+                                    id: string;
+                                    text: string;
+                                    done: boolean;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "html";
+                                html: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "card";
+                                title: string;
+                                subtitle?: string;
+                                text?: string;
+                                image?: string;
+                                /** Format: uri */
+                                url?: string;
+                                /** @default [] */
+                                buttons: {
+                                    label: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                    reply?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "gallery";
+                                images: {
+                                    src: string;
+                                    caption?: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                }[];
+                            };
+                            pressed: string | null;
+                        } | {
+                            /** @enum {string} */
+                            type: "vault_request";
+                            /** @enum {string} */
+                            kind: "login" | "secret";
+                            service: string;
+                            account: string | null;
+                            sites: string[];
+                            fields: ("username" | "password" | "totp" | "value")[];
+                            reason: string | null;
+                            itemId: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "saved" | "declined";
+                        })[];
+                        steered: boolean;
+                        /** @enum {string} */
+                        status: "streaming" | "done" | "error" | "stopped";
+                        errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
+                        error: string | null;
+                        usage: {
+                            inputTokens: number;
+                            outputTokens: number;
+                        } | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    answerVaultRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                messageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    part: number;
+                    values?: {
+                        username?: string;
+                        password?: string;
+                        totp?: string;
+                        value?: string;
+                    };
+                    declined?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        /** @enum {string} */
+                        role: "user" | "assistant";
+                        fromBotId: string | null;
+                        fromName: string | null;
+                        /** @enum {string} */
+                        kind: "chat" | "ask" | "task" | "routine";
+                        taskId: string | null;
+                        parts: ({
+                            /** @enum {string} */
+                            type: "text";
+                            text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "reasoning";
+                            text: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "tool";
+                            toolCallId: string;
+                            toolName: string;
+                            input: unknown;
+                            /** @enum {string} */
+                            state: "running" | "done" | "error";
+                            output?: string;
+                            image?: {
+                                /** Format: uuid */
+                                workspaceId: string;
+                                path: string;
+                            };
+                        } | {
+                            /** @enum {string} */
+                            type: "canvas";
+                            content: {
+                                /** @enum {string} */
+                                kind: "note";
+                                markdown: string;
+                                image?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "score";
+                                home: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                away: {
+                                    name: string;
+                                    logo?: string;
+                                };
+                                homeScore: number | null;
+                                awayScore: number | null;
+                                status: string;
+                                detail?: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "stats";
+                                items: {
+                                    label: string;
+                                    value: string;
+                                    hint?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "checklist";
+                                items: {
+                                    id: string;
+                                    text: string;
+                                    done: boolean;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "html";
+                                html: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "card";
+                                title: string;
+                                subtitle?: string;
+                                text?: string;
+                                image?: string;
+                                /** Format: uri */
+                                url?: string;
+                                /** @default [] */
+                                buttons: {
+                                    label: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                    reply?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "gallery";
+                                images: {
+                                    src: string;
+                                    caption?: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                }[];
+                            };
+                            pressed: string | null;
+                        } | {
+                            /** @enum {string} */
+                            type: "vault_request";
+                            /** @enum {string} */
+                            kind: "login" | "secret";
+                            service: string;
+                            account: string | null;
+                            sites: string[];
+                            fields: ("username" | "password" | "totp" | "value")[];
+                            reason: string | null;
+                            itemId: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "saved" | "declined";
+                        })[];
+                        steered: boolean;
+                        /** @enum {string} */
+                        status: "streaming" | "done" | "error" | "stopped";
+                        errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
+                        error: string | null;
+                        usage: {
+                            inputTokens: number;
+                            outputTokens: number;
+                        } | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
             };
             /** @description Default Response */
             "4XX": {
@@ -4923,7 +5542,91 @@ export interface operations {
                                     workspaceId: string;
                                     path: string;
                                 };
+                            } | {
+                                /** @enum {string} */
+                                type: "canvas";
+                                content: {
+                                    /** @enum {string} */
+                                    kind: "note";
+                                    markdown: string;
+                                    image?: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "score";
+                                    home: {
+                                        name: string;
+                                        logo?: string;
+                                    };
+                                    away: {
+                                        name: string;
+                                        logo?: string;
+                                    };
+                                    homeScore: number | null;
+                                    awayScore: number | null;
+                                    status: string;
+                                    detail?: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "stats";
+                                    items: {
+                                        label: string;
+                                        value: string;
+                                        hint?: string;
+                                    }[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "checklist";
+                                    items: {
+                                        id: string;
+                                        text: string;
+                                        done: boolean;
+                                    }[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "html";
+                                    html: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "card";
+                                    title: string;
+                                    subtitle?: string;
+                                    text?: string;
+                                    image?: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                    /** @default [] */
+                                    buttons: {
+                                        label: string;
+                                        /** Format: uri */
+                                        url?: string;
+                                        reply?: string;
+                                    }[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "gallery";
+                                    images: {
+                                        src: string;
+                                        caption?: string;
+                                        /** Format: uri */
+                                        url?: string;
+                                    }[];
+                                };
+                                pressed: string | null;
+                            } | {
+                                /** @enum {string} */
+                                type: "vault_request";
+                                /** @enum {string} */
+                                kind: "login" | "secret";
+                                service: string;
+                                account: string | null;
+                                sites: string[];
+                                fields: ("username" | "password" | "totp" | "value")[];
+                                reason: string | null;
+                                itemId: string | null;
+                                /** @enum {string} */
+                                status: "pending" | "saved" | "declined";
                             })[];
+                            steered: boolean;
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
                             errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
@@ -6813,6 +7516,31 @@ export interface operations {
                                 /** @enum {string} */
                                 kind: "html";
                                 html: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "card";
+                                title: string;
+                                subtitle?: string;
+                                text?: string;
+                                image?: string;
+                                /** Format: uri */
+                                url?: string;
+                                /** @default [] */
+                                buttons: {
+                                    label: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                    reply?: string;
+                                }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "gallery";
+                                images: {
+                                    src: string;
+                                    caption?: string;
+                                    /** Format: uri */
+                                    url?: string;
+                                }[];
                             };
                             position: number;
                             hidden: boolean;
@@ -6998,6 +7726,31 @@ export interface operations {
                             /** @enum {string} */
                             kind: "html";
                             html: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "card";
+                            title: string;
+                            subtitle?: string;
+                            text?: string;
+                            image?: string;
+                            /** Format: uri */
+                            url?: string;
+                            /** @default [] */
+                            buttons: {
+                                label: string;
+                                /** Format: uri */
+                                url?: string;
+                                reply?: string;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "gallery";
+                            images: {
+                                src: string;
+                                caption?: string;
+                                /** Format: uri */
+                                url?: string;
+                            }[];
                         };
                         position: number;
                         hidden: boolean;
@@ -7183,6 +7936,31 @@ export interface operations {
                             /** @enum {string} */
                             kind: "html";
                             html: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "card";
+                            title: string;
+                            subtitle?: string;
+                            text?: string;
+                            image?: string;
+                            /** Format: uri */
+                            url?: string;
+                            /** @default [] */
+                            buttons: {
+                                label: string;
+                                /** Format: uri */
+                                url?: string;
+                                reply?: string;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "gallery";
+                            images: {
+                                src: string;
+                                caption?: string;
+                                /** Format: uri */
+                                url?: string;
+                            }[];
                         };
                         position: number;
                         hidden: boolean;
@@ -7301,6 +8079,31 @@ export interface operations {
                             /** @enum {string} */
                             kind: "html";
                             html: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "card";
+                            title: string;
+                            subtitle?: string;
+                            text?: string;
+                            image?: string;
+                            /** Format: uri */
+                            url?: string;
+                            /** @default [] */
+                            buttons: {
+                                label: string;
+                                /** Format: uri */
+                                url?: string;
+                                reply?: string;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "gallery";
+                            images: {
+                                src: string;
+                                caption?: string;
+                                /** Format: uri */
+                                url?: string;
+                            }[];
                         };
                         position: number;
                         hidden: boolean;
@@ -7426,6 +8229,31 @@ export interface operations {
                             /** @enum {string} */
                             kind: "html";
                             html: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "card";
+                            title: string;
+                            subtitle?: string;
+                            text?: string;
+                            image?: string;
+                            /** Format: uri */
+                            url?: string;
+                            /** @default [] */
+                            buttons: {
+                                label: string;
+                                /** Format: uri */
+                                url?: string;
+                                reply?: string;
+                            }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "gallery";
+                            images: {
+                                src: string;
+                                caption?: string;
+                                /** Format: uri */
+                                url?: string;
+                            }[];
                         };
                         position: number;
                         hidden: boolean;
@@ -7436,6 +8264,70 @@ export interface operations {
                         createdAt: string;
                     };
                 };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    pressCanvasCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    button: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Default Response */
             "4XX": {

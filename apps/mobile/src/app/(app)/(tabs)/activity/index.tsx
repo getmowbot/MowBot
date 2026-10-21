@@ -5,8 +5,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
+import { NOTIFICATION_INSET, NotificationRow } from '../../../../components/board/notification-row';
 import { BotAvatar } from '../../../../components/bot-avatar';
 import { openChat } from '../../../../components/bot-row';
+import { ListCard } from '../../../../components/list-card';
 import { Markdown } from '../../../../components/markdown';
 import { reveal } from '../../../../components/reveal';
 import { Section, TabScroll } from '../../../../components/tab-scroll';
@@ -15,6 +17,12 @@ import { Segmented } from '../../../../components/ui/segmented';
 import { Surface } from '../../../../components/ui/surface';
 import { T } from '../../../../components/ui/text';
 import { Touchable } from '../../../../components/ui/touchable';
+import { groupByDay } from '../../../../lib/board';
+import {
+  useClearNotifications,
+  useMarkNotificationsRead,
+  useNotifications,
+} from '../../../../lib/board-queries';
 import { markdownToPlain } from '../../../../lib/markdown';
 import { messageText } from '../../../../lib/message-cache';
 import { alertError, confirm } from '../../../../lib/options-menu';
@@ -30,7 +38,7 @@ import {
 import { timeAgo } from '../../../../lib/time';
 import { colors } from '../../../../theme';
 
-type Tab = 'tasks' | 'exchanges';
+type Tab = 'notifications' | 'tasks' | 'exchanges';
 
 const COLUMNS: { key: 'doing' | 'todo' | 'blocked' | 'done'; statuses: TaskStatus[] }[] = [
   { key: 'doing', statuses: ['doing'] },
@@ -215,16 +223,91 @@ function Exchanges({ byId }: { byId: Map<string, Bot> }) {
   );
 }
 
-/** What the bots do together: the tasks they hand each other, and what they write. */
+/**
+ * What the bots let the user know (the latest 100, by day): tapping an unread one marks it
+ * read. Live: the hub's events refresh the list.
+ */
+function Notifications({ byId }: { byId: Map<string, Bot> }) {
+  const { t } = useTranslation();
+  const notifications = useNotifications();
+  const read = useMarkNotificationsRead();
+  if (notifications.isPending) return <ActivityIndicator color={colors.textMuted} />;
+  if (notifications.isError) {
+    return (
+      <View style={styles.failed}>
+        <T variant="footnote" tone="faint" style={styles.flex}>
+          {t('board.loadFailed')}
+        </T>
+        <Button
+          label={t('common.retry')}
+          variant="secondary"
+          onPress={() => void notifications.refetch()}
+          style={styles.retry}
+        />
+      </View>
+    );
+  }
+  const { items, unread } = notifications.data;
+  if (items.length === 0) {
+    return (
+      <T variant="footnote" tone="faint" style={styles.indent}>
+        {t('board.notifications.none')}
+      </T>
+    );
+  }
+  return (
+    <>
+      {unread > 0 && (
+        <View style={styles.unreadRow}>
+          <T variant="footnote" tone="muted" style={styles.flex}>
+            {t('board.notifications.unread', { count: unread })}
+          </T>
+          <Touchable
+            accessibilityRole="button"
+            accessibilityLabel={t('board.notifications.markAllRead')}
+            onPress={() => read.mutate(undefined)}
+            hitSlop={10}
+          >
+            <T variant="footnote" style={styles.readAll}>
+              {t('board.notifications.readAll')}
+            </T>
+          </Touchable>
+        </View>
+      )}
+      {groupByDay(items).map((group) => (
+        <Section key={group.day} title={t(`board.notifications.${group.day}`)}>
+          <ListCard inset={NOTIFICATION_INSET}>
+            {group.items.map((notification) => (
+              <NotificationRow
+                key={notification.id}
+                notification={notification}
+                bot={notification.botId ? byId.get(notification.botId) : undefined}
+                onRead={(n) => read.mutate([n.id])}
+              />
+            ))}
+          </ListCard>
+        </Section>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Everything happening: what the bots let the user know (first), the tasks they hand each
+ * other, and what they write.
+ */
 export default function ActivityScreen() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('tasks');
+  const [tab, setTab] = useState<Tab>('notifications');
   const bots = useBots();
   const tasks = useTasks();
   const feed = useFeed();
+  const notifications = useNotifications();
   const clear = useClearActivity();
+  const clearNotifications = useClearNotifications();
   const byId = botsById(bots.data);
   const headerSize = isIOS ? 36 : 40;
+  const failed = () => alertError(t('common.actionFailed'));
 
   // Finished tasks and the bots' exchanges go; ongoing tasks and conversations stay.
   const askClear = async () => {
@@ -233,31 +316,57 @@ export default function ActivityScreen() {
       destructive: true,
     });
     if (!ok) return;
-    clear.mutate(undefined, { onError: () => alertError(t('common.actionFailed')) });
+    clear.mutate(undefined, { onError: failed });
   };
 
+  // Every notification goes, on all devices.
+  const askClearNotifications = async () => {
+    const ok = await confirm(
+      t('board.notifications.clearConfirm'),
+      t('board.notifications.clearHint'),
+      { label: t('board.notifications.clearAction'), destructive: true },
+    );
+    if (!ok) return;
+    clearNotifications.mutate(undefined, { onError: failed });
+  };
+
+  // The header's eraser clears what the segment shows; "+" assigns a task.
+  const anyNotification = (notifications.data?.items.length ?? 0) > 0;
+  const headerRight =
+    tab === 'notifications'
+      ? () =>
+          anyNotification ? (
+            <IconButton
+              icon={Eraser}
+              label={t('board.notifications.clearAll')}
+              onPress={() => void askClearNotifications()}
+              size={headerSize}
+            />
+          ) : null
+      : () => (
+          <View style={styles.headerActions}>
+            <IconButton
+              icon={Eraser}
+              label={t('tasks.clear')}
+              onPress={() => void askClear()}
+              size={headerSize}
+            />
+            <IconButton
+              icon={Plus}
+              label={t('orgAdmin.task.title')}
+              onPress={() => router.push('/task/new')}
+              size={headerSize}
+            />
+          </View>
+        );
+
   return (
-    <TabScroll onRefresh={() => Promise.all([bots.refetch(), tasks.refetch(), feed.refetch()])}>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              <IconButton
-                icon={Eraser}
-                label={t('tasks.clear')}
-                onPress={() => void askClear()}
-                size={headerSize}
-              />
-              <IconButton
-                icon={Plus}
-                label={t('orgAdmin.task.title')}
-                onPress={() => router.push('/task/new')}
-                size={headerSize}
-              />
-            </View>
-          ),
-        }}
-      />
+    <TabScroll
+      onRefresh={() =>
+        Promise.all([bots.refetch(), notifications.refetch(), tasks.refetch(), feed.refetch()])
+      }
+    >
+      <Stack.Screen options={{ headerRight }} />
       <View style={styles.head}>
         <T variant="footnote" tone="muted" style={styles.indent}>
           {t('tasks.intro')}
@@ -265,6 +374,7 @@ export default function ActivityScreen() {
         <Segmented<Tab>
           label={t('tabs.activity')}
           options={[
+            { value: 'notifications', label: t('board.notifications.title') },
             { value: 'tasks', label: t('tasks.segment') },
             { value: 'exchanges', label: t('tasks.exchanges') },
           ]}
@@ -272,7 +382,9 @@ export default function ActivityScreen() {
           onChange={setTab}
         />
       </View>
-      {tab === 'tasks' ? (
+      {tab === 'notifications' ? (
+        <Notifications byId={byId} />
+      ) : tab === 'tasks' ? (
         tasks.isPending ? (
           <ActivityIndicator color={colors.textMuted} />
         ) : (
@@ -289,6 +401,12 @@ const styles = StyleSheet.create({
   head: { gap: 14 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   indent: { paddingHorizontal: 4 },
+  flex: { flex: 1, minWidth: 0 },
+  // Notifications
+  unreadRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4 },
+  readAll: { fontWeight: '600', color: colors.text },
+  failed: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 4 },
+  retry: { minHeight: 40 },
   list: { gap: 10 },
   card: { padding: 6, gap: 4 },
   cardBody: { padding: 8, gap: 8, borderRadius: 12 },

@@ -8,8 +8,6 @@ import {
   ChevronRight,
   Cookie,
   Copy,
-  Eye,
-  EyeOff,
   Globe,
   Hand,
   KeyRound,
@@ -22,13 +20,13 @@ import {
   Trash2,
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { type FormEvent, type InputHTMLAttributes, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BotAvatar } from '../components/bot-avatar';
 import { StatusDot } from '../components/computer-status';
 import { Button } from '../components/ui/button';
 import { Dialog } from '../components/ui/dialog';
-import { FormError, Input, Label, Select, Textarea } from '../components/ui/form';
+import { FormError, Input, Label, SecretInput, Select, Textarea } from '../components/ui/form';
 import { Switch } from '../components/ui/switch';
 import { api, problemMessage } from '../lib/auth';
 import { Reveal, reveal, stagger } from '../lib/motion';
@@ -72,33 +70,6 @@ function usePcName() {
     const pc = computers.data?.find((c) => c.id === computerId);
     return pc?.name ?? (computers.data ? t('vault.deletedPc') : '');
   };
-}
-
-/** A masked field; the eye shows what is being typed (stored values never come back). */
-function SecretInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  const { t } = useTranslation();
-  const [shown, setShown] = useState(false);
-  return (
-    <div className="relative min-w-0 flex-1">
-      <Input
-        {...props}
-        type={shown ? 'text' : 'password'}
-        autoComplete="new-password"
-        spellCheck={false}
-        className={cn('pr-10', className)}
-      />
-      <button
-        type="button"
-        onClick={() => setShown((v) => !v)}
-        disabled={props.disabled}
-        aria-pressed={shown}
-        aria-label={shown ? t('vault.hideTyping') : t('vault.showTyping')}
-        className="absolute inset-y-0 right-0 grid w-10 place-items-center text-faint transition-colors hover:text-foreground disabled:opacity-40"
-      >
-        {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-      </button>
-    </div>
-  );
 }
 
 /** A stored value and the placeholder bots write to use it; a click copies the placeholder. */

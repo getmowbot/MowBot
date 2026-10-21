@@ -3,7 +3,8 @@ import { z } from 'zod';
 /**
  * Canvases: what bots pin on the home page, as cards. A few kinds, all drawn by the apps in
  * their own style (so the page stays tidy); `html` is the escape hatch, shown in a sandbox.
- * Images are paths in the bot's workspace (bots download pictures there first).
+ * Images are paths in the bot's workspace (bots download pictures there first); cards and
+ * galleries also take web addresses. The same kinds show inside conversations.
  */
 
 const workspacePath = z.string().trim().min(1).max(500);
@@ -13,6 +14,23 @@ export const scoreTeamSchema = z.object({
   /** Logo, as a path in the bot's workspace. */
   logo: workspacePath.optional(),
 });
+
+/** An image: a path in the bot's workspace, or a web address. */
+const imageSchema = z.string().trim().min(1).max(2_000);
+
+/** Opened on the user's own device (phone, computer), never on a bot's PC. */
+const webLinkSchema = z.url({ protocol: /^https?$/ }).max(2_000);
+
+/**
+ * A button of a card. `url`: opens that page on the user's device; `reply`: sent to the bot as
+ * the user's answer (both may be set: "Acheter" opens the shop and tells the bot).
+ */
+export const cardButtonSchema = z.object({
+  label: z.string().trim().min(1).max(40),
+  url: webLinkSchema.optional(),
+  reply: z.string().trim().min(1).max(300).optional(),
+});
+export type CardButton = z.infer<typeof cardButtonSchema>;
 
 export const canvasContentSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -62,6 +80,33 @@ export const canvasContentSchema = z.discriminatedUnion('kind', [
     /** A self-contained page (inline CSS, images as data: URIs); shown without scripts or network. */
     html: z.string().max(60_000),
   }),
+  /** A product, a place, a link, a route: an image, a title, a few words, up to 3 buttons. */
+  z.object({
+    kind: z.literal('card'),
+    title: z.string().trim().min(1).max(120),
+    /** "49,90 € · Decathlon", "12 min à pied"… */
+    subtitle: z.string().trim().max(160).optional(),
+    /** Markdown. */
+    text: z.string().max(2_000).optional(),
+    image: imageSchema.optional(),
+    /** Opened when the card itself is tapped. */
+    url: webLinkSchema.optional(),
+    buttons: z.array(cardButtonSchema).max(3).default([]),
+  }),
+  /** Pictures side by side (a photo, products to compare, screenshots). */
+  z.object({
+    kind: z.literal('gallery'),
+    images: z
+      .array(
+        z.object({
+          src: imageSchema,
+          caption: z.string().trim().max(120).optional(),
+          url: webLinkSchema.optional(),
+        }),
+      )
+      .min(1)
+      .max(12),
+  }),
 ]);
 export type CanvasContent = z.infer<typeof canvasContentSchema>;
 export type CanvasKind = CanvasContent['kind'];
@@ -109,3 +154,6 @@ export const checklistItemParamsSchema = z.object({
   id: z.uuid(),
   itemId: z.string().min(1).max(40),
 });
+
+/** The user pressed a card's button that answers the bot. */
+export const canvasPressSchema = z.object({ button: z.number().int().min(0).max(2) });

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { canvasContentSchema } from './canvases';
+import { vaultFieldSchema } from './vault';
 
 export const botStatusSchema = z.enum([
   'idle',
@@ -111,6 +113,31 @@ export const messagePartSchema = z.discriminatedUnion('type', [
     /** Image produced by the tool (e.g. a screenshot), stored in the workspace. */
     image: z.object({ workspaceId: z.uuid(), path: z.string() }).optional(),
   }),
+  /** What the bot showed in the conversation: a card, pictures, a score… (images: the bot's workspace or the web). */
+  z.object({
+    type: z.literal('canvas'),
+    content: canvasContentSchema,
+    /** Label of the card button the user pressed. */
+    pressed: z.string().nullable(),
+  }),
+  /**
+   * The bot asks for a login or a secret: a form with masked fields, answered straight into
+   * the vault. The values never enter the conversation, the history or the model.
+   */
+  z.object({
+    type: z.literal('vault_request'),
+    kind: z.enum(['login', 'secret']),
+    service: z.string(),
+    account: z.string().nullable(),
+    sites: z.array(z.string()),
+    /** Fields to fill in. */
+    fields: z.array(vaultFieldSchema),
+    /** Why the bot needs it, in a few words. */
+    reason: z.string().nullable(),
+    /** Entry whose values are replaced (null: a new one); set once saved. */
+    itemId: z.uuid().nullable(),
+    status: z.enum(['pending', 'saved', 'declined']),
+  }),
 ]);
 export type MessagePart = z.infer<typeof messagePartSchema>;
 
@@ -129,6 +156,8 @@ export const messageSchema = z.object({
   kind: messageKindSchema,
   taskId: z.uuid().nullable(),
   parts: z.array(messagePartSchema),
+  /** Arrived while the bot was working, and taken into its ongoing answer. */
+  steered: z.boolean(),
   status: z.enum(['streaming', 'done', 'error', 'stopped']),
   /** Why the answer failed, for clients to word it; `error` keeps the technical detail. */
   errorCode: z.enum(['no_model', 'hub_restart', 'run_failed']).nullable(),
@@ -149,6 +178,31 @@ export const messageListQuerySchema = z.object({
   before: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
+
+/** The user pressed a button of a card the bot showed in a message. */
+export const messagePressParamsSchema = z.object({ id: z.uuid(), messageId: z.uuid() });
+export const messagePressSchema = z.object({
+  part: z.number().int().min(0).max(500),
+  button: z.number().int().min(0).max(2),
+});
+
+/**
+ * The user answers a bot's vault request: the values go into the vault (never into the
+ * conversation), or the user declines.
+ */
+export const vaultRequestAnswerSchema = z.object({
+  part: z.number().int().min(0).max(500),
+  values: z
+    .object({
+      username: z.string().max(500).optional(),
+      password: z.string().max(10_000).optional(),
+      totp: z.string().max(500).optional(),
+      value: z.string().max(10_000).optional(),
+    })
+    .optional(),
+  declined: z.boolean().optional(),
+});
+export type VaultRequestAnswer = z.infer<typeof vaultRequestAnswerSchema>;
 
 export const sendMessageSchema = z.object({
   text: z.string().trim().min(1).max(20_000),

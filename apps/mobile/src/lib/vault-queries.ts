@@ -2,13 +2,16 @@ import type {
   VaultItem,
   VaultItemCreate,
   VaultItemUpdate,
+  VaultRequestAnswer,
   VaultSessionCapture,
 } from '@mowbot/contract';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import i18n from '../i18n';
 import { problemCode } from './hub-url';
+import { type Conversation, upsertMessage } from './message-cache';
 import { data, keys } from './queries';
 import { api } from './session';
+import { requestProblem } from './vault';
 
 /** Hub problems worded in the app's language; the others fall back to a generic message. */
 const WORDED = [
@@ -153,4 +156,30 @@ export function useCaptureSession() {
       void client.invalidateQueries({ queryKey: keys.computerSites(body.computerId) });
     },
   });
+}
+
+/**
+ * Answers a bot's vault request in a message: the values go straight into the vault, or the
+ * user declines. A plain call, not a mutation: what was typed is never kept by the app (no
+ * mutation cache), only the updated message is. Answered meanwhile: the message refetches.
+ */
+export function useAnswerVaultRequest(botId: string) {
+  const client = useQueryClient();
+  const key = keys.messages(botId);
+  return async (messageId: string, body: VaultRequestAnswer): Promise<void> => {
+    try {
+      const message = await data(
+        api().POST('/api/v1/bots/{id}/messages/{messageId}/vault-request', {
+          params: { path: { id: botId, messageId } },
+          body,
+        }),
+      );
+      client.setQueryData<Conversation>(key, (current) =>
+        current ? upsertMessage(current, message) : current,
+      );
+    } catch (error) {
+      if (requestProblem(error) === 'answered') void client.invalidateQueries({ queryKey: key });
+      throw error;
+    }
+  };
 }

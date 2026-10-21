@@ -1,4 +1,4 @@
-import { type CanvasContent, canvasSizeSchema } from '@mowbot/contract';
+import { type CanvasContent, canvasContentSchema, canvasSizeSchema } from '@mowbot/contract';
 import { type ToolSet, tool } from 'ai';
 import { z } from 'zod';
 import type { BotRow } from '../bots/service';
@@ -9,6 +9,19 @@ const imagePath = z
   .string()
   .max(500)
   .describe('Chemin d’une image dans /workspace (télécharge-la d’abord, ex. avec curl)');
+
+/** A picture: a file of /workspace, or a web address. */
+const pictureRef = z
+  .string()
+  .min(1)
+  .max(2_000)
+  .describe('Image : chemin dans /workspace, ou adresse https:// (une image du web)');
+
+/** Opened on the user's phone or computer, not on the bot's PC. */
+const webLink = z.url({ protocol: /^https?$/ }).max(2_000);
+
+/** The tool that shows things in the conversation (drawn as part of the answer). */
+export const SHOW_IN_CHAT = 'show_in_chat';
 
 /** What a bot sends; the hub turns it into a canvas (ids for list items, camelCase…). */
 const contentSchema = z.discriminatedUnion('kind', [
@@ -46,6 +59,48 @@ const contentSchema = z.discriminatedUnion('kind', [
     image: imagePath.optional(),
   }),
   z.object({
+    kind: z.literal('card'),
+    title: z.string().min(1).max(120),
+    subtitle: z
+      .string()
+      .max(160)
+      .optional()
+      .describe('« 49,90 € · Decathlon », « 12 min à pied »…'),
+    text: z.string().max(2_000).optional().describe('Quelques lignes, en Markdown'),
+    image: pictureRef.optional(),
+    url: webLink.optional().describe('Ouvert quand on touche la carte'),
+    buttons: z
+      .array(
+        z.object({
+          label: z.string().min(1).max(40),
+          url: webLink
+            .optional()
+            .describe("Ouvre cette page sur le téléphone ou l'ordinateur de l'utilisateur"),
+          reply: z
+            .string()
+            .max(300)
+            .optional()
+            .describe('Ce que tu reçois quand il appuie (par défaut : le libellé)'),
+        }),
+      )
+      .max(3)
+      .optional()
+      .describe('Jusqu’à 3 boutons, le premier mis en avant (ex. « Acheter », « Rien faire »)'),
+  }),
+  z.object({
+    kind: z.literal('gallery'),
+    images: z
+      .array(
+        z.object({
+          src: pictureRef,
+          caption: z.string().max(120).optional(),
+          url: webLink.optional(),
+        }),
+      )
+      .min(1)
+      .max(12),
+  }),
+  z.object({
     kind: z.literal('html'),
     html: z
       .string()
@@ -59,6 +114,10 @@ const contentSchema = z.discriminatedUnion('kind', [
 /** `/workspace/a/b.png` → `a/b.png`. */
 const workspaceRelative = (value: string | undefined) =>
   value?.replace(/^\/?workspace\/?/, '').replace(/^\/+/, '') || undefined;
+
+/** Web addresses stay as they are; files are paths in the workspace. */
+const picture = (value: string): string =>
+  /^https?:\/\//i.test(value) ? value : (workspaceRelative(value) ?? value);
 
 /**
  * Turns a bot's content into a canvas. A list keeps the ids (and the ticks) of items whose text
@@ -99,6 +158,17 @@ function toContent(
       return { kind: 'stats', items: input.items };
     case 'html':
       return { kind: 'html', html: input.html };
+    case 'card':
+      return canvasContentSchema.parse({
+        ...input,
+        image: input.image ? picture(input.image) : undefined,
+        buttons: input.buttons ?? [],
+      });
+    case 'gallery':
+      return canvasContentSchema.parse({
+        kind: 'gallery',
+        images: input.images.map((image) => ({ ...image, src: picture(image.src) })),
+      });
   }
 }
 
@@ -107,14 +177,34 @@ const toolError = (error: unknown): never => {
   throw error;
 };
 
-/** Cards a bot pins on the user's home page, to show the result of its work at a glance. */
-export function buildCanvasTools(ctx: { self: BotRow; canvases: CanvasService }): ToolSet {
-  const { self, canvases } = ctx;
+/**
+ * What a bot shows: in the conversation (show_in_chat, the everyday way) or pinned on the
+ * user's home page (canvas_set, only when the user wants it there).
+ */
+export function buildCanvasTools(ctx: {
+  self: BotRow;
+  canvases: CanvasService;
+  /** Puts the content in the bot's current answer. */
+  showInChat?: (content: CanvasContent) => Promise<void>;
+}): ToolSet {
+  const { self, canvases, showInChat } = ctx;
   const tools: ToolSet = {};
+
+  if (showInChat) {
+    tools[SHOW_IN_CHAT] = tool({
+      description:
+        "Montre quelque chose dans la conversation, là où tu en es de ta réponse, puis continue ton texte en dessous : une carte (card : image, titre, quelques mots, jusqu'à 3 boutons qui ouvrent une page sur le téléphone ou l'ordinateur de l'utilisateur, ou qui te répondent d'un clic), des images (gallery), un score, des chiffres, une note… Pour un produit, un lieu, un itinéraire (lien Google Maps), un article, une photo : c'est plus rapide à lire qu'un paragraphe. Images : un fichier de /workspace ou une adresse https.",
+      inputSchema: z.object({ content: contentSchema }),
+      execute: async ({ content }) => {
+        await showInChat(toContent(content, undefined));
+        return 'Affiché dans la conversation.';
+      },
+    });
+  }
 
   tools.canvas_set = tool({
     description:
-      "Publie ou met à jour un canvas sur la page d'accueil de l'utilisateur : une carte qui montre d'un coup d'œil le résultat de ton travail (un score, une liste à cocher, quelques chiffres, une note). Même `key` = même carte mise à jour : ne crée pas une nouvelle carte à chaque fois. Au plus 4 canvas par bot ; garde-les utiles et à jour, retire ceux qui ne servent plus. Préfère score/checklist/stats/note ; html seulement si rien d'autre ne convient. Pour une liste, lis-la d'abord (canvas_get) : l'utilisateur a pu cocher ou ajouter des éléments, et ce que tu envoies la remplace.",
+      "Épingle ou met à jour un canvas sur la page d'accueil de l'utilisateur : une carte qui suit dans la durée le résultat de ton travail (un score, une liste à cocher, quelques chiffres, une note). Seulement si l'utilisateur l'a demandé ou a accepté ta proposition : sa page d'accueil est à lui, ne la remplis pas d'office. Pour montrer un résultat ponctuel, utilise show_in_chat. Même `key` = même carte mise à jour : ne crée pas une nouvelle carte à chaque fois. Au plus 4 canvas par bot ; garde-les utiles et à jour, retire ceux qui ne servent plus. Préfère score/checklist/stats/note ; html seulement si rien d'autre ne convient. Pour une liste, lis-la d'abord (canvas_get) : l'utilisateur a pu cocher ou ajouter des éléments, et ce que tu envoies la remplace.",
     inputSchema: z.object({
       key: z
         .string()

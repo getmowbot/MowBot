@@ -58,7 +58,17 @@ export function useCanvasActions() {
     onError: () => void resync(),
   });
 
-  return { update, remove, reorder };
+  /** A card's button that answers the bot that pinned it (as the user's message). */
+  const press = useMutation({
+    mutationFn: ({ id, button }: { id: string; button: number }) =>
+      done(
+        api().POST('/api/v1/canvases/{id}/press', { params: { path: { id } }, body: { button } }),
+      ),
+    // The card may have changed meanwhile (the bot updated it): show it as it is now.
+    onError: () => void resync(),
+  });
+
+  return { update, remove, reorder, press };
 }
 
 /** Ticks, additions and removals on a checklist card (ticks and removals show at once). */

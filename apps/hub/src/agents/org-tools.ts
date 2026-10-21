@@ -124,6 +124,29 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
     },
   });
 
+  tools.stop_bot = tool({
+    description:
+      "Arrête ce qu'un bot est en train de faire (il part dans la mauvaise direction, fait doublon, gaspille). Il garde une note de qui l'a arrêté et pourquoi, et ne reprend que quand on lui écrit : dis-lui ensuite quoi faire (send_message) si besoin. Le Chef peut arrêter tous les bots ; un lead, ceux de son équipe ; les autres, les bots de leur équipe.",
+    inputSchema: z.object({
+      bot: z.string().describe('Nom du bot'),
+      reason: z.string().min(1).max(300).describe('Pourquoi, en une phrase'),
+    }),
+    execute: async ({ bot, reason }) => {
+      const target = await findBot(bot);
+      if (target.id === self.id) throw new Error('Pour t’arrêter, termine simplement ton tour.');
+      const sameTeam = target.teamId !== null && target.teamId === self.teamId;
+      const leads = target.teamId !== null && (await ledTeams()).includes(target.teamId);
+      if (!self.isChef && (target.isChef || !(sameTeam || leads))) {
+        throw new Error(
+          `Tu ne peux pas arrêter ${target.name} : demande-le au Chef ou au lead de son équipe.`,
+        );
+      }
+      return (await runtime.stopBy(self, target, reason))
+        ? `J’ai arrêté ${target.name}.`
+        : `${target.name} ne travaillait pas.`;
+    },
+  });
+
   tools.ask_bot = tool({
     description:
       'Pose une question à un autre bot et attend sa réponse (quelques minutes au plus). Pour ce dont tu as besoin tout de suite ; sinon send_message ou assign_task.',

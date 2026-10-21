@@ -9,11 +9,12 @@ import type {
   VaultPolicy,
 } from '@mowbot/contract';
 import type { TFunction } from 'i18next';
+import { problemCode } from './hub-url';
 import { timeAgo } from './time';
 
 /**
  * Pure logic of the vault screens (no React, no native modules): grouping, the rows' text,
- * placeholders, history labels, and what the forms send.
+ * placeholders, history labels, what the forms send, and the forms bots ask with in a chat.
  */
 
 /** Groups in the order the list shows them. */
@@ -361,4 +362,51 @@ export function removeFieldBody(field: LoginField): VaultItemUpdate {
   const body: VaultItemUpdate = {};
   body[field] = null;
   return body;
+}
+
+// ---------------------------------------------------------------------------------------------
+// A bot's request: a login or a secret asked for in its answer, typed straight into the vault
+
+export type { VaultRequestPart } from './activity';
+
+/** The fields a request asks for, in the order the forms show them. */
+export function requestFields(part: { fields: readonly VaultField[] }): VaultField[] {
+  return FIELD_ORDER.filter((field) => part.fields.includes(field));
+}
+
+/** What answering sends: the fields asked for and filled in; null when nothing was typed. */
+export function requestValues(
+  fields: readonly VaultField[],
+  values: ValueDraft,
+): Partial<Record<VaultField, string>> | null {
+  const typed = typedValues(values);
+  const answer: Partial<Record<VaultField, string>> = {};
+  for (const field of fields) if (typed[field]) answer[field] = typed[field];
+  return Object.keys(answer).length > 0 ? answer : null;
+}
+
+export interface RequestInput {
+  /** Masked while typed (a toggle shows it). */
+  secure: boolean;
+  /** What the phone's password manager may fill in. */
+  textContentType: 'username' | 'password' | 'oneTimeCode' | 'none';
+  autoComplete: 'username' | 'current-password' | 'one-time-code' | 'off';
+}
+
+/** How each requested field is typed (an API key or a token is never autofilled). */
+export const REQUEST_INPUTS: Record<VaultField, RequestInput> = {
+  username: { secure: false, textContentType: 'username', autoComplete: 'username' },
+  password: { secure: true, textContentType: 'password', autoComplete: 'current-password' },
+  totp: { secure: true, textContentType: 'oneTimeCode', autoComplete: 'one-time-code' },
+  value: { secure: true, textContentType: 'none', autoComplete: 'off' },
+};
+
+/** Why answering failed: worded under the form, or answered meanwhile (the message refetches). */
+export type RequestProblem = 'invalid_totp' | 'empty_answer' | 'answered' | 'failed';
+
+export function requestProblem(error: unknown): RequestProblem {
+  const code = problemCode(error);
+  if (code === 'invalid_totp' || code === 'empty_answer') return code;
+  if (code === 'request_answered') return 'answered';
+  return 'failed';
 }

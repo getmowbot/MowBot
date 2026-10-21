@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { ImageOff } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -24,6 +24,7 @@ export function WorkspaceImage({
   version,
   className,
   placeholderClassName,
+  fallback,
 }: {
   workspaceId: string;
   path: string;
@@ -32,6 +33,8 @@ export function WorkspaceImage({
   version?: string;
   className?: string;
   placeholderClassName?: string;
+  /** Shown instead when the file can't be read (default: its name, crossed-out picture). */
+  fallback?: ReactNode;
 }) {
   const image = useQuery({
     queryKey: ['file-blob', workspaceId, path, version],
@@ -47,6 +50,7 @@ export function WorkspaceImage({
   });
   useEffect(() => () => void (image.data && URL.revokeObjectURL(image.data)), [image.data]);
   if (image.isError) {
+    if (fallback) return fallback;
     return (
       <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
         <ImageOff className="size-4" /> {alt || path}

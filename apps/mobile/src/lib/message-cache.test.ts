@@ -7,6 +7,7 @@ import {
   type Conversation,
   isIncoming,
   liveMessage,
+  markPressed,
   mergeLatest,
   prependOlder,
   upsertMessage,
@@ -65,6 +66,31 @@ describe('conversation cache', () => {
     expect(
       liveMessage({ items: [message({ status: 'streaming' })], nextCursor: null }),
     ).toBeDefined();
+  });
+
+  it('shows a card’s choice at once, only once', () => {
+    const card = {
+      type: 'canvas' as const,
+      content: { kind: 'card' as const, title: 'Pizza ?', buttons: [{ label: 'Oui' }] },
+      pressed: null,
+    };
+    const score = {
+      type: 'canvas' as const,
+      content: { kind: 'stats' as const, items: [{ label: 'Buts', value: '2' }] },
+      pressed: null,
+    };
+    const answer = message({ parts: [{ type: 'text', text: 'Alors ?' }, card, score] });
+    const conversation: Conversation = { items: [message(), answer], nextCursor: null };
+
+    const pressed = markPressed(conversation, answer.id, 1, 'Oui');
+    expect(pressed.items[1]?.parts[1]).toEqual({ ...card, pressed: 'Oui' });
+    expect(pressed.items[0]).toBe(conversation.items[0]);
+    // Already answered, not a card, no such part or message: unchanged.
+    expect(markPressed(pressed, answer.id, 1, 'Non')).toBe(pressed);
+    expect(markPressed(conversation, answer.id, 2, 'Oui')).toBe(conversation);
+    expect(markPressed(conversation, answer.id, 0, 'Oui')).toBe(conversation);
+    expect(markPressed(conversation, answer.id, 9, 'Oui')).toBe(conversation);
+    expect(markPressed(conversation, 'other', 1, 'Oui')).toBe(conversation);
   });
 });
 

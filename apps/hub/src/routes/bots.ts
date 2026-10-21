@@ -8,8 +8,11 @@ import {
   botUpdateSchema,
   messageListQuerySchema,
   messageListSchema,
+  messagePressParamsSchema,
+  messagePressSchema,
   messageSchema,
   sendMessageSchema,
+  vaultRequestAnswerSchema,
 } from '@mowbot/contract';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -193,6 +196,49 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request, reply) =>
       reply.code(202).send(await runtime.send(request.params.id, request.body.text)),
+  );
+
+  app.post(
+    '/bots/:id/messages/:messageId/press',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags,
+        operationId: 'pressMessageCard',
+        description:
+          'Presses a button of a card the bot showed in that message: its reply reaches the bot as your answer (once per card). Buttons that only open a link are opened by the app itself.',
+        security: bearerSecurity,
+        params: messagePressParamsSchema,
+        body: messagePressSchema,
+        response: { 200: messageSchema, ...errorResponses },
+      },
+    },
+    async (request) =>
+      runtime.pressCard(
+        request.params.id,
+        request.params.messageId,
+        request.body.part,
+        request.body.button,
+      ),
+  );
+
+  app.post(
+    '/bots/:id/messages/:messageId/vault-request',
+    {
+      preHandler: requireAuth('admin'),
+      schema: {
+        tags,
+        operationId: 'answerVaultRequest',
+        description:
+          'Answers a vault request the bot showed in that message: the values go straight into the vault (the bot only learns the reference), or `declined: true`.',
+        security: bearerSecurity,
+        params: messagePressParamsSchema,
+        body: vaultRequestAnswerSchema,
+        response: { 200: messageSchema, ...errorResponses },
+      },
+    },
+    async (request) =>
+      runtime.answerVaultRequest(request.params.id, request.params.messageId, request.body),
   );
 
   app.delete(

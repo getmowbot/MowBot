@@ -1,4 +1,4 @@
-import type { Bot, Message, MessagePart } from '@mowbot/contract';
+import type { Bot, CanvasKind, Message, MessagePart, Problem } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
@@ -29,10 +29,12 @@ import { ActivityGroup, type ActivityPart } from '../components/activity';
 import { BotAvatar } from '../components/bot-avatar';
 import { BotBrowserView, ViewSwitch } from '../components/bot-browser-view';
 import { BotMenu, RenameField } from '../components/bot-menu';
+import { CanvasBody } from '../components/canvas-body';
 import { StatusBadge } from '../components/computer-status';
 import { Markdown } from '../components/markdown';
 import { QuestionCard } from '../components/question-card';
 import { Button } from '../components/ui/button';
+import { VaultRequestCard } from '../components/vault-request-card';
 import { i18n } from '../i18n';
 import { api, problemMessage } from '../lib/auth';
 import { moodOf, statusLabel } from '../lib/bot-mood';
@@ -82,6 +84,12 @@ function failure(message: Message): string {
   }
 }
 
+/** Sent while the bot was working: it took it into the answer under way. */
+function SteeredHint() {
+  const { t } = useTranslation();
+  return <p className="px-1 text-[11px] text-faint">{t('chat.steered')}</p>;
+}
+
 /** What another bot (or the user, for a task) gave this bot: a quieter, outlined bubble. */
 function IncomingMessage({ message }: { message: Message }) {
   const { t } = useTranslation();
@@ -90,7 +98,7 @@ function IncomingMessage({ message }: { message: Message }) {
   const name = from?.name ?? message.fromName ?? t('chat.you');
   const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('');
   return (
-    <div className="flex justify-end">
+    <div className="flex flex-col items-end gap-1">
       <div className="max-w-[85%] space-y-1 rounded-2xl rounded-br-md border border-border-strong bg-white/[0.03] px-4 py-2.5">
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {(from || message.fromName) && <BotAvatar seed={from?.avatarSeed ?? name} size={16} />}
@@ -109,6 +117,7 @@ function IncomingMessage({ message }: { message: Message }) {
         </p>
         <Markdown text={text} className="text-[14.5px]" />
       </div>
+      {message.steered && <SteeredHint />}
     </div>
   );
 }
@@ -116,24 +125,111 @@ function IncomingMessage({ message }: { message: Message }) {
 function UserMessage({ message }: { message: Message }) {
   const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('');
   return (
-    <div className="flex justify-end">
+    <div className="flex flex-col items-end gap-1">
       <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-primary-foreground text-[14.5px] leading-relaxed">
         {text}
       </div>
+      {message.steered && <SteeredHint />}
+    </div>
+  );
+}
+
+type CanvasPart = Extract<MessagePart, { type: 'canvas' }>;
+
+/** Room each kind takes in the conversation: a card stays card-sized, pictures spread out. */
+const CANVAS_FRAME: Record<CanvasKind, string> = {
+  note: 'glass max-w-md rounded-2xl p-4',
+  score: 'glass max-w-md rounded-2xl p-4',
+  stats: 'glass max-w-md rounded-2xl p-4',
+  checklist: 'glass max-w-md rounded-2xl p-4',
+  html: 'glass rounded-2xl p-4',
+  card: 'glass max-w-sm rounded-2xl p-3',
+  gallery: '',
+};
+
+/** What the bot showed in its answer, drawn as on the home page; a card's buttons answer it once. */
+function MessageCanvas({
+  message,
+  part,
+  index,
+  workspaceId,
+  onAnswer,
+}: {
+  message: Message;
+  part: CanvasPart;
+  index: number;
+  workspaceId: string | null;
+  onAnswer(): void;
+}) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { content } = part;
+  const press = useMutation({
+    mutationFn: async (button: number) => {
+      const { data, error } = await api.POST('/api/v1/bots/{id}/messages/{messageId}/press', {
+        params: { path: { id: message.botId, messageId: message.id } },
+        body: { part: index, button },
+      });
+      if (error || !data) throw error;
+      return data;
+    },
+    onMutate: () => onAnswer(),
+    onSuccess: (updated) =>
+      queryClient.setQueryData<Message[]>(['messages', updated.botId], (list) =>
+        list?.map((m) => (m.id === updated.id ? updated : m)),
+      ),
+    // Answered meanwhile (another device): the hub has the truth.
+    onError: () => queryClient.invalidateQueries({ queryKey: ['messages', message.botId] }),
+  });
+  const pressing =
+    content.kind === 'card' && press.isPending && press.variables !== undefined
+      ? content.buttons[press.variables]?.label
+      : undefined;
+  const answeredElsewhere = (press.error as Partial<Problem> | null)?.status === 409;
+  return (
+    <div className={CANVAS_FRAME[content.kind]}>
+      <CanvasBody
+        content={content}
+        workspaceId={workspaceId}
+        version={message.id}
+        press={{
+          onPress: (button) => press.mutate(button),
+          chosen: part.pressed ?? pressing,
+          pending: press.isPending,
+        }}
+      />
+      {press.isError && !answeredElsewhere && (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {problemMessage(press.error, t('common.actionFailed'))}
+        </p>
+      )}
     </div>
   );
 }
 
 type Segment =
   | { kind: 'text'; text: string; index: number }
+  | { kind: 'canvas'; part: CanvasPart; index: number }
+  | { kind: 'vault'; part: Extract<MessagePart, { type: 'vault_request' }>; index: number }
   | { kind: 'activity'; parts: ActivityPart[]; index: number };
 
-/** Text stays as is; the tool calls and reasoning between two texts become one activity. */
+/**
+ * Text, what the bot showed and what it asks for stay as they are; the tool calls and
+ * reasoning between them become one activity.
+ */
 function segments(parts: MessagePart[]): Segment[] {
   const out: Segment[] = [];
   parts.forEach((part, index) => {
     if (part.type === 'text') {
       if (part.text.trim()) out.push({ kind: 'text', text: part.text, index });
+      return;
+    }
+    if (part.type === 'canvas') {
+      out.push({ kind: 'canvas', part, index });
+      return;
+    }
+    if (part.type === 'vault_request') {
+      out.push({ kind: 'vault', part, index });
       return;
     }
     const tail = out.at(-1);
@@ -143,7 +239,16 @@ function segments(parts: MessagePart[]): Segment[] {
   return out;
 }
 
-function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
+function BotMessage({
+  message,
+  bot,
+  onAnswer,
+}: {
+  message: Message;
+  bot: Bot;
+  /** The user pressed a card's button or answered a vault request: their answer follows. */
+  onAnswer(): void;
+}) {
   const { t } = useTranslation();
   const streaming = message.status === 'streaming';
   const blocks = segments(message.parts);
@@ -165,6 +270,29 @@ function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
         )}
         {blocks.map((block, i) => {
           const last = i === blocks.length - 1;
+          if (block.kind === 'canvas') {
+            return (
+              <MessageCanvas
+                key={`canvas-${block.index}`}
+                message={message}
+                part={block.part}
+                index={block.index}
+                workspaceId={bot.workspaceId}
+                onAnswer={onAnswer}
+              />
+            );
+          }
+          if (block.kind === 'vault') {
+            return (
+              <VaultRequestCard
+                key={`vault-${block.index}`}
+                message={message}
+                part={block.part}
+                index={block.index}
+                onAnswer={onAnswer}
+              />
+            );
+          }
           return block.kind === 'activity' ? (
             <ActivityGroup
               key={`activity-${block.index}`}
@@ -540,7 +668,13 @@ export function ChatPage() {
                       <UserMessage message={message} />
                     )
                   ) : (
-                    <BotMessage message={message} bot={bot} />
+                    <BotMessage
+                      message={message}
+                      bot={bot}
+                      onAnswer={() => {
+                        stickToBottom.current = true;
+                      }}
+                    />
                   )}
                 </motion.div>
               ))}

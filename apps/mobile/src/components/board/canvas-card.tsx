@@ -22,7 +22,7 @@ import { IconButton } from '../ui/button';
 import { Surface } from '../ui/surface';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
-import { ChecklistBody, HtmlBody, NoteBody, ScoreBody, StatsBody } from './canvas-kinds';
+import { CanvasBody } from './canvas-kinds';
 
 /** The bot that pinned the card, alive (its mood follows what it is doing). */
 function Author({ bot }: { bot: Bot }) {
@@ -42,7 +42,7 @@ interface Props {
 /** A card a bot pinned on Home, drawn natively per kind, with its ⋯ menu. */
 export function CanvasCard({ canvas, bot, first, last, onMove }: Props) {
   const { t, i18n } = useTranslation();
-  const { update, remove } = useCanvasActions();
+  const { update, remove, press } = useCanvasActions();
   const { content } = canvas;
   const workspaceId = bot?.workspaceId ?? null;
   const progress = checklistProgress(content);
@@ -51,8 +51,16 @@ export function CanvasCard({ canvas, bot, first, last, onMove }: Props) {
 
   const change = (body: { size?: Canvas['size']; hidden?: boolean; collapsed?: boolean }) =>
     update.mutate({ id: canvas.id, body }, { onError: failed });
+  const answer = (button: number) =>
+    press.mutateAsync({ id: canvas.id, button }).then(
+      () => true,
+      () => {
+        failed();
+        return false;
+      },
+    );
   const folded = canvas.collapsed;
-  const summary = folded ? foldedSummary(content) : null;
+  const summary = folded ? foldedSummary(content, t) : null;
 
   const openMenu = () => {
     const options: MenuOption[] = [];
@@ -160,15 +168,15 @@ export function CanvasCard({ canvas, bot, first, last, onMove }: Props) {
 
       {folded ? null : (
         <View style={canvas.hidden ? styles.dimmed : undefined}>
-          {content.kind === 'note' && (
-            <NoteBody canvas={canvas} content={content} workspaceId={workspaceId} />
-          )}
-          {content.kind === 'score' && (
-            <ScoreBody canvas={canvas} content={content} workspaceId={workspaceId} />
-          )}
-          {content.kind === 'stats' && <StatsBody content={content} />}
-          {content.kind === 'checklist' && <ChecklistBody canvas={canvas} content={content} />}
-          {content.kind === 'html' && <HtmlBody content={content} size={canvas.size} />}
+          <CanvasBody
+            content={content}
+            workspaceId={workspaceId}
+            size={canvas.size}
+            version={canvas.updatedAt}
+            title={canvas.title}
+            canvasId={canvas.id}
+            onAnswer={answer}
+          />
         </View>
       )}
     </Surface>
