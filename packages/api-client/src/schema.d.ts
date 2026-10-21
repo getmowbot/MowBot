@@ -5588,6 +5588,12 @@ export interface operations {
                             kind: "file";
                             path: string;
                             label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "project";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
                         })[];
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
@@ -5835,6 +5841,12 @@ export interface operations {
                             /** @enum {string} */
                             kind: "file";
                             path: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "project";
+                            /** Format: uuid */
+                            id: string;
                             label: string;
                         })[];
                         /** @enum {string} */
