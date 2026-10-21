@@ -3,6 +3,7 @@ import { type ToolSet, tool } from 'ai';
 import { eq, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { type BotRow, type BotService, botFolder } from '../bots/service';
+import { type ConnectorService, usableBy } from '../connectors/service';
 import type { Db } from '../db/client';
 import { bots, computers, tasks, teams } from '../db/schema';
 import type { EventBus } from '../events';
@@ -25,6 +26,8 @@ export interface OrgToolContext {
   files: WorkspaceFiles;
   events: EventBus;
   db: Db;
+  /** The user's computers, for tasks done in one of their projects. */
+  connectors?: ConnectorService;
 }
 
 const STATUS_LABELS: Record<BotRow['status'], string> = {
@@ -76,6 +79,28 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
       (team) => team.id === ref.trim() || team.name.toLowerCase() === value,
     );
     if (!found) throw new Error(`Aucune équipe « ${ref} ». Regarde list_bots.`);
+    return found;
+  };
+
+  /** The user's project a task is done in: the one named, or the giver's active project. */
+  const taskProject = async (name: string | undefined, target: BotRow) => {
+    const { connectors } = ctx;
+    const wanted = name?.trim();
+    if (!connectors || /^(aucun|none)$/i.test(wanted ?? '')) return null;
+    const mine = await connectors.accessibleTo(self);
+    const activeId = (await ctx.bots.row(self.id)).projectId;
+    const found = wanted
+      ? mine.find((p) => p.name.toLowerCase() === wanted.toLowerCase())
+      : mine.find((p) => p.id === activeId);
+    if (!found) {
+      if (wanted) throw new Error(`Aucun projet « ${wanted} ». Regarde local_projects.`);
+      return null;
+    }
+    if (!usableBy(found, target)) {
+      throw new Error(
+        `${target.name} n'a pas accès au projet ${found.name} : demande à l'utilisateur de le lui ouvrir (page Projets de l'app), ou confie la tâche hors projet (project « aucun »).`,
+      );
+    }
     return found;
   };
 
@@ -183,13 +208,31 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
       to: z.string().describe('Nom du bot'),
       title: z.string().min(1).max(200),
       details: z.string().max(8000).optional().describe('Contexte, attentes, où livrer'),
+      project: z
+        .string()
+        .optional()
+        .describe(
+          "Projet de l'utilisateur où faire la tâche (il devient le projet actif du bot) : par défaut ton projet actif ; « aucun » pour une tâche hors projet",
+        ),
     }),
-    execute: async ({ to, title, details }) => {
+    execute: async ({ to, title, details, project }) => {
       const target = await findBot(to);
       // A task to itself wakes the bot up too: it counts against the same limits.
       await runtime.checkReach(self, target, ctx.depth, { allowSelf: true });
-      const task = await ctx.tasks.create({ assignee: target, title, details }, self, ctx.depth);
-      return `Tâche créée (id ${task.id}) pour ${target.name}.`;
+      const where = await taskProject(project, target);
+      if (where && target.projectId !== where.id) {
+        await ctx.bots.update(target.id, { projectId: where.id });
+      }
+      const task = await ctx.tasks.create(
+        {
+          assignee: target,
+          title,
+          details: [details, where ? `Projet : ${where.name}` : ''].filter(Boolean).join('\n\n'),
+        },
+        self,
+        ctx.depth,
+      );
+      return `Tâche créée (id ${task.id}) pour ${target.name}${where ? `, dans le projet ${where.name} (son projet actif)` : ''}.`;
     },
   });
 

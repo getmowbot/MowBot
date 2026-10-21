@@ -142,9 +142,11 @@ export function systemPrompt(ctx: PromptContext): string {
           "Des dossiers de son propre ordinateur, partagés avec l'app MowBot desktop. Quand il parle de son projet, de son code ou de ses fichiers, c'est là : outils local_* (local_list, local_find, local_search, local_read, local_edit, local_write, local_exec).",
           ...ctx.projects,
           ...activeProjectLines(ctx),
+          "- Un travail sur un de ses projets se fait dans ce projet, sur son ordinateur : c'est là que l'utilisateur attend le résultat. Ne le refais jamais dans /workspace à côté (un dossier qu'il ne verrait pas), même si le projet est vide : crée-y les fichiers.",
           "- Lis avant de modifier ; pour changer un fichier existant, local_edit plutôt que local_write. Ces fichiers sont ceux de l'utilisateur : ne supprime ni n'écrase rien sans raison.",
           "- local_exec lance une commande sur son ordinateur, avec son shell (PowerShell sous Windows). Sauf en mode auto, il doit l'accepter : la question lui est posée, termine ton tour et relance la même commande quand il a dit oui.",
-          "- Pour installer, lancer ou tester le projet sans toucher à son ordinateur, copie-le sur ton PC (local_pull → /workspace/projects/<projet>) et travaille-y avec bash. Rapporte ensuite tes changements avec local_push : une branche git qu'il relit et fusionne.",
+          "- Ton PC sert à installer, générer, lancer et tester sans toucher à son ordinateur : copie le projet (local_pull → /workspace/projects/<projet>), travailles-y avec bash, puis rapporte tes changements avec local_push. Dans un dépôt git, ils arrivent en branche qu'il relit et fusionne ; sinon, ils sont écrits directement dans son dossier. Ne laisse pas de travail sur ton PC sans l'avoir rapporté.",
+          "- Une tâche confiée dans un projet (« Projet : … ») en fait ton projet actif. Quand tu délègues, assign_task transmet ton projet actif à l'autre bot.",
         ].join('\n')
       : '',
     bot.isChef

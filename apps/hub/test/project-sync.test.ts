@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { Bot, ConnectorCreated, Message, MessagePart, Project } from '@mowbot/contract';
@@ -125,12 +125,15 @@ describe('a project copied to the bot’s PC', () => {
     expect(await copy('src/other.js')).toContain('y = 2');
   });
 
-  it('refuses to push without a copy, or for a folder that is not a git repository', async () => {
+  it('writes the changes straight into a folder that is not a git repository', async () => {
     const model = scripted([
       toolTurn('local_push', { project: 'Notes', message: 'm' }, 'push-1'),
       toolTurn('local_pull', { project: 'Notes' }, 'pull-1'),
+      textTurn('Copié.'),
       toolTurn('local_push', { project: 'Notes', message: 'm' }, 'push-2'),
-      textTurn('Ok.'),
+      textTurn('Rapporté.'),
+      toolTurn('local_push', { project: 'Notes', message: 'm' }, 'push-3'),
+      textTurn('Rapporté.'),
     ]);
     t = await createTestApp({}, undefined, () => model);
     const { app, services } = t;
@@ -140,18 +143,31 @@ describe('a project copied to the bot’s PC', () => {
       return { status: res.statusCode, body: (res.body ? res.json() : null) as T };
     };
     const chef = (await inject<{ items: Bot[] }>('GET', '/api/v1/bots')).body.items[0] as Bot;
+    const workspaceId = chef.workspaceId as string;
+    const say = async (text: string) => {
+      await inject('POST', `/api/v1/bots/${chef.id}/messages`, { text });
+      await services.runtime.settle();
+      return lastTools(
+        (await inject<{ items: Message[] }>('GET', `/api/v1/bots/${chef.id}/messages`)).body.items,
+      );
+    };
     folder = await mkdtemp(path.join(tmpdir(), 'mowbot-sync-'));
+    const theirs = (rel: string) => readFile(path.join(folder as string, rel));
     await writeFile(path.join(folder, 'todo.txt'), 'acheter du pain\n');
+    await writeFile(path.join(folder, 'notes.md'), '# Notes\n');
+    await writeFile(path.join(folder, 'old.txt'), 'x\n');
     const created = await inject<ConnectorCreated>('POST', '/api/v1/connectors', { name: 'PC' });
     await app.listen({ port: 0, host: '127.0.0.1' });
     const { port } = app.server.address() as { port: number };
-    FakeConnector.head = null;
-    try {
+    // An app from before binary writes, then one that has them.
+    const connect = async (version: string) => {
+      connector?.close();
+      FakeConnector.version = version;
       connector = await FakeConnector.connect(
         `ws://127.0.0.1:${port}/api/v1/connectors/ws`,
         created.body.token,
         [{ key: 'k', name: 'Notes', path: '/home/joris/notes' }],
-        { k: folder },
+        { k: folder as string },
       );
       for (let i = 0; i < 100; i++) {
         const [project] = (await inject<{ items: Project[] }>('GET', '/api/v1/projects')).body
@@ -159,17 +175,54 @@ describe('a project copied to the bot’s PC', () => {
         if (project?.online) break;
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
-      await inject('POST', `/api/v1/bots/${chef.id}/messages`, { text: 'Rapporte' });
-      await services.runtime.settle();
-      const tools = lastTools(
-        (await inject<{ items: Message[] }>('GET', `/api/v1/bots/${chef.id}/messages`)).body.items,
+    };
+    FakeConnector.head = null;
+    try {
+      await connect('0.2.3');
+      const first = await say('Copie les notes');
+      expect(first.map((p) => p.state)).toEqual(['error', 'done']);
+      expect(String(first[0]?.output)).toContain("fais d'abord local_pull");
+      expect(String(first[1]?.output)).toContain('Pas de dépôt git');
+
+      // The bot changes, adds (text and a picture) and removes; the user edits notes.md meanwhile.
+      const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2]);
+      await services.files.writeFile(workspaceId, 'projects/notes/todo.txt', 'pain et lait\n');
+      await services.files.writeFile(workspaceId, 'projects/notes/notes.md', '# Notes du bot\n');
+      await services.files.writeFile(workspaceId, 'projects/notes/src/page.astro', '<h1>Hi</h1>\n');
+      await services.files.writeFile(workspaceId, 'projects/notes/public/logo.png', png);
+      await services.files.unlink(workspaceId, 'projects/notes/old.txt');
+      await writeFile(path.join(folder, 'notes.md'), '# Notes de Joris\n');
+
+      const pushed = await say('Rapporte');
+      expect(pushed[0]?.state).toBe('done');
+      const said = String(pushed[0]?.output);
+      expect(said).toContain('pas un dépôt git) : 1 modifié, 1 ajouté.');
+      expect(said).toContain(
+        "Laissés tels quels, l'utilisateur les a changés depuis ta copie : notes.md",
       );
-      expect(tools.map((p) => p.state)).toEqual(['error', 'done', 'error']);
-      expect(String(tools[0]?.output)).toContain("fais d'abord local_pull");
-      expect(String(tools[1]?.output)).toContain('Pas de dépôt git');
-      expect(String(tools[2]?.output)).toContain("n'est pas un dépôt git");
+      expect(said).toContain(
+        'Pas copiés, fichiers binaires (son app MowBot desktop doit être mise à jour) : public/logo.png',
+      );
+      expect(said).toContain(
+        'Supprimés dans ta copie mais pas chez lui (local_push ne supprime rien) : old.txt',
+      );
+      expect((await theirs('todo.txt')).toString()).toBe('pain et lait\n');
+      expect((await theirs('src/page.astro')).toString()).toBe('<h1>Hi</h1>\n');
+      expect((await theirs('notes.md')).toString()).toBe('# Notes de Joris\n');
+      expect((await theirs('old.txt')).toString()).toBe('x\n');
+      expect(connector?.requests.some((r) => r.op === 'branch')).toBe(false);
+
+      // An up-to-date app takes the picture; what was written is not sent again.
+      await connect('0.2.4');
+      const again = await say('Rapporte encore');
+      expect(String(again[0]?.output)).toContain('0 modifié, 1 ajouté.');
+      expect(await theirs('public/logo.png')).toEqual(png);
+      const writes = (connector?.requests ?? []).filter((r) => r.op === 'write');
+      expect(writes.map((r) => r.args.path)).toEqual(['public/logo.png']);
+      expect(writes[0]?.args.base64).toBe(true);
     } finally {
       FakeConnector.head = 'abc1234def5678';
+      FakeConnector.version = '0.0.0-test';
     }
   });
 });
