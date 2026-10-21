@@ -106,7 +106,7 @@ describe('a project copied to the bot’s PC', () => {
       deletes: ['README.md'],
     });
     expect(String(branch?.args.name)).toMatch(/^mowbot\/chef-\d{8}-\d{4}$/);
-    const sent = (branch?.args.files as { path: string; data: string }[]).map((f) => [
+    const sent = ((branch?.args.files ?? []) as { path: string; data: string }[]).map((f) => [
       f.path,
       Buffer.from(f.data, 'base64').toString(),
     ]);
