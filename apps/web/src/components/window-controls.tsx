@@ -5,13 +5,17 @@ import { useTranslation } from 'react-i18next';
 import { inDesktopApp } from '../lib/projects';
 import { cn } from '../lib/utils';
 
+/** macOS keeps its own traffic lights over the interface (the app asks for it). */
+const isMac = () => /mac/i.test(navigator.userAgent);
+
 /** The band at the top of the window that moves it, like a title bar would. */
 const DRAG_BAND_PX = 40;
 const INTERACTIVE = 'button, a, input, textarea, select, label, [role="button"], [data-no-drag]';
 
 /**
- * In the desktop app the window has no frame: these replace the system's buttons, and the top of
- * the interface moves the window (a double click maximizes it).
+ * In the desktop app the window has no system title bar: on Windows and Linux these replace the
+ * system's buttons; on macOS the native traffic lights stay. Either way the top of the interface
+ * moves the window (a double click maximizes it).
  */
 export function WindowControls() {
   const { t } = useTranslation();
@@ -21,7 +25,11 @@ export function WindowControls() {
   useEffect(() => {
     if (!desktop) return;
     const win = getCurrentWindow();
-    document.documentElement.classList.add('desktop-app');
+    // desktop-frameless: room for these buttons; desktop-mac: room for the traffic lights.
+    document.documentElement.classList.add(
+      'desktop-app',
+      isMac() ? 'desktop-mac' : 'desktop-frameless',
+    );
     const sync = () => void win.isMaximized().then(setMaximized, () => undefined);
     sync();
     const unlisten = win.onResized(sync);
@@ -38,7 +46,7 @@ export function WindowControls() {
     };
   }, [desktop]);
 
-  if (!desktop) return null;
+  if (!desktop || isMac()) return null;
   const win = getCurrentWindow();
   const button =
     'grid h-full w-11 place-items-center text-muted-foreground transition-colors duration-150 hover:text-foreground';

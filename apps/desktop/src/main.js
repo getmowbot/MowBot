@@ -83,7 +83,8 @@ form.addEventListener('submit', async (event) => {
 
 init();
 
-// The window's buttons (the window has no frame).
+// The window's buttons (the window has no system title bar); macOS keeps its traffic lights.
+if (/mac/i.test(navigator.userAgent)) document.body.classList.add('mac');
 const appWindow = window.__TAURI__?.window.getCurrentWindow();
 if (appWindow) {
   document.getElementById('win-minimize').addEventListener('click', () => appWindow.minimize());

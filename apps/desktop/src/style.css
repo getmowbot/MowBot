@@ -155,6 +155,11 @@ button.ghost {
   color: var(--text);
 }
 
+/* macOS: the native traffic lights are there instead. */
+.mac .win {
+  display: none;
+}
+
 .win.close:hover {
   background: #dc2626;
   color: #fff;
