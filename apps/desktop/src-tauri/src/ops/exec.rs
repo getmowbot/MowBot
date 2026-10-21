@@ -22,7 +22,7 @@ const OUTPUT_MAX: usize = 200 * 1024;
 const DRAIN_AFTER_EXIT: Duration = Duration::from_secs(2);
 
 #[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+pub(super) const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// The shell `exec` runs, as announced to the hub: `powershell`, `bash`, `zsh`, `sh`…
 pub fn shell_name() -> String {
