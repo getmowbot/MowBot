@@ -876,6 +876,13 @@ export const fr = {
     refreshSession: 'Rafraîchir la session',
     sessionNotSaved: 'Session non enregistrée.',
   },
+  desktopUpdate: {
+    available: 'MowBot {{version}} est disponible',
+    current: 'Tu as la {{version}}. L’app redémarre après la mise à jour.',
+    installing: 'Téléchargement et installation…',
+    install: 'Mettre à jour',
+    later: 'Plus tard',
+  },
   profile: {
     subtitle:
       'Ton nom, le mot de passe du hub et, dans l’app desktop, le hub auquel elle se connecte.',
@@ -894,6 +901,10 @@ export const fr = {
     passwordFailed: 'Mot de passe non changé.',
     hub: 'Hub',
     changeHub: 'Changer de hub',
+    app: 'App desktop',
+    version: 'Version {{version}}',
+    checkUpdates: 'Rechercher les mises à jour',
+    upToDate: 'à jour',
   },
   projects: {
     subtitle:

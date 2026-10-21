@@ -8,6 +8,8 @@
     "allow-hub-url-get",
     "allow-hub-url-set",
     "allow-hub-change",
+    "allow-update-check",
+    "allow-update-install",
     "allow-connector-status",
     "allow-connector-link",
     "allow-connector-unlink",

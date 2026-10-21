@@ -1,6 +1,6 @@
 import { PASSWORD_MIN_LENGTH } from '@mowbot/contract';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, Server } from 'lucide-react';
+import { Check, MonitorDown, Server } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/ui/button';
@@ -149,22 +149,44 @@ function PasswordForm() {
   );
 }
 
-/** In the desktop app: which hub it shows, and going to another one. */
+/** In the desktop app: which hub it shows, going to another one, and the app's version. */
 function DesktopHub() {
   const { t } = useTranslation();
   const status = useDesktopStatus();
+  const [checked, setChecked] = useState<string | null>(null);
+  const check = useMutation({
+    mutationFn: desktop.checkUpdate,
+    // A newer version shows as a card (the app tells the page); up to date: said here.
+    onSuccess: (found) => setChecked(found ? null : t('profile.upToDate')),
+    onError: (err) => setChecked(err instanceof Error ? err.message : String(err)),
+  });
   return (
-    <section className="glass flex flex-wrap items-center gap-3 rounded-2xl p-5">
-      <Server className="size-5 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <p className="font-medium">{t('profile.hub')}</p>
-        <p className="truncate font-mono text-xs text-muted-foreground">
-          {status.data?.hubUrl ?? window.location.origin}
-        </p>
+    <section className="glass space-y-4 rounded-2xl p-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <Server className="size-5 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">{t('profile.hub')}</p>
+          <p className="truncate font-mono text-xs text-muted-foreground">
+            {status.data?.hubUrl ?? window.location.origin}
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => void desktop.changeHub()}>
+          {t('profile.changeHub')}
+        </Button>
       </div>
-      <Button variant="outline" onClick={() => void desktop.changeHub()}>
-        {t('profile.changeHub')}
-      </Button>
+      <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+        <MonitorDown className="size-5 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">{t('profile.app')}</p>
+          <p className="text-xs text-muted-foreground">
+            {status.data ? t('profile.version', { version: status.data.version }) : ''}
+            {checked ? ` · ${checked}` : ''}
+          </p>
+        </div>
+        <Button variant="outline" disabled={check.isPending} onClick={() => check.mutate()}>
+          {t('profile.checkUpdates')}
+        </Button>
+      </div>
     </section>
   );
 }

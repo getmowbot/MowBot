@@ -3,6 +3,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './i18n';
+import { DesktopUpdate } from './components/desktop-update';
 import { WindowControls } from './components/window-controls';
 import { AuthProvider } from './lib/auth';
 import { router } from './router';
@@ -21,6 +22,7 @@ createRoot(root).render(
       <AuthProvider>
         <RouterProvider router={router} />
         <WindowControls />
+        <DesktopUpdate />
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,

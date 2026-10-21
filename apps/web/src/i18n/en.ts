@@ -851,6 +851,13 @@ export const en: Catalog = {
     refreshSession: 'Refresh the session',
     sessionNotSaved: 'Session not saved.',
   },
+  desktopUpdate: {
+    available: 'MowBot {{version}} is available',
+    current: 'You have {{version}}. The app restarts after the update.',
+    installing: 'Downloading and installing…',
+    install: 'Update',
+    later: 'Later',
+  },
   profile: {
     subtitle: 'Your name, the hub password and, in the desktop app, the hub it connects to.',
     name: 'Your name',
@@ -867,6 +874,10 @@ export const en: Catalog = {
     passwordFailed: 'Password not changed.',
     hub: 'Hub',
     changeHub: 'Change hub',
+    app: 'Desktop app',
+    version: 'Version {{version}}',
+    checkUpdates: 'Check for updates',
+    upToDate: 'up to date',
   },
   projects: {
     subtitle:

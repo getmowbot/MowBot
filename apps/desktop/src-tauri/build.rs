@@ -6,6 +6,8 @@ fn main() {
             "hub_url_get",
             "hub_url_set",
             "hub_change",
+            "update_check",
+            "update_install",
             "connector_status",
             "connector_link",
             "connector_unlink",

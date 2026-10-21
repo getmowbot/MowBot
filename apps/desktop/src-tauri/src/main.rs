@@ -10,6 +10,7 @@ mod connector;
 mod hub;
 mod ops;
 mod state;
+mod update;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -20,9 +21,16 @@ use crate::state::AppState;
 fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "Ouvrir MowBot", true, None::<&str>)?;
     let change = MenuItem::with_id(app, "change-hub", "Changer de hub", true, None::<&str>)?;
+    let updates = MenuItem::with_id(
+        app,
+        "check-updates",
+        "Rechercher des mises à jour",
+        true,
+        None::<&str>,
+    )?;
     let quit = MenuItem::with_id(app, "quit", "Quitter", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&open, &change, &separator, &quit])?;
+    let menu = Menu::with_items(app, &[&open, &change, &updates, &separator, &quit])?;
     let mut tray = TrayIconBuilder::with_id("main")
         .tooltip("MowBot")
         .menu(&menu)
@@ -30,6 +38,16 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id().as_ref() {
             "open" => hub::show_main(app),
             "change-hub" => hub::navigate_main(app, hub::setup_page(app)),
+            "check-updates" => {
+                // The page shows what is found (or says it is up to date).
+                hub::show_main(app);
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = update::check(&app).await {
+                        eprintln!("[mowbot] {error}");
+                    }
+                });
+            }
             "quit" => app.exit(0),
             _ => {}
         })
@@ -109,11 +127,14 @@ fn main() {
             hub::show_main(app);
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::hub_url_get,
             commands::hub_url_set,
             commands::hub_change,
+            commands::update_check,
+            commands::update_install,
             commands::connector_status,
             commands::connector_link,
             commands::connector_unlink,
@@ -125,6 +146,7 @@ fn main() {
             let handle = app.handle().clone();
             let dir = app.path().app_config_dir()?;
             app.manage(AppState::new(dir, hub_override()));
+            app.manage(update::Updates::default());
             let args: Vec<String> = std::env::args().collect();
             if let Some(hub) = hub_argument(&args) {
                 if let Err(error) = app.state::<AppState>().set_hub(&hub) {
@@ -138,6 +160,7 @@ fn main() {
             }
             hub::create_main(&handle)?;
             create_tray(&handle)?;
+            update::watch(handle.clone());
             tauri::async_runtime::spawn(connector::run(handle));
             Ok(())
         })

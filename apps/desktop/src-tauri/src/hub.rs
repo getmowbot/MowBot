@@ -13,10 +13,13 @@ use crate::state::AppState;
 pub const MAIN: &str = "main";
 
 /// Commands the hub's page may call (the same as the first-run page, see capabilities/).
-const COMMAND_PERMISSIONS: [&str; 9] = [
+const COMMAND_PERMISSIONS: [&str; 12] = [
     "allow-hub-url-get",
     "allow-hub-url-set",
     "allow-hub-change",
+    "allow-update-check",
+    "allow-update-install",
+    "core:app:allow-version",
     "allow-connector-status",
     "allow-connector-link",
     "allow-connector-unlink",
