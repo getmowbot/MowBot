@@ -78,7 +78,7 @@ describe('the project a bot works in', () => {
     const messages = async () =>
       (await inject<{ items: Message[] }>('GET', `/api/v1/bots/${chef.id}/messages`)).body.items;
     const pick = (projectId: string | null) =>
-      inject<Bot & Problem>('PUT', `/api/v1/bots/${chef.id}/project`, { projectId });
+      inject<Bot>('PUT', `/api/v1/bots/${chef.id}/project`, { projectId });
 
     const site = await mkdtemp(path.join(tmpdir(), 'mowbot-site-'));
     const compta = await mkdtemp(path.join(tmpdir(), 'mowbot-compta-'));
@@ -180,7 +180,9 @@ describe('the project a bot works in', () => {
     });
     const refused = await pick(siteId);
     expect(refused.status).toBe(409);
-    expect(refused.body.type).toBe('urn:mowbot:problem:project_not_allowed');
+    expect((refused.body as unknown as Problem).type).toBe(
+      'urn:mowbot:problem:project_not_allowed',
+    );
     expect((await pick('00000000-0000-4000-8000-000000000001')).status).toBe(404);
 
     // Unshared from the desktop app: the bot has no project any more, and everyone hears it.
