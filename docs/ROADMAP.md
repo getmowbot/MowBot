@@ -121,7 +121,10 @@
 - [x] Hub : connecteurs et projets, outils local_* des bots, accord de l'utilisateur pour chaque commande (Autoriser / Tout autoriser dans ce projet / Refuser) ou mode auto, portée par équipes ou bots
 - [x] Pages Projets (web et app) : relier ce PC et partager un dossier depuis l'app desktop, mode, portée, ordinateurs reliés
 - [ ] Copier un projet sur le PC d'un bot (incrémental, .gitignore) et rapporter les changements en branche git ou diff à valider
-- [ ] Partager les serveurs MCP de l'ordinateur, installeurs signés (macOS, Linux) et mises à jour automatiques
+- [x] Fenêtre sans barre système (boutons intégrés à l'interface), adresse du hub au premier lancement, dans Profil ou avec `--hub`
+- [x] Installeurs Windows, macOS et Linux (workflow « Desktop app ») et commande d'installation Linux
+- [x] Profil : nom, mot de passe du hub (avec déconnexion des autres appareils)
+- [ ] Partager les serveurs MCP de l'ordinateur ; installeurs signés et mises à jour automatiques
 
 ## État de P6
 
