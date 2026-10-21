@@ -1,5 +1,5 @@
-import type { Bot, FileEntry, MessageMention, Team } from '@mowbot/contract';
-import { File as FileIcon, Folder, Users } from 'lucide-react-native';
+import type { Bot, FileEntry, MessageMention, Project, Team } from '@mowbot/contract';
+import { File as FileIcon, Folder, FolderCode, Users } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -104,22 +104,25 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 interface MentionSuggestionsProps {
   bots: Bot[];
   teams: Team[];
+  /** Folders of the user's computers this bot may work in. */
+  projects: Project[];
   files: FileEntry[];
   /** Files still being looked up (nothing found yet). */
   searching: boolean;
   onPick(mention: MessageMention): void;
 }
 
-/** What `@` offers: other bots, teams, and files of the bot's workspace. */
+/** What `@` offers: other bots, teams, projects, and files of the bot's workspace. */
 export function MentionSuggestions({
   bots,
   teams,
+  projects,
   files,
   searching,
   onPick,
 }: MentionSuggestionsProps) {
   const { t } = useTranslation();
-  const empty = bots.length + teams.length + files.length === 0;
+  const empty = bots.length + teams.length + projects.length + files.length === 0;
   return (
     <Panel>
       {empty ? (
@@ -167,6 +170,27 @@ export function MentionSuggestions({
                   {team.mission}
                 </T>
               ) : null}
+            </Row>
+          ))}
+        </Section>
+      ) : null}
+      {projects.length > 0 ? (
+        <Section title={t('chatInput.mentions.projects')}>
+          {projects.map((project) => (
+            <Row
+              key={project.id}
+              label={project.name}
+              onPress={() => onPick({ kind: 'project', id: project.id, label: project.name })}
+            >
+              <View style={styles.icon}>
+                <FolderCode size={18} color={colors.textMuted} />
+              </View>
+              <T variant="callout" numberOfLines={1} style={styles.name}>
+                {project.name}
+              </T>
+              <T variant="caption" tone="faint" numberOfLines={1} style={styles.detail}>
+                {project.online ? t('projects.online') : t('projects.offline')}
+              </T>
             </Row>
           ))}
         </Section>

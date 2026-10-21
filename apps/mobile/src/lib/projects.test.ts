@@ -1,9 +1,10 @@
 import { QueryClient } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { connector, project, translator } from '../test/fixtures';
+import { bot, connector, project, translator } from '../test/fixtures';
 import { applyServerEvent } from './event-cache';
 import {
+  activeProject,
   computerSummary,
   connectorHint,
   connectorName,
@@ -13,11 +14,14 @@ import {
   nameProblem,
   PATH_CHARS,
   presenceText,
+  projectChoices,
   projectHint,
+  projectsFor,
   renameBody,
   shortPath,
   sortConnectors,
   sortProjects,
+  usableBy,
 } from './projects';
 import { keys } from './query-keys';
 
@@ -187,5 +191,69 @@ describe('events', () => {
     applyServerEvent(client, { type: 'ready' });
     expect(client.getQueryState(keys.projects)?.isInvalidated).toBe(true);
     expect(client.getQueryState(keys.connectors)?.isInvalidated).toBe(true);
+  });
+});
+
+describe('the project a bot works in', () => {
+  const TEAM = '00000000-0000-4000-8000-0000000000aa';
+  const nova = bot({ name: 'Nova', teamId: TEAM });
+  const pc = connector({ name: 'PC-de-Joris' });
+  const site = project({ name: 'Site', connectorId: pc.id });
+  const compta = project({ name: 'compta', connectorId: pc.id, online: false });
+  const forOthers = project({ name: 'Autre', scope: { kind: 'bots', ids: ['someone-else'] } });
+  const forTeam = project({ name: 'Équipe', scope: { kind: 'teams', ids: [TEAM] } });
+
+  it('keeps the projects the bot may use, sorted', () => {
+    expect(usableBy(site, nova)).toBe(true);
+    expect(usableBy(forOthers, nova)).toBe(false);
+    expect(usableBy(forTeam, nova)).toBe(true);
+    expect(usableBy(forTeam, { ...nova, teamId: null })).toBe(false);
+    expect(usableBy(project({ scope: { kind: 'bots', ids: [nova.id] } }), nova)).toBe(true);
+    expect(projectsFor(nova, [site, forOthers, compta, forTeam]).map((p) => p.name)).toEqual([
+      'compta',
+      'Équipe',
+      'Site',
+    ]);
+    expect(projectsFor(nova, undefined)).toEqual([]);
+  });
+
+  it('finds the active project, while the bot may still use it', () => {
+    expect(activeProject({ ...nova, projectId: site.id }, [site, compta])).toBe(site);
+    expect(activeProject(nova, [site])).toBeNull();
+    // Gone, or no longer for this bot.
+    expect(activeProject({ ...nova, projectId: site.id }, [compta])).toBeNull();
+    expect(activeProject({ ...nova, projectId: forOthers.id }, [forOthers])).toBeNull();
+    expect(activeProject({ ...nova, projectId: site.id }, undefined)).toBeNull();
+  });
+
+  it('offers the usable projects with their computer, offline ones marked, then none', () => {
+    const working = { ...nova, projectId: site.id };
+    expect(projectChoices(working, [site, compta, forOthers], [pc], fr)).toEqual([
+      {
+        projectId: compta.id,
+        label: 'compta · PC-de-Joris (hors ligne)',
+        checked: false,
+        offline: true,
+      },
+      { projectId: site.id, label: '✓ Site · PC-de-Joris', checked: true, offline: false },
+      { projectId: null, label: 'Aucun projet', checked: false, offline: false },
+    ]);
+    expect(projectChoices(nova, [site], [pc], en).map((c) => c.label)).toEqual([
+      'Site · PC-de-Joris',
+      '✓ No project',
+    ]);
+  });
+
+  it('offers nothing when the bot may use no project', () => {
+    expect(projectChoices(nova, [forOthers], [pc], fr)).toEqual([]);
+    expect(projectChoices(nova, undefined, undefined, fr)).toEqual([]);
+  });
+
+  it('follows the bot on every device', () => {
+    const client = new QueryClient();
+    client.setQueryData(keys.bots, [nova]);
+    const moved = { ...nova, projectId: site.id };
+    applyServerEvent(client, { type: 'bot.updated', bot: moved });
+    expect(client.getQueryData(keys.bots)).toEqual([moved]);
   });
 });

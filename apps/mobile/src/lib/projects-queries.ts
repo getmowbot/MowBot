@@ -1,4 +1,4 @@
-import type { Connector, Project, ProjectUpdate } from '@mowbot/contract';
+import type { Bot, Connector, Project, ProjectUpdate } from '@mowbot/contract';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import i18n from '../i18n';
 import { problemCode } from './hub-url';
@@ -56,6 +56,24 @@ export function useUpdateProject() {
     mutationFn: ({ id, body }: { id: string; body: ProjectUpdate }) =>
       data(api().PATCH('/api/v1/projects/{id}', { params: { path: { id } }, body })),
     onSuccess: (project) => putProject(client, project),
+  });
+}
+
+/** Picks the project a bot works in (null: none); other devices follow through `bot.updated`. */
+export function useSetBotProject(botId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (projectId: string | null) =>
+      data(
+        api().PUT('/api/v1/bots/{id}/project', {
+          params: { path: { id: botId } },
+          body: { projectId },
+        }),
+      ),
+    onSuccess: (bot) =>
+      client.setQueryData<Bot[]>(keys.bots, (list) =>
+        list?.map((other) => (other.id === bot.id ? bot : other)),
+      ),
   });
 }
 

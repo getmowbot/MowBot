@@ -18,6 +18,7 @@ export function matches(query: string, ...fields: string[]): boolean {
 export const COMMANDS = [
   'stop',
   'clear',
+  'project',
   'pc',
   'files',
   'settings',
@@ -27,9 +28,16 @@ export const COMMANDS = [
 ] as const;
 export type CommandName = (typeof COMMANDS)[number];
 
-/** The commands a bot has: `/pc` needs its PC, `/files` its workspace. */
-export function botCommands(bot: Pick<Bot, 'computerId' | 'workspaceId'>): CommandName[] {
+/**
+ * The commands a bot has: `/project` needs projects it may use, `/pc` its PC, `/files` its
+ * workspace.
+ */
+export function botCommands(
+  bot: Pick<Bot, 'computerId' | 'workspaceId'>,
+  hasProjects = false,
+): CommandName[] {
   return COMMANDS.filter((name) => {
+    if (name === 'project') return hasProjects;
     if (name === 'pc') return Boolean(bot.computerId);
     if (name === 'files') return Boolean(bot.workspaceId);
     return true;
@@ -49,10 +57,14 @@ export function filterCommands<C extends { name: string; title: string }>(
     .sort((a, b) => rank(a) - rank(b));
 }
 
+/** Other spellings of a command: `/projet` is how a French speaker types `/project`. */
+export const COMMAND_ALIASES: Readonly<Record<string, CommandName>> = { projet: 'project' };
+
 /** The command a sent text is exactly (`/stop`); null for anything else, sent as a message. */
 export function commandOf<N extends string>(text: string, names: readonly N[]): N | null {
   const typed = /^\/(\S+)$/.exec(text.trim())?.[1]?.toLowerCase();
-  return names.find((name) => name === typed) ?? null;
+  const name = typed && (COMMAND_ALIASES[typed] ?? typed);
+  return names.find((candidate) => candidate === name) ?? null;
 }
 
 /** Past this many characters after an @, the user is writing, not looking for a name. */

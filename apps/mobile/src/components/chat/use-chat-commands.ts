@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import {
   CalendarClock,
   Eraser,
+  FolderCode,
   FolderOpen,
   type LucideIcon,
   Monitor,
@@ -16,6 +17,7 @@ import { Keyboard } from 'react-native';
 import { botCommands, type CommandName } from '../../lib/chat-input';
 import { useStopBot } from '../../lib/queries';
 import { useClearConversation } from './bot-menu';
+import { useProjectMenu } from './project-chip';
 
 export interface ChatCommand {
   name: CommandName;
@@ -27,6 +29,7 @@ export interface ChatCommand {
 const ICONS: Record<CommandName, LucideIcon> = {
   stop: Square,
   clear: Eraser,
+  project: FolderCode,
   pc: Monitor,
   files: FolderOpen,
   settings: Settings2,
@@ -43,8 +46,9 @@ export function useChatCommands(bot: Bot): {
   const { t } = useTranslation();
   const stop = useStopBot(bot.id);
   const clear = useClearConversation();
+  const pickProject = useProjectMenu(bot);
 
-  const commands = botCommands(bot).map((name) => ({
+  const commands = botCommands(bot, pickProject !== null).map((name) => ({
     name,
     title: t(`chatInput.commands.${name}.title`),
     hint: t(`chatInput.commands.${name}.hint`, { name: bot.name }),
@@ -64,6 +68,9 @@ export function useChatCommands(bot: Bot): {
         return;
       case 'clear':
         clear(bot);
+        return;
+      case 'project':
+        pickProject?.();
         return;
       case 'pc':
         if (bot.computerId) open(`/pc/${bot.computerId}?bot=${bot.id}`);

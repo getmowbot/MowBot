@@ -9,6 +9,7 @@ export const fr = {
       title: 'Vider la conversation',
       hint: 'Repartir de zéro : {{name}} oublie tout ce qui a été dit.',
     },
+    project: { title: 'Projet', hint: 'Le dossier de ton ordinateur où {{name}} travaille.' },
     pc: { title: 'Voir le PC', hint: 'L’écran du PC de {{name}}, en direct.' },
     files: { title: 'Fichiers', hint: 'Les fichiers de son espace de travail.' },
     settings: { title: 'Réglages', hint: 'Mission, modèle et réglages de {{name}}.' },
@@ -19,6 +20,7 @@ export const fr = {
   mentions: {
     bots: 'Bots',
     teams: 'Équipes',
+    projects: 'Projets',
     files: 'Fichiers',
     none: 'Rien ne correspond.',
     searching: 'Recherche…',
@@ -33,6 +35,7 @@ export const en: Widen<typeof fr> = {
       title: 'Clear conversation',
       hint: 'Start over: {{name}} forgets everything that was said.',
     },
+    project: { title: 'Project', hint: 'The folder of your computer where {{name}} works.' },
     pc: { title: 'View the PC', hint: '{{name}}’s PC screen, live.' },
     files: { title: 'Files', hint: 'The files of its workspace.' },
     settings: { title: 'Settings', hint: '{{name}}’s mission, model and settings.' },
@@ -43,6 +46,7 @@ export const en: Widen<typeof fr> = {
   mentions: {
     bots: 'Bots',
     teams: 'Teams',
+    projects: 'Projects',
     files: 'Files',
     none: 'Nothing matches.',
     searching: 'Searching…',

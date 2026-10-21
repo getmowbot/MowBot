@@ -67,6 +67,15 @@ export const fr = {
     scope: 'Choisis au moins une équipe ou un bot.',
     not_found: 'Introuvable : ce projet n’est peut-être plus partagé.',
   },
+  /** Le projet où travaille un bot, choisi dans sa conversation. */
+  active: {
+    title: 'Projet de travail',
+    message: 'Les outils de {{name}} sur ton ordinateur y vont par défaut.',
+    offline: 'Hors ligne : {{name}} y accède dès que l’app desktop est ouverte sur cet ordinateur.',
+    none: 'Aucun projet',
+    label: 'Projet de travail : {{project}}',
+    notSaved: 'Projet non changé.',
+  },
 } as const;
 
 export const en: Widen<typeof fr> = {
@@ -133,5 +142,13 @@ export const en: Widen<typeof fr> = {
     nameLong: 'This name is too long (80 characters at most).',
     scope: 'Pick at least one team or bot.',
     not_found: 'Not found: this project may no longer be shared.',
+  },
+  active: {
+    title: 'Working project',
+    message: '{{name}}’s tools on your computer go there by default.',
+    offline: 'Offline: {{name}} reaches it once the desktop app is open on that computer.',
+    none: 'No project',
+    label: 'Working project: {{project}}',
+    notSaved: 'Project not changed.',
   },
 };
