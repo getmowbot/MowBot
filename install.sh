@@ -164,6 +164,24 @@ free_port() {
   printf '%s\n' "$port"
 }
 
+# Ports of the bots' web previews: 8800-8819, or the next free block of 20.
+PREVIEW_PORTS=20
+free_preview_range() {
+  local first=8800 port busy
+  while ((first < 65000)); do
+    busy=0
+    for ((port = first; port < first + PREVIEW_PORTS; port++)); do
+      if port_busy "$port"; then
+        busy=1
+        break
+      fi
+    done
+    ((busy)) || break
+    first=$((first + PREVIEW_PORTS))
+  done
+  printf '%s-%s\n' "$first" "$((first + PREVIEW_PORTS - 1))"
+}
+
 public_url() {
   local address port https url
   address=$(env_get MOWBOT_DOMAIN)
@@ -341,6 +359,7 @@ configure() {
   set_env "$file" MOWBOT_COOKIE_SECURE "$cookie"
   set_env "$file" MOWBOT_HTTP_PORT "$port"
   set_env "$file" MOWBOT_HTTPS_PORT "$https"
+  set_env "$file" MOWBOT_PREVIEW_PORTS "$(free_preview_range)"
   set_env "$file" POSTGRES_PASSWORD "$(random 24 | tr -d '+/=')"
   set_env "$file" MOWBOT_MASTER_KEY "$(random 32)"
   set_env "$file" MOWBOT_SETUP_TOKEN "$(random 18 | tr '+/' '-_')"
@@ -360,6 +379,11 @@ add_new_settings() {
     added+=("$key")
   done <"$dir/deploy/.env.example"
   if ((${#added[@]})); then note "Nouveaux réglages dans deploy/.env : ${added[*]}"; fi
+  # New: the previews' ports. Caddy publishes them, so they must be free on this server.
+  if [[ " ${added[*]} " == *" MOWBOT_PREVIEW_PORTS "* ]]; then
+    set_env "$env_file" MOWBOT_PREVIEW_PORTS "$(free_preview_range)"
+    note "Aperçus web des bots : ports $(env_get MOWBOT_PREVIEW_PORTS) (à ouvrir dans le pare-feu, comme 80 et 443)."
+  fi
 }
 
 wait_hub() {
@@ -405,6 +429,7 @@ summary() {
     note "Ouvre-le et crée ton compte avec le jeton de configuration : $b${token:-voir sudo mowbot logs hub}$off"
   fi
   note "App mobile : adresse du hub $url"
+  note "Aperçus web des bots : ports $(env_get MOWBOT_PREVIEW_PORTS) (TCP, et UDP pour HTTP/3) à ouvrir dans le pare-feu comme 80 et 443."
   note "Garde une copie de $env_file : sa clé MOWBOT_MASTER_KEY chiffre les secrets."
   note "Mettre à jour : sudo mowbot update · état : sudo mowbot status · journaux : sudo mowbot logs"
 }

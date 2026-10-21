@@ -8,6 +8,9 @@
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		# The bots' previews share this host (other ports): they must not frame the app.
+		X-Frame-Options "SAMEORIGIN"
+		Content-Security-Policy "frame-ancestors 'self'"
 		-Server
 	}
 
@@ -23,3 +26,6 @@
 		file_server
 	}
 }
+
+# The bots' web previews, one site per port of MOWBOT_PREVIEW_PORTS (written by caddy-start.sh).
+import /etc/caddy/previews.caddy
