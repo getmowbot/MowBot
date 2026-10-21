@@ -9,6 +9,8 @@ import { HUB_TEXTS, ownerLocale } from '../i18n';
 type TaskRow = typeof tasks.$inferSelect;
 type BotRow = typeof bots.$inferSelect;
 
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
 export function toTask(row: TaskRow): Task {
   return {
     id: row.id,
@@ -38,6 +40,8 @@ export type TaskNotifier = (input: {
   task: TaskRow;
   text: string;
   display: string;
+  /** The notice in a few words, as the apps show it folded. */
+  summary: string;
   /** Bot-to-bot hops behind this notice (loop guard). */
   depth: number;
 }) => Promise<void>;
@@ -93,6 +97,7 @@ export class TaskService {
       from: creator,
       task: row,
       depth,
+      summary: row.title,
       display: [`**${HUB_TEXTS[await ownerLocale(this.db)].task}** · ${row.title}`, row.details]
         .filter(Boolean)
         .join('\n\n'),
@@ -148,6 +153,7 @@ export class TaskService {
           from: actor,
           task: row,
           depth,
+          summary: `${capitalize(texts.taskStatus[row.status])} · ${row.title}`,
           display: [`**${texts.task} ${texts.taskStatus[row.status]}** · ${row.title}`, row.result]
             .filter(Boolean)
             .join('\n\n'),

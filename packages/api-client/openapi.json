@@ -10036,6 +10036,12 @@
                               "null"
                             ]
                           },
+                          "summary": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -10966,6 +10972,7 @@
                           "role",
                           "fromBotId",
                           "fromName",
+                          "summary",
                           "kind",
                           "taskId",
                           "parts",
@@ -11290,6 +11297,12 @@
                       ]
                     },
                     "fromName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "summary": {
                       "type": [
                         "string",
                         "null"
@@ -12225,6 +12238,7 @@
                     "role",
                     "fromBotId",
                     "fromName",
+                    "summary",
                     "kind",
                     "taskId",
                     "parts",
@@ -12744,6 +12758,12 @@
                         "null"
                       ]
                     },
+                    "summary": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "kind": {
                       "type": "string",
                       "enum": [
@@ -13674,6 +13694,7 @@
                     "role",
                     "fromBotId",
                     "fromName",
+                    "summary",
                     "kind",
                     "taskId",
                     "parts",
@@ -13879,6 +13900,12 @@
                         "null"
                       ]
                     },
+                    "summary": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "kind": {
                       "type": "string",
                       "enum": [
@@ -14809,6 +14836,7 @@
                     "role",
                     "fromBotId",
                     "fromName",
+                    "summary",
                     "kind",
                     "taskId",
                     "parts",
@@ -15040,6 +15068,12 @@
                         "null"
                       ]
                     },
+                    "summary": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "kind": {
                       "type": "string",
                       "enum": [
@@ -15970,6 +16004,7 @@
                     "role",
                     "fromBotId",
                     "fromName",
+                    "summary",
                     "kind",
                     "taskId",
                     "parts",
@@ -16219,6 +16254,12 @@
                         "null"
                       ]
                     },
+                    "summary": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "kind": {
                       "type": "string",
                       "enum": [
@@ -17149,6 +17190,7 @@
                     "role",
                     "fromBotId",
                     "fromName",
+                    "summary",
                     "kind",
                     "taskId",
                     "parts",
@@ -19101,6 +19143,12 @@
                               "null"
                             ]
                           },
+                          "summary": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -20036,6 +20084,7 @@
                           "role",
                           "fromBotId",
                           "fromName",
+                          "summary",
                           "kind",
                           "taskId",
                           "parts",
