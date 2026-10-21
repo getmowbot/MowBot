@@ -70,6 +70,18 @@ export const fr = {
     computer_not_running: 'Le PC n’est pas allumé.',
     no_page: 'Ce bot n’a pas de page ouverte.',
   },
+  previews: {
+    title: 'Aperçus web',
+    meta: 'Port {{port}} · jusqu’à {{until}}',
+    metaBot: 'Port {{port}} · {{bot}} · jusqu’à {{until}}',
+    open: 'Ouvrir',
+    options: 'Options de l’aperçu',
+    copy: 'Copier le lien',
+    copied: 'Lien copié. Il est privé : il ouvre la page sans connexion.',
+    stop: 'Arrêter l’aperçu',
+    confirmStop:
+      'Arrêter « {{title}} » ? Son lien ne marchera plus. Le serveur du bot, lui, continue de tourner.',
+  },
 } as const;
 
 export const en: Widen<typeof fr> = {
@@ -139,5 +151,16 @@ export const en: Widen<typeof fr> = {
   errors: {
     computer_not_running: 'The PC is not on.',
     no_page: 'This bot has no page open.',
+  },
+  previews: {
+    title: 'Web previews',
+    meta: 'Port {{port}} · until {{until}}',
+    metaBot: 'Port {{port}} · {{bot}} · until {{until}}',
+    open: 'Open',
+    options: 'Preview options',
+    copy: 'Copy link',
+    copied: 'Link copied. It is private: it opens the page without signing in.',
+    stop: 'Stop the preview',
+    confirmStop: 'Stop “{{title}}”? Its link will stop working. The bot’s server keeps running.',
   },
 };

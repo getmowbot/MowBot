@@ -65,9 +65,13 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         'mcp-calls',
         'projects',
         'connectors',
+        'previews',
       ]) {
         void client.invalidateQueries({ queryKey: [key] });
       }
+      break;
+    case 'previews.changed':
+      void client.invalidateQueries({ queryKey: keys.previews(event.computerId) });
       break;
     case 'computer.updated':
       client.setQueryData<Computer[]>(keys.computers, (list) => upsert(list, event.computer));
