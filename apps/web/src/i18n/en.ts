@@ -550,6 +550,8 @@ export const en: Catalog = {
     enlarge: 'Enlarge the image',
     previous: 'Previous image',
     next: 'Next image',
+    open: 'Open',
+    openFile: 'Open “{{name}}”',
   },
   routines: {
     title: 'Routines',

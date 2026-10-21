@@ -49,24 +49,10 @@ interface Options {
   onDeleted?(path: string): void;
 }
 
-/** Everything the user can do with files, shared by the browser and the preview. */
-export function useFileActions({ workspaceId, dir, ownerName, onRenamed, onDeleted }: Options): {
-  openEntryMenu(entry: FileEntry, options?: { move?: boolean }): void;
-  openFolderMenu(): void;
-  share(entry: Pick<FileEntry, 'path' | 'type'>): void;
-  upload(): void;
-  /** What is under way, for a banner. */
-  busy: string | null;
-  /** The name prompt (Android): render it once in the screen. */
-  element: ReactNode;
-} {
+/** Tells the user why a file action failed. */
+function useFailure(): (error: unknown) => void {
   const { t } = useTranslation();
-  const mutations = useFileMutations(workspaceId);
-  const prompt = useNamePrompt();
-  const [busy, setBusy] = useState<string | null>(null);
-  const trashLabel = t('filesView.trash');
-
-  const fail = (error: unknown) => {
+  return (error) => {
     if (error instanceof SharingUnavailable) return alertError(t('filesView.shareUnavailable'));
     const code = problemCode(uploadProblem(error));
     if (code === 'already_exists') return alertError(t('filesView.alreadyExists'));
@@ -74,13 +60,26 @@ export function useFileActions({ workspaceId, dir, ownerName, onRenamed, onDelet
     if (code === 'not_found') return alertError(t('filesView.fileNotFound'));
     alertError(t('common.actionFailed'));
   };
+}
+
+/**
+ * Downloads a file (a folder as a .zip) and hands it to the share sheet: the browser, the
+ * preview and the files bots present in their answers. `busy` says how far the download is.
+ */
+export function useShareEntry(
+  workspaceId: string,
+  ownerName: string | null,
+): { share(entry: Pick<FileEntry, 'path' | 'type'>): void; busy: string | null } {
+  const { t } = useTranslation();
+  const fail = useFailure();
+  const [busy, setBusy] = useState<string | null>(null);
 
   /** Name of the local copy: the entry's (without its trash stamp), `.zip` for a folder. */
   const localName = (entry: Pick<FileEntry, 'path' | 'type'>) => {
     const name = entry.path
       ? originalName(baseName(entry.path))
       : (ownerName ?? t('filesView.title'));
-    const shown = entry.path === TRASH_FOLDER ? trashLabel : name;
+    const shown = entry.path === TRASH_FOLDER ? t('filesView.trash') : name;
     return entry.type === 'directory' ? `${shown}.zip` : shown;
   };
 
@@ -107,6 +106,35 @@ export function useFileActions({ workspaceId, dir, ownerName, onRenamed, onDelet
     })();
   };
 
+  return { share, busy };
+}
+
+/** Everything the user can do with files, shared by the browser and the preview. */
+export function useFileActions({ workspaceId, dir, ownerName, onRenamed, onDeleted }: Options): {
+  openEntryMenu(entry: FileEntry, options?: { move?: boolean }): void;
+  openFolderMenu(): void;
+  share(entry: Pick<FileEntry, 'path' | 'type'>): void;
+  upload(): void;
+  /** What is under way, for a banner. */
+  busy: string | null;
+  /** The name prompt (Android): render it once in the screen. */
+  element: ReactNode;
+} {
+  const { t } = useTranslation();
+  const mutations = useFileMutations(workspaceId);
+  const prompt = useNamePrompt();
+  const fail = useFailure();
+  const sharing = useShareEntry(workspaceId, ownerName);
+  const [uploading, setUploading] = useState<string | null>(null);
+  // One thing at a time: a download or an upload.
+  const busy = sharing.busy ?? uploading;
+  const trashLabel = t('filesView.trash');
+
+  const share = (entry: Pick<FileEntry, 'path' | 'type'>) => {
+    if (busy) return;
+    sharing.share(entry);
+  };
+
   const upload = () => {
     if (busy) return;
     void (async () => {
@@ -119,9 +147,9 @@ export function useFileActions({ workspaceId, dir, ownerName, onRenamed, onDelet
         {
           dir,
           assets: picked.assets,
-          onFile: (asset) => setBusy(t('filesView.uploading', { name: asset.name })),
+          onFile: (asset) => setUploading(t('filesView.uploading', { name: asset.name })),
         },
-        { onSettled: () => setBusy(null), onError: fail },
+        { onSettled: () => setUploading(null), onError: fail },
       );
     })().catch(fail);
   };

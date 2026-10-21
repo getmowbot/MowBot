@@ -24,6 +24,7 @@ import { IconButton } from '../ui/button';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 import { CardBody } from './card-body';
+import { FileBody } from './file-body';
 import { GalleryBody } from './gallery-body';
 import { WorkspaceImage } from './workspace-image';
 
@@ -395,7 +396,7 @@ export function HtmlBody({ content, size }: { content: Content<'html'>; size: Ca
 
 export interface CanvasBodyProps {
   content: CanvasContent;
-  /** The bot's workspace, where its pictures are. */
+  /** The bot's workspace, where its pictures and the files it presents are. */
   workspaceId: string | null;
   size: CanvasSize;
   /** Changes when the pictures may have changed (the canvas was updated). */
@@ -455,6 +456,8 @@ export function CanvasBody({
       );
     case 'gallery':
       return <GalleryBody content={content} workspaceId={workspaceId} version={version} />;
+    case 'file':
+      return <FileBody content={content} workspaceId={workspaceId} version={version} />;
   }
 }
 

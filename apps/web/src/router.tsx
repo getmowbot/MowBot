@@ -131,18 +131,21 @@ const computerRoute = createRoute({
   path: '/computers/$computerId',
   component: DesktopPage,
 });
+/** `path`: the folder shown; `open`: a file shown in the preview (one a bot presented). */
+const filesSearch = (search: Record<string, unknown>): { path?: string; open?: string } => ({
+  ...(typeof search.path === 'string' && search.path ? { path: search.path } : {}),
+  ...(typeof search.open === 'string' && search.open ? { open: search.open } : {}),
+});
 const workspaceFilesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/workspaces/$workspaceId/files',
-  validateSearch: (search: Record<string, unknown>): { path?: string } =>
-    typeof search.path === 'string' && search.path ? { path: search.path } : {},
+  validateSearch: filesSearch,
   component: FilesPage,
 });
 const filesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/teams/$teamId/files',
-  validateSearch: (search: Record<string, unknown>): { path?: string } =>
-    typeof search.path === 'string' && search.path ? { path: search.path } : {},
+  validateSearch: filesSearch,
   component: FilesPage,
 });
 

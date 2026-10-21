@@ -145,6 +145,7 @@ const CANVAS_FRAME: Record<CanvasKind, string> = {
   html: 'glass rounded-2xl p-4',
   card: 'glass max-w-sm rounded-2xl p-3',
   gallery: '',
+  file: 'glass max-w-md rounded-2xl p-3',
 };
 
 /** What the bot showed in its answer, drawn as on the home page; a card's buttons answer it once. */

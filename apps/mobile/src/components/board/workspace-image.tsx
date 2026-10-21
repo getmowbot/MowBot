@@ -18,6 +18,8 @@ interface Props {
   style?: StyleProp<ImageStyle>;
   /** Shown instead when the file cannot be loaded (default: an icon and the alt text). */
   fallback?: ReactNode;
+  /** The picture's own size, once loaded (to fit a frame to it). */
+  onSize?(size: { width: number; height: number }): void;
 }
 
 /** In place of a picture that cannot be shown: an icon and its name. */
@@ -46,6 +48,7 @@ export function WorkspaceImage({
   contentFit = 'cover',
   style,
   fallback,
+  onSize,
 }: Props) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -76,6 +79,9 @@ export function WorkspaceImage({
       accessibilityLabel={alt}
       contentFit={contentFit}
       transition={200}
+      onLoad={
+        onSize ? ({ source }) => onSize({ width: source.width, height: source.height }) : undefined
+      }
       onError={onError}
       style={[styles.image, style]}
     />

@@ -1082,7 +1082,12 @@ export class BotRuntime {
           bots: this.deps.bots,
           db,
         }),
-        ...buildCanvasTools({ self: bot, canvases: this.deps.canvases, showInChat }),
+        ...buildCanvasTools({
+          self: bot,
+          canvases: this.deps.canvases,
+          showInChat,
+          files: this.deps.files,
+        }),
         ...buildVaultTools({
           self: bot,
           vault: this.deps.vault,
