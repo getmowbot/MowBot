@@ -47,11 +47,11 @@ import { buildOrgTools } from './org-tools';
 import { buildProactiveTools } from './proactive-tools';
 import { systemPrompt } from './prompt';
 import { FileLocks, ScreenLeases } from './shared-pc';
+import { LAST_STEP_NOTE, MAX_AUTONOMOUS_STEPS, MAX_STEPS, shortenOldOutputs } from './step-budget';
 import { buildTools, clip } from './tools';
 import { buildVaultTools, VAULT_REQUEST } from './vault-tools';
 
 const HISTORY_MESSAGES = 40;
-const MAX_STEPS = 30;
 /** An answer that took this long reaches the phone: the user has probably moved on. */
 const FINISHED_PUSH_AFTER_MS = 15_000;
 const UI_OUTPUT_CHARS = 4_000;
@@ -1242,37 +1242,45 @@ ${context}`
         steers.push({ at, messages: rows.flatMap(steeredMessages) });
       };
 
+      const maxSteps = autonomous ? MAX_AUTONOMOUS_STEPS : MAX_STEPS;
       const streamWith = async (model: LanguageModel) => {
+        // The last step allowed came: the bot sums up instead of stopping on a tool call.
+        let stepLimit = false;
         const result = streamText({
           model,
           system,
           messages: history,
           tools,
-          stopWhen: stepCountIs(MAX_STEPS),
-          // Screenshots taken during a step are shown once, at the next step, as images.
-          prepareStep: async ({ messages: stepMessages }) => {
-            const responses = stepMessages.slice(history.length);
-            await takeSteers(responses.length);
+          stopWhen: stepCountIs(maxSteps),
+          // Rebuilt from the turn's pieces at each step (an override would carry forward):
+          // old outputs shortened, and screenshots taken during a step shown once, at the next
+          // step, as images.
+          prepareStep: async ({ stepNumber, responseMessages }) => {
+            await takeSteers(responseMessages.length);
             const images = pendingImages.splice(0);
-            if (steers.length === 0 && images.length === 0) return undefined;
-            const turn = [...history, ...withSteers(responses)];
-            if (images.length === 0) return { messages: turn };
-            return {
-              messages: [
-                ...turn,
-                {
-                  role: 'user',
-                  content: [
-                    { type: 'text', text: 'Capture demandée (l’écran du PC fait 1280×800) :' },
-                    ...images.map((image) => ({
-                      type: 'file' as const,
-                      data: image,
-                      mediaType: 'image/png',
-                    })),
-                  ],
-                },
-              ],
-            };
+            const shown: ModelMessage[] =
+              images.length === 0
+                ? []
+                : [
+                    {
+                      role: 'user',
+                      content: [
+                        { type: 'text', text: 'Capture demandée (l’écran du PC fait 1280×800) :' },
+                        ...images.map((image) => ({
+                          type: 'file' as const,
+                          data: image,
+                          mediaType: 'image/png',
+                        })),
+                      ],
+                    },
+                  ];
+            const messages = [
+              ...shortenOldOutputs([...history, ...withSteers(responseMessages)]),
+              ...shown,
+            ];
+            if (stepNumber < maxSteps - 1) return { messages };
+            stepLimit = true;
+            return { messages: [...messages, LAST_STEP_NOTE], toolChoice: 'none' };
           },
           abortSignal: controller.signal,
           maxRetries: 2,
@@ -1326,6 +1334,7 @@ ${context}`
         return {
           transcript: await result.responseMessages,
           usage: await result.totalUsage,
+          stepLimit,
         };
       };
 
@@ -1347,6 +1356,7 @@ ${context}`
         parts,
         modelMessages: stripBinary(withSteers(outcome.transcript)) as ModelMessage[],
         status: 'done',
+        ...(outcome.stepLimit ? { meta: { ...created.meta, stepLimit: true } } : {}),
         usage: {
           inputTokens: outcome.usage.inputTokens ?? 0,
           outputTokens: outcome.usage.outputTokens ?? 0,

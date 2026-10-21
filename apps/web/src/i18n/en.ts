@@ -144,6 +144,8 @@ export const en: Catalog = {
       generic: 'Something went wrong.',
     },
     stopped: 'Stopped.',
+    stepLimit: 'Step limit reached',
+    continue: 'Continue',
     greeting: 'Hi, I’m {{name}}.',
     greetingChef: 'Hi, I’m the Chef.',
     chefIntro:

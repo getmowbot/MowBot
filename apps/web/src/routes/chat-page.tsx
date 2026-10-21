@@ -73,6 +73,25 @@ function SteeredHint() {
   return <p className="px-1 text-[11px] text-faint">{t('chat.steered')}</p>;
 }
 
+/** Under an answer cut by the step limit; the last one can be resumed. */
+function StepLimitHint({ onContinue }: { onContinue?: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <p className="flex items-center gap-2 text-xs text-faint">
+      {t('chat.stepLimit')}
+      {onContinue && (
+        <button
+          type="button"
+          onClick={onContinue}
+          className="rounded-full border border-border-strong px-2.5 py-0.5 text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.06] hover:text-foreground"
+        >
+          {t('chat.continue')}
+        </button>
+      )}
+    </p>
+  );
+}
+
 /** What another bot (or the user, for a task) gave this bot: a quieter, outlined bubble. */
 function IncomingMessage({ message }: { message: Message }) {
   const { t } = useTranslation();
@@ -239,11 +258,14 @@ function BotMessage({
   message,
   bot,
   onAnswer,
+  onContinue,
 }: {
   message: Message;
   bot: Bot;
   /** The user pressed a card's button or answered a vault request: their answer follows. */
   onAnswer(): void;
+  /** Cut by the step limit and still the last answer: the user can tell the bot to go on. */
+  onContinue?: () => void;
 }) {
   const { t } = useTranslation();
   const streaming = message.status === 'streaming';
@@ -309,6 +331,9 @@ function BotMessage({
           </p>
         )}
         {message.status === 'stopped' && <p className="text-xs text-faint">{t('chat.stopped')}</p>}
+        {message.status === 'done' && message.stepLimit && (
+          <StepLimitHint onContinue={onContinue} />
+        )}
       </div>
     </div>
   );
@@ -584,7 +609,7 @@ export function ChatPage() {
               <EmptyState bot={bot} onPick={(text) => send.mutate({ text })} />
             )}
             <AnimatePresence initial={false}>
-              {items.map((message) => (
+              {items.map((message, index) => (
                 <motion.div
                   key={message.id}
                   variants={reveal}
@@ -606,6 +631,11 @@ export function ChatPage() {
                       onAnswer={() => {
                         stickToBottom.current = true;
                       }}
+                      onContinue={
+                        index === items.length - 1 && !send.isPending
+                          ? () => send.mutate({ text: 'Continue' })
+                          : undefined
+                      }
                     />
                   )}
                 </motion.div>
