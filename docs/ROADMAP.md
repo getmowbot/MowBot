@@ -114,6 +114,15 @@
 - [x] Pages Coffre (web et app) ; vider l'onglet Activité et les notifications
 - [ ] Politique « demander au bot propriétaire », entrées de type fichier, vérification de santé des sessions (plus tard)
 
+## App desktop et projets locaux
+
+- [x] App Tauri : la fenêtre affiche l'interface du hub (adresse demandée au premier lancement), icône de la barre des tâches, fermer la fenêtre garde le connecteur actif
+- [x] Connecteur Rust : WebSocket sortante vers le hub avec son propre jeton (révocable), reconnexion automatique ; list, read, write, edit, find, search (.gitignore respecté), exec (PowerShell sous Windows) ; chemins vérifiés (liens symboliques compris), rien hors des dossiers partagés
+- [x] Hub : connecteurs et projets, outils local_* des bots, accord de l'utilisateur pour chaque commande (Autoriser / Tout autoriser dans ce projet / Refuser) ou mode auto, portée par équipes ou bots
+- [x] Pages Projets (web et app) : relier ce PC et partager un dossier depuis l'app desktop, mode, portée, ordinateurs reliés
+- [ ] Copier un projet sur le PC d'un bot (incrémental, .gitignore) et rapporter les changements en branche git ou diff à valider
+- [ ] Partager les serveurs MCP de l'ordinateur, installeurs signés (macOS, Linux) et mises à jour automatiques
+
 ## État de P6
 
 - [x] Serveurs MCP distants (Streamable HTTP, repli SSE) avec en-têtes secrets scellés ou connexion OAuth 2.1 (enregistrement dynamique, PKCE, jetons gardés chiffrés et rafraîchis par le hub)

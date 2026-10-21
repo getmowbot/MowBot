@@ -5,7 +5,8 @@ Des équipes de bots IA self-hosted. Chaque équipe partage un vrai PC Linux (bu
 - Spécification : [docs/SPEC.md](docs/SPEC.md)
 - Roadmap : [docs/ROADMAP.md](docs/ROADMAP.md)
 
-> **État : P6.**
+> **État : P6, et l'app desktop.**
+> - L'app desktop (Tauri) : les équipes travaillent sur les projets de ton ordinateur, comme un assistant de code, même si le hub est sur un serveur. Tu partages un dossier, les bots y lisent, modifient, cherchent et lancent des commandes (avec ton accord, ou librement en mode auto). Voir [docs/DESKTOP.md](docs/DESKTOP.md).
 > - Dans le chat, `@` cite un bot, une équipe ou un fichier du workspace (le bot reçoit qui c'est, ou le contenu du fichier), `/` lance une commande : `/stop`, `/clear`, `/pc`, `/files`, `/mcp`…
 > - Les bots utilisent des serveurs MCP : distants (URL, clé ou connexion OAuth depuis l'app) ou locaux, lancés sur le PC d'un bot. Tu choisis qui y a droit (tous, des équipes, des bots) ; un bot peut aussi s'installer lui-même un serveur sur son PC.
 > - Les bots confient au hub de petits scripts qui tournent tout seuls sur leur PC (score en direct, surveillance de prix) : la carte se met à jour, tu es prévenu, sans réveiller l'IA. Notifications push sur iPhone (fin de travail, besoin de toi).
@@ -17,13 +18,14 @@ Des équipes de bots IA self-hosted. Chaque équipe partage un vrai PC Linux (bu
 > - Les équipes de bots se parlent, se confient des tâches et s'échangent des fichiers, sur des PC Linux partagés.
 > - L'API est sécurisée ; l'interface est en français et en anglais.
 >
-> Prochaine étape : l'app desktop (Tauri), pour que les équipes travaillent sur les projets de ton ordinateur.
+> Prochaine étape : copier un projet sur le PC d'un bot et rapporter ses changements en branche git ou en diff.
 
 ## Structure
 
 ```
 apps/hub              API Fastify : auth, appareils, équipes, ordinateurs (Docker), fichiers, événements
 apps/agent            mow-agent, le démon de chaque ordinateur (bureau, entrées, shell)
+apps/desktop          App desktop (Tauri) : l'interface du hub et le connecteur Rust des projets locaux
 apps/web              App web (Vite + React + TanStack)
 packages/contract     Schémas zod partagés (source de vérité des types de l'API)
 packages/api-client   Client TypeScript généré depuis l'OpenAPI (web, futures apps mobile/desktop)

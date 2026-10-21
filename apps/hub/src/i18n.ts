@@ -60,12 +60,6 @@ export interface HubTexts {
   };
 }
 
-/** A command shown as a code block (Markdown), whatever it contains. */
-const fenced = (command: string) => {
-  const fence = command.includes('```') ? '~~~~' : '```';
-  return `${fence}\n${command}\n${fence}`;
-};
-
 export const HUB_TEXTS: Record<Locale, HubTexts> = {
   fr: {
     task: 'Tâche',
@@ -108,7 +102,7 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     automationDeadline: 'échéance atteinte',
     automationFinished: 'terminée',
     commandAsk: (bot, project, computer, command) =>
-      `${bot} veut lancer une commande dans « ${project} »${computer ? ` sur ${computer}` : ''} :\n${fenced(command)}`,
+      `${bot} veut lancer une commande dans « ${project} »${computer ? ` sur ${computer}` : ''} :\n${command}`,
     commandAnswers: ['Autoriser', 'Tout autoriser dans ce projet', 'Refuser'],
     mcpSignIn: {
       lang: 'fr',
@@ -159,7 +153,7 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     automationDeadline: 'deadline reached',
     automationFinished: 'finished',
     commandAsk: (bot, project, computer, command) =>
-      `${bot} wants to run a command in “${project}”${computer ? ` on ${computer}` : ''}:\n${fenced(command)}`,
+      `${bot} wants to run a command in “${project}”${computer ? ` on ${computer}` : ''}:\n${command}`,
     commandAnswers: ['Allow', 'Allow everything in this project', 'Refuse'],
     mcpSignIn: {
       lang: 'en',

@@ -69,6 +69,17 @@ shell annoncé, dans la racine du projet (ou `cwd`).
   arrivera en message ; « Autoriser » vaut pour cette commande une fois, « Tout autoriser dans ce
   projet » passe le projet en `auto`.
 
+## Lancer l'app
+
+```bash
+pnpm --filter @mowbot/desktop start    # en développement (tauri dev)
+pnpm --filter @mowbot/desktop bundle   # installeur (tauri build)
+```
+
+Au premier lancement, l'app demande l'adresse du hub (celle de l'interface web, par exemple
+`http://localhost:5173` ou `https://mowbot.example.com`). Dans Réglages → Projets : **Relier ce PC**,
+puis **Partager un dossier**. `MOWBOT_HUB_URL` impose une adresse (pratique en développement).
+
 ## Plus tard
 
 - Copier un projet (ou un dossier) sur le PC d'un bot, en respectant `.gitignore`, et rapporter
