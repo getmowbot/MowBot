@@ -36,6 +36,15 @@ export const setupRequestSchema = z.object({
 });
 export type SetupRequest = z.infer<typeof setupRequestSchema>;
 
+/** Changing the hub's password needs the current one. */
+export const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+  newPassword: newPasswordSchema,
+  /** Signs out every other device: they sign in again with the new password. */
+  signOutOthers: z.boolean().default(false),
+});
+export type PasswordChange = z.infer<typeof passwordChangeSchema>;
+
 export const loginRequestSchema = z.object({
   password: z.string().min(1).max(256),
   device: deviceInputSchema,

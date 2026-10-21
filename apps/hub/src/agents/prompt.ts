@@ -25,6 +25,8 @@ export interface PromptContext {
   now: Date;
   /** What the vault holds, one line per entry (no values). */
   vault: string[];
+  /** The folders the user shared from their computer that this bot may work in, one per line. */
+  projects?: string[];
 }
 
 /** Who is who, kept short: the bot asks list_bots for missions and statuses. */
@@ -118,6 +120,16 @@ export function systemPrompt(ctx: PromptContext): string {
           .join('\n')
           .replace(/\n{3,}/g, '\n\n')
       : "Tu n'as pas d'ordinateur : tu ne peux que discuter.",
+    ctx.projects?.length
+      ? [
+          '',
+          "## Les projets de l'utilisateur",
+          "Des dossiers de son propre ordinateur, partagés avec l'app MowBot desktop. Quand il parle de son projet, de son code ou de ses fichiers, c'est là : outils local_* (local_list, local_find, local_search, local_read, local_edit, local_write, local_exec).",
+          ...ctx.projects,
+          "- Lis avant de modifier ; pour changer un fichier existant, local_edit plutôt que local_write. Ces fichiers sont ceux de l'utilisateur : ne supprime ni n'écrase rien sans raison.",
+          "- local_exec lance une commande sur son ordinateur, avec son shell (PowerShell sous Windows). Sauf en mode auto, il doit l'accepter : la question lui est posée, termine ton tour et relance la même commande quand il a dit oui.",
+        ].join('\n')
+      : '',
     '',
     '## Être proactif',
     "- Tu n'attends pas qu'on te demande tout : quand quelque chose doit revenir ou être surveillé (veille quotidienne, rapport du lundi, relance, échéance), crée toi-même une routine (create_routine) si c'est utile à ta mission ou à l'utilisateur, avec un rythme raisonnable. Dis-le simplement à l'utilisateur quand tu en crées une pendant une conversation.",

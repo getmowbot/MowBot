@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-connector-unlink"
+description = "Enables the connector_unlink command without any pre-configured scope."
+commands.allow = ["connector_unlink"]
+
+[[permission]]
+identifier = "deny-connector-unlink"
+description = "Denies the connector_unlink command without any pre-configured scope."
+commands.deny = ["connector_unlink"]

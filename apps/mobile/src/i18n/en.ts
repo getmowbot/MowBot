@@ -5,6 +5,7 @@ import { en as filesView } from './areas/filesView';
 import { en as mcp } from './areas/mcp';
 import { en as orgAdmin } from './areas/orgAdmin';
 import { en as pcView } from './areas/pcView';
+import { en as projects } from './areas/projects';
 import { en as push } from './areas/push';
 import { en as takeoverCard } from './areas/takeoverCard';
 import { en as vault } from './areas/vault';
@@ -53,6 +54,7 @@ export const en: Catalog = {
   },
   errors: {
     invalid_credentials: 'Wrong password.',
+    wrong_password: 'The current password is wrong.',
     rate_limited: 'Too many attempts. Try again in a minute.',
     validation_failed: 'Some fields are invalid.',
     generic: 'Something went wrong.',
@@ -298,6 +300,7 @@ export const en: Catalog = {
   filesView,
   vault,
   mcp,
+  projects,
   chatInput,
   push,
   takeoverCard,

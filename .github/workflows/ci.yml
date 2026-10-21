@@ -21,7 +21,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
-      - run: shellcheck install.sh
+      - run: shellcheck install.sh apps/desktop/install-linux.sh
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build

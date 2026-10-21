@@ -6,15 +6,17 @@ import {
   devicePushSchema,
   meSchema,
   meUpdateSchema,
+  passwordChangeSchema,
 } from '@mowbot/contract';
 import { and, desc, eq, ne } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { recordAudit } from '../audit';
+import { recordAudit, requestContext } from '../audit';
+import { hashPassword, verifyPassword } from '../auth/passwords';
 import type { DeviceRow } from '../auth/sessions';
 import { devices, owner } from '../db/schema';
 import { authOf, bearerSecurity, requireAuth } from '../http/auth-hook';
-import { errorResponses, notFound } from '../http/problems';
+import { errorResponses, HttpProblem, notFound } from '../http/problems';
 
 const toDevice = (row: DeviceRow, currentDeviceId: string): Device => ({
   id: row.id,
@@ -87,6 +89,52 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
         updatedAt: new Date(),
       });
       return loadMe(authOf(request).deviceId);
+    },
+  );
+
+  app.post(
+    '/me/password',
+    {
+      preHandler: requireAuth('admin'),
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+      schema: {
+        tags: ['account'],
+        operationId: 'changePassword',
+        description:
+          'Changes the hub password (the current one is required). With `signOutOthers`, every other device must sign in again.',
+        security: bearerSecurity,
+        body: passwordChangeSchema,
+        response: { 204: z.null(), ...errorResponses },
+      },
+    },
+    async (request, reply) => {
+      const auth = authOf(request);
+      const ctx = requestContext(request);
+      const [account] = await db.select().from(owner).limit(1);
+      if (!account) throw notFound('Owner not found');
+      if (!(await verifyPassword(account.passwordHash, request.body.currentPassword))) {
+        await recordAudit(db, {
+          actorType: 'owner',
+          actorId: account.id,
+          action: 'auth.password_change_failed',
+          ...ctx,
+        });
+        throw new HttpProblem(403, 'wrong_password', 'The current password is wrong');
+      }
+      await db
+        .update(owner)
+        .set({ passwordHash: await hashPassword(request.body.newPassword), updatedAt: new Date() });
+      const signedOut = request.body.signOutOthers
+        ? await sessions.revokeOtherDevices(account.id, auth.deviceId)
+        : 0;
+      await recordAudit(db, {
+        actorType: 'owner',
+        actorId: account.id,
+        action: 'auth.password_changed',
+        ...ctx,
+        data: { deviceId: auth.deviceId, signedOut },
+      });
+      return reply.code(204).send(null);
     },
   );
 

@@ -1,0 +1,24 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The app's own pages (first-run page) in the main window. The hub's page gets the same commands at runtime, for its origin only (see src/hub.rs).",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "allow-hub-url-get",
+    "allow-hub-url-set",
+    "allow-hub-change",
+    "allow-connector-status",
+    "allow-connector-link",
+    "allow-connector-unlink",
+    "allow-project-pick",
+    "allow-project-add",
+    "allow-project-remove",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-is-maximized"
+  ]
+}

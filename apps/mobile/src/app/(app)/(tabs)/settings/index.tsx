@@ -5,8 +5,10 @@ import {
   Bell,
   CalendarClock,
   Cpu,
+  FolderCode,
   Gauge,
   Info,
+  LockKeyhole,
   LogOut,
   MonitorSmartphone,
   Package,
@@ -34,6 +36,7 @@ import { useDevices, useRoutines, useSystem, useUpdateMe } from '../../../../lib
 import { useLiveConnection } from '../../../../lib/events';
 import { useMcpServers } from '../../../../lib/mcp-queries';
 import { alertError, confirm } from '../../../../lib/options-menu';
+import { useProjects } from '../../../../lib/projects-queries';
 import { urlLabel } from '../../../../lib/provider-form';
 import { useMe, useProviders } from '../../../../lib/queries';
 import { deviceName, signOut, useSession } from '../../../../lib/session';
@@ -51,6 +54,7 @@ export default function SettingsScreen() {
   const devices = useDevices();
   const vault = useVault();
   const mcp = useMcpServers();
+  const projects = useProjects();
   const updateMe = useUpdateMe();
   const [language, setLanguage] = useState<LanguagePreference>(storedPreference);
 
@@ -76,6 +80,7 @@ export default function SettingsScreen() {
   const activeDevices = devices.data?.filter((d) => !d.revokedAt).length;
   const vaultCount = vault.data?.length;
   const mcpCount = mcp.data?.length;
+  const projectCount = projects.data?.length;
   const phoneLanguage = t(`languages.${resolveLanguage('system', deviceLanguage())}`);
 
   return (
@@ -89,6 +94,7 @@ export default function SettingsScreen() {
           devices.refetch(),
           vault.refetch(),
           mcp.refetch(),
+          projects.refetch(),
         ])
       }
     >
@@ -129,6 +135,18 @@ export default function SettingsScreen() {
                   : t('mcp.count', { count: mcpCount })
             }
             onPress={() => router.push('/mcp')}
+          />
+          <ListRow
+            icon={FolderCode}
+            label={t('projects.title')}
+            value={
+              projectCount === undefined
+                ? undefined
+                : projectCount === 0
+                  ? t('projects.none')
+                  : t('projects.count', { count: projectCount })
+            }
+            onPress={() => router.push('/projects')}
           />
           <ListRow
             icon={CalendarClock}
@@ -172,6 +190,11 @@ export default function SettingsScreen() {
             label={t('settings.owner')}
             value={me.data?.owner.displayName ?? '…'}
             onPress={() => router.push('/account')}
+          />
+          <ListRow
+            icon={LockKeyhole}
+            label={t('appAdmin.password.title')}
+            onPress={() => router.push('/password')}
           />
           <ListRow
             icon={Smartphone}

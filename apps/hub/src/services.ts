@@ -10,6 +10,7 @@ import { type BotRow, BotService } from './bots/service';
 import { type ComputerRuntime, DockerComputerRuntime } from './computers/runtime';
 import { ComputerService } from './computers/service';
 import type { Config } from './config';
+import { ConnectorService } from './connectors/service';
 import type { Db } from './db/client';
 import { bots as botsTable } from './db/schema';
 import { EventBus } from './events';
@@ -54,6 +55,7 @@ export interface Services {
   push: PushService;
   automations: AutomationService;
   mcp: McpService;
+  connectors: ConnectorService;
   /** Main team, its PC, the Chef and its daily summary (at startup and right after setup). */
   bootstrap(): Promise<void>;
 }
@@ -113,6 +115,7 @@ export async function createServices(
     notifications,
   });
   const mcp = new McpService({ db, events, masterKey: config.masterKey, computers });
+  const connectors = new ConnectorService({ db, events });
   const automations = new AutomationService({
     db,
     events,
@@ -140,6 +143,7 @@ export async function createServices(
     push,
     automations,
     mcp,
+    connectors,
     finishedPushAfterMs: overrides.finishedPushAfterMs,
     modelFor: overrides.modelFor,
     askTimeoutMs: overrides.askTimeoutMs,
@@ -170,6 +174,7 @@ export async function createServices(
     push,
     automations,
     mcp,
+    connectors,
     bootstrap,
   };
 }

@@ -53,7 +53,7 @@ export function QuestionCard({
               {t('questions.from', { name: bot.name })} · {timeAgo(question.createdAt)}
             </p>
           )}
-          <p className="text-sm font-medium">{question.question}</p>
+          <p className="whitespace-pre-wrap break-words text-sm font-medium">{question.question}</p>
         </div>
       </div>
       <div className="flex flex-wrap gap-2">

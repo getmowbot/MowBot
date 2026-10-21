@@ -5,6 +5,7 @@ import { fr as filesView } from './areas/filesView';
 import { fr as mcp } from './areas/mcp';
 import { fr as orgAdmin } from './areas/orgAdmin';
 import { fr as pcView } from './areas/pcView';
+import { fr as projects } from './areas/projects';
 import { fr as push } from './areas/push';
 import { fr as takeoverCard } from './areas/takeoverCard';
 import { fr as vault } from './areas/vault';
@@ -53,6 +54,7 @@ export const fr = {
   },
   errors: {
     invalid_credentials: 'Mot de passe incorrect.',
+    wrong_password: 'Mot de passe actuel incorrect.',
     rate_limited: 'Trop de tentatives. Réessaie dans une minute.',
     validation_failed: 'Certains champs sont invalides.',
     generic: 'Une erreur est survenue.',
@@ -300,6 +302,7 @@ export const fr = {
   filesView,
   vault,
   mcp,
+  projects,
   chatInput,
   push,
   takeoverCard,

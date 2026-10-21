@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ALL_SCOPES, type DeviceInput, type Scope } from '@mowbot/contract';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import { type RequestContext, recordAudit } from '../audit';
 import type { Config } from '../config';
 import type { Db } from '../db/client';
@@ -127,6 +127,18 @@ export class SessionService {
       .update(refreshTokens)
       .set({ revokedAt: now })
       .where(and(eq(refreshTokens.deviceId, deviceId), isNull(refreshTokens.revokedAt)));
+  }
+
+  /** Signs out every device of the owner but this one. */
+  async revokeOtherDevices(ownerId: string, keepDeviceId: string): Promise<number> {
+    const others = await this.db
+      .select({ id: devices.id })
+      .from(devices)
+      .where(
+        and(eq(devices.ownerId, ownerId), ne(devices.id, keepDeviceId), isNull(devices.revokedAt)),
+      );
+    for (const { id } of others) await this.revokeDevice(id);
+    return others.length;
   }
 
   /** Verifies an access token and checks its device is still active (revocation is immediate). */

@@ -7,6 +7,7 @@ import type {
   CanvasSize,
   ComputerKind,
   ComputerStatus,
+  ConnectorOs,
   DeviceKind,
   Locale,
   McpAuth,
@@ -19,6 +20,8 @@ import type {
   MessagePart,
   ModelRef,
   NotificationPriority,
+  ProjectMode,
+  ProjectScope,
   ProviderKind,
   PushPrefs,
   QuestionStatus,
@@ -390,6 +393,8 @@ export const questions = pgTable(
     vaultItemId: uuid('vault_item_id').references((): AnyPgColumn => vaultItems.id, {
       onDelete: 'cascade',
     }),
+    /** Asking the user to let the bot run this command in a project of theirs. */
+    projectCommand: jsonb('project_command').$type<{ projectId: string; command: string }>(),
     createdAt: createdAt(),
   },
   (t) => [index('questions_status_created_idx').on(t.status, t.createdAt)],
@@ -556,3 +561,53 @@ export const mcpCalls = pgTable(
   },
   (t) => [index('mcp_calls_server_created_idx').on(t.serverId, t.createdAt)],
 );
+
+/** The desktop app of a computer of the user, connected with its own token. */
+export const connectors = pgTable(
+  'connectors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    hostname: text('hostname'),
+    os: text('os').$type<ConnectorOs>(),
+    shell: text('shell'),
+    version: text('version'),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('connectors_token_hash_unique').on(t.tokenHash)],
+);
+
+/** A folder the user shared from a computer: bots read, write and run commands in it. */
+export const projects = pgTable(
+  'projects',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    connectorId: uuid('connector_id')
+      .notNull()
+      .references(() => connectors.id, { onDelete: 'cascade' }),
+    /** The desktop app's id for the folder. */
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    path: text('path').notNull(),
+    mode: text('mode').$type<ProjectMode>().notNull().default('ask'),
+    scope: jsonb('scope').$type<ProjectScope>().notNull().default({ kind: 'all', ids: [] }),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('projects_connector_key_unique').on(t.connectorId, t.key)],
+);
+
+/** A command the user allowed once, for a bot in a project (used up when it runs). */
+export const projectGrants = pgTable('project_grants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id')
+    .notNull()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  botId: uuid('bot_id')
+    .notNull()
+    .references(() => bots.id, { onDelete: 'cascade' }),
+  command: text('command').notNull(),
+  createdAt: createdAt(),
+});

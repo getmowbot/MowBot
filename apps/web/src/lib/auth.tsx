@@ -33,6 +33,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 /** Problems worded in the app's language; the others show the hub's detail. */
 const WORDED_PROBLEMS = [
+  'wrong_password',
   'invalid_credentials',
   'invalid_setup_token',
   'already_set_up',

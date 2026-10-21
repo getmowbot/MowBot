@@ -1,10 +1,12 @@
 import type {
   Automation,
   Bot,
+  Connector,
   McpCall,
   McpServer,
   Message,
   MessagePart,
+  Project,
   VaultEvent,
   VaultItem,
 } from '@mowbot/contract';
@@ -161,6 +163,37 @@ export function mcpCall(overrides: Partial<McpCall> = {}): McpCall {
     durationMs: 120,
     error: null,
     createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    ...overrides,
+  };
+}
+
+export function connector(overrides: Partial<Connector> = {}): Connector {
+  return {
+    id: uuid(),
+    name: 'PC-de-Joris',
+    hostname: 'PC-de-Joris',
+    os: 'windows',
+    shell: 'powershell',
+    version: '0.1.0',
+    online: true,
+    lastSeenAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    ...overrides,
+  };
+}
+
+export function project(overrides: Partial<Project> = {}): Project {
+  return {
+    id: uuid(),
+    connectorId: 'connector-1',
+    key: 'b6c1d2e3-0000-4000-8000-000000000000',
+    name: 'MowBot',
+    path: 'C:\\Users\\Joris\\projects\\MowBot',
+    mode: 'ask',
+    scope: { kind: 'all', ids: [] },
+    online: true,
+    createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    updatedAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
     ...overrides,
   };
 }

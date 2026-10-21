@@ -3,8 +3,10 @@ import type {
   Bot,
   Canvas,
   Computer,
+  Connector,
   McpServer,
   Message,
+  Project,
   Question,
   ServerEvent,
   SystemSettings,
@@ -61,6 +63,8 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         'vault-events',
         'mcp-servers',
         'mcp-calls',
+        'projects',
+        'connectors',
       ]) {
         void client.invalidateQueries({ queryKey: [key] });
       }
@@ -119,6 +123,27 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         list?.filter((server) => server.id !== event.serverId),
       );
       client.removeQueries({ queryKey: keys.mcpCalls(event.serverId) });
+      break;
+    case 'project.updated':
+      client.setQueryData<Project[]>(keys.projects, (list) => upsert(list, event.project));
+      break;
+    case 'project.deleted':
+      client.setQueryData<Project[]>(keys.projects, (list) =>
+        list?.filter((project) => project.id !== event.projectId),
+      );
+      break;
+    case 'connector.updated':
+      // Online or not, last seen: its projects follow with their own `project.updated`.
+      client.setQueryData<Connector[]>(keys.connectors, (list) => upsert(list, event.connector));
+      break;
+    case 'connector.deleted':
+      client.setQueryData<Connector[]>(keys.connectors, (list) =>
+        list?.filter((connector) => connector.id !== event.connectorId),
+      );
+      // Its projects go with it (each one is also sent as `project.deleted`).
+      client.setQueryData<Project[]>(keys.projects, (list) =>
+        list?.filter((project) => project.connectorId !== event.connectorId),
+      );
       break;
     case 'question.updated': {
       const { question } = event;

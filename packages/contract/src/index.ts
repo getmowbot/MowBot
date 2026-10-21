@@ -7,6 +7,7 @@ export * from './devices';
 export * from './events';
 export * from './files';
 export * from './mcp';
+export * from './projects';
 export * from './providers';
 export * from './questions';
 export * from './routines';

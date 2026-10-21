@@ -1,0 +1,68 @@
+name: Desktop app
+
+# Builds the installers of the desktop app (Windows .exe/.msi, macOS .dmg, Linux AppImage/.deb)
+# and publishes them as the GitHub release `desktop-v<version>` (version from tauri.conf.json):
+# on every merge into main that changes the app, on a `desktop-v*` tag, or by hand. A new version
+# number makes a new release; the same one replaces its installers.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/desktop/**'
+      - '.github/workflows/desktop.yml'
+    tags: ['desktop-v*']
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ''
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+          - platform: ubuntu-22.04
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+      - name: Linux libraries (WebKitGTK, tray, Secret Service)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libdbus-1-dev
+      - run: pnpm install --frozen-lockfile --filter @mowbot/desktop
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          args: ${{ matrix.args }}
+          tagName: desktop-v__VERSION__
+          releaseName: MowBot desktop __VERSION__
+          releaseBody: |
+            Installe l'app, puis indique l'adresse de ton hub au premier lancement (celle de l'interface web).
+            Linux en une commande : voir docs/DESKTOP.md.
+          releaseDraft: false
+          prerelease: false

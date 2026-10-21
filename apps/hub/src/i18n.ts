@@ -47,6 +47,10 @@ export interface HubTexts {
   automationDone(name: string, reason: string): string;
   automationDeadline: string;
   automationFinished: string;
+  /** A bot asks to run a command in a project of the user's computer. */
+  commandAsk(bot: string, project: string, computer: string, command: string): string;
+  /** Allow once, allow everything in the project (auto mode), refuse. */
+  commandAnswers: readonly [string, string, string];
   /** The page the browser lands on after signing in to an MCP server. */
   mcpSignIn: {
     lang: Locale;
@@ -101,6 +105,9 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     automationDone: (name, reason) => `**Automatisation « ${name} » terminée** · ${reason}`,
     automationDeadline: 'échéance atteinte',
     automationFinished: 'terminée',
+    commandAsk: (bot, project, computer, command) =>
+      `${bot} veut lancer une commande dans « ${project} »${computer ? ` sur ${computer}` : ''} :\n${command}`,
+    commandAnswers: ['Autoriser', 'Tout autoriser dans ce projet', 'Refuser'],
     mcpSignIn: {
       lang: 'fr',
       refused: 'Connexion refusée',
@@ -151,6 +158,9 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     automationDone: (name, reason) => `**Automation “${name}” finished** · ${reason}`,
     automationDeadline: 'deadline reached',
     automationFinished: 'finished',
+    commandAsk: (bot, project, computer, command) =>
+      `${bot} wants to run a command in “${project}”${computer ? ` on ${computer}` : ''}:\n${command}`,
+    commandAnswers: ['Allow', 'Allow everything in this project', 'Refuse'],
     mcpSignIn: {
       lang: 'en',
       refused: 'Sign-in refused',
