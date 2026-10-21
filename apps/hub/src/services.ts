@@ -22,6 +22,7 @@ import { QuestionService } from './proactivity/questions';
 import { RoutineService } from './proactivity/routines';
 import { Scheduler } from './proactivity/scheduler';
 import { ProviderService } from './providers/service';
+import { PushService } from './push/service';
 import { VaultService } from './vault/service';
 import { WorkspaceFiles } from './workspaces/files';
 
@@ -48,6 +49,7 @@ export interface Services {
   canvases: CanvasService;
   questions: QuestionService;
   vault: VaultService;
+  push: PushService;
   /** Main team, its PC, the Chef and its daily summary (at startup and right after setup). */
   bootstrap(): Promise<void>;
 }
@@ -59,6 +61,10 @@ export interface ServiceOverrides {
   modelFor?: (bot: BotRow) => LanguageModel | LanguageModel[] | null;
   /** Tests shorten how long a bot waits for another's answer. */
   askTimeoutMs?: number;
+  /** Tests catch push notifications instead of sending them. */
+  pushFetch?: typeof fetch;
+  /** Tests push "finished" right away. */
+  finishedPushAfterMs?: number;
 }
 
 export async function createServices(
@@ -74,6 +80,8 @@ export async function createServices(
   const system = new SystemService(db, events, config.timeZone);
   const canvases = new CanvasService(db, events);
   const questions = new QuestionService(db, events, notifications);
+  const push = new PushService(db, system, { url: config.pushUrl, fetch: overrides.pushFetch });
+  notifications.setPush(push);
   const bootstrap = async () => {
     await bootstrapOrganization(db, files, config.masterKey);
     const [chef] = await db.select().from(botsTable).where(eq(botsTable.isChef, true));
@@ -115,6 +123,8 @@ export async function createServices(
     questions,
     vault,
     browser,
+    push,
+    finishedPushAfterMs: overrides.finishedPushAfterMs,
     modelFor: overrides.modelFor,
     askTimeoutMs: overrides.askTimeoutMs,
   });
@@ -140,6 +150,7 @@ export async function createServices(
     canvases,
     questions,
     vault,
+    push,
     bootstrap,
   };
 }

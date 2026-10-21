@@ -148,6 +148,7 @@ export function buildVaultTools(ctx: VaultToolContext): ToolSet {
           botId: self.id,
           priority: 'normal',
           title: `${self.name} a besoin d'un identifiant`,
+          push: 'needs_you',
           body: `${service}${account ? ` (${account})` : ''} : à ranger dans le coffre depuis la conversation.`,
         });
         return "Formulaire affiché dans la conversation : l'utilisateur le remplit quand il peut. Tu recevras un message avec la référence (ou son refus) ; termine ton tour en attendant.";

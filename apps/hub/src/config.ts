@@ -37,6 +37,8 @@ const envSchema = z.object({
   MOWBOT_COMPUTER_IDLE_MINUTES: z.coerce.number().int().min(0).default(30),
   /** Routines, quiet hours and "today" are in this time zone. */
   MOWBOT_TIME_ZONE: z.string().default('Europe/Paris'),
+  /** Where push notifications go (Expo's push service, which relays to Apple and Google). */
+  MOWBOT_PUSH_URL: z.url().default('https://exp.host/--/api/v2/push/send'),
 });
 
 export interface Config {
@@ -64,6 +66,7 @@ export interface Config {
     idleMinutes: number;
   };
   timeZone: string;
+  pushUrl: string;
 }
 
 export function parseMasterKey(value: string): Buffer {
@@ -112,5 +115,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       idleMinutes: e.MOWBOT_COMPUTER_IDLE_MINUTES,
     },
     timeZone: e.MOWBOT_TIME_ZONE,
+    pushUrl: e.MOWBOT_PUSH_URL,
   };
 }

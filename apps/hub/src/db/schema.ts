@@ -12,6 +12,7 @@ import type {
   ModelRef,
   NotificationPriority,
   ProviderKind,
+  PushPrefs,
   QuestionStatus,
   RoutineKind,
   RoutineRunStatus,
@@ -73,6 +74,8 @@ export const devices = pgTable(
     kind: text('kind').$type<DeviceKind>().notNull(),
     scopes: text('scopes').array().$type<Scope[]>().notNull(),
     pushToken: text('push_token'),
+    /** What this device wants pushed (null: the defaults). */
+    pushPrefs: jsonb('push_prefs').$type<PushPrefs>(),
     createdAt: createdAt(),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),

@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { messages, notifications, settings } from '../db/schema';
 import type { EventBus } from '../events';
+import type { PushKind, PushService } from '../push/service';
 import { startOfDay } from './schedule';
 
 type NotificationRow = typeof notifications.$inferSelect;
@@ -21,16 +22,25 @@ export function toNotification(row: NotificationRow): Notification {
 
 /** What bots (and the hub) tell the user. Digest-level ones wait for the daily summary. */
 export class NotificationService {
+  private push: PushService | null = null;
+
   constructor(
     private readonly db: Db,
     private readonly events: EventBus,
   ) {}
 
+  /** Urgent and normal notifications also reach the user's phones. */
+  setPush(push: PushService): void {
+    this.push = push;
+  }
+
+  /** `push`: what kind of phone notification it makes (digests make none). */
   async create(input: {
     botId: string | null;
     priority: NotificationPriority;
     title: string;
     body?: string | null;
+    push?: PushKind;
   }): Promise<Notification> {
     const [row] = await this.db
       .insert(notifications)
@@ -44,6 +54,15 @@ export class NotificationService {
     if (!row) throw new Error('Notification insert returned no row');
     const notification = toNotification(row);
     this.events.publish({ type: 'notification.created', notification });
+    if (input.priority !== 'digest') {
+      this.push?.notify({
+        kind: input.push ?? 'notification',
+        botId: input.botId,
+        title: input.title,
+        body: input.body,
+        urgent: input.priority === 'urgent',
+      });
+    }
     return notification;
   }
 
