@@ -1,6 +1,7 @@
 import type { BotStatus, Locale, Team } from '@mowbot/contract';
 import { botFolder } from '../bots/service';
 import { HUB_TEXTS } from '../i18n';
+import { OFFLINE_HINT } from './local-tools';
 
 interface PromptBot {
   id: string;
@@ -27,6 +28,19 @@ export interface PromptContext {
   vault: string[];
   /** The folders the user shared from their computer that this bot may work in, one per line. */
   projects?: string[];
+  /** The project the bot works in (local_* default to it); `place`: its computer, online or not. */
+  activeProject?: { name: string; place: string; online: boolean } | null;
+}
+
+/** Which project the bot works in, from the conversation (the user picks it, or the bot). */
+function activeProjectLines(ctx: PromptContext): string[] {
+  const active = ctx.activeProject;
+  return [
+    active
+      ? `Projet actif : ${active.name} (${active.place}). Les outils local_* y travaillent quand tu ne précises pas project.${active.online ? '' : ` Pour l'instant, ${OFFLINE_HINT}`}`
+      : 'Aucun projet actif : précise project dans les outils local_*.',
+    "- L'utilisateur choisit le projet actif dans la conversation ; s'il te dit sur quel projet il travaille, choisis-le toi-même avec local_use_project.",
+  ];
 }
 
 /** Who is who, kept short: the bot asks list_bots for missions and statuses. */
@@ -126,6 +140,7 @@ export function systemPrompt(ctx: PromptContext): string {
           "## Les projets de l'utilisateur",
           "Des dossiers de son propre ordinateur, partagés avec l'app MowBot desktop. Quand il parle de son projet, de son code ou de ses fichiers, c'est là : outils local_* (local_list, local_find, local_search, local_read, local_edit, local_write, local_exec).",
           ...ctx.projects,
+          ...activeProjectLines(ctx),
           "- Lis avant de modifier ; pour changer un fichier existant, local_edit plutôt que local_write. Ces fichiers sont ceux de l'utilisateur : ne supprime ni n'écrase rien sans raison.",
           "- local_exec lance une commande sur son ordinateur, avec son shell (PowerShell sous Windows). Sauf en mode auto, il doit l'accepter : la question lui est posée, termine ton tour et relance la même commande quand il a dit oui.",
           "- Pour installer, lancer ou tester le projet sans toucher à son ordinateur, copie-le sur ton PC (local_pull → /workspace/projects/<projet>) et travaille-y avec bash. Rapporte ensuite tes changements avec local_push : une branche git qu'il relit et fusionne.",

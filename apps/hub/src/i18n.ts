@@ -51,6 +51,8 @@ export interface HubTexts {
   commandAsk(bot: string, project: string, computer: string, command: string): string;
   /** Allow once, allow everything in the project (auto mode), refuse. */
   commandAnswers: readonly [string, string, string];
+  /** The user picked the project the bot works in (null: none), as the conversation shows it. */
+  projectChosen(project: string | null): string;
   /** The page the browser lands on after signing in to an MCP server. */
   mcpSignIn: {
     lang: Locale;
@@ -108,6 +110,8 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     commandAsk: (bot, project, computer, command) =>
       `${bot} veut lancer une commande dans « ${project} »${computer ? ` sur ${computer}` : ''} :\n${command}`,
     commandAnswers: ['Autoriser', 'Tout autoriser dans ce projet', 'Refuser'],
+    projectChosen: (project) =>
+      project ? `📁 Projet actif : ${project}` : '📁 Aucun projet actif',
     mcpSignIn: {
       lang: 'fr',
       refused: 'Connexion refusée',
@@ -161,6 +165,8 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     commandAsk: (bot, project, computer, command) =>
       `${bot} wants to run a command in “${project}”${computer ? ` on ${computer}` : ''}:\n${command}`,
     commandAnswers: ['Allow', 'Allow everything in this project', 'Refuse'],
+    projectChosen: (project) =>
+      project ? `📁 Active project: ${project}` : '📁 No active project',
     mcpSignIn: {
       lang: 'en',
       refused: 'Sign-in refused',

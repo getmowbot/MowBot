@@ -19,10 +19,13 @@ import {
 } from '../../lib/chat-input';
 import { useFileSearch } from '../../lib/files-queries';
 import { isAndroid, isIOS } from '../../lib/platform';
+import { projectsFor } from '../../lib/projects';
+import { useProjects } from '../../lib/projects-queries';
 import { type Outgoing, useBots, useStopBot, useTeams } from '../../lib/queries';
 import { colors, shape, type } from '../../theme';
 import { Surface } from '../ui/surface';
 import { Touchable } from '../ui/touchable';
+import { ProjectChip } from './project-chip';
 import { CommandSuggestions, MentionSuggestions } from './suggestions';
 import { useChatCommands } from './use-chat-commands';
 
@@ -67,12 +70,15 @@ export function Composer({ bot, onSend }: Props) {
   const others = (bots.data ?? []).filter((b) => b.id !== bot.id);
   const botMatches = query === null ? [] : rankMatches(others, query, label);
   const teamMatches = query === null ? [] : rankMatches(teams.data ?? [], query, label);
+  const projects = useProjects();
+  const projectMatches =
+    query === null ? [] : rankMatches(projectsFor(bot, projects.data), query, label);
   // The previous search shows until the new one answers: only what still matches.
   const fileMatches =
     query === null
       ? []
       : (files.data ?? []).filter((entry) => matches(query, entry.path)).slice(0, MENTION_LIMIT);
-  const found = botMatches.length + teamMatches.length + fileMatches.length;
+  const found = botMatches.length + teamMatches.length + projectMatches.length + fileMatches.length;
   const commandMatches = trigger?.kind === 'command' ? filterCommands(commands, trigger.query) : [];
 
   // After a mention is inserted, the cursor goes right after it (the new text is rendered).
@@ -129,12 +135,14 @@ export function Composer({ bot, onSend }: Props) {
 
   return (
     <View>
+      <ProjectChip bot={bot} />
       {commandMatches.length > 0 ? (
         <CommandSuggestions commands={commandMatches} onPick={runCommand} />
       ) : query !== null && pickerOpen(query, found) ? (
         <MentionSuggestions
           bots={botMatches}
           teams={teamMatches}
+          projects={projectMatches}
           files={fileMatches}
           searching={files.searching}
           onPick={pick}

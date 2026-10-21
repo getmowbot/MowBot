@@ -60,6 +60,7 @@ export const en: Catalog = {
     mcp_not_oauth: 'This server doesn’t sign in with OAuth.',
     mcp_oauth_state: 'Unknown or expired sign-in: start again from the app.',
     mcp_oauth_failed: 'The server refused the sign-in.',
+    project_not_allowed: 'This bot has no access to that project.',
   },
   time: {
     justNow: 'just now',
@@ -179,6 +180,7 @@ export const en: Catalog = {
     commands: {
       stop: 'Stop what it is doing',
       clear: 'Start the conversation over',
+      project: 'Pick the project to work in',
       pc: 'Show or hide the PC',
       files: 'Open the files',
       settings: 'Bot settings',
@@ -189,10 +191,26 @@ export const en: Catalog = {
       routines: 'Routines',
     },
     mentions: {
-      sections: { commands: 'Commands', bots: 'Bots', teams: 'Teams', files: 'Files' },
+      sections: {
+        commands: 'Commands',
+        bots: 'Bots',
+        teams: 'Teams',
+        projects: 'Projects',
+        files: 'Files',
+      },
       team: 'team',
+      project: 'project',
       file: 'file',
       folder: 'folder',
+    },
+    project: {
+      title: 'Working project',
+      none: 'No project',
+      offline: 'Offline: the bot reaches it as soon as the desktop app is open on that computer.',
+      offlineHint:
+        '{{computer}} is offline: the bot cannot reach the project until the desktop app is open there.',
+      manage: 'Manage projects',
+      failed: 'The project could not be changed.',
     },
     vault: {
       totp: '2FA code (seed or otpauth:// link)',
@@ -905,6 +923,7 @@ export const en: Catalog = {
     unshareConfirm: 'Stop sharing “{{name}}”? The files stay on your computer.',
     computers: 'Linked computers',
     online: 'online',
+    offline: 'offline',
     lastSeen: 'seen {{time}}',
     neverSeen: 'never connected',
     unlink: 'Unlink',

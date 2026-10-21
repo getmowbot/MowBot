@@ -87,7 +87,17 @@ shell annoncé, dans la racine du projet (ou `cwd`).
 - Tables `connectors` (jeton haché, nom, OS, shell, dernière connexion) et `projects` (connecteur,
   `key`, nom, chemin affiché, mode `ask` | `auto`, portée : tous les bots, des équipes, des bots).
 - Outils des bots : `local_projects`, `local_list`, `local_read`, `local_write`, `local_edit`,
-  `local_find`, `local_search`, `local_exec` (paramètre `project` : nom du projet).
+  `local_find`, `local_search`, `local_exec` (paramètre `project` : nom du projet ; sans lui, le
+  projet actif du bot, ou le seul projet qu'il a).
+- **Projet actif** : chaque bot a un projet où il travaille (`bots.project_id`, `projectId` du bot),
+  choisi dans la conversation : puce au-dessus du champ de message (web, desktop, mobile), commande
+  `/project` (`/projet`), ou le bot lui-même avec `local_use_project` (« je bosse sur X »).
+  `PUT /bots/:id/project` n'accepte qu'un projet que le bot peut utiliser ; un ordinateur hors
+  ligne reste choisissable. Le changement part en `bot.updated` (tous les appareils suivent) et
+  ajoute à la conversation une note silencieuse (« 📁 Projet actif : X ») que le bot lit, même au
+  milieu d'une réponse ; changé à nouveau avant qu'il l'ait lue, la note est remplacée. Le prompt
+  système nomme le projet actif et dit si son ordinateur est en ligne. Un projet qui n'est plus
+  partagé n'est plus actif. `@Projet` dans un message décrit le projet au bot.
 - Une commande en mode `ask` pose la question à l'utilisateur et répond au bot que la décision
   arrivera en message ; « Autoriser » vaut pour cette commande une fois, « Tout autoriser dans ce
   projet » passe le projet en `auto`.

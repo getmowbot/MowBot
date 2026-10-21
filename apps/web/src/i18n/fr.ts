@@ -65,6 +65,7 @@ export const fr = {
     mcp_not_oauth: 'Ce serveur ne se connecte pas avec OAuth.',
     mcp_oauth_state: 'Connexion inconnue ou expirée : recommence depuis l’app.',
     mcp_oauth_failed: 'Le serveur a refusé la connexion.',
+    project_not_allowed: 'Ce bot n’a pas accès à ce projet.',
   },
   time: {
     justNow: 'à l’instant',
@@ -188,6 +189,7 @@ export const fr = {
     commands: {
       stop: 'Arrêter ce qu’il fait',
       clear: 'Recommencer la conversation',
+      project: 'Choisir le projet de travail',
       pc: 'Afficher ou masquer le PC',
       files: 'Ouvrir les fichiers',
       settings: 'Réglages du bot',
@@ -198,10 +200,27 @@ export const fr = {
       routines: 'Routines',
     },
     mentions: {
-      sections: { commands: 'Commandes', bots: 'Bots', teams: 'Équipes', files: 'Fichiers' },
+      sections: {
+        commands: 'Commandes',
+        bots: 'Bots',
+        teams: 'Équipes',
+        projects: 'Projets',
+        files: 'Fichiers',
+      },
       team: 'équipe',
+      project: 'projet',
       file: 'fichier',
       folder: 'dossier',
+    },
+    /** The project the bot works in, over the message field. */
+    project: {
+      title: 'Projet de travail',
+      none: 'Aucun projet',
+      offline: 'Hors ligne : le bot y accède dès que l’app desktop est ouverte sur cet ordinateur.',
+      offlineHint:
+        '{{computer}} est hors ligne : le bot n’accède pas au projet tant que l’app desktop n’y est pas ouverte.',
+      manage: 'Gérer les projets',
+      failed: 'Le projet n’a pas pu être changé.',
     },
     vault: {
       totp: 'Code 2FA (graine ou lien otpauth://)',
@@ -932,6 +951,7 @@ export const fr = {
     unshareConfirm: 'Ne plus partager « {{name}} » ? Les fichiers restent sur ton ordinateur.',
     computers: 'Ordinateurs reliés',
     online: 'en ligne',
+    offline: 'hors ligne',
     lastSeen: 'vu {{time}}',
     neverSeen: 'jamais connecté',
     unlink: 'Délier',

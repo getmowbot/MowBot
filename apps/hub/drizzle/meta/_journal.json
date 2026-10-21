@@ -120,6 +120,13 @@
       "when": 1792591338012,
       "tag": "0016_desktop_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792601135219,
+      "tag": "0017_bot_project",
+      "breakpoints": true
     }
   ]
 }

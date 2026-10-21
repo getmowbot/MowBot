@@ -41,7 +41,7 @@ describe('commands', () => {
     { name: 'routines', title: 'Routines' },
   ];
 
-  it('lists /pc and /files only for a bot that has a PC and a workspace', () => {
+  it('lists /project, /pc and /files only for a bot with projects, a PC and a workspace', () => {
     expect(botCommands({ computerId: null, workspaceId: null })).toEqual([
       'stop',
       'clear',
@@ -50,7 +50,15 @@ describe('commands', () => {
       'vault',
       'routines',
     ]);
-    expect(botCommands({ computerId: 'pc-1', workspaceId: 'ws-1' })).toEqual([...COMMANDS]);
+    expect(botCommands({ computerId: 'pc-1', workspaceId: 'ws-1' }, true)).toEqual([...COMMANDS]);
+    expect(botCommands({ computerId: null, workspaceId: null }, true)).toContain('project');
+  });
+
+  it('takes /projet for /project', () => {
+    expect(commandOf('/projet', COMMANDS)).toBe('project');
+    expect(commandOf('/Project', COMMANDS)).toBe('project');
+    // Only when the bot has the command.
+    expect(commandOf('/projet', botCommands({ computerId: null, workspaceId: null }))).toBeNull();
   });
 
   it('filters on the name or the localized title, names starting with the query first', () => {
@@ -173,6 +181,13 @@ describe('mentionsToSend', () => {
       { kind: 'team', id: TEAM_ID },
     ]);
     expect(mentionsToSend('Nova, hello', picked)).toEqual([]);
+  });
+
+  it('sends a project by its id, like a bot or a team', () => {
+    const project: MessageMention = { kind: 'project', id: TEAM_ID, label: 'Site' };
+    expect(mentionsToSend('Regarde @Site', [project, project])).toEqual([
+      { kind: 'project', id: TEAM_ID },
+    ]);
   });
 });
 

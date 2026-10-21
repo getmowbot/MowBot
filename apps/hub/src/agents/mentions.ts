@@ -1,9 +1,11 @@
 import type { Mention, MessageMention } from '@mowbot/contract';
 import { inArray } from 'drizzle-orm';
 import type { BotRow } from '../bots/service';
+import type { ConnectorService } from '../connectors/service';
 import type { Db } from '../db/client';
 import { bots, teams } from '../db/schema';
 import type { WorkspaceFiles } from '../workspaces/files';
+import { projectPlace } from './local-tools';
 
 /** A text file this small is handed to the bot whole, as with @ in a code editor. */
 const INLINE_MAX_BYTES = 40_000;
@@ -13,11 +15,12 @@ const size = (bytes: number) =>
 
 /**
  * What the user pointed at with @ in a message: the bot reads who or what it is (a bot to write
- * to, a team, a file of its workspace with its content when short), the apps keep the labels to
- * highlight them. Mentions that no longer resolve are dropped.
+ * to, a team, a file of its workspace with its content when short, a project of the user's
+ * computer), the apps keep the labels to highlight them. Mentions that no longer resolve (or a
+ * project the bot may not use) are dropped.
  */
 export async function resolveMentions(
-  deps: { db: Db; files: WorkspaceFiles },
+  deps: { db: Db; files: WorkspaceFiles; connectors?: ConnectorService },
   bot: BotRow,
   mentions: Mention[],
 ): Promise<{ context: string; kept: MessageMention[] }> {
@@ -40,6 +43,12 @@ export async function resolveMentions(
         .from(bots)
         .where(inArray(bots.id, leadIds))
     : [];
+  const projectIds = mentions.flatMap((m) => (m.kind === 'project' ? [m.id] : []));
+  const projectRows =
+    projectIds.length && deps.connectors
+      ? (await deps.connectors.accessibleTo(bot)).filter((p) => projectIds.includes(p.id))
+      : [];
+  const machines = deps.connectors ? await deps.connectors.connectorsOf(projectRows) : new Map();
 
   const lines: string[] = [];
   const kept: MessageMention[] = [];
@@ -68,6 +77,15 @@ export async function resolveMentions(
       const lead = leads.find((l) => l.id === team.leadBotId);
       lines.push(
         `- @${team.name} : l'équipe ${team.name}${lead ? `, menée par ${lead.name}` : ''}${team.mission ? ` (mission : ${team.mission})` : ''}. list_bots la détaille.`,
+      );
+    } else if (mention.kind === 'project') {
+      const project = projectRows.find((p) => p.id === mention.id);
+      if (!project) continue;
+      kept.push({ kind: 'project', id: project.id, label: project.name });
+      const online = Boolean(deps.connectors?.isOnline(project.connectorId));
+      const place = projectPlace(machines.get(project.connectorId), online);
+      lines.push(
+        `- @${project.name} : le projet ${project.name}, dossier ${project.path} de l'ordinateur de l'utilisateur (${place})${project.id === bot.projectId ? ', ton projet actif' : ''}. Outils local_* avec project « ${project.name} ».`,
       );
     } else {
       const line = await describeFile(deps.files, bot, mention.path);

@@ -574,6 +574,23 @@ export interface paths {
         patch: operations["updateBot"];
         trace?: never;
     };
+    "/api/v1/bots/{id}/project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Picks the project the bot works in (a folder shared from your computer that it may use), or none: its `local_*` tools go there when no project is named, and a short note in the conversation tells it. */
+        put: operations["setBotProject"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/bots/{id}/messages": {
         parameters: {
             query?: never;
@@ -4143,6 +4160,7 @@ export interface operations {
                             status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                             statusDetail: string | null;
                             avatarSeed: string;
+                            projectId: string | null;
                             /** Format: date-time */
                             createdAt: string;
                         }[];
@@ -4250,6 +4268,7 @@ export interface operations {
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
                         avatarSeed: string;
+                        projectId: string | null;
                         /** Format: date-time */
                         createdAt: string;
                     };
@@ -4341,6 +4360,7 @@ export interface operations {
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
                         avatarSeed: string;
+                        projectId: string | null;
                         /** Format: date-time */
                         createdAt: string;
                     };
@@ -4512,6 +4532,105 @@ export interface operations {
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
                         avatarSeed: string;
+                        projectId: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    setBotProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    projectId: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        role: string;
+                        mission: string | null;
+                        isChef: boolean;
+                        teamId: string | null;
+                        managerId: string | null;
+                        computerId: string | null;
+                        workspaceId: string | null;
+                        providerId: string | null;
+                        model: string | null;
+                        fallbacks: {
+                            /** Format: uuid */
+                            providerId: string;
+                            model: string;
+                        }[];
+                        lightModel: {
+                            /** Format: uuid */
+                            providerId: string;
+                            model: string;
+                        } | null;
+                        heartbeatMinutes: number | null;
+                        dailyTokenBudget: number | null;
+                        /** @enum {string} */
+                        status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
+                        statusDetail: string | null;
+                        avatarSeed: string;
+                        projectId: string | null;
                         /** Format: date-time */
                         createdAt: string;
                     };
@@ -4732,6 +4851,12 @@ export interface operations {
                                 kind: "file";
                                 path: string;
                                 label: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "project";
+                                /** Format: uuid */
+                                id: string;
+                                label: string;
                             })[];
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
@@ -4816,6 +4941,11 @@ export interface operations {
                         /** @enum {string} */
                         kind: "file";
                         path: string;
+                    } | {
+                        /** @enum {string} */
+                        kind: "project";
+                        /** Format: uuid */
+                        id: string;
                     })[];
                 };
             };
@@ -4980,6 +5110,12 @@ export interface operations {
                             /** @enum {string} */
                             kind: "file";
                             path: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "project";
+                            /** Format: uuid */
+                            id: string;
                             label: string;
                         })[];
                         /** @enum {string} */
@@ -5273,6 +5409,12 @@ export interface operations {
                             kind: "file";
                             path: string;
                             label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "project";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
                         })[];
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
@@ -5513,6 +5655,12 @@ export interface operations {
                             kind: "file";
                             path: string;
                             label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "project";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
                         })[];
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
@@ -5687,6 +5835,7 @@ export interface operations {
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
                         avatarSeed: string;
+                        projectId: string | null;
                         /** Format: date-time */
                         createdAt: string;
                     };
@@ -6328,6 +6477,12 @@ export interface operations {
                                 /** @enum {string} */
                                 kind: "file";
                                 path: string;
+                                label: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "project";
+                                /** Format: uuid */
+                                id: string;
                                 label: string;
                             })[];
                             /** @enum {string} */

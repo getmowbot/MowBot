@@ -1,5 +1,5 @@
-import type { Connector, Project } from '@mowbot/contract';
-import { type QueryClient, useQuery } from '@tanstack/react-query';
+import type { Bot, Connector, Project } from '@mowbot/contract';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './auth';
 
 /** The folders shared from the user's computers, by name. */
@@ -41,6 +41,48 @@ export function removeProject(queryClient: QueryClient, projectId: string): void
   queryClient.setQueryData<Project[]>(['projects'], (list) =>
     list?.filter((project) => project.id !== projectId),
   );
+}
+
+// The project a bot works in, picked in its conversation.
+
+/** Whether this bot may work in the project (all bots, some teams, some bots). */
+export function usableBy(project: Pick<Project, 'scope'>, bot: Pick<Bot, 'id' | 'teamId'>) {
+  const { scope } = project;
+  if (scope.kind === 'all') return true;
+  if (scope.kind === 'bots') return scope.ids.includes(bot.id);
+  return bot.teamId !== null && scope.ids.includes(bot.teamId);
+}
+
+/** The projects this bot may work in, by name. */
+export function projectsFor(bot: Bot, projects: Project[] | undefined): Project[] {
+  return (projects ?? [])
+    .filter((project) => usableBy(project, bot))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The project the bot works in, while it still may. */
+export function activeProject(bot: Bot, projects: Project[] | undefined): Project | null {
+  const project = projects?.find((p) => p.id === bot.projectId);
+  return project && usableBy(project, bot) ? project : null;
+}
+
+/** Picks the project the bot works in (null: none); every device follows through `bot.updated`. */
+export function useSetBotProject(bot: Bot) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (projectId: string | null) => {
+      const { data, error } = await api.PUT('/api/v1/bots/{id}/project', {
+        params: { path: { id: bot.id } },
+        body: { projectId },
+      });
+      if (error || !data) throw error;
+      return data;
+    },
+    onSuccess: (saved) =>
+      queryClient.setQueryData<Bot[]>(['bots'], (list) =>
+        list?.map((other) => (other.id === saved.id ? saved : other)),
+      ),
+  });
 }
 
 export function setConnector(queryClient: QueryClient, connector: Connector): void {

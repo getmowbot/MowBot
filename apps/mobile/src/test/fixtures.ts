@@ -67,6 +67,7 @@ export function bot(overrides: Partial<Bot> = {}): Bot {
     status: 'idle',
     statusDetail: null,
     avatarSeed: 'nova',
+    projectId: null,
     createdAt: new Date(0).toISOString(),
     ...overrides,
   };

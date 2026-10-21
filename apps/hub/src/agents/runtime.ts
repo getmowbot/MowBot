@@ -16,14 +16,14 @@ import type {
 } from '@mowbot/contract';
 import { type LanguageModel, type ModelMessage, stepCountIs, streamText, type ToolSet } from 'ai';
 import { and, asc, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
-import { type BotRow, type BotService, toMessage } from '../bots/service';
+import { type BotRow, type BotService, toBot, toMessage } from '../bots/service';
 import type { AgentClient, ExecResult } from '../computers/agent-client';
 import type { ComputerService, Logger } from '../computers/service';
-import type { ConnectorService, ProjectRow } from '../connectors/service';
+import { type ConnectorService, type ProjectRow, usableBy } from '../connectors/service';
 import type { Db } from '../db/client';
 import { bots, type MessageMeta, messages, owner, routineRuns, teams } from '../db/schema';
 import type { EventBus } from '../events';
-import { HttpProblem } from '../http/problems';
+import { HttpProblem, notFound } from '../http/problems';
 import { hubTexts } from '../i18n';
 import type { McpService } from '../mcp/service';
 import type { OrgService } from '../org/service';
@@ -43,7 +43,7 @@ import { BrowserHub } from './browser';
 import { buildBrowserTools } from './browser-tools';
 import { buildCanvasTools, SHOW_IN_CHAT } from './canvas-tools';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
-import { buildLocalTools } from './local-tools';
+import { buildLocalTools, OFFLINE_HINT, projectPlace } from './local-tools';
 import { buildMcpTools } from './mcp-tools';
 import { resolveMentions } from './mentions';
 import { buildOrgTools } from './org-tools';
@@ -606,6 +606,61 @@ ${context}`
       })
       .returning();
     if (row) this.publish(row);
+  }
+
+  /**
+   * The user picks the project the bot works in (null: none), one it may use. Every device sees
+   * the bot change; the bot reads a silent note in its conversation (during its answer too).
+   */
+  async setProject(botId: string, projectId: string | null): Promise<Bot> {
+    const bot = await this.deps.bots.row(botId);
+    const { connectors } = this.deps;
+    let row: ProjectRow | null = null;
+    if (projectId) {
+      if (!connectors) throw notFound('Project not found');
+      row = await connectors.project(projectId);
+      if (!usableBy(row, bot)) {
+        throw new HttpProblem(409, 'project_not_allowed', 'This bot may not use this project');
+      }
+    }
+    if (bot.projectId === (row?.id ?? null)) return toBot(bot);
+    const updated = await this.deps.bots.update(botId, { projectId: row?.id ?? null });
+    let text =
+      "[L'utilisateur a retiré le projet actif : précise project dans les outils local_*.]";
+    if (row && connectors) {
+      const online = connectors.isOnline(row.connectorId);
+      const machine = (await connectors.connectorsOf([row])).get(row.connectorId);
+      text = `[L'utilisateur a choisi le projet actif : ${row.name} (${projectPlace(machine, online)}). Les outils local_* y travaillent quand tu ne précises pas project.${online ? '' : ` Pour l'instant, ${OFFLINE_HINT}`}]`;
+    }
+    const display = (await hubTexts(this.deps.db)).projectChosen(row?.name ?? null);
+    const [last] = await this.deps.db
+      .select()
+      .from(messages)
+      .where(eq(messages.botId, botId))
+      .orderBy(desc(messages.createdAt))
+      .limit(1);
+    // Picked again before the bot read the last note: that note says it instead.
+    if (last?.meta?.projectNote && !last.meta.steeredInto && !this.controllers.has(botId)) {
+      await this.save(last.id, {
+        parts: [{ type: 'text', text: display }],
+        modelMessages: [{ role: 'user', content: text }],
+      });
+      return updated;
+    }
+    // A message of the conversation (it joins an answer being written) that wakes no one.
+    const [note] = await this.deps.db
+      .insert(messages)
+      .values({
+        botId,
+        role: 'user',
+        meta: { silent: true, projectNote: true },
+        parts: [{ type: 'text', text: display }],
+        modelMessages: [{ role: 'user', content: text }],
+        status: 'done',
+      })
+      .returning();
+    if (note) this.publish(note);
+    return updated;
   }
 
   /**
@@ -1204,6 +1259,8 @@ ${context}`
       const { connectors } = this.deps;
       const projects: ProjectRow[] = connectors ? await connectors.accessibleTo(bot) : [];
       const machines = connectors ? await connectors.connectorsOf(projects) : new Map();
+      const active = projects.find((p) => p.id === bot.projectId);
+      const activeOnline = Boolean(active && connectors?.isOnline(active.connectorId));
       const tools = masked(secrets, {
         ...buildTools({
           botId,
@@ -1270,6 +1327,11 @@ ${context}`
               projects,
               machines,
               files: this.deps.files,
+              // Read at each call: the user may pick another project while the bot works.
+              activeProjectId: async () => (await this.deps.bots.row(botId)).projectId,
+              setActiveProject: async (projectId) => {
+                await this.deps.bots.update(botId, { projectId });
+              },
             })
           : {}),
         ...buildVaultTools({
@@ -1310,6 +1372,13 @@ ${context}`
           const mode = p.mode === 'auto' ? 'commandes libres' : 'commandes avec accord';
           return `- ${p.name} : ${p.path} (${machine?.hostname ?? machine?.name ?? '?'}${machine?.os ? `, ${machine.os}` : ''}) · ${online} · ${mode}`;
         }),
+        activeProject: active
+          ? {
+              name: active.name,
+              place: projectPlace(machines.get(active.connectorId), activeOnline),
+              online: activeOnline,
+            }
+          : null,
       });
       const history = await this.history(botId, created.createdAt);
 

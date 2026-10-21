@@ -9,6 +9,7 @@ import {
   Eraser,
   File,
   Folder,
+  FolderGit2,
   FolderOpen,
   KeyRound,
   type LucideIcon,
@@ -39,17 +40,20 @@ import {
   type Trigger,
   triggerAt,
 } from '../lib/chat-input';
+import { projectsFor, useProjects } from '../lib/projects';
 import { useBots, useTeams } from '../lib/queries';
 import { cn } from '../lib/utils';
 import { BotAvatar } from './bot-avatar';
 import { useClearConversation } from './bot-menu';
 import { useOrgDialogs } from './org-dialogs';
+import { ProjectChip } from './project-chip';
 import { Button } from './ui/button';
 
 /** A `/` command of the composer: done in the app, never sent to the bot. */
 type CommandName =
   | 'stop'
   | 'clear'
+  | 'project'
   | 'pc'
   | 'files'
   | 'settings'
@@ -67,7 +71,10 @@ interface ChatCommand {
 }
 
 /** The commands of a conversation, for what this bot has (a PC, a workspace…). */
-function useChatCommands(bot: Bot, actions: { togglePc(): void; rename(): void }): ChatCommand[] {
+function useChatCommands(
+  bot: Bot,
+  actions: { togglePc(): void; rename(): void; pickProject: (() => void) | null },
+): ChatCommand[] {
   const navigate = useNavigate();
   const dialogs = useOrgDialogs();
   const queryClient = useQueryClient();
@@ -80,6 +87,7 @@ function useChatCommands(bot: Bot, actions: { togglePc(): void; rename(): void }
   const commands: (ChatCommand | null)[] = [
     { name: 'stop', icon: Square, run: () => stop.mutate() },
     { name: 'clear', icon: Eraser, run: clear },
+    actions.pickProject ? { name: 'project', icon: FolderGit2, run: actions.pickProject } : null,
     bot.computerId ? { name: 'pc', icon: Monitor, run: actions.togglePc } : null,
     workspaceId
       ? {
@@ -113,15 +121,15 @@ type Option =
   | { key: string; section: 'commands'; command: ChatCommand }
   | {
       key: string;
-      section: 'bots' | 'teams' | 'files';
+      section: 'bots' | 'teams' | 'projects' | 'files';
       picked: Picked;
       icon: ReactNode;
       hint: string;
     };
 
-const SECTIONS = ['commands', 'bots', 'teams', 'files'] as const;
+const SECTIONS = ['commands', 'bots', 'teams', 'projects', 'files'] as const;
 
-/** The message field: `/` runs a command, `@` points at a bot, a team or a file. */
+/** The message field: `/` runs a command, `@` points at a bot, a team, a project or a file. */
 export function ChatComposer({
   bot,
   onTogglePc,
@@ -134,7 +142,14 @@ export function ChatComposer({
   onSend(text: string, mentions: Mention[]): void;
 }) {
   const { t } = useTranslation();
-  const commands = useChatCommands(bot, { togglePc: onTogglePc, rename: onRename });
+  // The project the bot works in: a chip over the field, `/project` opens its menu.
+  const [projectMenu, setProjectMenu] = useState(false);
+  const projects = projectsFor(bot, useProjects().data);
+  const commands = useChatCommands(bot, {
+    togglePc: onTogglePc,
+    rename: onRename,
+    pickProject: projects.length > 0 ? () => setProjectMenu(true) : null,
+  });
   const [text, setText] = useState('');
   const [caret, setCaret] = useState(0);
   const [picked, setPicked] = useState<Picked[]>([]);
@@ -206,6 +221,18 @@ export function ChatComposer({
             hint: t('chat.mentions.team'),
           }),
         ),
+      ...projects
+        .filter((project) => matches(q, project.name))
+        .slice(0, 4)
+        .map(
+          (project): Option => ({
+            key: `project:${project.id}`,
+            section: 'projects',
+            picked: { kind: 'project', id: project.id, label: project.name },
+            icon: <FolderGit2 className="size-4" />,
+            hint: t('chat.mentions.project'),
+          }),
+        ),
       ...(mentionQuery === fileQuery ? (files.data ?? []) : []).map(
         (entry): Option => ({
           key: `file:${entry.path}`,
@@ -260,7 +287,9 @@ export function ChatComposer({
     event?.preventDefault();
     const value = text.trim();
     if (!value) return;
-    const command = commands.find((c) => `/${c.name}` === value);
+    // `/projet` is how a French speaker types `/project`.
+    const typed = value.toLowerCase() === '/projet' ? '/project' : value;
+    const command = commands.find((c) => `/${c.name}` === typed);
     if (command) command.run();
     else onSend(value, mentionsToSend(value, picked));
     setText('');
@@ -368,6 +397,9 @@ export function ChatComposer({
           </motion.div>
         )}
       </AnimatePresence>
+      <div className="mb-1.5 flex px-1 empty:hidden">
+        <ProjectChip bot={bot} open={projectMenu} onOpenChange={setProjectMenu} />
+      </div>
       <form
         onSubmit={submit}
         className="glass flex items-end gap-2 rounded-2xl p-2 transition-[border-color] duration-300 focus-within:border-white/30"

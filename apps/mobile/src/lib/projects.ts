@@ -1,4 +1,11 @@
-import type { Connector, ConnectorOs, Project, ProjectMode, ProjectUpdate } from '@mowbot/contract';
+import type {
+  Bot,
+  Connector,
+  ConnectorOs,
+  Project,
+  ProjectMode,
+  ProjectUpdate,
+} from '@mowbot/contract';
 import type { TFunction } from 'i18next';
 import { timeAgo } from './time';
 
@@ -179,4 +186,83 @@ export function renameBody(project: Pick<Project, 'name'>, typed: string): Proje
 /** The switch "Commandes sans demander": on runs commands freely, off asks for each one. */
 export function modeBody(auto: boolean): ProjectUpdate {
   return { mode: auto ? 'auto' : 'ask' };
+}
+
+// ---------------------------------------------------------------------------------------------
+// The project a bot works in, picked in its conversation
+
+/** Whether this bot may work in the project (all bots, some teams, some bots), as the hub says. */
+export function usableBy(
+  project: Pick<Project, 'scope'>,
+  bot: Pick<Bot, 'id' | 'teamId'>,
+): boolean {
+  const { scope } = project;
+  if (scope.kind === 'all') return true;
+  if (scope.kind === 'bots') return scope.ids.includes(bot.id);
+  return bot.teamId !== null && scope.ids.includes(bot.teamId);
+}
+
+/** The projects this bot may work in, sorted. */
+export function projectsFor(
+  bot: Pick<Bot, 'id' | 'teamId'>,
+  projects: readonly Project[] | undefined,
+): Project[] {
+  return sortProjects((projects ?? []).filter((project) => usableBy(project, bot)));
+}
+
+/** The project the bot works in, while it still may (null: none). */
+export function activeProject(
+  bot: Pick<Bot, 'id' | 'teamId' | 'projectId'>,
+  projects: readonly Project[] | undefined,
+): Project | null {
+  const project = projects?.find((p) => p.id === bot.projectId);
+  return project && usableBy(project, bot) ? project : null;
+}
+
+export interface ProjectChoice {
+  /** null: no project. */
+  projectId: string | null;
+  /** "✓ Site · PC-de-Joris (hors ligne)": the menu has no other way to mark them. */
+  label: string;
+  checked: boolean;
+  offline: boolean;
+}
+
+/**
+ * The menu of the project a bot works in: the projects it may use with their computer (offline
+ * ones marked: the bot reaches them once the desktop app is open), then "No project". Empty when
+ * the bot may use none (nothing to pick).
+ */
+export function projectChoices(
+  bot: Pick<Bot, 'id' | 'teamId' | 'projectId'>,
+  projects: readonly Project[] | undefined,
+  connectors: readonly Pick<Connector, 'id' | 'name'>[] | undefined,
+  t: TFunction,
+): ProjectChoice[] {
+  const usable = projectsFor(bot, projects);
+  if (usable.length === 0) return [];
+  const current = activeProject(bot, projects);
+  const mark = (checked: boolean, text: string) => (checked ? `✓ ${text}` : text);
+  return [
+    ...usable.map((project) => {
+      const checked = project.id === current?.id;
+      const where = connectorName(project.connectorId, connectors, t);
+      const offline = !project.online;
+      return {
+        projectId: project.id,
+        label: mark(
+          checked,
+          `${project.name} · ${where}${offline ? ` (${t('projects.offline')})` : ''}`,
+        ),
+        checked,
+        offline,
+      };
+    }),
+    {
+      projectId: null,
+      label: mark(current === null, t('projects.active.none')),
+      checked: current === null,
+      offline: false,
+    },
+  ];
 }

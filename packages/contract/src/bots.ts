@@ -46,9 +46,18 @@ export const botSchema = z.object({
   statusDetail: z.string().nullable(),
   /** Seed of the bot's character (shape, colors, eyes): see @mowbot/design. */
   avatarSeed: z.string(),
+  /**
+   * The project (a folder shared from the user's computer) the bot works in: its `local_*` tools
+   * go there when no project is named. null: none.
+   */
+  projectId: z.uuid().nullable(),
   createdAt: z.iso.datetime(),
 });
 export type Bot = z.infer<typeof botSchema>;
+
+/** Picks the project the bot works in (one it may use), or none. */
+export const botProjectSchema = z.object({ projectId: z.uuid().nullable() });
+export type BotProject = z.infer<typeof botProjectSchema>;
 
 export const botListSchema = z.object({ items: z.array(botSchema) });
 
@@ -99,11 +108,15 @@ export const botMoveSchema = z.object({
 });
 export type BotMove = z.infer<typeof botMoveSchema>;
 
-/** What the user points at with @ in a message: a bot, a team, or a file of the bot's workspace. */
+/**
+ * What the user points at with @ in a message: a bot, a team, a file of the bot's workspace, or
+ * a project (a folder shared from the user's computer).
+ */
 export const mentionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('bot'), id: z.uuid() }),
   z.object({ kind: z.literal('team'), id: z.uuid() }),
   z.object({ kind: z.literal('file'), path: workspacePathSchema.min(1) }),
+  z.object({ kind: z.literal('project'), id: z.uuid() }),
 ]);
 export type Mention = z.infer<typeof mentionSchema>;
 
@@ -112,6 +125,7 @@ export const messageMentionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('bot'), id: z.uuid(), label: z.string() }),
   z.object({ kind: z.literal('team'), id: z.uuid(), label: z.string() }),
   z.object({ kind: z.literal('file'), path: z.string(), label: z.string() }),
+  z.object({ kind: z.literal('project'), id: z.uuid(), label: z.string() }),
 ]);
 export type MessageMention = z.infer<typeof messageMentionSchema>;
 
@@ -241,7 +255,7 @@ export type VaultRequestAnswer = z.infer<typeof vaultRequestAnswerSchema>;
 
 export const sendMessageSchema = z.object({
   text: z.string().trim().min(1).max(20_000),
-  /** Bots, teams and files written as `@label` in the text, handed to the bot with their details. */
+  /** Bots, teams, files and projects written as `@label` in the text, handed to the bot with their details. */
   mentions: z.array(mentionSchema).max(10).optional(),
 });
 
