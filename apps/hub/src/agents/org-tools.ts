@@ -142,7 +142,7 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
         );
       }
       return (await runtime.stopBy(self, target, reason))
-        ? `${target.name} est arrêté.`
+        ? `J’ai arrêté ${target.name}.`
         : `${target.name} ne travaillait pas.`;
     },
   });

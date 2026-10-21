@@ -93,7 +93,7 @@ describe('a bot stopping another', () => {
   it('stops it, leaves it a note and does not wake it up', async () => {
     const chefModel = scripted([
       toolTurn('stop_bot', { bot: 'Léa', reason: 'Nova fait déjà cette recherche' }),
-      textTurn('J’ai arrêté Léa.'),
+      textTurn('C’est fait.'),
     ]);
     const lea = busyModel();
     const { inject, chef, transcript, services } = await start((bot) =>
@@ -112,7 +112,7 @@ describe('a bot stopping another', () => {
     await inject('POST', `/api/v1/bots/${chef.id}/messages`, { text: 'Arrête Léa' });
     await services.runtime.settle();
 
-    expect(JSON.stringify(await transcript())).toContain('Léa est arrêté.');
+    expect(JSON.stringify(await transcript())).toContain('J’ai arrêté Léa.');
     const hers = await transcript(created.body.id);
     expect(hers.map((m) => [m.role, m.status])).toEqual([
       ['user', 'done'],
