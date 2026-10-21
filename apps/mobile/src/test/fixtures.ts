@@ -29,6 +29,8 @@ export function message(overrides: Partial<Message> = {}): Message {
     taskId: null,
     parts: [],
     steered: false,
+    steeredInto: null,
+    autonomous: false,
     stepLimit: false,
     mentions: [],
     status: 'done',

@@ -3,6 +3,7 @@ import { bot, message } from '../test/fixtures';
 import {
   chipBots,
   incomingPlaces,
+  inReadingOrder,
   nameSegments,
   runSummary,
   shortSummary,
@@ -85,6 +86,29 @@ describe('bot names in a text', () => {
       { id: 'b-1', name: 'Novette', avatarSeed: 'n', isChef: false },
       { id: null, name: 'Ancien', avatarSeed: 'Ancien' },
     ]);
+  });
+});
+
+describe('reading order', () => {
+  it('puts what reached a bot while it worked above the answer it went into', () => {
+    const asked = message({ role: 'user' });
+    const answer = message();
+    const late = fromBot('b-1', 'Nova');
+    const during = message({ role: 'user', steered: true, steeredInto: answer.id });
+    const after = message({ role: 'user' });
+    expect(inReadingOrder([asked, answer, during, late, after])).toEqual([
+      asked,
+      during,
+      answer,
+      late,
+      after,
+    ]);
+  });
+
+  it('leaves a message whose answer is not loaded where it is', () => {
+    const lost = message({ role: 'user', steered: true, steeredInto: 'elsewhere' });
+    const list = [message(), lost];
+    expect(inReadingOrder(list)).toBe(list);
   });
 });
 

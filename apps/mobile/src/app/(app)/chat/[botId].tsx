@@ -30,7 +30,7 @@ import { Surface } from '../../../components/ui/surface';
 import { T } from '../../../components/ui/text';
 import { moodOf } from '../../../lib/bot-mood';
 import { revealOffset } from '../../../lib/chat-scroll';
-import { incomingPlaces } from '../../../lib/incoming';
+import { incomingPlaces, inReadingOrder } from '../../../lib/incoming';
 import { liveMessage } from '../../../lib/message-cache';
 import {
   type Outgoing,
@@ -76,8 +76,9 @@ export default function ChatScreen() {
     if (items && !known.current) known.current = new Set(items.map((m) => m.id));
   }, [items]);
 
-  const data = useMemo(() => [...(items ?? [])].reverse(), [items]);
-  const places = useMemo(() => incomingPlaces(items ?? []), [items]);
+  const ordered = useMemo(() => inReadingOrder(items ?? []), [items]);
+  const data = useMemo(() => [...ordered].reverse(), [ordered]);
+  const places = useMemo(() => incomingPlaces(ordered), [ordered]);
   // Inverted: the item before a separator shows under it. Within a run, the bubbles stay close.
   const Separator = useCallback(
     ({ leadingItem }: { leadingItem?: Message }) => (

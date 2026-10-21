@@ -7,7 +7,14 @@ import { segments } from '../../lib/activity';
 import { userMedia } from '../../lib/attachments';
 import { moodOf } from '../../lib/bot-mood';
 import { mentionSegments } from '../../lib/chat-input';
-import { chipBots, type IncomingPlace, runSummary, senderOf, summaryOf } from '../../lib/incoming';
+import {
+  chipBots,
+  type IncomingPlace,
+  runSummary,
+  senderOf,
+  shortSummary,
+  summaryOf,
+} from '../../lib/incoming';
 import { messageText } from '../../lib/message-cache';
 import { colors } from '../../theme';
 import { ActivityLine } from '../activity-line';
@@ -225,8 +232,17 @@ export function BotMessage({
   onContinue?: () => void;
 }) {
   const { t } = useTranslation();
+  const [unfolded, setUnfolded] = useState(false);
   const streaming = message.status === 'streaming';
   const blocks = segments(message.parts);
+  // An answer to other bots or a routine: its first sentence, the rest a tap away.
+  const said = blocks.flatMap((b) => (b.kind === 'text' ? [b.text] : [])).join('\n\n');
+  // A hub from before this sends no `autonomous`.
+  const gist = message.autonomous && !streaming ? shortSummary(said) : '';
+  const foldable = gist !== '' && said.trim().length > gist.length + 40;
+  const folded = foldable && !unfolded;
+  const firstText = blocks.findIndex((b) => b.kind === 'text');
+  const lastText = blocks.findLastIndex((b) => b.kind === 'text');
   return (
     <View style={styles.bot}>
       <BotAvatar seed={bot.avatarSeed} size={30} mood={streaming ? moodOf(bot, message) : 'idle'} />
@@ -276,8 +292,38 @@ export function BotMessage({
                 />
               );
             default:
+              if (folded) {
+                return i === firstText ? (
+                  <Touchable
+                    key={`text-${block.index}`}
+                    onPress={() => setUnfolded(true)}
+                    accessibilityRole="button"
+                    accessibilityHint={t('chat.readMore')}
+                  >
+                    <T tone="muted">
+                      {gist}{' '}
+                      <T variant="footnote" tone="faint">
+                        · {t('chat.readMore')}
+                      </T>
+                    </T>
+                  </Touchable>
+                ) : null;
+              }
               return (
-                <Markdown key={`text-${block.index}`} text={block.text} caret={streaming && last} />
+                <Fragment key={`text-${block.index}`}>
+                  <Markdown text={block.text} caret={streaming && last} />
+                  {foldable && i === lastText && (
+                    <Touchable
+                      onPress={() => setUnfolded(false)}
+                      accessibilityRole="button"
+                      style={styles.readLess}
+                    >
+                      <T variant="caption" tone="faint">
+                        {t('chat.readLess')}
+                      </T>
+                    </Touchable>
+                  )}
+                </Fragment>
               );
           }
         })}
@@ -336,6 +382,7 @@ const styles = StyleSheet.create({
   botBody: { flex: 1, minWidth: 0, gap: 10, paddingTop: 3 },
   thinking: { fontSize: 15, lineHeight: 23 },
   stepLimit: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  readLess: { alignSelf: 'flex-start', paddingVertical: 2 },
   continue: {
     borderRadius: 9999,
     borderWidth: 1,
