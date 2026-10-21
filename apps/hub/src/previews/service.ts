@@ -62,6 +62,7 @@ export class PreviewService {
   private lastSeen: LinkBase | null = null;
   private timer: NodeJS.Timeout | null = null;
   private readonly unsubscribe: () => void;
+  private readonly offRemove: () => void;
   private readonly now: () => number;
 
   constructor(
@@ -85,6 +86,8 @@ export class PreviewService {
         }
       }
     });
+    // A deleted PC (its team deleted…) publishes no status: told directly.
+    this.offRemove = computers.onRemove((id) => this.endComputer(id));
   }
 
   setLogger(log: Logger): void {
@@ -257,15 +260,22 @@ export class PreviewService {
     return true;
   }
 
-  /** Ends every preview of a PC (it stopped). */
+  /** Ends every preview of a PC (it stopped, or is being deleted). */
   async endComputer(computerId: string): Promise<void> {
     const rows = await this.db
       .delete(previews)
       .where(eq(previews.computerId, computerId))
       .returning();
-    for (const row of rows) await this.release(row.publicPort);
+    // Served ones too, even if their rows already went (deleted with their PC).
+    const ports = new Set([
+      ...rows.map((row) => row.publicPort),
+      ...[...this.active.values()]
+        .filter((active) => active.row.computerId === computerId)
+        .map((active) => active.row.publicPort),
+    ]);
+    for (const port of ports) await this.release(port);
     this.agents.delete(computerId);
-    if (rows.length > 0) this.changed(computerId);
+    if (ports.size > 0) this.changed(computerId);
   }
 
   /** Ends expired previews, and those whose PC is gone or no longer running. */
@@ -316,6 +326,7 @@ export class PreviewService {
 
   async close(): Promise<void> {
     this.unsubscribe();
+    this.offRemove();
     if (this.timer) clearInterval(this.timer);
     await Promise.all([...this.active.keys()].map((port) => this.release(port)));
   }

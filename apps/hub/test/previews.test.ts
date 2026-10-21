@@ -411,6 +411,14 @@ describe('previews: sharing, stopping, expiry', () => {
       .toBe('closed');
   });
 
+  it('ends at once when the PC is deleted (with its team)', async () => {
+    const { row } = await share();
+    events.length = 0;
+    await t.services.computers.remove(computerId);
+    expect(events).toContainEqual({ type: 'previews.changed', computerId });
+    await expect(request(row.publicPort, '/')).rejects.toThrow();
+  });
+
   it('takes the next port when one is busy, and says when all are', async () => {
     // Something else on this machine already uses the first port.
     const squatter = http.createServer();
