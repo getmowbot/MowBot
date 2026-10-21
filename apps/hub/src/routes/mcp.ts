@@ -1,5 +1,6 @@
 import {
   mcpCallListSchema,
+  mcpComputerSchema,
   mcpOAuthStartResultSchema,
   mcpOAuthStartSchema,
   mcpServerCreateSchema,
@@ -23,7 +24,7 @@ const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.char
 const landing = (lang: string, title: string, text: string) =>
   `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MowBot</title><style>body{font-family:system-ui,sans-serif;background:#06070a;color:#f3f4f6;display:grid;place-items:center;min-height:100vh;margin:0}main{max-width:28rem;padding:2rem;text-align:center}h1{font-size:1.25rem}p{color:#9ca3af}</style></head><body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(text)}</p></main></body></html>`;
 
-/** MCP servers: tools from elsewhere for the bots (remote, or run on the bots' computers). */
+/** MCP servers: tools from elsewhere for the bots (remote, or run on the MCP computer). */
 export const mcpRoutes: FastifyPluginAsyncZod = async (app) => {
   const { mcp } = app.services;
   /** Connects and lists tools in the background (a local server may take a while to start). */
@@ -112,13 +113,81 @@ export const mcpRoutes: FastifyPluginAsyncZod = async (app) => {
         tags,
         operationId: 'refreshMcpServer',
         description:
-          'Connects again and lists the tools (a local server starts on a bot’s computer).',
+          'Connects again and lists the tools (a local server starts on the MCP computer, which starts if it sleeps).',
         security: bearerSecurity,
         params: mcpServerIdParamsSchema,
         response: { 200: mcpServerSchema, ...errorResponses },
       },
     },
     async (request) => toMcpServer(await mcp.refresh(request.params.id)),
+  );
+
+  app.post(
+    '/mcp/servers/:id/move',
+    {
+      preHandler: requireAuth('admin'),
+      schema: {
+        tags,
+        operationId: 'moveMcpServer',
+        description:
+          'Moves a local server a bot installed on its own computer (`computerId` set) to the MCP computer. The bots that had it keep it (a scope of all bots becomes that computer’s team, or its bots). Its tools are listed again in the background; a server installed by hand (pipx, pip…) must be installed on the MCP computer first.',
+        security: bearerSecurity,
+        params: mcpServerIdParamsSchema,
+        response: { 200: mcpServerSchema, ...errorResponses },
+      },
+    },
+    async (request) => {
+      const row = await mcp.moveToMcpComputer(request.params.id);
+      if (row.enabled) refreshLater(row.id);
+      return toMcpServer(row);
+    },
+  );
+
+  app.get(
+    '/mcp/computer',
+    {
+      preHandler: requireAuth('read'),
+      schema: {
+        tags,
+        operationId: 'getMcpComputer',
+        description:
+          'The computer local servers run on. It starts when one is needed and sleeps when idle (follow `mcp.computer`).',
+        security: bearerSecurity,
+        response: { 200: mcpComputerSchema, ...errorResponses },
+      },
+    },
+    async () => mcp.computerState(),
+  );
+
+  app.post(
+    '/mcp/computer/start',
+    {
+      preHandler: requireAuth('admin'),
+      schema: {
+        tags,
+        operationId: 'startMcpComputer',
+        description: 'Starts the MCP computer in the background (status `starting`).',
+        security: bearerSecurity,
+        response: { 200: mcpComputerSchema, ...errorResponses },
+      },
+    },
+    async () => mcp.startComputer(),
+  );
+
+  app.post(
+    '/mcp/computer/stop',
+    {
+      preHandler: requireAuth('admin'),
+      schema: {
+        tags,
+        operationId: 'stopMcpComputer',
+        description:
+          'Puts the MCP computer to sleep: its servers stop and start again on their next use. Its home (installs, sign-ins) is kept.',
+        security: bearerSecurity,
+        response: { 200: mcpComputerSchema, ...errorResponses },
+      },
+    },
+    async () => mcp.stopComputer(),
   );
 
   app.post(

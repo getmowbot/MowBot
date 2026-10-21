@@ -1554,7 +1554,7 @@ export class BotRuntime {
           files: this.deps.files,
         }),
         ...(this.deps.mcp
-          ? await buildMcpTools({ self: bot, mcp: this.deps.mcp, pendingImages })
+          ? await buildMcpTools({ self: bot, mcp: this.deps.mcp, db, pendingImages, expand })
           : {}),
         ...(this.deps.automations
           ? buildAutomationTools({ self: bot, automations: this.deps.automations })

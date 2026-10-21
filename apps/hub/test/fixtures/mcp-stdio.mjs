@@ -11,4 +11,21 @@ server.registerTool(
     content: [{ type: 'text', text: `${process.env.GREETING ?? 'echo'}: ${text}` }],
   }),
 );
+server.registerTool(
+  'playlist',
+  { description: 'Lists the tracks of a long playlist', inputSchema: { count: z.number() } },
+  async ({ count }) => ({
+    content: [
+      {
+        type: 'text',
+        text: Array.from({ length: count }, (_, i) => `Track ${i + 1}: a rather long title`).join(
+          '\n',
+        ),
+      },
+    ],
+  }),
+);
+server.registerTool('whoami', { description: 'Tells its token', inputSchema: {} }, async () => ({
+  content: [{ type: 'text', text: `token=${process.env.API_TOKEN ?? ''}` }],
+}));
 await server.connect(new StdioServerTransport());

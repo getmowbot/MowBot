@@ -1,5 +1,5 @@
-import type { Computer } from '@mowbot/contract';
-import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import type { Computer, McpComputer } from '@mowbot/contract';
+import { and, eq, inArray, isNotNull, ne } from 'drizzle-orm';
 import { open } from '../crypto/secretbox';
 import type { Db } from '../db/client';
 import { computers } from '../db/schema';
@@ -10,7 +10,7 @@ import type { ComputerRuntime } from './runtime';
 
 export const AGENT_TOKEN_PURPOSE = 'computer-agent-token';
 
-type ComputerRow = typeof computers.$inferSelect;
+export type ComputerRow = typeof computers.$inferSelect;
 
 export interface Logger {
   warn(obj: object, msg: string): void;
@@ -36,6 +36,16 @@ export function toComputer(row: ComputerRow): Computer {
         : null,
     lastActivityAt: row.lastActivityAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** The MCP computer as the MCP page shows it (not created yet: asleep). */
+export function toMcpComputer(row: ComputerRow | null | undefined): McpComputer {
+  return {
+    id: row?.id ?? null,
+    status: row?.status ?? 'stopped',
+    statusDetail: row?.statusDetail ?? null,
+    lastActivityAt: row?.lastActivityAt?.toISOString() ?? null,
   };
 }
 
@@ -66,8 +76,13 @@ export class ComputerService {
     this.log = log;
   }
 
+  /** The bots' computers (the MCP computer has its own place, on the MCP page). */
   async list(): Promise<Computer[]> {
-    const rows = await this.db.select().from(computers).orderBy(computers.createdAt);
+    const rows = await this.db
+      .select()
+      .from(computers)
+      .where(ne(computers.kind, 'mcp'))
+      .orderBy(computers.createdAt);
     return rows.map(toComputer);
   }
 
@@ -267,6 +282,7 @@ export class ComputerService {
     try {
       const { containerId } = await this.runtime.start({
         id: row.id,
+        kind: row.kind,
         workspaceId: row.workspaceId,
         agentToken: this.agentToken(row),
       });
@@ -289,7 +305,8 @@ export class ComputerService {
     while (Date.now() < deadline) {
       try {
         const health = await (await this.agent(row)).health();
-        if (health.ok && health.vnc) return;
+        // The MCP computer has no desktop.
+        if (health.ok && (health.vnc || row.kind === 'mcp')) return;
       } catch (error) {
         lastError = error;
       }
@@ -313,7 +330,11 @@ export class ComputerService {
       .where(eq(computers.id, id))
       .returning();
     if (!row) throw notFound('Computer not found');
-    this.events.publish({ type: 'computer.updated', computer: toComputer(row) });
+    this.events.publish(
+      row.kind === 'mcp'
+        ? { type: 'mcp.computer', computer: toMcpComputer(row) }
+        : { type: 'computer.updated', computer: toComputer(row) },
+    );
     return row;
   }
 }

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { botSchema, messageSchema } from './bots';
 import { canvasSchema } from './canvases';
 import { computerSchema } from './computers';
-import { mcpServerSchema } from './mcp';
+import { mcpComputerSchema, mcpServerSchema } from './mcp';
 import { connectorSchema, projectSchema } from './projects';
 import { questionSchema } from './questions';
 import {
@@ -42,6 +42,8 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('automation.deleted'), automationId: z.uuid() }),
   z.object({ type: z.literal('mcp.updated'), server: mcpServerSchema }),
   z.object({ type: z.literal('mcp.deleted'), serverId: z.uuid() }),
+  /** The MCP computer started, stopped… */
+  z.object({ type: z.literal('mcp.computer'), computer: mcpComputerSchema }),
   z.object({ type: z.literal('connector.updated'), connector: connectorSchema }),
   z.object({ type: z.literal('connector.deleted'), connectorId: z.uuid() }),
   z.object({ type: z.literal('project.updated'), project: projectSchema }),

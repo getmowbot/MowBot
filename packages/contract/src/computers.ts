@@ -3,7 +3,11 @@ import { z } from 'zod';
 export const computerStatusSchema = z.enum(['stopped', 'starting', 'running', 'stopping', 'error']);
 export type ComputerStatus = z.infer<typeof computerStatusSchema>;
 
-export const computerKindSchema = z.enum(['team', 'dedicated']);
+/**
+ * `team`: a team's shared PC; `dedicated`: one bot's own; `mcp`: the PC the MCP servers run on
+ * (no desktop, never listed with the others, see `/mcp/computer`).
+ */
+export const computerKindSchema = z.enum(['team', 'dedicated', 'mcp']);
 export type ComputerKind = z.infer<typeof computerKindSchema>;
 
 export const computerSchema = z.object({

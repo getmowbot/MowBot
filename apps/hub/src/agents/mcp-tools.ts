@@ -2,16 +2,32 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { jsonSchema, type ToolSet, tool } from 'ai';
 import { z } from 'zod';
 import type { BotRow } from '../bots/service';
+import type { Db } from '../db/client';
 import type { StoredMcpTool } from '../db/schema';
 import { type McpServerRow, type McpService, textOf } from '../mcp/service';
-import { clip } from './tools';
+import { buildMcpAdminTools } from './mcp-admin-tools';
 
 /** Up to this many MCP tools, each is a tool of its own; past it, bots search them. */
 export const DIRECT_MCP_TOOLS = 40;
 
+/** What a bot reads of one result at most. */
+export const MCP_RESULT_CHARS = 48_000;
+
 /** `mcp__<server>__<tool>`, within the length and characters models accept. */
 export const mcpToolName = (server: McpServerRow, name: string) =>
   `mcp__${server.slug}__${name.replace(/[^a-zA-Z0-9_-]/g, '_')}`.slice(0, 64);
+
+/**
+ * Keeps the beginning of a long result (a listing's first items, a document's start) and says
+ * what is missing, so the bot asks for less at a time instead of working around the tool.
+ */
+export function clipResult(text: string, max = MCP_RESULT_CHARS): string {
+  if (text.length <= max) return text;
+  // At a line break near the limit, when there is one, not in the middle of an item.
+  const newline = text.lastIndexOf('\n', max);
+  const end = newline > max * 0.8 ? newline : max;
+  return `${text.slice(0, end)}\n\n[Résultat coupé : seuls les ${end} premiers caractères sur ${text.length} sont affichés. Demande moins à la fois (une page plus petite, un filtre, une recherche plus précise) si l'outil le permet.]`;
+}
 
 /** What the model reads of a tool's result; pictures go to its next step. */
 export function formatResult(result: CallToolResult, pendingImages: string[]): string {
@@ -32,7 +48,7 @@ export function formatResult(result: CallToolResult, pendingImages: string[]): s
   if (parts.length === 0 && result.structuredContent) {
     parts.push(JSON.stringify(result.structuredContent));
   }
-  return clip(parts.join('\n\n') || '(aucun résultat)');
+  return clipResult(parts.join('\n\n') || '(aucun résultat)');
 }
 
 const describeTool = (server: McpServerRow, entry: StoredMcpTool) =>
@@ -40,12 +56,15 @@ const describeTool = (server: McpServerRow, entry: StoredMcpTool) =>
 
 /**
  * Tools of the MCP servers the bot is given, as tools of its own (or searched, when there are
- * many), plus installing a local server on its computer.
+ * many); for the Chef, also managing the servers.
  */
 export async function buildMcpTools(ctx: {
   self: BotRow;
   mcp: McpService;
+  db: Db;
   pendingImages: string[];
+  /** Fills in `{{vault:…}}` placeholders (the Chef's secrets and setup commands). */
+  expand(text: string): Promise<string>;
 }): Promise<ToolSet> {
   const { self, mcp, pendingImages } = ctx;
   const tools: ToolSet = {};
@@ -60,8 +79,10 @@ export async function buildMcpTools(ctx: {
 
   const call = async (server: McpServerRow, name: string, args: Record<string, unknown>) => {
     const result = await mcp.call(server, self, name, args);
-    if (result.isError) throw new Error(textOf(result) || `${name} a échoué`);
-    return formatResult(result, pendingImages);
+    if (result.isError) {
+      throw new Error(mcp.mask(server, clipResult(textOf(result), 4_000)) || `${name} a échoué`);
+    }
+    return mcp.mask(server, formatResult(result, pendingImages));
   };
 
   const total = usable.reduce((sum, server) => sum + server.tools.length, 0);
@@ -86,8 +107,8 @@ export async function buildMcpTools(ctx: {
     return server;
   };
 
-  // With a computer, a server installed during the turn is reachable at once.
-  if (usable.length > 0 || self.computerId) {
+  // The Chef can add a server during the turn: reachable at once with mcp_call.
+  if (usable.length > 0 || self.isChef) {
     tools.mcp_search_tools = tool({
       description:
         'Cherche parmi les outils des serveurs MCP qui te sont donnés (nom, description, paramètres), pour les appeler ensuite avec mcp_call.',
@@ -123,53 +144,25 @@ export async function buildMcpTools(ctx: {
     });
   }
 
-  if (!self.computerId) return tools;
-  const computerId = self.computerId;
-
-  tools.mcp_add_local = tool({
-    description:
-      "Installe un serveur MCP local (stdio) sur ton PC, pour toi et les bots du même PC : la commande qui le lance (ex. « npx -y @modelcontextprotocol/server-sqlite --db-path /workspace/data.db »), et ses variables d'environnement. Ses outils sont à toi dès ton prochain tour ; d'ici là, appelle-les avec mcp_call.",
-    inputSchema: z.object({
-      name: z.string().trim().min(1).max(60),
-      command: z.string().trim().min(1).max(2_000),
-      env: z.record(z.string().min(1).max(100), z.string().max(10_000)).optional(),
-    }),
-    execute: async ({ name, command, env }) => {
-      const row = await mcp.create(
-        {
-          name,
-          transport: 'stdio',
-          command,
-          auth: 'none',
-          secrets: env,
-          scope: { kind: 'all', ids: [] },
+  if (self.isChef) {
+    Object.assign(
+      tools,
+      buildMcpAdminTools({
+        self,
+        mcp,
+        db: ctx.db,
+        expand: ctx.expand,
+        // What the Chef changes is usable during the same turn (mcp_call).
+        changed: (row) => {
+          const index = usable.findIndex((s) => s.id === row.id);
+          const keep = mcp.canUse(row, self) && row.status !== 'needs_auth';
+          if (index >= 0 && keep) usable[index] = row;
+          else if (index >= 0) usable.splice(index, 1);
+          else if (keep) usable.push(row);
         },
-        { botId: self.id, computerId },
-      );
-      try {
-        const listed = await mcp.refresh(row.id, computerId);
-        usable.push(listed);
-        return `Serveur MCP « ${listed.name} » (${listed.slug}) installé : ${listed.tools.map((t) => t.name).join(', ') || 'aucun outil'}.`;
-      } catch (error) {
-        throw new Error(
-          `Le serveur ne démarre pas : ${(error as Error).message}. Corrige la commande (mcp_remove_local puis mcp_add_local).`,
-        );
-      }
-    },
-  });
-
-  tools.mcp_remove_local = tool({
-    description: 'Retire un serveur MCP local que tu as installé.',
-    inputSchema: z.object({ server: z.string().min(1) }),
-    execute: async ({ server }) => {
-      const mine = await mcp.installedBy(self.id);
-      const value = server.trim().toLowerCase();
-      const row = mine.find((s) => s.slug === value || s.name.toLowerCase() === value);
-      if (!row) throw new Error(`Tu n'as pas installé de serveur « ${server} ».`);
-      await mcp.remove(row.id);
-      return `Serveur MCP « ${row.name} » retiré.`;
-    },
-  });
+      }),
+    );
+  }
 
   return tools;
 }

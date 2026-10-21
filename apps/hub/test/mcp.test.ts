@@ -4,12 +4,24 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { McpServer as SdkServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import type { Bot, McpCall, McpServer, Message } from '@mowbot/contract';
+import type {
+  Bot,
+  Computer,
+  McpCall,
+  McpComputer,
+  McpServer,
+  Message,
+  ServerEvent,
+  Team,
+} from '@mowbot/contract';
 import type { MockLanguageModelV4 } from 'ai/test';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { bearer, createTestApp, setupOwner, TINY_PNG } from './helpers';
-import { scripted, textTurn, toolTurn } from './models';
+import { clipResult } from '../src/agents/mcp-tools';
+import { bots, mcpServers } from '../src/db/schema';
+import { bearer, createTestApp, type FakeRuntime, setupOwner, TINY_PNG } from './helpers';
+import { promptOf, scripted, textTurn, toolTurn } from './models';
 
 let t: Awaited<ReturnType<typeof createTestApp>> | undefined;
 const servers: http.Server[] = [];
@@ -248,44 +260,227 @@ describe('remote MCP servers', () => {
   });
 });
 
+const fixture = path.join(__dirname, 'fixtures', 'mcp-stdio.mjs');
+
+/** Runs the stdio fixture wherever the hub starts a local server, noting where. */
+function runNotes(runtime: FakeRuntime) {
+  const started: { command: string; kind: string }[] = [];
+  runtime.stdio = (command, env, kind) => {
+    started.push({ command, kind });
+    return spawn(process.execPath, [fixture], {
+      env: { ...process.env, ...env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  };
+  return started;
+}
+
+/** What each call of the tool returned (as the app shows it). */
+const outputsOf = (messages: Message[], toolName: string) =>
+  messages
+    .flatMap((m) => m.parts)
+    .flatMap((p) => (p.type === 'tool' && p.toolName === toolName ? [p.output ?? ''] : []));
+
 describe('local MCP servers', () => {
-  it('run on the bot’s computer, installed by the bot itself', async () => {
+  it('run on the MCP computer, for the bots in scope', async () => {
     const model = scripted([
-      toolTurn('mcp_add_local', {
-        name: 'Notes',
-        command: 'node notes.mjs',
-        env: { GREETING: 'Salut' },
-      }),
+      toolTurn('mcp__notes__echo', { text: 'hello' }),
+      toolTurn('mcp__notes__playlist', { count: 5_000 }, 'call-2'),
+      toolTurn('mcp__notes__whoami', {}, 'call-3'),
+      textTurn('Fait.'),
+    ]);
+    const { inject, say, transcript, runtime, services, chef } = await start(model);
+    const started = runNotes(runtime);
+    const seen: ServerEvent[] = [];
+    services.events.subscribe((event) => seen.push(event));
+    const asleep = await inject<McpComputer>('GET', '/api/v1/mcp/computer');
+    expect(asleep.body).toMatchObject({ id: null, status: 'stopped' });
+
+    const created = await inject<McpServer>('POST', '/api/v1/mcp/servers', {
+      name: 'Notes',
+      transport: 'stdio',
+      command: 'notes-mcp',
+      secrets: { GREETING: 'Salut', API_TOKEN: 'tok-123456' },
+    });
+    expect(created.body.computerId).toBeNull();
+    const refreshed = await inject<McpServer>(
+      'POST',
+      `/api/v1/mcp/servers/${created.body.id}/refresh`,
+    );
+    expect(refreshed.body).toMatchObject({
+      status: 'ok',
+      tools: [{ name: 'echo' }, { name: 'playlist' }, { name: 'whoami' }],
+    });
+    // Started on the MCP computer (which has no desktop), not on a bot's.
+    expect(started[0]).toEqual({ command: 'notes-mcp', kind: 'mcp' });
+    const pc = (await inject<McpComputer>('GET', '/api/v1/mcp/computer')).body;
+    expect(pc.status).toBe('running');
+    const pcs = await inject<{ items: Computer[] }>('GET', '/api/v1/computers');
+    expect(pcs.body.items.map((c) => c.id)).not.toContain(pc.id);
+    expect(seen.some((e) => e.type === 'mcp.computer' && e.computer.status === 'running')).toBe(
+      true,
+    );
+    expect(seen.some((e) => e.type === 'computer.updated' && e.computer.id === pc.id)).toBe(false);
+
+    await say('Joue avec les notes');
+    const messages = await transcript();
+    expect(outputsOf(messages, 'mcp__notes__echo')).toEqual(['Salut: hello']);
+    // A long result keeps its beginning, and says it was cut.
+    const seenByModel = promptOf(model, 2);
+    expect(seenByModel).toContain('Track 1: a rather long title\\nTrack 2:');
+    expect(seenByModel).toContain('Résultat coupé');
+    expect(seenByModel).not.toContain('Track 5000:');
+    // What a server says never shows its secrets.
+    expect(outputsOf(messages, 'mcp__notes__whoami')).toEqual(['token=••••']);
+    expect(JSON.stringify(model.doStreamCalls.map((c) => c.prompt))).not.toContain('tok-123456');
+
+    // Any bot in scope gets it, with or without a computer of its own.
+    const [row] = await services.db.select().from(bots).where(eq(bots.id, chef.id));
+    if (!row) throw new Error('no Chef');
+    const without = await services.mcp.accessibleTo({ ...row, computerId: null });
+    expect(without.map((s) => s.slug)).toEqual(['notes']);
+    await services.mcp.stopComputer();
+    expect((await inject<McpComputer>('GET', '/api/v1/mcp/computer')).body.status).toBe('stopped');
+    await services.mcp.close();
+  });
+
+  it('are managed by the Chef: set up on the MCP computer, added, changed, removed', async () => {
+    const model = scripted([
+      toolTurn('mcp_setup', { command: 'pipx install notes-mcp' }),
       toolTurn(
-        'mcp_call',
-        { server: 'notes', tool: 'echo', arguments: { text: 'hello' } },
+        'mcp_add',
+        {
+          name: 'Notes',
+          command: 'notes-mcp',
+          env: { GREETING: 'Salut', API_TOKEN: 'tok-123456' },
+          scope: { kind: 'teams', names: ['Équipe principale'] },
+        },
         'call-2',
       ),
-      textTurn('Installé.'),
-      textTurn('Ok.'),
+      toolTurn('mcp_call', { server: 'notes', tool: 'echo', arguments: { text: 'hi' } }, 'call-3'),
+      toolTurn('mcp_setup', { command: 'cat ~/.config/notes.env' }, 'call-4'),
+      toolTurn('mcp_list', {}, 'call-5'),
+      toolTurn('mcp_update', { server: 'notes', enabled: false }, 'call-6'),
+      toolTurn('mcp_remove', { server: 'Notes' }, 'call-7'),
+      textTurn('Fait.'),
     ]);
-    const { say, transcript, runtime, services } = await start(model);
-    const fixture = path.join(__dirname, 'fixtures', 'mcp-stdio.mjs');
-    const started: string[] = [];
-    runtime.stdio = (command, env) => {
-      started.push(command);
-      return spawn(process.execPath, [fixture], {
-        env: { ...process.env, ...env },
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+    const { inject, say, transcript, runtime, services } = await start(model);
+    const started = runNotes(runtime);
+    runtime.shell = (script) => {
+      if (script.includes('pipx install')) return { stdout: 'installed package notes-mcp 1.0\n' };
+      if (script.includes('notes.env')) return { stdout: 'API_TOKEN=tok-123456\n' };
+      return undefined;
     };
-    await say('Installe-toi un serveur de notes');
-    expect(started).toEqual(['node notes.mjs']);
-    const parts = (await transcript()).flatMap((m) => m.parts);
-    expect(parts.find((p) => p.type === 'tool' && p.toolName === 'mcp_add_local')).toMatchObject({
-      state: 'done',
-    });
-    expect(parts.find((p) => p.type === 'tool' && p.toolName === 'mcp_call')).toMatchObject({
-      output: 'Salut: hello',
-    });
-    // Next turn, its tools are the bot's own.
-    await say('Encore');
-    await vi.waitFor(() => expect(toolsSeen(model, 3)).toContain('mcp__notes__echo'));
+    await say('Branche-nous le serveur de notes');
+
+    const tools = toolsSeen(model, 0);
+    expect(tools).toEqual(
+      expect.arrayContaining(['mcp_list', 'mcp_add', 'mcp_update', 'mcp_remove', 'mcp_setup']),
+    );
+    expect(tools).not.toContain('mcp_add_local');
+    expect(promptOf(model, 0)).toContain('## Les serveurs MCP');
+    expect(promptOf(model, 0)).toContain('jamais leur code');
+    // The setup commands and the server ran on the MCP computer.
+    expect(runtime.ran.filter((r) => r.command.includes('notes'))).toEqual([
+      { kind: 'mcp', command: 'pipx install notes-mcp' },
+      { kind: 'mcp', command: 'cat ~/.config/notes.env' },
+    ]);
+    expect(started.map((s) => s.kind)).toEqual(['mcp']);
+
+    const messages = await transcript();
+    expect(outputsOf(messages, 'mcp_setup')).toEqual([
+      expect.stringContaining('installed package notes-mcp'),
+      expect.stringContaining('API_TOKEN=••••'),
+    ]);
+    expect(outputsOf(messages, 'mcp_add')[0]).toContain('3 outils');
+    expect(outputsOf(messages, 'mcp_call')).toEqual(['Salut: hi']);
+    const [list] = outputsOf(messages, 'mcp_list');
+    expect(list).toContain('PC MCP : allumé');
+    expect(list).toContain(
+      'Notes (notes) · local, PC MCP · OK · 3 outils · équipes : Équipe principale',
+    );
+    expect(list).toContain('variables secrets : GREETING, API_TOKEN');
+    expect(outputsOf(messages, 'mcp_update')[0]).toContain('désactivé');
+    expect(outputsOf(messages, 'mcp_remove')[0]).toContain('retiré');
+    // Secrets never come back in what the tools return.
+    for (const name of ['mcp_setup', 'mcp_add', 'mcp_list', 'mcp_update', 'mcp_call']) {
+      for (const output of outputsOf(messages, name)) expect(output).not.toContain('tok-123456');
+    }
+    const left = await inject<{ items: McpServer[] }>('GET', '/api/v1/mcp/servers');
+    expect(left.body.items).toEqual([]);
     await services.mcp.close();
+  });
+
+  it('installed by a bot on its own computer stay there until moved', async () => {
+    const model = scripted([textTurn('Ok.')]);
+    const { inject, chef, services, runtime } = await start(model);
+    const started = runNotes(runtime);
+    const team = (await inject<{ items: Team[] }>('GET', '/api/v1/teams')).body.items[0] as Team;
+    const lea = (
+      await inject<Bot>('POST', '/api/v1/bots', {
+        name: 'Léa',
+        role: 'Recherche',
+        teamId: team.id,
+        computer: 'dedicated',
+      })
+    ).body;
+    const botRow = async (id: string) => {
+      const [row] = await services.db.select().from(bots).where(eq(bots.id, id));
+      if (!row) throw new Error('no bot');
+      return row;
+    };
+    const slugsFor = async (id: string) =>
+      (await services.mcp.accessibleTo(await botRow(id))).map((s) => s.slug);
+    // As `mcp_add_local` left it: on the Chef's (team) computer, for the bots of that computer.
+    const legacy = await services.mcp.create(
+      {
+        name: 'Notes',
+        transport: 'stdio',
+        command: 'notes-mcp',
+        auth: 'none',
+        scope: { kind: 'all', ids: [] },
+      },
+      { botId: chef.id },
+    );
+    await services.db
+      .update(mcpServers)
+      .set({ computerId: chef.computerId })
+      .where(eq(mcpServers.id, legacy.id));
+    expect(await slugsFor(chef.id)).toEqual(['notes']);
+    expect(await slugsFor(lea.id)).toEqual([]);
+    await inject('POST', `/api/v1/mcp/servers/${legacy.id}/refresh`);
+    expect(started.at(-1)?.kind).toBe('team');
+
+    const moved = await inject<McpServer>('POST', `/api/v1/mcp/servers/${legacy.id}/move`);
+    expect(moved.status).toBe(200);
+    // The bots that had it keep it: "all" meant the team computer's bots, now its team.
+    expect(moved.body).toMatchObject({
+      computerId: null,
+      scope: { kind: 'teams', ids: [team.id] },
+    });
+    await services.mcp.refresh(legacy.id);
+    expect(started.at(-1)?.kind).toBe('mcp');
+    expect(await slugsFor(lea.id)).toEqual(['notes']);
+    expect((await inject('POST', `/api/v1/mcp/servers/${legacy.id}/move`)).status).toBe(409);
+
+    // Other bots use the servers, and ask the Chef for new ones.
+    await inject('POST', `/api/v1/bots/${lea.id}/messages`, { text: 'Salut' });
+    await services.runtime.settle();
+    const tools = toolsSeen(model, 0);
+    expect(tools).toContain('mcp__notes__echo');
+    expect(tools.filter((name) => /^mcp_(add|update|remove|setup|list)/.test(name))).toEqual([]);
+    expect(promptOf(model, 0)).toContain('demande-le au Chef');
+    await services.mcp.close();
+  });
+});
+
+describe('clipResult', () => {
+  it('keeps the beginning of a long result, cut at a line', () => {
+    expect(clipResult('short')).toBe('short');
+    const long = Array.from({ length: 100 }, (_, i) => `line ${i}`).join('\n');
+    const cut = clipResult(long, 100);
+    expect(cut.startsWith('line 0\nline 1\n')).toBe(true);
+    expect(cut.split('\n\n')[0]?.endsWith('line 12')).toBe(true);
+    expect(cut).toContain(`sur ${long.length}`);
   });
 });

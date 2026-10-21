@@ -28,6 +28,8 @@ const envSchema = z.object({
    */
   MOWBOT_WORKSPACES_VOLUME: z.string().optional(),
   MOWBOT_WORKSTATION_IMAGE: z.string().default('mowbot/workstation:local'),
+  /** Image of the MCP computer (no desktop): `docker build -f workstation/mcp.Dockerfile …`. */
+  MOWBOT_MCP_IMAGE: z.string().default('mowbot/mcp:local'),
   MOWBOT_COMPUTER_NETWORK: z.string().default('mowbot-computers'),
   /** `dns`: hub shares the computers' network. `host-port`: hub runs on the host (dev). */
   MOWBOT_COMPUTER_REACH: z.enum(['dns', 'host-port']).default('host-port'),
@@ -68,6 +70,8 @@ export interface Config {
   workspacesVolume: string | undefined;
   computers: {
     image: string;
+    /** The MCP computer's. */
+    mcpImage: string;
     network: string;
     reach: 'dns' | 'host-port';
     runtime: string | undefined;
@@ -123,6 +127,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     workspacesVolume: e.MOWBOT_WORKSPACES_VOLUME,
     computers: {
       image: e.MOWBOT_WORKSTATION_IMAGE,
+      mcpImage: e.MOWBOT_MCP_IMAGE,
       network: e.MOWBOT_COMPUTER_NETWORK,
       reach: e.MOWBOT_COMPUTER_REACH,
       runtime: e.MOWBOT_COMPUTER_RUNTIME,

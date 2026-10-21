@@ -148,7 +148,8 @@ export const settings = pgTable('settings', {
 export const workspaces = pgTable('workspaces', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  ownerType: text('owner_type').$type<'team' | 'bot'>().notNull(),
+  /** `mcp`: the MCP computer's own (no team or bot sees it). */
+  ownerType: text('owner_type').$type<'team' | 'bot' | 'mcp'>().notNull(),
   quotaBytes: bigint('quota_bytes', { mode: 'number' }),
   createdAt: createdAt(),
 });
@@ -173,7 +174,10 @@ export const teams = pgTable(
   (t) => [uniqueIndex('teams_main_unique').on(t.isMain).where(sql`${t.isMain}`)],
 );
 
-/** A persistent Docker container with a Linux desktop: a team's shared PC or a dedicated one. */
+/**
+ * A persistent Docker container with a Linux desktop: a team's shared PC or a dedicated one;
+ * or the MCP computer (no desktop), where the MCP servers run.
+ */
 export const computers = pgTable(
   'computers',
   {
@@ -196,7 +200,10 @@ export const computers = pgTable(
     lastActivityAt: timestamp('last_activity_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('computers_team_pc_unique').on(t.teamId).where(sql`${t.kind} = 'team'`)],
+  (t) => [
+    uniqueIndex('computers_team_pc_unique').on(t.teamId).where(sql`${t.kind} = 'team'`),
+    uniqueIndex('computers_mcp_pc_unique').on(t.kind).where(sql`${t.kind} = 'mcp'`),
+  ],
 );
 
 /** An LLM endpoint and its (sealed) API key. */
@@ -537,6 +544,7 @@ export const mcpServers = pgTable(
     secretKeys: jsonb('secret_keys').$type<string[]>().notNull().default([]),
     oauthSealed: text('oauth_sealed'),
     scope: jsonb('scope').$type<McpScope>().notNull().default({ kind: 'all', ids: [] }),
+    /** Legacy: installed by a bot on its own computer (null: runs on the MCP computer). */
     computerId: uuid('computer_id').references(() => computers.id, { onDelete: 'cascade' }),
     createdByBotId: uuid('created_by_bot_id').references(() => bots.id, { onDelete: 'set null' }),
     enabled: boolean('enabled').notNull().default(true),

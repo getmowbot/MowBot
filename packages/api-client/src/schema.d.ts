@@ -1011,8 +1011,76 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Connects again and lists the tools (a local server starts on a bot’s computer). */
+        /** @description Connects again and lists the tools (a local server starts on the MCP computer, which starts if it sleeps). */
         post: operations["refreshMcpServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp/servers/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Moves a local server a bot installed on its own computer (`computerId` set) to the MCP computer. The bots that had it keep it (a scope of all bots becomes that computer’s team, or its bots). Its tools are listed again in the background; a server installed by hand (pipx, pip…) must be installed on the MCP computer first. */
+        post: operations["moveMcpServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp/computer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The computer local servers run on. It starts when one is needed and sleeps when idle (follow `mcp.computer`). */
+        get: operations["getMcpComputer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp/computer/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Starts the MCP computer in the background (status `starting`). */
+        post: operations["startMcpComputer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp/computer/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Puts the MCP computer to sleep: its servers stop and start again on their next use. Its home (installs, sign-ins) is kept. */
+        post: operations["stopMcpComputer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2581,7 +2649,7 @@ export interface operations {
                             id: string;
                             name: string;
                             /** @enum {string} */
-                            kind: "team" | "dedicated";
+                            kind: "team" | "dedicated" | "mcp";
                             teamId: string | null;
                             /** Format: uuid */
                             workspaceId: string;
@@ -2663,7 +2731,7 @@ export interface operations {
                         id: string;
                         name: string;
                         /** @enum {string} */
-                        kind: "team" | "dedicated";
+                        kind: "team" | "dedicated" | "mcp";
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -2744,7 +2812,7 @@ export interface operations {
                         id: string;
                         name: string;
                         /** @enum {string} */
-                        kind: "team" | "dedicated";
+                        kind: "team" | "dedicated" | "mcp";
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -2825,7 +2893,7 @@ export interface operations {
                         id: string;
                         name: string;
                         /** @enum {string} */
-                        kind: "team" | "dedicated";
+                        kind: "team" | "dedicated" | "mcp";
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -2906,7 +2974,7 @@ export interface operations {
                         id: string;
                         name: string;
                         /** @enum {string} */
-                        kind: "team" | "dedicated";
+                        kind: "team" | "dedicated" | "mcp";
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -2987,7 +3055,7 @@ export interface operations {
                         id: string;
                         name: string;
                         /** @enum {string} */
-                        kind: "team" | "dedicated";
+                        kind: "team" | "dedicated" | "mcp";
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -3068,7 +3136,7 @@ export interface operations {
                         id: string;
                         name: string;
                         /** @enum {string} */
-                        kind: "team" | "dedicated";
+                        kind: "team" | "dedicated" | "mcp";
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -8549,6 +8617,292 @@ export interface operations {
                         createdAt: string;
                         /** Format: date-time */
                         updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    moveMcpServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        slug: string;
+                        /** @enum {string} */
+                        transport: "http" | "stdio";
+                        url: string | null;
+                        command: string | null;
+                        /** @enum {string} */
+                        auth: "none" | "oauth";
+                        secretKeys: string[];
+                        scope: {
+                            /** @enum {string} */
+                            kind: "all" | "teams" | "bots";
+                            ids: string[];
+                        };
+                        computerId: string | null;
+                        createdByBotId: string | null;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        status: "unknown" | "ok" | "error" | "needs_auth";
+                        statusDetail: string | null;
+                        tools: {
+                            name: string;
+                            description: string | null;
+                            readOnly: boolean | null;
+                            destructive: boolean | null;
+                        }[];
+                        toolsAt: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    getMcpComputer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string | null;
+                        /** @enum {string} */
+                        status: "stopped" | "starting" | "running" | "stopping" | "error";
+                        statusDetail: string | null;
+                        lastActivityAt: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    startMcpComputer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string | null;
+                        /** @enum {string} */
+                        status: "stopped" | "starting" | "running" | "stopping" | "error";
+                        statusDetail: string | null;
+                        lastActivityAt: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    stopMcpComputer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string | null;
+                        /** @enum {string} */
+                        status: "stopped" | "starting" | "running" | "stopping" | "error";
+                        statusDetail: string | null;
+                        lastActivityAt: string | null;
                     };
                 };
             };
