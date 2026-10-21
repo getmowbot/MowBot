@@ -7,6 +7,7 @@ use tauri_plugin_dialog::DialogExt;
 use crate::config::{check_new_project, Project};
 use crate::hub;
 use crate::state::{emit_status, AppState, Status};
+use crate::update;
 
 /// The hub the app shows, if any.
 #[tauri::command]
@@ -37,6 +38,18 @@ pub async fn hub_url_set(app: AppHandle, url: String) -> Result<String, String> 
 #[tauri::command]
 pub fn hub_change(app: AppHandle) {
     hub::navigate_main(&app, hub::setup_page(&app));
+}
+
+/// A newer version of the app, if the release feed has one.
+#[tauri::command]
+pub async fn update_check(app: AppHandle) -> Result<Option<update::Available>, String> {
+    update::check(&app).await
+}
+
+/// Installs the newer version and restarts the app on it.
+#[tauri::command]
+pub async fn update_install(app: AppHandle) -> Result<(), String> {
+    update::install(&app).await
 }
 
 #[tauri::command]

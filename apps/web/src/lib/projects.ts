@@ -97,7 +97,18 @@ export const desktop = {
   unshare: (key: string) => invoke<void>('project_remove', { key }),
   /** Shows the app's page to type another hub's address. */
   changeHub: () => invoke<void>('hub_change'),
+  /** Asks the release feed for a newer version of the app (null: up to date). */
+  checkUpdate: () => invoke<DesktopUpdate | null>('update_check'),
+  /** Installs the newer version; the app restarts on it. */
+  installUpdate: () => invoke<void>('update_install'),
 };
+
+/** A newer version of the desktop app. */
+export interface DesktopUpdate {
+  version: string;
+  current: string;
+  notes: string | null;
+}
 
 /** The connector of this computer, followed while the page is open. */
 export function useDesktopStatus() {

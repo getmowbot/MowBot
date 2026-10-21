@@ -55,6 +55,9 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the update packages; the app checks them against the public key in tauri.conf.json.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
@@ -65,4 +68,6 @@ jobs:
             Installe l'app, puis indique l'adresse de ton hub au premier lancement (celle de l'interface web).
             Linux en une commande : voir docs/DESKTOP.md.
           releaseDraft: false
+          # latest.json: what the installed apps read to update themselves.
+          includeUpdaterJson: true
           prerelease: false
