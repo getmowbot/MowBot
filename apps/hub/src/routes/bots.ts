@@ -12,6 +12,7 @@ import {
   messagePressSchema,
   messageSchema,
   sendMessageSchema,
+  vaultRequestAnswerSchema,
 } from '@mowbot/contract';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -219,6 +220,25 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
         request.body.part,
         request.body.button,
       ),
+  );
+
+  app.post(
+    '/bots/:id/messages/:messageId/vault-request',
+    {
+      preHandler: requireAuth('admin'),
+      schema: {
+        tags,
+        operationId: 'answerVaultRequest',
+        description:
+          'Answers a vault request the bot showed in that message: the values go straight into the vault (the bot only learns the reference), or `declined: true`.',
+        security: bearerSecurity,
+        params: messagePressParamsSchema,
+        body: vaultRequestAnswerSchema,
+        response: { 200: messageSchema, ...errorResponses },
+      },
+    },
+    async (request) =>
+      runtime.answerVaultRequest(request.params.id, request.params.messageId, request.body),
   );
 
   app.delete(

@@ -218,3 +218,58 @@ describe('canvases in the conversation', () => {
     );
   });
 });
+
+describe('asking for a login in the conversation', () => {
+  it('puts what the user types straight into the vault, never in the conversation', async () => {
+    const model = scripted([
+      toolTurn('vault_request', {
+        kind: 'login',
+        service: 'BadNet',
+        account: 'joris@example.com',
+        sites: ['badnet.fr'],
+        reason: 'Pour réserver un terrain',
+      }),
+      textTurn('Dès que c’est rangé, je réserve.'),
+      textTurn('Merci, je me connecte.'),
+    ]);
+    const { inject, chef, transcript, services } = await start(() => model);
+    await inject('POST', `/api/v1/bots/${chef.id}/messages`, { text: 'Réserve un terrain' });
+    await services.runtime.settle();
+
+    const answer = (await transcript()).find((m) => m.role === 'assistant') as Message;
+    expect(answer.parts[0]).toEqual({
+      type: 'vault_request',
+      kind: 'login',
+      service: 'BadNet',
+      account: 'joris@example.com',
+      sites: ['badnet.fr'],
+      fields: ['username', 'password'],
+      reason: 'Pour réserver un terrain',
+      itemId: null,
+      status: 'pending',
+    });
+
+    const saved = await inject<Message>(
+      'POST',
+      `/api/v1/bots/${chef.id}/messages/${answer.id}/vault-request`,
+      { part: 0, values: { username: 'joris', password: 'badnet-pass-1234', totp: 'ignored' } },
+    );
+    expect(saved.body.parts[0]).toMatchObject({ status: 'saved' });
+    await services.runtime.settle();
+
+    const [item] = await services.vault.list();
+    expect(item).toMatchObject({ service: 'BadNet', fields: ['username', 'password'] });
+    expect(saved.body.parts[0]).toMatchObject({ itemId: item?.id });
+    // Neither the conversation nor the model ever saw the password.
+    expect(JSON.stringify(await transcript())).not.toContain('badnet-pass-1234');
+    expect(promptOf(model, 2)).not.toContain('badnet-pass-1234');
+    expect(promptOf(model, 2)).toContain(`{{vault:${item?.ref}.password}}`);
+
+    const again = await inject(
+      'POST',
+      `/api/v1/bots/${chef.id}/messages/${answer.id}/vault-request`,
+      { part: 0, declined: true },
+    );
+    expect(again.status).toBe(409);
+  });
+});

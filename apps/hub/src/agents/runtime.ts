@@ -9,6 +9,8 @@ import type {
   MessagePart,
   ModelRef,
   Question,
+  VaultField,
+  VaultRequestAnswer,
 } from '@mowbot/contract';
 import { type LanguageModel, type ModelMessage, stepCountIs, streamText, type ToolSet } from 'ai';
 import { and, asc, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
@@ -38,7 +40,7 @@ import { buildProactiveTools } from './proactive-tools';
 import { systemPrompt } from './prompt';
 import { FileLocks, ScreenLeases } from './shared-pc';
 import { buildTools, clip } from './tools';
-import { buildVaultTools } from './vault-tools';
+import { buildVaultTools, VAULT_REQUEST } from './vault-tools';
 
 const HISTORY_MESSAGES = 40;
 const MAX_STEPS = 30;
@@ -52,6 +54,9 @@ const MAX_SENDS_PER_HOUR = 60;
 const ASK_TIMEOUT_MS = 15 * 60_000;
 
 type MessageRow = typeof messages.$inferSelect;
+
+/** Tools whose result is drawn in the answer itself, not shown as a tool call. */
+const SHOWN_TOOLS = new Set([SHOW_IN_CHAT, VAULT_REQUEST]);
 
 /** A message that came in mid-answer, as the model sees it. */
 function steeredMessages(row: MessageRow): ModelMessage[] {
@@ -562,6 +567,92 @@ export class BotRuntime {
     return toMessage(updated);
   }
 
+  /**
+   * The user answers a vault request: the values go straight into the vault, and the bot only
+   * hears which entry it can now use (or that the user declined).
+   */
+  async answerVaultRequest(
+    botId: string,
+    messageId: string,
+    answer: VaultRequestAnswer,
+  ): Promise<Message> {
+    const [row] = await this.deps.db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.id, messageId), eq(messages.botId, botId)));
+    const request = row?.parts[answer.part];
+    if (!row || request?.type !== 'vault_request') {
+      throw new HttpProblem(404, 'request_not_found', 'No such vault request in this message');
+    }
+    if (request.status !== 'pending') {
+      throw new HttpProblem(409, 'request_answered', 'This request was already answered');
+    }
+    const label = `${request.service}${request.account ? ` (${request.account})` : ''}`;
+    if (answer.declined) {
+      const updated = await this.save(row.id, {
+        parts: row.parts.map((p, i) =>
+          i === answer.part ? { ...request, status: 'declined' } : p,
+        ),
+      });
+      await this.post(
+        botId,
+        `[Coffre] L'utilisateur n'a pas voulu ranger ${label} : fais sans, ou demande-lui autrement.`,
+        `Refusé : ${label}`,
+      );
+      return toMessage(updated);
+    }
+    // Only the fields the bot asked for, and only those filled in.
+    const values = Object.fromEntries(
+      request.fields.flatMap((field) => {
+        const value = answer.values?.[field];
+        return value ? [[field, value]] : [];
+      }),
+    ) as Partial<Record<VaultField, string>>;
+    if (Object.keys(values).length === 0) {
+      throw new HttpProblem(400, 'empty_answer', 'Fill in at least one field');
+    }
+    const existing = request.itemId
+      ? await this.deps.vault.row(request.itemId).catch(() => null)
+      : null;
+    const item = existing
+      ? await this.deps.vault.update(existing.id, values)
+      : request.kind === 'secret'
+        ? await this.deps.vault.create(
+            {
+              kind: 'secret',
+              service: request.service,
+              account: request.account,
+              sites: request.sites,
+              value: values.value ?? '',
+            },
+            { botId },
+          )
+        : await this.deps.vault.create(
+            {
+              kind: 'login',
+              service: request.service,
+              account: request.account,
+              sites: request.sites,
+              username: values.username,
+              password: values.password,
+              totp: values.totp,
+            },
+            { botId },
+          );
+    const updated = await this.save(row.id, {
+      parts: row.parts.map((p, i) =>
+        i === answer.part ? { ...request, status: 'saved', itemId: item.id } : p,
+      ),
+    });
+    const placeholders = item.fields.map((f) => `{{vault:${item.ref}.${f}}}`).join(', ');
+    await this.post(
+      botId,
+      `[Coffre] L'utilisateur a rangé ${label} dans le coffre (référence ${item.ref}) : utilise ${placeholders}. Tu n'en verras jamais les valeurs.`,
+      `🔒 ${label} rangé dans le coffre`,
+    );
+    return toMessage(updated);
+  }
+
   /** A card on the home page: its button answers the bot that pinned it. */
   async pressCanvas(canvas: Canvas, button: number): Promise<void> {
     if (canvas.content.kind !== 'card') {
@@ -939,11 +1030,13 @@ export class BotRuntime {
         events,
         db,
       };
-      // Cards, pictures… shown in the answer, where the bot is in its reply.
-      const showInChat = async (content: CanvasContent) => {
-        parts.push({ type: 'canvas', content, pressed: null });
+      // Cards, pictures, vault forms… shown in the answer, where the bot is in its reply.
+      const showPart = async (part: MessagePart) => {
+        parts.push(part);
         await this.save(created.id, { parts: structuredClone(parts) });
       };
+      const showInChat = (content: CanvasContent) =>
+        showPart({ type: 'canvas', content, pressed: null });
       const tools = masked(secrets, {
         ...buildTools({
           botId,
@@ -990,7 +1083,14 @@ export class BotRuntime {
           db,
         }),
         ...buildCanvasTools({ self: bot, canvases: this.deps.canvases, showInChat }),
-        ...buildVaultTools({ self: bot, vault: this.deps.vault, db, computer }),
+        ...buildVaultTools({
+          self: bot,
+          vault: this.deps.vault,
+          db,
+          computer,
+          showPart,
+          notifications: this.deps.notifications,
+        }),
       });
       const system = systemPrompt({
         bot,
@@ -1094,8 +1194,8 @@ export class BotRuntime {
               appendText('reasoning', chunk.text);
               break;
             case 'tool-call':
-              // What it shows lands in the answer itself (showInChat), not as a tool call.
-              if (chunk.toolName === SHOW_IN_CHAT) break;
+              // What it shows lands in the answer itself (showPart), not as a tool call.
+              if (SHOWN_TOOLS.has(chunk.toolName)) break;
               parts.push({
                 type: 'tool',
                 toolCallId: chunk.toolCallId,

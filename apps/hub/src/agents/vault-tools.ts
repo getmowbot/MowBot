@@ -1,3 +1,4 @@
+import type { MessagePart } from '@mowbot/contract';
 import { type ToolSet, tool } from 'ai';
 import { asc } from 'drizzle-orm';
 import { z } from 'zod';
@@ -5,6 +6,7 @@ import type { BotRow } from '../bots/service';
 import type { AgentClient } from '../computers/agent-client';
 import type { Db } from '../db/client';
 import { computers } from '../db/schema';
+import type { NotificationService } from '../proactivity/notifications';
 import { labelOf, type VaultService } from '../vault/service';
 
 export interface VaultToolContext {
@@ -13,7 +15,13 @@ export interface VaultToolContext {
   db: Db;
   /** Starts the bot's computer if needed (null: the bot has none). */
   computer: (() => Promise<AgentClient>) | null;
+  /** Puts a part (the vault request form) in the bot's current answer. */
+  showPart?: (part: MessagePart) => Promise<void>;
+  notifications?: NotificationService;
 }
+
+/** The tool that asks the user for a login in the conversation (drawn as a form). */
+export const VAULT_REQUEST = 'vault_request';
 
 const refSchema = z.string().min(4).max(36).describe('Référence de l’entrée (vault_list)');
 
@@ -85,6 +93,67 @@ export function buildVaultTools(ctx: VaultToolContext): ToolSet {
         .join('\n');
     },
   });
+
+  const showPart = ctx.showPart;
+  if (showPart) {
+    tools[VAULT_REQUEST] = tool({
+      description:
+        "Demande à l'utilisateur un identifiant (nom d'utilisateur, mot de passe, graine 2FA) ou un secret (clé d'API…) qui manque au coffre : un formulaire aux champs masqués s'affiche dans la conversation et ce qu'il tape va directement dans le coffre, sans passer par toi ni par le chat. Tu reçois ensuite un message avec la référence à utiliser. Ne demande jamais un mot de passe en clair dans le chat. ref : pour remplacer les valeurs d'une entrée existante (mot de passe changé).",
+      inputSchema: z.object({
+        kind: z.enum(['login', 'secret']),
+        service: z.string().trim().min(1).max(100).describe('Ex. « BadNet », « OpenWeather »'),
+        account: z
+          .string()
+          .trim()
+          .max(200)
+          .optional()
+          .describe('Le compte, ex. une adresse e-mail'),
+        sites: z.array(z.string().max(253)).max(10).optional(),
+        fields: z
+          .array(z.enum(['username', 'password', 'totp', 'value']))
+          .min(1)
+          .max(3)
+          .optional()
+          .describe(
+            'Champs à remplir (par défaut : username et password, ou value pour un secret)',
+          ),
+        reason: z.string().max(200).optional().describe('Pourquoi tu en as besoin, en une phrase'),
+        ref: refSchema.optional(),
+      }),
+      execute: async ({ kind, service, account, sites, fields, reason, ref }) => {
+        const existing = ref ? await vault.byRef(ref) : null;
+        const allowed = kind === 'secret' ? ['value'] : ['username', 'password', 'totp'];
+        const wanted = (
+          fields ?? (kind === 'secret' ? ['value'] : ['username', 'password'])
+        ).filter((field) => allowed.includes(field));
+        if (wanted.length === 0) {
+          throw new Error(
+            kind === 'secret'
+              ? 'Un secret se demande avec le champ value.'
+              : 'Champs : username, password, totp.',
+          );
+        }
+        await showPart({
+          type: 'vault_request',
+          kind,
+          service: existing?.service ?? service,
+          account: existing ? existing.account : (account ?? null),
+          sites: existing?.sites ?? sites ?? [],
+          fields: wanted,
+          reason: reason ?? null,
+          itemId: existing?.id ?? null,
+          status: 'pending',
+        });
+        await ctx.notifications?.create({
+          botId: self.id,
+          priority: 'normal',
+          title: `${self.name} a besoin d'un identifiant`,
+          body: `${service}${account ? ` (${account})` : ''} : à ranger dans le coffre depuis la conversation.`,
+        });
+        return "Formulaire affiché dans la conversation : l'utilisateur le remplit quand il peut. Tu recevras un message avec la référence (ou son refus) ; termine ton tour en attendant.";
+      },
+    });
+  }
 
   tools.vault_save_secret = tool({
     description:

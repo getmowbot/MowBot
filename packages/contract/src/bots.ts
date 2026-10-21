@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { canvasContentSchema } from './canvases';
+import { vaultFieldSchema } from './vault';
 
 export const botStatusSchema = z.enum([
   'idle',
@@ -119,6 +120,24 @@ export const messagePartSchema = z.discriminatedUnion('type', [
     /** Label of the card button the user pressed. */
     pressed: z.string().nullable(),
   }),
+  /**
+   * The bot asks for a login or a secret: a form with masked fields, answered straight into
+   * the vault. The values never enter the conversation, the history or the model.
+   */
+  z.object({
+    type: z.literal('vault_request'),
+    kind: z.enum(['login', 'secret']),
+    service: z.string(),
+    account: z.string().nullable(),
+    sites: z.array(z.string()),
+    /** Fields to fill in. */
+    fields: z.array(vaultFieldSchema),
+    /** Why the bot needs it, in a few words. */
+    reason: z.string().nullable(),
+    /** Entry whose values are replaced (null: a new one); set once saved. */
+    itemId: z.uuid().nullable(),
+    status: z.enum(['pending', 'saved', 'declined']),
+  }),
 ]);
 export type MessagePart = z.infer<typeof messagePartSchema>;
 
@@ -166,6 +185,24 @@ export const messagePressSchema = z.object({
   part: z.number().int().min(0).max(500),
   button: z.number().int().min(0).max(2),
 });
+
+/**
+ * The user answers a bot's vault request: the values go into the vault (never into the
+ * conversation), or the user declines.
+ */
+export const vaultRequestAnswerSchema = z.object({
+  part: z.number().int().min(0).max(500),
+  values: z
+    .object({
+      username: z.string().max(500).optional(),
+      password: z.string().max(10_000).optional(),
+      totp: z.string().max(500).optional(),
+      value: z.string().max(10_000).optional(),
+    })
+    .optional(),
+  declined: z.boolean().optional(),
+});
+export type VaultRequestAnswer = z.infer<typeof vaultRequestAnswerSchema>;
 
 export const sendMessageSchema = z.object({
   text: z.string().trim().min(1).max(20_000),

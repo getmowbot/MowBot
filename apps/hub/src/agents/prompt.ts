@@ -110,6 +110,7 @@ export function systemPrompt(ctx: PromptContext): string {
             : 'Le coffre est vide pour l’instant.',
           "- Une session de site vient du Chrome d'un PC : si c'est le tien, tu es déjà connecté ; sinon vault_use_session la charge dans ton Chrome.",
           "- Un identifiant ou un secret s'utilise par son placeholder dans browser_type, bash ou computer (type) : {{vault:ref.username}}, {{vault:ref.password}}, {{vault:ref.totp}} (le code 2FA du moment), {{vault:ref.value}}. La valeur est remplie au moment de l'action et masquée dans ce que tu reçois.",
+          "- Un mot de passe, un code ou une clé qui manque : demande-le avec vault_request (un formulaire masqué dans la conversation, rangé directement dans le coffre). Ne demande jamais à l'utilisateur de l'écrire dans le chat.",
           '- Une fois connecté à un compte, enregistre la session (vault_save_session) pour les bots des autres PC. Un mot de passe ou une clé que tu obtiens va dans le coffre (vault_save_secret), jamais dans un fichier ou un message.',
         ]
           .join('\n')
