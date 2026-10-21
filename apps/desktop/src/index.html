@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MowBot</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="main.js" defer></script>
+  </head>
+  <body>
+    <main class="card">
+      <img class="logo" src="logo.svg" alt="" width="64" height="64" />
+      <h1 data-i18n="title">Bienvenue sur MowBot</h1>
+      <p class="lead" data-i18n="lead">Indique l'adresse de ton hub MowBot.</p>
+      <form id="form" novalidate>
+        <label for="url" data-i18n="label">Adresse du hub</label>
+        <input
+          id="url"
+          name="url"
+          type="url"
+          inputmode="url"
+          autocomplete="url"
+          spellcheck="false"
+          placeholder="https://mowbot.exemple.com"
+          required
+        />
+        <p id="error" class="error" role="alert" hidden></p>
+        <button id="submit" type="submit" data-i18n="submit">Continuer</button>
+        <button id="cancel" type="button" class="ghost" hidden data-i18n="cancel">
+          Revenir au hub actuel
+        </button>
+      </form>
+      <p class="hint" data-i18n="hint">En local : http://localhost:5173</p>
+    </main>
+  </body>
+</html>
