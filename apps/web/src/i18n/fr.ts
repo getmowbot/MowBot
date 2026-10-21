@@ -171,6 +171,10 @@ export const fr = {
     noModel: 'Connecte un modèle (Command Code, OpenAI ou compatible) pour réveiller {{name}}.',
     connectModel: 'Connecter un modèle',
     steered: 'Pris en compte en cours de route',
+    /** Above messages from other bots, before their names: « Messages de Nova et Iris ». */
+    incoming_one: 'Message de',
+    incoming_other: 'Messages de',
+    and: 'et',
     /** Titles of the / commands of the composer (the names stay as typed). */
     commands: {
       stop: 'Arrêter ce qu’il fait',

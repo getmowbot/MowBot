@@ -116,7 +116,10 @@ export const fr = {
       'Dis-moi ce que tu veux faire : je travaille sur le PC de l’équipe, je monte des équipes de bots et je dépose les résultats dans vos fichiers.',
     noModel: 'Connecte un modèle depuis l’app web (Modèles) pour réveiller {{name}}.',
     screenshot: 'Capture de l’écran du PC',
-    from: '{{name}} · {{kind}}',
+    /** Above messages from other bots, before their names: « Messages de Nova et Iris ». */
+    incoming_one: 'Message de',
+    incoming_other: 'Messages de',
+    and: 'et',
     kind: {
       chat: 'message',
       ask: 'question',
