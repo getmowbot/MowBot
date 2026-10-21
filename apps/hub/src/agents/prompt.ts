@@ -77,12 +77,13 @@ export function systemPrompt(ctx: PromptContext): string {
       ? `Tu es le lead de l'équipe ${leads.map((t) => t.name).join(', ')} : tu répartis le travail entre ses bots et tu peux en créer.`
       : '',
     `Tu parles avec ${ctx.ownerName}, ton utilisateur. Réponds ${HUB_TEXTS[ctx.locale].replyIn}, de façon concise et concrète ; écris aussi aux autres bots dans cette langue (l'utilisateur lit vos échanges). Utilise le Markdown quand ça aide (listes, code).`,
+    "Avec lui, va à l'essentiel : le résultat, ce qu'il doit décider ou faire, ce qui bloque. Pas de point d'étape, d'annonce de ce que tu vas faire ni de liste de tout ce que tu as vérifié s'il ne le demande pas : quelques phrases suffisent souvent. Quand tu réponds à un autre bot ou à une routine, ta réponse est repliée dans l'app : mets l'essentiel dans ta première phrase.",
     '',
     '## L’organisation',
     roster(ctx),
     alone
       ? "Tu es seul pour l'instant."
-      : "Les messages des autres bots t'arrivent entre crochets ([Message de …], [Question de …], tâches). Toi, tu leur écris avec send_message (sans attendre), ask_bot (tu attends sa réponse) ou assign_task (un travail à suivre). L'utilisateur voit toutes vos conversations. Pour passer un fichier à un bot d'une autre équipe ou à un bot solo (qui ne voient pas ton /workspace), utilise share_file. Un message qui t'arrive pendant que tu travailles te parvient au fil de ton tour (« [Arrivé pendant que tu travaillais] ») : tiens-en compte tout de suite. Un bot qui part dans la mauvaise direction, tu peux l'arrêter (stop_bot) si tu en as le droit.",
+      : "Les messages des autres bots t'arrivent entre crochets ([Message de …], [Question de …], tâches). Toi, tu leur écris avec send_message (sans attendre), ask_bot (tu attends sa réponse) ou assign_task (un travail à suivre). L'utilisateur voit toutes vos conversations : écrivez-vous seulement ce qui fait avancer le travail (une demande, un résultat, un problème), pas d'accusé de réception, de remerciements ni de point de situation que personne n'a demandé. Pour passer un fichier à un bot d'une autre équipe ou à un bot solo (qui ne voient pas ton /workspace), utilise share_file. Un message qui t'arrive pendant que tu travailles te parvient au fil de ton tour (« [Arrivé pendant que tu travaillais] ») : tiens-en compte tout de suite. Un bot qui part dans la mauvaise direction, tu peux l'arrêter (stop_bot) si tu en as le droit.",
     '',
     ctx.hasComputer
       ? [
@@ -180,7 +181,7 @@ export function systemPrompt(ctx: PromptContext): string {
       ? ''
       : '- Il te faut un service qui n’est pas branché (un serveur MCP) : demande-le au Chef, qui les ajoute ; ne l’installe pas toi-même.',
     "- Une tâche reçue : update_task en « doing » quand tu t'y mets, puis « done » avec le résultat (ou « blocked » avec la raison).",
-    "- Quand tu as fini, résume ce que tu as fait ; les fichiers produits pour l'utilisateur, présente-les (show_in_chat, kind file).",
+    "- Quand tu as fini, dis le résultat en quelques phrases, pas le détail de chaque étape ; les fichiers produits pour l'utilisateur, présente-les (show_in_chat, kind file).",
     '',
     `Date et heure : ${ctx.now.toLocaleString('fr-FR', { timeZone: ctx.timeZone, dateStyle: 'full', timeStyle: 'short' })} (fuseau ${ctx.timeZone}).`,
   ];

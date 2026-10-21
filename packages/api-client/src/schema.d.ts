@@ -5105,6 +5105,8 @@ export interface operations {
                                 status: "pending" | "taken" | "returned";
                             })[];
                             steered: boolean;
+                            steeredInto: string | null;
+                            autonomous: boolean;
                             mentions: ({
                                 /** @enum {string} */
                                 kind: "bot";
@@ -5391,6 +5393,8 @@ export interface operations {
                             status: "pending" | "taken" | "returned";
                         })[];
                         steered: boolean;
+                        steeredInto: string | null;
+                        autonomous: boolean;
                         mentions: ({
                             /** @enum {string} */
                             kind: "bot";
@@ -5772,6 +5776,8 @@ export interface operations {
                             status: "pending" | "taken" | "returned";
                         })[];
                         steered: boolean;
+                        steeredInto: string | null;
+                        autonomous: boolean;
                         mentions: ({
                             /** @enum {string} */
                             kind: "bot";
@@ -6027,6 +6033,8 @@ export interface operations {
                             status: "pending" | "taken" | "returned";
                         })[];
                         steered: boolean;
+                        steeredInto: string | null;
+                        autonomous: boolean;
                         mentions: ({
                             /** @enum {string} */
                             kind: "bot";
@@ -6289,6 +6297,8 @@ export interface operations {
                             status: "pending" | "taken" | "returned";
                         })[];
                         steered: boolean;
+                        steeredInto: string | null;
+                        autonomous: boolean;
                         mentions: ({
                             /** @enum {string} */
                             kind: "bot";
@@ -6557,6 +6567,8 @@ export interface operations {
                             status: "pending" | "taken" | "returned";
                         })[];
                         steered: boolean;
+                        steeredInto: string | null;
+                        autonomous: boolean;
                         mentions: ({
                             /** @enum {string} */
                             kind: "bot";
@@ -7402,6 +7414,8 @@ export interface operations {
                                 status: "pending" | "taken" | "returned";
                             })[];
                             steered: boolean;
+                            steeredInto: string | null;
+                            autonomous: boolean;
                             mentions: ({
                                 /** @enum {string} */
                                 kind: "bot";

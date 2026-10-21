@@ -244,6 +244,10 @@ export const messageSchema = z.object({
   parts: z.array(messagePartSchema),
   /** Arrived while the bot was working, and taken into its ongoing answer. */
   steered: z.boolean(),
+  /** That answer (clients show the message above it, where the bot read it). */
+  steeredInto: z.uuid().nullable(),
+  /** An answer to other bots or a routine, not to the user (clients may fold it). */
+  autonomous: z.boolean(),
   /** What the user pointed at with @ (shown highlighted in the text). */
   mentions: z.array(messageMentionSchema),
   status: z.enum(['streaming', 'done', 'error', 'stopped']),

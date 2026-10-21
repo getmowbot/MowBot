@@ -46,6 +46,8 @@ export function toMessage(row: MessageRow): Message {
     taskId: row.meta?.taskId ?? null,
     parts: row.parts,
     steered: Boolean(row.meta?.steeredInto),
+    steeredInto: row.meta?.steeredInto ?? null,
+    autonomous: Boolean(row.meta?.autonomous),
     mentions: row.meta?.mentions ?? [],
     status: row.status,
     stepLimit: Boolean(row.meta?.stepLimit),
