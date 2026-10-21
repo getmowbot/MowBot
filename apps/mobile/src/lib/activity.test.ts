@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { tool, translator } from '../test/fixtures';
-import { activityHeadline, searchQuery, segments, summarize, toolTitle } from './activity';
+import {
+  actionTitle,
+  activityHeadline,
+  searchQuery,
+  segments,
+  summarize,
+  toolTitle,
+} from './activity';
 
 describe('activity line', () => {
   it('summarizes a finished run by kind, in both languages', async () => {
@@ -115,5 +122,22 @@ describe('activity line', () => {
     expect(segments([running]).map((b) => b.kind)).toEqual(['activity']);
     expect(segments([tool('show_in_chat', {}, 'error')]).map((b) => b.kind)).toEqual(['activity']);
     expect(activityHeadline([running], true, t).title).toBe('Prépare un aperçu');
+  });
+});
+
+describe('what a bot is doing, in a few words', () => {
+  it('words the tools of projects, of the browser, of MCP servers and the focus', async () => {
+    const t = await translator('fr');
+    const title = (toolName: string, input: Record<string, unknown> = {}) =>
+      actionTitle({ toolName, input }, t);
+    expect(title('local_exec', { command: 'pnpm test' })).toBe('Lance pnpm');
+    expect(title('local_edit', { path: 'src/app.ts' })).toBe('Modifie src/app.ts');
+    expect(title('browser_open', { url: 'https://github.com/getmowbot' })).toBe('Ouvre github.com');
+    expect(title('mcp__github__create_issue')).toBe('Utilise github · create_issue');
+    expect(title('mcp_call', { server: 'notion', tool: 'search' })).toBe('Utilise notion · search');
+    expect(title('set_focus', { text: 'Je relis' })).toBe('Affiche : « Je relis »');
+    // What a bot is doing leaves the typed text out.
+    expect(title('computer', { action: 'type' })).toBe('Tape du texte');
+    expect(title('unknown_tool')).toBe('unknown_tool');
   });
 });

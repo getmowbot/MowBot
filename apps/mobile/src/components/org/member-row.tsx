@@ -3,15 +3,18 @@ import { router } from 'expo-router';
 import { Crown, Settings2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { statusLabel } from '../../lib/bot-mood';
+import { botLine } from '../../lib/bot-mood';
 import { colors } from '../../theme';
 import { BotAvatar } from '../bot-avatar';
-import { BotStatusLine, openChat, useBotMood } from '../bot-row';
+import { BotFocusLines, openChat, useBotMood } from '../bot-row';
 import { IconButton } from '../ui/button';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 
-/** A team member: the row opens its chat, the gear its settings. Lines up with BotRow. */
+/**
+ * A team member: what it works on and what it does right now. The row opens its chat, the gear
+ * its settings. Lines up with BotRow.
+ */
 export function MemberRow({ bot, lead = false }: { bot: Bot; lead?: boolean }) {
   const { t } = useTranslation();
   const mood = useBotMood(bot);
@@ -19,7 +22,7 @@ export function MemberRow({ bot, lead = false }: { bot: Bot; lead?: boolean }) {
     <View style={styles.row}>
       <Touchable
         accessibilityRole="button"
-        accessibilityLabel={`${bot.name}, ${statusLabel(bot, mood, t)}`}
+        accessibilityLabel={`${bot.name}, ${botLine(bot, mood, t)}`}
         onPress={() => openChat(bot)}
         style={styles.main}
       >
@@ -33,7 +36,7 @@ export function MemberRow({ bot, lead = false }: { bot: Bot; lead?: boolean }) {
               <Crown size={13} color={colors.textMuted} accessibilityLabel={t('org.lead')} />
             )}
           </View>
-          <BotStatusLine bot={bot} mood={mood} />
+          <BotFocusLines bot={bot} mood={mood} />
         </View>
       </Touchable>
       <IconButton
