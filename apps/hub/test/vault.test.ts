@@ -56,6 +56,7 @@ describe('vault helpers', () => {
     expect(siteOf('.mail.google.com')).toBe('google.com');
     expect(siteOf('www.bbc.co.uk')).toBe('bbc.co.uk');
     expect(siteOf('badnet.fr')).toBe('badnet.fr');
+    expect(siteOf('https://the-internet.herokuapp.com/login')).toBe('the-internet.herokuapp.com');
     expect(siteOf('http://192.168.1.20:8080/')).toBe('192.168.1.20');
     expect(siteOf('')).toBeNull();
     expect(serviceName('google.com')).toBe('Google');

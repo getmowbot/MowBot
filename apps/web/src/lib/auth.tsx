@@ -38,6 +38,11 @@ const WORDED_PROBLEMS = [
   'already_set_up',
   'validation_failed',
   'rate_limited',
+  'computer_not_running',
+  'no_session',
+  'invalid_totp',
+  'empty_login',
+  'invalid_site',
 ] as const;
 type WordedProblem = (typeof WORDED_PROBLEMS)[number];
 

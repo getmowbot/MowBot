@@ -9,11 +9,12 @@ import { BotAvatar } from '../components/bot-avatar';
 import { CanvasCard, SPAN } from '../components/canvas-card';
 import { QuestionCard } from '../components/question-card';
 import { Button } from '../components/ui/button';
-import { api } from '../lib/auth';
+import { api, problemMessage } from '../lib/auth';
 import { reveal } from '../lib/motion';
 import {
   alertsPermission,
   useCanvases,
+  useClearNotifications,
   useMarkNotificationsRead,
   useNotifications,
   useQuestions,
@@ -78,8 +79,10 @@ function Notifications() {
   const notifications = useNotifications();
   const bots = useBots();
   const markRead = useMarkNotificationsRead();
+  const clear = useClearNotifications();
   const [permission, setPermission] = useState(alertsPermission());
-  const items = (notifications.data?.items ?? []).slice(0, 8);
+  const all = notifications.data?.items ?? [];
+  const items = all.slice(0, 8);
   const unread = notifications.data?.unread ?? 0;
   return (
     <section className="space-y-3">
@@ -99,6 +102,21 @@ function Notifications() {
             className="text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             {t('home.markAllRead')}
+          </button>
+        )}
+        {all.length > 0 && (
+          <button
+            type="button"
+            disabled={clear.isPending}
+            onClick={() =>
+              confirm(t('home.confirmClearNotifications')) &&
+              clear.mutate(undefined, {
+                onError: (err) => alert(problemMessage(err, t('home.notificationsNotCleared'))),
+              })
+            }
+            className="text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+          >
+            {t('home.clearNotifications')}
           </button>
         )}
       </div>

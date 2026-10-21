@@ -1,8 +1,17 @@
-import type { Bot, Canvas, Message, Question, ServerEvent, Team } from '@mowbot/contract';
+import type {
+  Bot,
+  Canvas,
+  Message,
+  Question,
+  ServerEvent,
+  Team,
+  VaultItem,
+} from '@mowbot/contract';
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { api, client } from './auth';
 import { alertOnThisDevice } from './proactivity';
+import { setVaultItem } from './vault';
 
 const MAX_BACKOFF_MS = 30_000;
 
@@ -75,6 +84,7 @@ export function ServerEvents() {
             'notifications',
             'routines',
             'system',
+            'vault',
           ]) {
             void queryClient.invalidateQueries({ queryKey: [key] });
           }
@@ -138,6 +148,25 @@ export function ServerEvents() {
         case 'notification.created':
           void queryClient.invalidateQueries({ queryKey: ['notifications'] });
           alertOnThisDevice(event.notification);
+          break;
+        case 'notifications.cleared':
+          queryClient.setQueryData(['notifications'], { items: [], unread: 0 });
+          break;
+        case 'activity.cleared':
+          void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          void queryClient.invalidateQueries({ queryKey: ['feed'] });
+          break;
+        case 'vault.updated':
+          setVaultItem(queryClient, event.item);
+          // A saved session shows as "already saved" in its computer's site list.
+          if (event.item.kind === 'session') {
+            void queryClient.invalidateQueries({ queryKey: ['computer-sites'] });
+          }
+          break;
+        case 'vault.deleted':
+          queryClient.setQueryData<VaultItem[]>(['vault'], (list) =>
+            list?.filter((item) => item.id !== event.itemId),
+          );
           break;
         case 'question.updated': {
           const { question } = event;

@@ -32,7 +32,8 @@ export function siteOf(input: string): string | null {
     ? getHostname(trimmed)
     : getHostname(`https://${trimmed}`);
   if (!host) return null;
-  return getDomain(host, { allowPrivateDomains: false }) ?? host;
+  // Like browsers scope cookies: each app of a shared host (herokuapp.com, github.io) is a site.
+  return getDomain(host, { allowPrivateDomains: true }) ?? host;
 }
 
 export function cookieSite(cookie: Pick<Cookie, 'domain'>): string | null {
