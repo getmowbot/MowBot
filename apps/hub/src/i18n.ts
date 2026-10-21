@@ -8,11 +8,46 @@ export async function ownerLocale(db: Db): Promise<Locale> {
   return row?.locale ?? 'fr';
 }
 
-/** The few texts the hub writes for the user to read (bots' prompts stay in French). */
-export const HUB_TEXTS: Record<
-  Locale,
-  { task: string; taskStatus: Record<TaskStatus, string>; replyIn: string }
-> = {
+/** The owner's texts, in their language. */
+export async function hubTexts(db: Db): Promise<HubTexts> {
+  return HUB_TEXTS[await ownerLocale(db)];
+}
+
+/**
+ * The texts the hub writes for the user to read: notifications, pushes, notes in the
+ * conversations (bots' prompts stay in French). Anything the apps can word themselves is sent
+ * as a code instead.
+ */
+export interface HubTexts {
+  task: string;
+  taskStatus: Record<TaskStatus, string>;
+  replyIn: string;
+  asks(bot: string): string;
+  needsLogin(bot: string): string;
+  loginToSave(what: string): string;
+  sessionsSaved(sites: string): string;
+  sessionsSavedBody(count: number, computer: string): string;
+  routineOff(name: string): string;
+  routineOffBody(bot: string, failures: number, error: string): string;
+  budgetBot(bot: string): string;
+  budgetBotBody(spent: number, budget: number): string;
+  budgetAll: string;
+  budgetAllBody(spent: number, budget: number): string;
+  finished(bot: string): string;
+  failed(bot: string): string;
+  needsYou(bot: string): string;
+  newNotice(bot: string): string;
+  vaultSaved(what: string): string;
+  vaultDeclined(what: string): string;
+  stoppedBy(bot: string, reason: string): string;
+  automationWoke(name: string, text: string): string;
+  automationPaused(name: string, failures: number): string;
+  automationDone(name: string, reason: string): string;
+  automationDeadline: string;
+  automationFinished: string;
+}
+
+export const HUB_TEXTS: Record<Locale, HubTexts> = {
   fr: {
     task: 'Tâche',
     taskStatus: {
@@ -23,6 +58,36 @@ export const HUB_TEXTS: Record<
       cancelled: 'annulée',
     },
     replyIn: 'en français',
+    asks: (bot) => `${bot} te pose une question`,
+    needsLogin: (bot) => `${bot} a besoin d'un identifiant`,
+    loginToSave: (what) => `${what} : à ranger dans le coffre depuis la conversation.`,
+    sessionsSaved: (sites) => `Coffre : ${sites}`,
+    sessionsSavedBody: (count, computer) =>
+      count > 1
+        ? `Sessions ouvertes pendant ta prise de main sur ${computer}, enregistrées pour les bots des autres PC.`
+        : `Session ouverte pendant ta prise de main sur ${computer}, enregistrée pour les bots des autres PC.`,
+    routineOff: (name) => `Routine « ${name} » désactivée`,
+    routineOffBody: (bot, failures, error) =>
+      `${bot} a échoué ${failures} fois de suite : ${error}`,
+    budgetBot: (bot) => `${bot} a atteint son budget du jour`,
+    budgetBotBody: (spent, budget) =>
+      `${spent} jetons dépensés sur ${budget}. Ses routines reprendront demain.`,
+    budgetAll: 'Budget du jour atteint',
+    budgetAllBody: (spent, budget) =>
+      `${spent} jetons dépensés sur ${budget}. Les routines reprendront demain.`,
+    finished: (bot) => `${bot} a fini`,
+    failed: (bot) => `${bot} n'a pas pu finir`,
+    needsYou: (bot) => `${bot} a besoin de toi`,
+    newNotice: (bot) => `${bot} : nouvelle notification`,
+    vaultSaved: (what) => `🔒 ${what} rangé dans le coffre`,
+    vaultDeclined: (what) => `Refusé : ${what}`,
+    stoppedBy: (bot, reason) => `**Arrêté par ${bot}** · ${reason}`,
+    automationWoke: (name, text) => `**Automatisation « ${name} »** · ${text}`,
+    automationPaused: (name, failures) =>
+      `**Automatisation « ${name} » en pause** · ${failures} échecs de suite`,
+    automationDone: (name, reason) => `**Automatisation « ${name} » terminée** · ${reason}`,
+    automationDeadline: 'échéance atteinte',
+    automationFinished: 'terminée',
   },
   en: {
     task: 'Task',
@@ -34,5 +99,34 @@ export const HUB_TEXTS: Record<
       cancelled: 'cancelled',
     },
     replyIn: 'en anglais (English)',
+    asks: (bot) => `${bot} has a question for you`,
+    needsLogin: (bot) => `${bot} needs a login`,
+    loginToSave: (what) => `${what}: to save in the vault from the conversation.`,
+    sessionsSaved: (sites) => `Vault: ${sites}`,
+    sessionsSavedBody: (count, computer) =>
+      count > 1
+        ? `Sessions opened while you had control of ${computer}, saved for the bots of other PCs.`
+        : `Session opened while you had control of ${computer}, saved for the bots of other PCs.`,
+    routineOff: (name) => `Routine “${name}” turned off`,
+    routineOffBody: (bot, failures, error) => `${bot} failed ${failures} times in a row: ${error}`,
+    budgetBot: (bot) => `${bot} reached its daily budget`,
+    budgetBotBody: (spent, budget) =>
+      `${spent} tokens spent out of ${budget}. Its routines resume tomorrow.`,
+    budgetAll: 'Daily budget reached',
+    budgetAllBody: (spent, budget) =>
+      `${spent} tokens spent out of ${budget}. Routines resume tomorrow.`,
+    finished: (bot) => `${bot} is done`,
+    failed: (bot) => `${bot} couldn't finish`,
+    needsYou: (bot) => `${bot} needs you`,
+    newNotice: (bot) => `${bot}: new notification`,
+    vaultSaved: (what) => `🔒 ${what} saved in the vault`,
+    vaultDeclined: (what) => `Declined: ${what}`,
+    stoppedBy: (bot, reason) => `**Stopped by ${bot}** · ${reason}`,
+    automationWoke: (name, text) => `**Automation “${name}”** · ${text}`,
+    automationPaused: (name, failures) =>
+      `**Automation “${name}” paused** · ${failures} failures in a row`,
+    automationDone: (name, reason) => `**Automation “${name}” finished** · ${reason}`,
+    automationDeadline: 'deadline reached',
+    automationFinished: 'finished',
   },
 };

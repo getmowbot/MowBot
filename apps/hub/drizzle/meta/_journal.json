@@ -92,6 +92,20 @@
       "when": 1792579841439,
       "tag": "0012_automations",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792585481242,
+      "tag": "0013_automation_outcomes",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792585486169,
+      "tag": "0014_drop_automation_texts",
+      "breakpoints": true
     }
   ]
 }

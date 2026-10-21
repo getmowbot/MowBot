@@ -1,4 +1,4 @@
-import type { Automation } from '@mowbot/contract';
+import type { Automation, AutomationOutcome, AutomationStop } from '@mowbot/contract';
 import { and, asc, count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { contentSchema, toContent } from '../agents/canvas-tools';
@@ -9,7 +9,8 @@ import type { ComputerService, Logger } from '../computers/service';
 import type { Db } from '../db/client';
 import { automations, bots } from '../db/schema';
 import type { EventBus } from '../events';
-import { HttpProblem, notFound } from '../http/problems';
+import { notFound } from '../http/problems';
+import { hubTexts } from '../i18n';
 import type { VaultService } from '../vault/service';
 import type { CanvasService } from './canvases';
 import type { NotificationService, SystemService } from './notifications';
@@ -22,7 +23,7 @@ export const MIN_INTERVAL_SECONDS = 15;
 export const MAX_AUTOMATION_FAILURES = 3;
 const TICK_MS = 5_000;
 const RUN_TIMEOUT_MS = 60_000;
-const MAX_RESULT = 300;
+const MAX_DETAIL = 400;
 
 /**
  * What a run prints (the last line of stdout that is a JSON object): a new content for the
@@ -59,18 +60,51 @@ export function parseOutput(stdout: string): AutomationOutput {
     }
     const parsed = automationOutputSchema.safeParse(json);
     if (parsed.success) return parsed.data;
-    throw new Error(
-      `Sortie JSON invalide : ${parsed.error.issues
+    throw new RunError(
+      'output',
+      `${parsed.error.issues
         .slice(0, 3)
         .map((issue) => `${issue.path.join('.') || '(racine)'} ${issue.message}`)
         .join(' ; ')}`,
     );
   }
-  throw new Error('Le script n’a affiché aucun objet JSON sur sa dernière ligne.');
+  throw new RunError('output', 'no JSON object on the last line');
 }
 
-const clipped = (text: string) =>
-  text.length <= MAX_RESULT ? text : `${text.slice(0, MAX_RESULT - 1)}…`;
+/** Why a run failed, as the apps word it (`detail` is the script's own output). */
+export class RunError extends Error {
+  constructor(
+    readonly kind: NonNullable<AutomationOutcome['error']>['kind'],
+    readonly detail: string,
+    readonly code: number | null = null,
+  ) {
+    super(detail);
+  }
+}
+
+const toRunError = (error: unknown): RunError =>
+  error instanceof RunError
+    ? error
+    : new RunError('other', (error as Error).message.slice(0, MAX_DETAIL));
+
+const ERRORS: Record<NonNullable<AutomationOutcome['error']>['kind'], string> = {
+  exit: 'le script a échoué',
+  timeout: 'le script a dépassé le temps permis',
+  output: 'sa sortie JSON est invalide',
+  no_canvas: "il n'a pas de canvas à mettre à jour",
+  no_computer: "le bot n'a plus d'ordinateur",
+  other: 'erreur',
+};
+
+/** What a run did, for the bot (in French, like the bots' other tool results). */
+export function describeOutcome(outcome: AutomationOutcome): string {
+  if (outcome.error) {
+    const { kind, code, detail } = outcome.error;
+    return `Échec : ${ERRORS[kind]}${code !== null ? ` (code ${code})` : ''} — ${detail}`;
+  }
+  const did = { canvas: 'canvas mis à jour', notify: 'utilisateur prévenu', wake: 'bot réveillé' };
+  return outcome.actions.map((action) => did[action]).join(', ') || 'rien à faire';
+}
 
 export function toAutomation(row: AutomationRow): Automation {
   return {
@@ -85,8 +119,8 @@ export function toAutomation(row: AutomationRow): Automation {
     runs: row.runs,
     failures: row.failures,
     lastRunAt: row.lastRunAt?.toISOString() ?? null,
-    lastResult: row.lastResult,
-    stoppedReason: row.stoppedReason,
+    lastOutcome: row.lastOutcome ?? null,
+    stop: row.stop ?? null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -208,7 +242,7 @@ export class AutomationService {
       .update(automations)
       .set({
         ...patch,
-        ...(reset ? { failures: 0, stoppedReason: null } : {}),
+        ...(reset ? { failures: 0, stop: null } : {}),
       })
       .where(eq(automations.id, id))
       .returning();
@@ -245,7 +279,7 @@ export class AutomationService {
       for (const row of active) {
         if (this.running.has(row.id)) continue;
         if (row.until && row.until <= now) {
-          await this.finish(row, 'Échéance atteinte');
+          await this.finish(row, { reason: 'deadline', detail: null });
           continue;
         }
         const due =
@@ -276,7 +310,7 @@ export class AutomationService {
     const row = await this.row(id);
     try {
       const [bot] = await this.deps.db.select().from(bots).where(eq(bots.id, row.botId));
-      if (!bot?.computerId) throw new Error("Le bot n'a plus d'ordinateur.");
+      if (!bot?.computerId) throw new RunError('no_computer', "Le bot n'a plus d'ordinateur.");
       const agent = await this.agent(bot.computerId);
       const secrets = await this.deps.vault.scope(bot);
       const script = [
@@ -286,26 +320,25 @@ export class AutomationService {
         await secrets.expand(row.command),
       ].join('\n');
       const result = await agent.exec(script, { timeoutMs: RUN_TIMEOUT_MS });
-      if (result.timedOut) throw new Error('Le script a dépassé 60 s.');
+      if (result.timedOut) throw new RunError('timeout', `${RUN_TIMEOUT_MS / 1000} s`);
       if (result.exitCode !== 0) {
-        throw new Error(
-          secrets.mask(
-            `Code de sortie ${result.exitCode} : ${(result.stderr || result.stdout).trim().slice(-400)}`,
-          ),
+        throw new RunError(
+          'exit',
+          secrets.mask((result.stderr || result.stdout).trim().slice(-MAX_DETAIL)),
+          result.exitCode,
         );
       }
       const output = parseOutput(result.stdout);
-      const done: string[] = [];
+      const actions: AutomationOutcome['actions'] = [];
       if (output.canvas) {
-        if (!row.canvasId)
-          throw new Error('Cette automatisation n’a pas de canvas à mettre à jour.');
+        if (!row.canvasId) throw new RunError('no_canvas', 'canvas');
         const canvas = await this.deps.canvases.row(row.canvasId);
         await this.deps.canvases.publishFromBot(bot.id, {
           key: canvas.key,
           title: output.canvas.title ?? canvas.title,
           content: toContent(output.canvas.content, canvas.content),
         });
-        done.push('canvas mis à jour');
+        actions.push('canvas');
       }
       if (output.notify) {
         await this.deps.notifications.create({
@@ -314,83 +347,94 @@ export class AutomationService {
           title: output.notify.title,
           body: output.notify.body,
         });
-        done.push(`notification « ${output.notify.title} »`);
+        actions.push('notify');
       }
       if (output.wake) {
         await this.runtime?.deliver(bot.id, {
           from: null,
           kind: 'routine',
           text: `[Automatisation « ${row.name} »]\n${output.wake}`,
-          display: `**Automatisation « ${row.name} »** · ${output.wake}`,
+          display: (await hubTexts(this.deps.db)).automationWoke(row.name, output.wake),
         });
-        done.push('bot réveillé');
+        actions.push('wake');
       }
-      const summary = done.join(', ') || 'rien à faire';
+      const outcome: AutomationOutcome = { ok: true, actions, error: null };
       const [ran] = await this.deps.db
         .update(automations)
-        .set({
-          runs: row.runs + 1,
-          failures: 0,
-          lastRunAt: new Date(),
-          lastResult: clipped(summary),
-        })
+        .set({ runs: row.runs + 1, failures: 0, lastRunAt: new Date(), lastOutcome: outcome })
         .where(eq(automations.id, row.id))
         .returning();
+      const summary = describeOutcome(outcome);
       if (!ran) return summary;
       if (output.done) {
-        await this.finish(ran, typeof output.done === 'string' ? output.done : 'Terminé');
+        await this.finish(ran, {
+          reason: 'done',
+          detail: typeof output.done === 'string' ? output.done : null,
+        });
         return `${summary} ; terminée`;
       }
       this.publish(ran);
       return summary;
     } catch (error) {
-      const message = error instanceof HttpProblem ? error.message : (error as Error).message;
-      return this.failed(row, message);
+      return this.failed(row, toRunError(error));
     } finally {
       this.running.delete(id);
     }
   }
 
-  private async failed(row: AutomationRow, message: string): Promise<string> {
+  private async failed(row: AutomationRow, error: RunError): Promise<string> {
     const failures = row.failures + 1;
     const pause = failures >= MAX_AUTOMATION_FAILURES;
+    const outcome: AutomationOutcome = {
+      ok: false,
+      actions: [],
+      error: { kind: error.kind, code: error.code, detail: error.detail },
+    };
     const [updated] = await this.deps.db
       .update(automations)
       .set({
         failures,
         lastRunAt: new Date(),
-        lastResult: clipped(`Échec : ${message}`),
+        lastOutcome: outcome,
         ...(pause
-          ? { status: 'paused' as const, stoppedReason: `${failures} échecs de suite` }
+          ? {
+              status: 'paused' as const,
+              stop: { reason: 'failures' as const, detail: String(failures) },
+            }
           : {}),
       })
       .where(eq(automations.id, row.id))
       .returning();
     if (updated) this.publish(updated);
+    const message = describeOutcome(outcome);
     if (pause) {
       // The bot fixes its script (automation_update) or deletes it.
       await this.runtime?.deliver(row.botId, {
         from: null,
         kind: 'routine',
         text: `[Automatisation « ${row.name} » en pause après ${failures} échecs]\nDernière erreur : ${message}\nCorrige le script (automation_update, qui la relance) ou supprime-la (automation_delete).`,
-        display: `**Automatisation « ${row.name} » en pause** · ${message}`,
+        display: (await hubTexts(this.deps.db)).automationPaused(row.name, failures),
       });
     }
-    return `Échec : ${message}`;
+    return message;
   }
 
   /** Over: it stays listed as stopped, and the bot keeps a note for its next turn. */
-  private async finish(row: AutomationRow, reason: string): Promise<void> {
+  private async finish(row: AutomationRow, stop: AutomationStop): Promise<void> {
     const [updated] = await this.deps.db
       .update(automations)
-      .set({ status: 'stopped', stoppedReason: reason })
+      .set({ status: 'stopped', stop })
       .where(eq(automations.id, row.id))
       .returning();
     if (updated) this.publish(updated);
+    const texts = await hubTexts(this.deps.db);
+    const why =
+      stop.detail ??
+      (stop.reason === 'deadline' ? texts.automationDeadline : texts.automationFinished);
     await this.runtime?.note(
       row.botId,
-      `[Automatisation « ${row.name} » terminée : ${reason}]`,
-      `**Automatisation « ${row.name} » terminée** · ${reason}`,
+      `[Automatisation « ${row.name} » terminée : ${stop.detail ?? (stop.reason === 'deadline' ? 'échéance atteinte' : 'terminée')}]`,
+      texts.automationDone(row.name, why),
     );
   }
 

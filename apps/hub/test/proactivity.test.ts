@@ -266,7 +266,8 @@ describe('check-ins', () => {
     await fireDue(heartbeat?.id as string);
     expect((await runs(heartbeat?.id as string))[0]).toMatchObject({
       status: 'skipped',
-      detail: 'Heures calmes',
+      reason: 'quiet_hours',
+      detail: null,
     });
   });
 });

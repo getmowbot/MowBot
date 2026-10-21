@@ -4,6 +4,7 @@ import type { BotRow } from '../bots/service';
 import {
   type AutomationRow,
   type AutomationService,
+  describeOutcome,
   MIN_INTERVAL_SECONDS,
 } from '../proactivity/automations';
 
@@ -12,8 +13,10 @@ const describe = (row: AutomationRow) =>
     `- ${row.name} (${row.status === 'active' ? 'active' : row.status === 'paused' ? 'en pause' : 'terminée'}) : toutes les ${row.intervalSeconds} s`,
     `  commande : ${row.command}`,
     row.until ? `  jusqu'au ${row.until.toISOString()}` : '',
-    row.lastResult ? `  dernier passage : ${row.lastResult}` : '',
-    row.stoppedReason ? `  arrêt : ${row.stoppedReason}` : '',
+    row.lastOutcome ? `  dernier passage : ${describeOutcome(row.lastOutcome)}` : '',
+    row.stop
+      ? `  arrêt : ${row.stop.reason === 'done' ? 'terminée' : row.stop.reason === 'deadline' ? 'échéance atteinte' : 'trop d’échecs'}${row.stop.detail ? ` (${row.stop.detail})` : ''}`
+      : '',
   ]
     .filter(Boolean)
     .join('\n');

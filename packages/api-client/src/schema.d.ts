@@ -7163,7 +7163,7 @@ export interface operations {
                     "application/json": {
                         /** @enum {string} */
                         status: "running" | "done" | "idle" | "error" | "skipped";
-                        detail: string | null;
+                        reason: ("bot_deleted" | "paused" | "still_running" | "quiet_hours" | "budget_bot" | "budget_all" | "interrupted") | null;
                     };
                 };
             };
@@ -7232,6 +7232,7 @@ export interface operations {
                             routineId: string;
                             /** @enum {string} */
                             status: "running" | "done" | "idle" | "error" | "skipped";
+                            reason: ("bot_deleted" | "paused" | "still_running" | "quiet_hours" | "budget_bot" | "budget_all" | "interrupted") | null;
                             detail: string | null;
                             messageId: string | null;
                             /** Format: date-time */
@@ -7708,8 +7709,21 @@ export interface operations {
                             runs: number;
                             failures: number;
                             lastRunAt: string | null;
-                            lastResult: string | null;
-                            stoppedReason: string | null;
+                            lastOutcome: {
+                                ok: boolean;
+                                actions: ("canvas" | "notify" | "wake")[];
+                                error: {
+                                    /** @enum {string} */
+                                    kind: "exit" | "timeout" | "output" | "no_canvas" | "no_computer" | "other";
+                                    code: number | null;
+                                    detail: string;
+                                } | null;
+                            } | null;
+                            stop: {
+                                /** @enum {string} */
+                                reason: "done" | "deadline" | "failures";
+                                detail: string | null;
+                            } | null;
                             /** Format: date-time */
                             createdAt: string;
                         }[];
@@ -7853,8 +7867,21 @@ export interface operations {
                         runs: number;
                         failures: number;
                         lastRunAt: string | null;
-                        lastResult: string | null;
-                        stoppedReason: string | null;
+                        lastOutcome: {
+                            ok: boolean;
+                            actions: ("canvas" | "notify" | "wake")[];
+                            error: {
+                                /** @enum {string} */
+                                kind: "exit" | "timeout" | "output" | "no_canvas" | "no_computer" | "other";
+                                code: number | null;
+                                detail: string;
+                            } | null;
+                        } | null;
+                        stop: {
+                            /** @enum {string} */
+                            reason: "done" | "deadline" | "failures";
+                            detail: string | null;
+                        } | null;
                         /** Format: date-time */
                         createdAt: string;
                     };

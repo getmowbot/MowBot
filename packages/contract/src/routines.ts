@@ -70,11 +70,25 @@ export const routineUpdateSchema = z.object({
 });
 export type RoutineUpdate = z.infer<typeof routineUpdateSchema>;
 
+/** Why a run was skipped or cut short (the apps word it). */
+export const routineRunReasonSchema = z.enum([
+  'bot_deleted',
+  'paused',
+  'still_running',
+  'quiet_hours',
+  'budget_bot',
+  'budget_all',
+  'interrupted',
+]);
+export type RoutineRunReason = z.infer<typeof routineRunReasonSchema>;
+
 export const routineRunSchema = z.object({
   id: z.uuid(),
   routineId: z.uuid(),
   status: routineRunStatusSchema,
-  /** Why it was skipped or failed. */
+  /** Why it was skipped or cut short. */
+  reason: routineRunReasonSchema.nullable(),
+  /** Why it failed (the error), when there is no reason code. */
   detail: z.string().nullable(),
   /** The bot's answer in its conversation (null once tidied away, e.g. an idle check-in). */
   messageId: z.uuid().nullable(),
@@ -151,13 +165,35 @@ export const automationSchema = z.object({
   /** Consecutive failures; paused after a few, and the bot is told. */
   failures: z.number().int(),
   lastRunAt: z.iso.datetime().nullable(),
-  /** What the last run did, or why it failed. */
-  lastResult: z.string().nullable(),
-  /** Why it stopped (finished, deadline, by the user…). */
-  stoppedReason: z.string().nullable(),
+  /** What the last run did, or why it failed (the apps word it). */
+  lastOutcome: z
+    .object({
+      ok: z.boolean(),
+      /** What the script asked for. */
+      actions: z.array(z.enum(['canvas', 'notify', 'wake'])),
+      error: z
+        .object({
+          kind: z.enum(['exit', 'timeout', 'output', 'no_canvas', 'no_computer', 'other']),
+          /** Exit code of the script. */
+          code: z.number().int().nullable(),
+          /** The script's own words (stderr) or the details of what is wrong. */
+          detail: z.string(),
+        })
+        .nullable(),
+    })
+    .nullable(),
+  /** Why it stopped or paused on its own: done (detail: the script's words), deadline, failures (detail: how many). */
+  stop: z
+    .object({
+      reason: z.enum(['done', 'deadline', 'failures']),
+      detail: z.string().nullable(),
+    })
+    .nullable(),
   createdAt: z.iso.datetime(),
 });
 export type Automation = z.infer<typeof automationSchema>;
+export type AutomationOutcome = NonNullable<Automation['lastOutcome']>;
+export type AutomationStop = NonNullable<Automation['stop']>;
 
 export const automationListSchema = z.object({ items: z.array(automationSchema) });
 export const automationIdParamsSchema = z.object({ id: z.uuid() });

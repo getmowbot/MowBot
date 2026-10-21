@@ -3,6 +3,7 @@ import type {
   Routine,
   RoutineKind,
   RoutineRun,
+  RoutineRunReason,
   RoutineRunStatus,
   RoutineTrigger,
   RoutineUpdate,
@@ -39,6 +40,7 @@ export function toRun(row: RunRow): RoutineRun {
     id: row.id,
     routineId: row.routineId,
     status: row.status,
+    reason: row.reason,
     detail: row.detail,
     messageId: row.messageId,
     startedAt: row.startedAt.toISOString(),
@@ -259,7 +261,7 @@ export class RoutineService {
   async startRun(
     routine: RoutineRow,
     status: RoutineRunStatus,
-    detail: string | null = null,
+    reason: RoutineRunReason | null = null,
     now = new Date(),
   ): Promise<RunRow> {
     const finished = status !== 'running';
@@ -268,7 +270,7 @@ export class RoutineService {
       .values({
         routineId: routine.id,
         status,
-        detail,
+        reason,
         startedAt: now,
         finishedAt: finished ? now : null,
       })
@@ -298,13 +300,14 @@ export class RoutineService {
   async finishRun(
     runId: string,
     status: RoutineRunStatus,
-    extra: { detail?: string | null; messageId?: string | null } = {},
+    extra: { reason?: RoutineRunReason; detail?: string | null; messageId?: string | null } = {},
   ): Promise<{ routine: RoutineRow; disabled: boolean } | null> {
     const [run] = await this.db
       .update(routineRuns)
       .set({
         status,
         finishedAt: new Date(),
+        ...(extra.reason !== undefined ? { reason: extra.reason } : {}),
         ...(extra.detail !== undefined ? { detail: extra.detail } : {}),
         ...(extra.messageId !== undefined ? { messageId: extra.messageId } : {}),
       })
