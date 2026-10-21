@@ -128,6 +128,7 @@ export function systemPrompt(ctx: PromptContext): string {
           ...ctx.projects,
           "- Lis avant de modifier ; pour changer un fichier existant, local_edit plutôt que local_write. Ces fichiers sont ceux de l'utilisateur : ne supprime ni n'écrase rien sans raison.",
           "- local_exec lance une commande sur son ordinateur, avec son shell (PowerShell sous Windows). Sauf en mode auto, il doit l'accepter : la question lui est posée, termine ton tour et relance la même commande quand il a dit oui.",
+          "- Pour installer, lancer ou tester le projet sans toucher à son ordinateur, copie-le sur ton PC (local_pull → /workspace/projects/<projet>) et travaille-y avec bash. Rapporte ensuite tes changements avec local_push : une branche git qu'il relit et fusionne.",
         ].join('\n')
       : '',
     '',

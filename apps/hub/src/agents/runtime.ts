@@ -1269,6 +1269,7 @@ ${context}`
               questions: this.deps.questions,
               projects,
               machines,
+              files: this.deps.files,
             })
           : {}),
         ...buildVaultTools({

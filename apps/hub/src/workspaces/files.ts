@@ -212,6 +212,13 @@ export class WorkspaceFiles {
     return (await this.entry(target.rel, target.abs)) as FileEntry;
   }
 
+  /** Deletes a file for good (no trash): for copies the hub keeps in sync itself. */
+  async unlink(workspaceId: string, file: string): Promise<void> {
+    const { rel, abs } = await this.resolve(workspaceId, file, true);
+    if (!rel || !(await lstat(abs)).isFile()) throw invalidPath('Not a file');
+    await rm(abs, { force: true });
+  }
+
   /** Moves to `.trash/`; deleting something already in the trash removes it for good. */
   async remove(workspaceId: string, file: string): Promise<{ trashedTo: string | null }> {
     const { rel, abs, base } = await this.resolve(workspaceId, file, true);

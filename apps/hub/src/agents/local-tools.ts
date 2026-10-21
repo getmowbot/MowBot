@@ -7,6 +7,8 @@ import type { Db } from '../db/client';
 import { questions } from '../db/schema';
 import { hubTexts } from '../i18n';
 import type { QuestionService } from '../proactivity/questions';
+import type { WorkspaceFiles } from '../workspaces/files';
+import { pullProject, pushProject } from './project-sync';
 import { clip } from './tools';
 
 interface ExecResult {
@@ -40,6 +42,7 @@ export function buildLocalTools(ctx: {
   questions: QuestionService;
   projects: ProjectRow[];
   machines: Map<string, ConnectorRow>;
+  files: WorkspaceFiles;
 }): ToolSet {
   const { bot, connectors, projects, machines } = ctx;
   if (projects.length === 0) return {};
@@ -200,6 +203,36 @@ export function buildLocalTools(ctx: {
         const lines = data.matches.map((m) => `${m.path}:${m.line}: ${m.text}`);
         return `${lines.join('\n')}${data.truncated ? '\n[… d’autres résultats : affine la recherche]' : ''}`;
       },
+    }),
+
+    local_pull: tool({
+      description:
+        "Copie un projet local (ou un de ses dossiers) sur ton PC, dans /workspace/projects/<projet>, pour le lancer, l'installer, le tester ou le modifier avec bash. Respecte .gitignore ; une nouvelle copie ne transfère que ce qui a changé et garde tes propres modifications.",
+      inputSchema: z.object({
+        project: projectSchema,
+        path: z.string().optional().describe('Seulement ce dossier du projet (défaut : tout)'),
+      }),
+      execute: async ({ project, path }) =>
+        pullProject(
+          { bot, files: ctx.files, connectors },
+          find(project),
+          path ? relative(path).replace(/\/+$/, '') : '',
+        ),
+    }),
+
+    local_push: tool({
+      description:
+        "Rapporte les changements faits dans ta copie (/workspace/projects/<projet>) sur l'ordinateur de l'utilisateur, en une branche git mowbot/… de son dépôt : son dossier n'est pas touché, il relit et fusionne quand il veut. Fichiers modifiés, ajoutés (hors .gitignore) et supprimés.",
+      inputSchema: z.object({
+        project: projectSchema,
+        message: z
+          .string()
+          .min(1)
+          .max(2000)
+          .describe('Message du commit : ce que tu as changé et pourquoi'),
+      }),
+      execute: async ({ project, message }) =>
+        pushProject({ bot, files: ctx.files, connectors }, find(project), message),
     }),
 
     local_exec: tool({
