@@ -109,7 +109,7 @@ shell annoncé, dans la racine du projet (ou `cwd`).
 - **Linux**, en une commande (AppImage dans `~/.local/bin`, entrée dans les applications) :
 
   ```bash
-  curl -fsSL https://raw.githubusercontent.com/jorisleva/MowBot/main/apps/desktop/install-linux.sh | sh -s -- --hub https://mowbot.example.com
+  curl -fsSL https://raw.githubusercontent.com/getmowbot/MowBot/main/apps/desktop/install-linux.sh | sh -s -- --hub https://mowbot.example.com
   ```
 
   Tant que le dépôt est privé, il faut un `GITHUB_TOKEN` qui peut le lire (dans l'environnement).

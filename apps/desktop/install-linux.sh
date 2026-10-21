@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs (or updates) the MowBot desktop app on Linux, for the current user.
 #
-#   curl -fsSL https://raw.githubusercontent.com/jorisleva/MowBot/main/apps/desktop/install-linux.sh \
+#   curl -fsSL https://raw.githubusercontent.com/getmowbot/MowBot/main/apps/desktop/install-linux.sh \
 #     | sh -s -- --hub https://mowbot.example.com
 #
 # --hub <address>  the hub the app connects to (the web interface's address); without it, the app
@@ -9,7 +9,7 @@
 # GITHUB_TOKEN     needed while the repository is private (a token that can read it).
 set -eu
 
-REPO="${MOWBOT_REPO:-jorisleva/MowBot}"
+REPO="${MOWBOT_REPO:-getmowbot/MowBot}"
 HUB=""
 while [ $# -gt 0 ]; do
   case "$1" in

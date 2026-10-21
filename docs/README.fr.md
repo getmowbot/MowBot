@@ -85,6 +85,9 @@ Dans l'app, **Modèles → Ajouter** : Command Code (clé de ton abonnement), Op
 
 ### App mobile (Expo Go)
 
+> **En développement.** L'app iOS et Android arrive bientôt sur TestFlight / l'App Store et sur
+> Android. En attendant, tu peux déjà l'utiliser avec **Expo Go**.
+
 L'app iOS / Android (`apps/mobile`, Expo SDK 57) se lance dans **Expo Go** :
 
 ```bash
@@ -125,7 +128,7 @@ Chaque bot a son personnage, tiré de sa graine (`packages/design`) : couleur, f
 Sur un serveur Linux (Ubuntu, Debian, Fedora…), une seule commande installe tout, et la même met à jour :
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jorisleva/MowBot/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/getmowbot/MowBot/main/install.sh | sudo bash
 ```
 
 Le script :

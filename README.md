@@ -4,8 +4,8 @@
 
 **Self-hosted teams of AI bots that share real computers.**
 
-[![CI](https://github.com/jorisleva/MowBot/actions/workflows/ci.yml/badge.svg)](https://github.com/jorisleva/MowBot/actions/workflows/ci.yml)
-[![Desktop app](https://img.shields.io/github/v/release/jorisleva/MowBot?label=desktop%20app)](https://github.com/jorisleva/MowBot/releases/latest)
+[![CI](https://github.com/getmowbot/MowBot/actions/workflows/ci.yml/badge.svg)](https://github.com/getmowbot/MowBot/actions/workflows/ci.yml)
+[![Desktop app](https://img.shields.io/github/v/release/getmowbot/MowBot?label=desktop%20app)](https://github.com/getmowbot/MowBot/releases/latest)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
 [Français](docs/README.fr.md) · [Specification](docs/SPEC.md) · [Roadmap](docs/ROADMAP.md) · [Desktop app](docs/DESKTOP.md)
@@ -66,7 +66,7 @@ On a Linux server (Ubuntu, Debian, Fedora…), one command installs everything, 
 command updates it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jorisleva/MowBot/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/getmowbot/MowBot/main/install.sh | sudo bash
 ```
 
 The script installs Docker if needed, asks for the address (a public domain served over HTTPS
@@ -106,12 +106,12 @@ accepts images for screenshots.
 
 ## Desktop app
 
-Download it from the [latest release](https://github.com/jorisleva/MowBot/releases/latest):
+Download it from the [latest release](https://github.com/getmowbot/MowBot/releases/latest):
 `.exe` / `.msi` for Windows, `.dmg` for macOS, AppImage / `.deb` for Linux. On Linux, one
 command installs it and points it at your hub:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jorisleva/MowBot/main/apps/desktop/install-linux.sh | sh -s -- --hub https://mowbot.example.com
+curl -fsSL https://raw.githubusercontent.com/getmowbot/MowBot/main/apps/desktop/install-linux.sh | sh -s -- --hub https://mowbot.example.com
 ```
 
 On first launch it asks for your hub's address (the web interface's). In **Settings →
@@ -121,13 +121,20 @@ can reach your projects, and it updates itself when a new version is out. See
 
 ## Mobile app
 
-The iOS / Android app (`apps/mobile`, Expo SDK 57) runs in **Expo Go** for now:
+> **In development.** The iOS and Android app is coming soon to TestFlight / the App Store and
+> to Android. Until then, you can already use it through **Expo Go**.
+
+The app (`apps/mobile`, Expo SDK 57) does everything the web app does: conversations, the bots'
+PCs live with take-over, teams, files, the vault, MCP servers, routines and push notifications.
+To run it in [Expo Go](https://expo.dev/go) from a clone of this repository:
 
 ```bash
+pnpm install
 pnpm --filter @mowbot/mobile start
 ```
 
-Scan the QR code with Expo Go, then sign in with your hub's address and password.
+Scan the QR code with Expo Go (phone on the same network), then sign in with your hub's address
+and password.
 
 ## Development
 
