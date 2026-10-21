@@ -547,7 +547,10 @@ const FILE_LOOKS: [RegExp, LucideIcon, string][] = [
   [TEXT, FileText, 'text-foreground/80'],
 ];
 
-function fileLook(content: FileContent): { icon: LucideIcon; tone: string } {
+export function fileLook(content: Pick<FileContent, 'type' | 'name'>): {
+  icon: LucideIcon;
+  tone: string;
+} {
   if (content.type === 'directory') return { icon: Folder, tone: 'text-primary' };
   const look = FILE_LOOKS.find(([pattern]) => pattern.test(content.name));
   return look

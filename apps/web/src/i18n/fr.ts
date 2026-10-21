@@ -232,6 +232,35 @@ export const fr = {
       open: 'Voir le coffre',
       failed: 'Rien n’a été rangé.',
     },
+    /** Files and pictures sent with a message. */
+    attach: {
+      add: 'Joindre des fichiers',
+      remove: 'Retirer {{name}}',
+      drop: 'Dépose tes fichiers ici',
+      tooMany: '{{count}} fichiers au plus par message.',
+      tooBig: '{{name}} dépasse {{size}}.',
+      uploading: 'Envoi des fichiers…',
+      open: 'Ouvrir {{name}}',
+    },
+    /** Voice messages: recorded here, transcribed on the hub. */
+    voice: {
+      record: 'Enregistrer un message vocal',
+      recording: 'Enregistrement',
+      cancel: 'Annuler l’enregistrement',
+      send: 'Envoyer le message vocal',
+      play: 'Écouter',
+      pause: 'Pause',
+      seek: 'Position dans le message vocal',
+      transcript: 'Transcription',
+      transcribing: 'Transcription…',
+      failed: 'Transcription impossible',
+      retry: 'Réessayer',
+      silent: 'Rien d’audible',
+      micDenied: 'Micro inaccessible : autorise-le pour ce site dans ton navigateur.',
+      unsupported: 'Ce navigateur ne sait pas enregistrer de son.',
+      notSent: 'Message vocal non envoyé.',
+      unplayable: 'Lecture impossible.',
+    },
   },
   /** A bot asks the user to take control of its PC, from the conversation. */
   takeoverCard: {

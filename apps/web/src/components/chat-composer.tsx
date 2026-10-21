@@ -1,4 +1,4 @@
-import type { Bot, Mention } from '@mowbot/contract';
+import { type Bot, MAX_ATTACHMENTS, type Mention } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -13,15 +13,20 @@ import {
   FolderOpen,
   KeyRound,
   type LucideIcon,
+  Mic,
   Monitor,
+  Paperclip,
   Pencil,
   Repeat,
   Settings2,
   Square,
+  Trash2,
   Users,
+  X,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
+  type ClipboardEvent,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
@@ -41,10 +46,20 @@ import {
   triggerAt,
 } from '../lib/chat-input';
 import { projectsFor, useProjects } from '../lib/projects';
+import { formatSize, IMAGE } from '../lib/files';
 import { useBots, useTeams } from '../lib/queries';
 import { cn } from '../lib/utils';
+import {
+  canRecord,
+  formatDuration,
+  MAX_RECORDING_MS,
+  MIN_RECORDING_MS,
+  type Recording,
+  VoiceRecorder,
+} from '../lib/voice';
 import { BotAvatar } from './bot-avatar';
 import { useClearConversation } from './bot-menu';
+import { fileLook } from './canvas-body';
 import { useOrgDialogs } from './org-dialogs';
 import { ProjectChip } from './project-chip';
 import { Button } from './ui/button';
@@ -129,17 +144,120 @@ type Option =
 
 const SECTIONS = ['commands', 'bots', 'teams', 'projects', 'files'] as const;
 
-/** The message field: `/` runs a command, `@` points at a bot, a team, a project or a file. */
+/** The hub takes files up to this size in a conversation. */
+const ATTACHMENT_MAX_BYTES = 100 * 1024 ** 2;
+/** Live bars while recording. */
+const LIVE_BARS = 36;
+
+/** A file picked for the next message; pictures show a thumbnail. */
+interface PendingFile {
+  id: string;
+  file: File;
+  preview: string | null;
+}
+
+/** Frees the thumbnails of files no longer about to be sent. */
+function forget(list: PendingFile[]) {
+  for (const item of list) if (item.preview) URL.revokeObjectURL(item.preview);
+}
+
+/** The pictures and files about to be sent, each with a way to take it back. */
+function PendingFiles({ files, onRemove }: { files: PendingFile[]; onRemove(id: string): void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex gap-2 overflow-x-auto px-1 pt-1 pb-2">
+      {files.map(({ id, file, preview }) => {
+        const { icon: Icon, tone } = fileLook({ type: 'file', name: file.name });
+        return (
+          <motion.div
+            key={id}
+            layout
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={springs.snappy}
+            className="group relative shrink-0"
+            title={file.name}
+          >
+            {preview ? (
+              <img
+                src={preview}
+                alt={file.name}
+                className="size-16 rounded-xl border border-border object-cover"
+              />
+            ) : (
+              <div className="flex h-16 w-44 items-center gap-2.5 rounded-xl border border-border bg-white/[0.03] px-2.5">
+                <span className={cn('shrink-0', tone)}>
+                  <Icon className="size-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] font-medium">{file.name}</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    {formatSize(file.size)}
+                  </span>
+                </span>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => onRemove(id)}
+              aria-label={t('chat.attach.remove', { name: file.name })}
+              className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full border border-border-strong bg-card text-muted-foreground shadow transition-colors hover:text-foreground"
+            >
+              <X className="size-3" />
+            </button>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** While recording: a red dot, the time, the live level. */
+function RecordingBar({ elapsed, levels }: { elapsed: number; levels: number[] }) {
+  const { t } = useTranslation();
+  const bars = [...Array.from({ length: LIVE_BARS - levels.length }, () => 0), ...levels];
+  return (
+    <div
+      role="status"
+      aria-label={t('chat.voice.recording')}
+      className="flex min-h-10 min-w-0 flex-1 items-center gap-3 px-2.5"
+    >
+      <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-destructive" />
+      <span className="w-10 shrink-0 font-mono text-sm tabular-nums">
+        {formatDuration(elapsed)}
+      </span>
+      <span className="flex h-7 min-w-0 flex-1 items-center gap-[3px] overflow-hidden">
+        {bars.map((level, i) => (
+          <span
+            // biome-ignore lint/suspicious/noArrayIndexKey: a rolling window of levels
+            key={i}
+            style={{ height: `${Math.max(10, Math.min(1, level * 6) * 100)}%` }}
+            className="w-[3px] shrink-0 rounded-full bg-foreground/70 transition-[height] duration-75"
+          />
+        ))}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The message field: `/` runs a command, `@` points at a bot, a team, a project or a file.
+ * Files come with the paperclip, a drop or a paste; the mic records a voice message (click to
+ * start, the arrow sends it, the bin drops it).
+ */
 export function ChatComposer({
   bot,
   onTogglePc,
   onRename,
   onSend,
+  onSendVoice,
 }: {
   bot: Bot;
   onTogglePc(): void;
   onRename(): void;
-  onSend(text: string, mentions: Mention[]): void;
+  /** Rejects when the message did not go: what was written comes back. */
+  onSend(text: string, mentions: Mention[], files: File[]): Promise<unknown>;
+  onSendVoice(recording: Recording): Promise<unknown>;
 }) {
   const { t } = useTranslation();
   // The project the bot works in: a chip over the field, `/project` opens its menu.
@@ -155,10 +273,22 @@ export function ChatComposer({
   const [picked, setPicked] = useState<Picked[]>([]);
   const [active, setActive] = useState(0);
   const [dismissed, setDismissed] = useState<string | null>(null);
+  const [attached, setAttached] = useState<PendingFile[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [recorder, setRecorder] = useState<VoiceRecorder | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [levels, setLevels] = useState<number[]>([]);
   const area = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const attachedRef = useRef(attached);
+  attachedRef.current = attached;
   const bots = useBots();
   const teams = useTeams();
   const working = bot.status === 'working';
+  // Files and recordings land in the bot's workspace.
+  const canAttach = bot.workspaceId !== null;
+  const hasContent = text.trim().length > 0 || attached.length > 0;
 
   const trigger = triggerAt(
     text,
@@ -283,18 +413,175 @@ export function ChatComposer({
     moveCaret(next.caret);
   };
 
+  const addFiles = (list: File[]) => {
+    if (!canAttach || list.length === 0) return;
+    setNotice(null);
+    const room = MAX_ATTACHMENTS - attachedRef.current.length;
+    const tooBig = list.find((file) => file.size > ATTACHMENT_MAX_BYTES);
+    if (tooBig) {
+      setNotice(
+        t('chat.attach.tooBig', { name: tooBig.name, size: formatSize(ATTACHMENT_MAX_BYTES) }),
+      );
+    } else if (list.length > room) {
+      setNotice(t('chat.attach.tooMany', { count: MAX_ATTACHMENTS }));
+    }
+    const added = list
+      .filter((file) => file.size <= ATTACHMENT_MAX_BYTES)
+      .slice(0, Math.max(0, room))
+      .map((file) => ({
+        id: crypto.randomUUID(),
+        file,
+        preview: IMAGE.test(file.name) ? URL.createObjectURL(file) : null,
+      }));
+    setAttached((current) => [...current, ...added]);
+    area.current?.focus();
+  };
+
+  const removeFile = (id: string) => {
+    forget(attached.filter((item) => item.id === id));
+    setAttached((current) => current.filter((item) => item.id !== id));
+  };
+
+  // Thumbnails go with the composer.
+  useEffect(() => () => forget(attachedRef.current), []);
+
+  // Files dropped anywhere on the conversation.
+  const addFilesRef = useRef(addFiles);
+  addFilesRef.current = addFiles;
+  useEffect(() => {
+    if (!canAttach) return;
+    // Entering a child leaves its parent: only the last leave ends the drag.
+    let depth = 0;
+    const carriesFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files');
+    const enter = (event: DragEvent) => {
+      if (!carriesFiles(event)) return;
+      depth++;
+      setDragging(true);
+    };
+    const leave = (event: DragEvent) => {
+      if (!carriesFiles(event)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setDragging(false);
+    };
+    const over = (event: DragEvent) => {
+      if (carriesFiles(event)) event.preventDefault();
+    };
+    const drop = (event: DragEvent) => {
+      if (!carriesFiles(event)) return;
+      event.preventDefault();
+      depth = 0;
+      setDragging(false);
+      addFilesRef.current([...(event.dataTransfer?.files ?? [])]);
+    };
+    document.addEventListener('dragenter', enter);
+    document.addEventListener('dragleave', leave);
+    document.addEventListener('dragover', over);
+    document.addEventListener('drop', drop);
+    return () => {
+      document.removeEventListener('dragenter', enter);
+      document.removeEventListener('dragleave', leave);
+      document.removeEventListener('dragover', over);
+      document.removeEventListener('drop', drop);
+    };
+  }, [canAttach]);
+
+  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = [...event.clipboardData.files];
+    if (pasted.length === 0 || !canAttach) return;
+    event.preventDefault();
+    addFiles(pasted);
+  };
+
   const submit = (event?: FormEvent) => {
     event?.preventDefault();
     const value = text.trim();
-    if (!value) return;
+    const sending = attached;
+    if (!value && sending.length === 0) return;
     // `/projet` is how a French speaker types `/project`.
     const typed = value.toLowerCase() === '/projet' ? '/project' : value;
-    const command = commands.find((c) => `/${c.name}` === typed);
-    if (command) command.run();
-    else onSend(value, mentionsToSend(value, picked));
+    const command = sending.length === 0 && commands.find((c) => `/${c.name}` === typed);
     setText('');
     setPicked([]);
+    setNotice(null);
+    if (command) {
+      command.run();
+      return;
+    }
+    const mentions = mentionsToSend(value, picked);
+    setAttached([]);
+    onSend(
+      value,
+      mentions,
+      sending.map((item) => item.file),
+    ).then(
+      () => forget(sending),
+      () => {
+        // Not sent: what was written comes back, unless something new was started.
+        setText((current) => current || value);
+        if (attachedRef.current.length === 0) {
+          setPicked(picked);
+          setAttached(sending);
+        } else forget(sending);
+      },
+    );
   };
+
+  const stopRecording = (recording: VoiceRecorder | null, send: boolean) => {
+    setRecorder(null);
+    setLevels([]);
+    if (!recording) return;
+    if (!send) {
+      recording.cancel();
+      return;
+    }
+    void recording.stop().then((result) => {
+      if (result.durationMs >= MIN_RECORDING_MS) void onSendVoice(result).catch(() => {});
+    });
+  };
+
+  const startRecording = async () => {
+    setNotice(null);
+    if (!canRecord()) {
+      setNotice(t('chat.voice.unsupported'));
+      return;
+    }
+    const recording = new VoiceRecorder();
+    try {
+      await recording.start((level) =>
+        setLevels((current) => [...current.slice(1 - LIVE_BARS), level]),
+      );
+    } catch {
+      recording.cancel();
+      setNotice(t('chat.voice.micDenied'));
+      return;
+    }
+    setElapsed(0);
+    setRecorder(recording);
+  };
+
+  // The clock while recording; a recording that runs too long is sent as it is.
+  const stopRef = useRef(stopRecording);
+  stopRef.current = stopRecording;
+  useEffect(() => {
+    if (!recorder) return;
+    const timer = window.setInterval(() => {
+      setElapsed(recorder.elapsedMs);
+      if (recorder.elapsedMs >= MAX_RECORDING_MS) stopRef.current(recorder, true);
+    }, 200);
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') stopRef.current(recorder, false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [recorder]);
+
+  // Leaving the conversation drops a recording under way.
+  const recorderRef = useRef(recorder);
+  recorderRef.current = recorder;
+  useEffect(() => () => recorderRef.current?.cancel(), []);
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (open) {
@@ -397,46 +684,128 @@ export function ChatComposer({
           </motion.div>
         )}
       </AnimatePresence>
+      {notice && (
+        <p role="alert" className="mb-2 px-1 text-sm text-destructive">
+          {notice}
+        </p>
+      )}
       <div className="mb-1.5 flex px-1 empty:hidden">
         <ProjectChip bot={bot} open={projectMenu} onOpenChange={setProjectMenu} />
       </div>
       <form
         onSubmit={submit}
-        className="glass flex items-end gap-2 rounded-2xl p-2 transition-[border-color] duration-300 focus-within:border-white/30"
-      >
-        <textarea
-          ref={area}
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            follow(event.target);
-          }}
-          onSelect={(event) => follow(event.currentTarget)}
-          onKeyDown={onKeyDown}
-          onBlur={() => setDismissed(triggerKey)}
-          onFocus={() => setDismissed(null)}
-          rows={1}
-          role="combobox"
-          aria-expanded={open}
-          aria-autocomplete="list"
-          placeholder={t('chat.placeholder', { name: bot.name })}
-          className="max-h-[220px] min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 text-[14.5px] leading-relaxed outline-none placeholder:text-faint"
-        />
-        {working ? (
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            onClick={() => commands.find((c) => c.name === 'stop')?.run()}
-            aria-label={t('chat.stop')}
-          >
-            <Square className="size-3.5 fill-current" />
-          </Button>
-        ) : (
-          <Button type="submit" size="icon" disabled={!text.trim()} aria-label={t('chat.send')}>
-            <ArrowUp className="size-4" />
-          </Button>
+        className={cn(
+          'glass relative rounded-2xl p-2 transition-[border-color] duration-300 focus-within:border-white/30',
+          dragging && 'border-primary/50',
         )}
+      >
+        {dragging && (
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl border-2 border-dashed border-primary/60 bg-background/85 text-sm text-foreground">
+            {t('chat.attach.drop')}
+          </div>
+        )}
+        {attached.length > 0 && <PendingFiles files={attached} onRemove={removeFile} />}
+        <div className="flex items-end gap-1.5">
+          {canAttach && !recorder && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={() => fileInput.current?.click()}
+                aria-label={t('chat.attach.add')}
+                title={t('chat.attach.add')}
+              >
+                <Paperclip className="size-4" />
+              </Button>
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                hidden
+                onChange={(event) => {
+                  addFiles([...(event.target.files ?? [])]);
+                  event.target.value = '';
+                }}
+              />
+            </>
+          )}
+          {recorder ? (
+            <>
+              <RecordingBar elapsed={elapsed} levels={levels} />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={() => stopRecording(recorder, false)}
+                aria-label={t('chat.voice.cancel')}
+                title={t('chat.voice.cancel')}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+              <Button
+                size="icon"
+                className="shrink-0"
+                onClick={() => stopRecording(recorder, true)}
+                aria-label={t('chat.voice.send')}
+              >
+                <ArrowUp className="size-4" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <textarea
+                ref={area}
+                value={text}
+                onChange={(event) => {
+                  setText(event.target.value);
+                  follow(event.target);
+                }}
+                onSelect={(event) => follow(event.currentTarget)}
+                onKeyDown={onKeyDown}
+                onPaste={onPaste}
+                onBlur={() => setDismissed(triggerKey)}
+                onFocus={() => setDismissed(null)}
+                rows={1}
+                role="combobox"
+                aria-expanded={open}
+                aria-autocomplete="list"
+                placeholder={t('chat.placeholder', { name: bot.name })}
+                className="max-h-[220px] min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-[14.5px] leading-relaxed outline-none placeholder:text-faint"
+              />
+              {hasContent ? (
+                <Button type="submit" size="icon" className="shrink-0" aria-label={t('chat.send')}>
+                  <ArrowUp className="size-4" />
+                </Button>
+              ) : working ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => commands.find((c) => c.name === 'stop')?.run()}
+                  aria-label={t('chat.stop')}
+                >
+                  <Square className="size-3.5 fill-current" />
+                </Button>
+              ) : canAttach ? (
+                <Button
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => void startRecording()}
+                  aria-label={t('chat.voice.record')}
+                  title={t('chat.voice.record')}
+                >
+                  <Mic className="size-4" />
+                </Button>
+              ) : (
+                <Button type="submit" size="icon" disabled aria-label={t('chat.send')}>
+                  <ArrowUp className="size-4" />
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </form>
     </div>
   );

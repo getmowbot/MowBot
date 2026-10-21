@@ -16,6 +16,37 @@ export function resolveWorkspacePath(href: string, baseDir: string): string | nu
   return decodeURIComponent(url.pathname).replace(/^\/+/, '').replace(/\/+$/, '');
 }
 
+/**
+ * A file of the workspace fetched with the session, as an object URL of this component's own: the
+ * bytes are cached and shared, the URL is not (a URL revoked by one image would break the others
+ * showing the same file).
+ */
+export function useWorkspaceFileUrl(workspaceId: string, path: string, version?: string) {
+  const file = useQuery({
+    queryKey: ['file-blob', workspaceId, path, version],
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+    queryFn: async () => {
+      const response = await client.fetch(
+        `/api/v1/workspaces/${workspaceId}/files/content?path=${encodeURIComponent(path)}`,
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.blob();
+    },
+  });
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file.data) return;
+    const created = URL.createObjectURL(file.data);
+    setUrl(created);
+    return () => {
+      URL.revokeObjectURL(created);
+      setUrl(null);
+    };
+  }, [file.data]);
+  return { url, isError: file.isError };
+}
+
 /** An image of the workspace, fetched with the session. */
 export function WorkspaceImage({
   workspaceId,
@@ -36,19 +67,7 @@ export function WorkspaceImage({
   /** Shown instead when the file can't be read (default: its name, crossed-out picture). */
   fallback?: ReactNode;
 }) {
-  const image = useQuery({
-    queryKey: ['file-blob', workspaceId, path, version],
-    staleTime: Number.POSITIVE_INFINITY,
-    retry: false,
-    queryFn: async () => {
-      const response = await client.fetch(
-        `/api/v1/workspaces/${workspaceId}/files/content?path=${encodeURIComponent(path)}`,
-      );
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return URL.createObjectURL(await response.blob());
-    },
-  });
-  useEffect(() => () => void (image.data && URL.revokeObjectURL(image.data)), [image.data]);
+  const image = useWorkspaceFileUrl(workspaceId, path, version);
   if (image.isError) {
     if (fallback) return fallback;
     return (
@@ -57,7 +76,7 @@ export function WorkspaceImage({
       </span>
     );
   }
-  if (!image.data) {
+  if (!image.url) {
     return (
       <span
         className={cn(
@@ -69,7 +88,7 @@ export function WorkspaceImage({
   }
   return (
     <img
-      src={image.data}
+      src={image.url}
       alt={alt}
       className={className ?? 'my-4 max-w-full rounded-lg border border-border'}
     />

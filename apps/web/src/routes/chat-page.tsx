@@ -1,4 +1,12 @@
-import type { Bot, CanvasKind, Mention, Message, MessagePart, Problem } from '@mowbot/contract';
+import type {
+  AttachmentUpload,
+  Bot,
+  CanvasKind,
+  Mention,
+  Message,
+  MessagePart,
+  Problem,
+} from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
@@ -24,12 +32,18 @@ import { CanvasBody } from '../components/canvas-body';
 import { ChatComposer } from '../components/chat-composer';
 import { StatusBadge } from '../components/computer-status';
 import { Markdown } from '../components/markdown';
+import {
+  type AttachmentPart,
+  type AudioPart,
+  MessageAttachments,
+  VoiceMessage,
+} from '../components/message-attachments';
 import { QuestionCard } from '../components/question-card';
 import { TakeoverCard } from '../components/takeover-card';
 import { Button } from '../components/ui/button';
 import { VaultRequestCard } from '../components/vault-request-card';
 import { i18n } from '../i18n';
-import { api, problemMessage } from '../lib/auth';
+import { api, client, problemMessage } from '../lib/auth';
 import { moodOf, statusLabel } from '../lib/bot-mood';
 import { mentionSegments } from '../lib/chat-input';
 import {
@@ -53,6 +67,7 @@ import {
   useProviders,
 } from '../lib/queries';
 import { cn } from '../lib/utils';
+import { type Recording, recordingName } from '../lib/voice';
 
 const DesktopView = lazy(() =>
   import('../components/desktop-view').then((m) => ({ default: m.DesktopView })),
@@ -178,25 +193,32 @@ function IncomingMessage({ message, place }: { message: Message; place: Incoming
   );
 }
 
+/** What the user sent: a voice message, pictures and files, their text. */
 function UserMessage({ message }: { message: Message }) {
   const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('');
+  const attachments = message.parts.filter((p): p is AttachmentPart => p.type === 'attachment');
+  const audio = message.parts.find((p): p is AudioPart => p.type === 'audio');
   return (
-    <div className="flex flex-col items-end gap-1">
-      <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-primary-foreground text-[14.5px] leading-relaxed">
-        {mentionSegments(text, message.mentions).map((segment, i) =>
-          segment.mention ? (
-            <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: segments of a fixed text
-              key={i}
-              className="rounded bg-primary-foreground/10 px-0.5 font-semibold"
-            >
-              {segment.text}
-            </span>
-          ) : (
-            segment.text
-          ),
-        )}
-      </div>
+    <div className="flex flex-col items-end gap-1.5">
+      {audio && <VoiceMessage message={message} part={audio} />}
+      {attachments.length > 0 && <MessageAttachments parts={attachments} />}
+      {text && (
+        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-primary-foreground text-[14.5px] leading-relaxed">
+          {mentionSegments(text, message.mentions).map((segment, i) =>
+            segment.mention ? (
+              <span
+                // biome-ignore lint/suspicious/noArrayIndexKey: segments of a fixed text
+                key={i}
+                className="rounded bg-primary-foreground/10 px-0.5 font-semibold"
+              >
+                {segment.text}
+              </span>
+            ) : (
+              segment.text
+            ),
+          )}
+        </div>
+      )}
       {message.steered && <SteeredHint />}
     </div>
   );
@@ -306,6 +328,8 @@ function segments(parts: MessagePart[]): Segment[] {
       out.push({ kind: 'takeover', part, index });
       return;
     }
+    // What the user sends; never in an answer.
+    if (part.type === 'attachment' || part.type === 'audio') return;
     const tail = out.at(-1);
     if (tail?.kind === 'activity') tail.parts.push(part);
     else out.push({ kind: 'activity', parts: [part], index });
@@ -573,11 +597,42 @@ export function ChatPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const added = (message: Message) =>
+    queryClient.setQueryData<Message[]>(['messages', message.botId], (list) =>
+      list && !list.some((m) => m.id === message.id) ? [...list, message] : list,
+    );
+
   const send = useMutation({
-    mutationFn: async ({ text, mentions }: { text: string; mentions?: Mention[] }) => {
+    mutationFn: async ({
+      text,
+      mentions,
+      files,
+    }: {
+      text: string;
+      mentions?: Mention[];
+      files?: File[];
+    }) => {
+      const id = bot?.id as string;
+      // Files go first, into the bot's inbox; the message then points at them.
+      let attachments: { path: string }[] | undefined;
+      if (files?.length) {
+        const form = new FormData();
+        for (const file of files) form.append('file', file, file.name);
+        const response = await client.fetch(`/api/v1/bots/${id}/attachments`, {
+          method: 'POST',
+          body: form,
+        });
+        if (!response.ok) throw await response.json().catch(() => null);
+        const uploaded = (await response.json()) as AttachmentUpload;
+        attachments = uploaded.items.map((item) => ({ path: item.path }));
+      }
       const { data, error } = await api.POST('/api/v1/bots/{id}/messages', {
-        params: { path: { id: bot?.id as string } },
-        body: mentions?.length ? { text, mentions } : { text },
+        params: { path: { id } },
+        body: {
+          text,
+          ...(mentions?.length ? { mentions } : {}),
+          ...(attachments ? { attachments } : {}),
+        },
       });
       if (error || !data) throw error;
       return data;
@@ -586,12 +641,30 @@ export function ChatPage() {
       stickToBottom.current = true;
       setError(null);
     },
-    onSuccess: (message) => {
-      queryClient.setQueryData<Message[]>(['messages', message.botId], (list) =>
-        list && !list.some((m) => m.id === message.id) ? [...list, message] : list,
-      );
-    },
+    onSuccess: added,
     onError: (err) => setError(problemMessage(err, t('chat.notSent'))),
+  });
+
+  /** A voice message: shown at once, its transcript follows (`message.updated`). */
+  const sendVoice = useMutation({
+    mutationFn: async (recording: Recording) => {
+      const form = new FormData();
+      form.append('durationMs', String(recording.durationMs));
+      form.append('peaks', recording.peaks.join(','));
+      form.append('file', recording.blob, recordingName(recording.mimeType));
+      const response = await client.fetch(`/api/v1/bots/${bot?.id as string}/messages/voice`, {
+        method: 'POST',
+        body: form,
+      });
+      if (!response.ok) throw await response.json().catch(() => null);
+      return (await response.json()) as Message;
+    },
+    onMutate: () => {
+      stickToBottom.current = true;
+      setError(null);
+    },
+    onSuccess: added,
+    onError: (err) => setError(problemMessage(err, t('chat.voice.notSent'))),
   });
 
   // Follow the conversation while the user is at the bottom.
@@ -730,6 +803,9 @@ export function ChatPage() {
 
         <div className="mx-auto w-full max-w-3xl px-3 pb-3 md:px-6 md:pb-5">
           {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
+          {send.isPending && Boolean(send.variables?.files?.length) && (
+            <p className="shimmer-text mb-2 text-sm">{t('chat.attach.uploading')}</p>
+          )}
           <AnimatePresence initial={false}>
             {asked.map((question) => (
               <QuestionCard key={question.id} question={question} className="mb-2" />
@@ -739,7 +815,8 @@ export function ChatPage() {
             bot={bot}
             onTogglePc={() => setShowPc((v) => !v)}
             onRename={() => setRenamingId(bot.id)}
-            onSend={(text, mentions) => send.mutate({ text, mentions })}
+            onSend={(text, mentions, files) => send.mutateAsync({ text, mentions, files })}
+            onSendVoice={(recording) => sendVoice.mutateAsync(recording)}
           />
         </div>
       </div>
