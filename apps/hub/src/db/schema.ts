@@ -646,3 +646,29 @@ export const projectGrants = pgTable('project_grants', {
   command: text('command').notNull(),
   createdAt: createdAt(),
 });
+
+/** A dev server of a bot's PC, served to the user on one of the hub's preview ports. */
+export const previews = pgTable(
+  'previews',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    computerId: uuid('computer_id')
+      .notNull()
+      .references(() => computers.id, { onDelete: 'cascade' }),
+    botId: uuid('bot_id').references(() => bots.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    /** Where the dev server listens on the PC. */
+    port: integer('port').notNull(),
+    /** The hub's port it is served on. */
+    publicPort: integer('public_port').notNull(),
+    path: text('path').notNull().default('/'),
+    /** The secret of its link, sealed with the master key. */
+    tokenSealed: text('token_sealed').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('previews_public_port_unique').on(t.publicPort),
+    uniqueIndex('previews_computer_port_unique').on(t.computerId, t.port),
+  ],
+);

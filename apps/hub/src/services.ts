@@ -18,6 +18,7 @@ import { TicketService } from './http/tickets';
 import { McpService } from './mcp/service';
 import { OrgService } from './org/service';
 import type { TaskService } from './org/tasks';
+import { PreviewService } from './previews/service';
 import { AutomationService } from './proactivity/automations';
 import { CanvasService } from './proactivity/canvases';
 import { NotificationService, SystemService } from './proactivity/notifications';
@@ -57,6 +58,7 @@ export interface Services {
   automations: AutomationService;
   mcp: McpService;
   connectors: ConnectorService;
+  previews: PreviewService;
   /** Main team, its PC, the Chef and its daily summary (at startup and right after setup). */
   bootstrap(): Promise<void>;
 }
@@ -74,6 +76,8 @@ export interface ServiceOverrides {
   finishedPushAfterMs?: number;
   /** Tests transcribe voice messages without Whisper (no model download). */
   transcriber?: Transcriber;
+  /** Tests move the previews' clock (expiry). */
+  previewClock?: () => number;
 }
 
 export async function createServices(
@@ -120,6 +124,12 @@ export async function createServices(
   });
   const mcp = new McpService({ db, events, masterKey: config.masterKey, computers, files });
   const connectors = new ConnectorService({ db, events, bots });
+  const previews = new PreviewService(db, computers, events, config.masterKey, {
+    ...config.previews,
+    host: config.host,
+    trustProxy: config.trustProxy,
+    now: overrides.previewClock,
+  });
   const automations = new AutomationService({
     db,
     events,
@@ -186,6 +196,7 @@ export async function createServices(
     automations,
     mcp,
     connectors,
+    previews,
     bootstrap,
   };
 }
