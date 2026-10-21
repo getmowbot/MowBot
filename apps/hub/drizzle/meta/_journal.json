@@ -113,6 +113,13 @@
       "when": 1792586306871,
       "tag": "0015_mcp",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792591338012,
+      "tag": "0016_desktop_projects",
+      "breakpoints": true
     }
   ]
 }

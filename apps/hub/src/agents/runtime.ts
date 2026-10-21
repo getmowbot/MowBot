@@ -18,6 +18,7 @@ import { and, asc, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { type BotRow, type BotService, toMessage } from '../bots/service';
 import type { AgentClient, ExecResult } from '../computers/agent-client';
 import type { ComputerService, Logger } from '../computers/service';
+import type { ConnectorService, ProjectRow } from '../connectors/service';
 import type { Db } from '../db/client';
 import { bots, type MessageMeta, messages, owner, routineRuns, teams } from '../db/schema';
 import type { EventBus } from '../events';
@@ -41,6 +42,7 @@ import { BrowserHub } from './browser';
 import { buildBrowserTools } from './browser-tools';
 import { buildCanvasTools, SHOW_IN_CHAT } from './canvas-tools';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
+import { buildLocalTools } from './local-tools';
 import { buildMcpTools } from './mcp-tools';
 import { resolveMentions } from './mentions';
 import { buildOrgTools } from './org-tools';
@@ -98,6 +100,7 @@ export interface RuntimeDeps {
   push?: PushService;
   automations?: AutomationService;
   mcp?: McpService;
+  connectors?: ConnectorService;
   finishedPushAfterMs?: number;
   /** Shared with the vault, which reads and writes the computers' Chrome. */
   browser?: BrowserHub;
@@ -477,10 +480,13 @@ ${context}`
 
   /** The user answered a bot's question: the answer reaches the bot as their message. */
   async answerQuestion(id: string, answer: string): Promise<Question> {
-    const { vaultItemId } = await this.deps.questions.row(id);
+    const { vaultItemId, projectCommand } = await this.deps.questions.row(id);
     const question = await this.deps.questions.answer(id, answer);
     // An access request: the decision is recorded before the bot hears it.
     if (vaultItemId) await this.deps.vault.answered(vaultItemId, question.botId, answer);
+    if (projectCommand) {
+      await this.deps.connectors?.commandAnswered(projectCommand, question.botId, answer);
+    }
     await this.post(
       question.botId,
       `[Réponse à ta question « ${question.question} »]\n${answer}`,
@@ -1119,6 +1125,10 @@ ${context}`
       };
       const showInChat = (content: CanvasContent) =>
         showPart({ type: 'canvas', content, pressed: null });
+      // Folders shared from the user's own computer (desktop app).
+      const { connectors } = this.deps;
+      const projects: ProjectRow[] = connectors ? await connectors.accessibleTo(bot) : [];
+      const machines = connectors ? await connectors.connectorsOf(projects) : new Map();
       const tools = masked(secrets, {
         ...buildTools({
           botId,
@@ -1176,6 +1186,16 @@ ${context}`
         ...(this.deps.automations
           ? buildAutomationTools({ self: bot, automations: this.deps.automations })
           : {}),
+        ...(connectors
+          ? buildLocalTools({
+              bot,
+              db,
+              connectors,
+              questions: this.deps.questions,
+              projects,
+              machines,
+            })
+          : {}),
         ...buildVaultTools({
           self: bot,
           vault: this.deps.vault,
@@ -1196,6 +1216,12 @@ ${context}`
         timeZone: this.deps.routines.timeZone,
         now: new Date(),
         vault: await this.deps.vault.promptLines(bot),
+        projects: projects.map((p) => {
+          const machine = machines.get(p.connectorId);
+          const online = connectors?.isOnline(p.connectorId) ? 'en ligne' : 'hors ligne';
+          const mode = p.mode === 'auto' ? 'commandes libres' : 'commandes avec accord';
+          return `- ${p.name} : ${p.path} (${machine?.hostname ?? machine?.name ?? '?'}${machine?.os ? `, ${machine.os}` : ''}) · ${online} · ${mode}`;
+        }),
       });
       const history = await this.history(botId, created.createdAt);
 

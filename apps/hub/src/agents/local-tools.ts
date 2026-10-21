@@ -1,0 +1,272 @@
+import { type ToolSet, tool } from 'ai';
+import { and, eq, sql } from 'drizzle-orm';
+import { z } from 'zod';
+import type { BotRow } from '../bots/service';
+import type { ConnectorRow, ConnectorService, ProjectRow } from '../connectors/service';
+import type { Db } from '../db/client';
+import { questions } from '../db/schema';
+import { hubTexts } from '../i18n';
+import type { QuestionService } from '../proactivity/questions';
+import { clip } from './tools';
+
+interface ExecResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+}
+
+const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+/** Paths are relative to the project's folder, with `/`. */
+const relative = (input: string) => input.replaceAll('\\', '/').replace(/^(\.\/|\/)+/, '');
+
+const projectSchema = z.string().min(1).describe('Nom du projet (voir local_projects)');
+
+const intentSchema = z
+  .string()
+  .max(80)
+  .optional()
+  .describe("Ce que tu fais, en quelques mots, pour l'utilisateur (ex. « Lance les tests »)");
+
+/**
+ * Tools on the folders the user shared from their own computer (projects), through the desktop
+ * app: files freely, commands with the user's approval unless the project is in auto mode.
+ */
+export function buildLocalTools(ctx: {
+  bot: BotRow;
+  db: Db;
+  connectors: ConnectorService;
+  questions: QuestionService;
+  projects: ProjectRow[];
+  machines: Map<string, ConnectorRow>;
+}): ToolSet {
+  const { bot, connectors, projects, machines } = ctx;
+  if (projects.length === 0) return {};
+
+  const find = (name: string): ProjectRow => {
+    const wanted = fold(name);
+    const found =
+      projects.find((p) => p.id === name) ??
+      projects.find((p) => fold(p.name) === wanted) ??
+      projects.find((p) => fold(p.name).includes(wanted));
+    if (!found) {
+      throw new Error(
+        `Aucun projet « ${name} ». Projets : ${projects.map((p) => p.name).join(', ')}.`,
+      );
+    }
+    return found;
+  };
+  const call = async <T>(
+    name: string,
+    op: Parameters<ConnectorService['request']>[1],
+    args: Record<string, unknown>,
+    timeoutMs?: number,
+  ) => {
+    const project = find(name);
+    return { project, data: await connectors.request<T>(project, op, args, timeoutMs) };
+  };
+
+  return {
+    local_projects: tool({
+      description:
+        "Liste les projets que l'utilisateur a partagés depuis son ordinateur (app MowBot desktop) : dossiers où tu peux lire, écrire, chercher et lancer des commandes avec les outils local_*.",
+      inputSchema: z.object({}),
+      execute: async () =>
+        projects
+          .map((p) => {
+            const machine = machines.get(p.connectorId);
+            const where = machine
+              ? `${machine.hostname ?? machine.name}${machine.os ? `, ${machine.os}` : ''}${machine.shell ? `, commandes en ${machine.shell}` : ''}`
+              : 'ordinateur inconnu';
+            const online = connectors.isOnline(p.connectorId) ? 'en ligne' : 'hors ligne';
+            const mode =
+              p.mode === 'auto' ? 'commandes libres' : "commandes avec l'accord de l'utilisateur";
+            return `- ${p.name} : ${p.path} (${where}) · ${online} · ${mode}`;
+          })
+          .join('\n'),
+    }),
+
+    local_list: tool({
+      description:
+        "Liste un dossier d'un projet local (chemin relatif à sa racine, vide = racine).",
+      inputSchema: z.object({ project: projectSchema, path: z.string().default('') }),
+      execute: async ({ project, path }) => {
+        const { data } = await call<{
+          entries: { name: string; type: 'file' | 'directory'; size: number }[];
+        }>(project, 'list', { path: relative(path) });
+        return (
+          data.entries
+            .map((e) => (e.type === 'directory' ? `📁 ${e.name}/` : `📄 ${e.name} (${e.size} o)`))
+            .join('\n') || '(dossier vide)'
+        );
+      },
+    }),
+
+    local_read: tool({
+      description:
+        "Lit un fichier texte d'un projet local, par tranches de lignes (offset : première ligne lue, 1 par défaut ; limit : 2000 par défaut).",
+      inputSchema: z.object({
+        project: projectSchema,
+        path: z.string().min(1),
+        offset: z.number().int().min(1).optional(),
+        limit: z.number().int().min(1).max(5000).optional(),
+      }),
+      execute: async ({ project, path, offset, limit }) => {
+        const { data } = await call<{ text: string; totalLines: number; truncated: boolean }>(
+          project,
+          'read',
+          { path: relative(path), offset, limit },
+        );
+        const from = offset ?? 1;
+        return data.truncated
+          ? `${data.text}\n[… lignes ${from} à ${from + data.text.split('\n').length - 1} sur ${data.totalLines} : continue avec offset]`
+          : data.text;
+      },
+    }),
+
+    local_write: tool({
+      description:
+        "Écrit (ou remplace) un fichier texte dans un projet local, en créant les dossiers manquants. Pour changer une partie d'un fichier existant, préfère local_edit.",
+      inputSchema: z.object({
+        project: projectSchema,
+        path: z.string().min(1),
+        content: z.string(),
+      }),
+      execute: async ({ project, path, content }) => {
+        const { project: row, data } = await call<{ size: number }>(project, 'write', {
+          path: relative(path),
+          content,
+        });
+        return `Écrit : ${row.name}/${relative(path)} (${data.size} octets)`;
+      },
+    }),
+
+    local_edit: tool({
+      description:
+        "Remplace un passage exact d'un fichier d'un projet local. old_text doit apparaître une seule fois (sinon all: true pour tout remplacer) : copie-le tel quel depuis local_read.",
+      inputSchema: z.object({
+        project: projectSchema,
+        path: z.string().min(1),
+        old_text: z.string().min(1),
+        new_text: z.string(),
+        all: z.boolean().default(false),
+      }),
+      execute: async ({ project, path, old_text, new_text, all }) => {
+        const { project: row, data } = await call<{ replaced: number }>(project, 'edit', {
+          path: relative(path),
+          old: old_text,
+          new: new_text,
+          all,
+        });
+        return `Modifié : ${row.name}/${relative(path)} (${data.replaced} remplacement${data.replaced > 1 ? 's' : ''})`;
+      },
+    }),
+
+    local_find: tool({
+      description:
+        "Trouve des fichiers d'un projet local par motif glob (ex. src/**/*.ts, **/package.json), en ignorant ce que .gitignore exclut.",
+      inputSchema: z.object({
+        project: projectSchema,
+        pattern: z.string().min(1),
+        limit: z.number().int().min(1).max(1000).default(200),
+      }),
+      execute: async ({ project, pattern, limit }) => {
+        const { data } = await call<{ paths: string[]; truncated: boolean }>(project, 'find', {
+          pattern,
+          limit,
+        });
+        if (data.paths.length === 0) return 'Aucun fichier.';
+        return `${data.paths.join('\n')}${data.truncated ? '\n[… d’autres fichiers : affine le motif]' : ''}`;
+      },
+    }),
+
+    local_search: tool({
+      description:
+        "Cherche une expression régulière dans les fichiers d'un projet local (comme grep, en ignorant .gitignore) : chemin, ligne et texte de chaque résultat.",
+      inputSchema: z.object({
+        project: projectSchema,
+        pattern: z.string().min(1).describe('Expression régulière (syntaxe Rust regex)'),
+        path: z.string().optional().describe('Dossier où chercher (défaut : tout le projet)'),
+        glob: z.string().optional().describe('Seulement ces fichiers, ex. *.ts'),
+        limit: z.number().int().min(1).max(500).default(100),
+      }),
+      execute: async ({ project, pattern, path, glob, limit }) => {
+        const { data } = await call<{
+          matches: { path: string; line: number; text: string }[];
+          truncated: boolean;
+        }>(project, 'search', { pattern, path: path ? relative(path) : undefined, glob, limit });
+        if (data.matches.length === 0) return 'Aucun résultat.';
+        const lines = data.matches.map((m) => `${m.path}:${m.line}: ${m.text}`);
+        return `${lines.join('\n')}${data.truncated ? '\n[… d’autres résultats : affine la recherche]' : ''}`;
+      },
+    }),
+
+    local_exec: tool({
+      description:
+        "Lance une commande dans un projet local, sur l'ordinateur de l'utilisateur (le shell est indiqué par local_projects : PowerShell sous Windows). Sauf en mode auto, l'utilisateur doit l'accepter : la question lui est posée et sa réponse t'arrive en message.",
+      inputSchema: z.object({
+        intent: intentSchema,
+        project: projectSchema,
+        command: z.string().min(1),
+        cwd: z.string().optional().describe('Dossier du projet où la lancer (défaut : sa racine)'),
+        timeout_seconds: z.number().int().min(1).max(600).default(120),
+      }),
+      execute: async ({ project, command, cwd, timeout_seconds }) => {
+        const row = find(project);
+        if (row.mode !== 'auto' && !(await connectors.consumeGrant(row.id, bot.id, command))) {
+          await askApproval(ctx, row, command);
+          throw new Error(
+            "Cette commande attend l'accord de l'utilisateur : la question lui est posée. Sa réponse t'arrivera en message ; s'il accepte, relance exactement la même commande.",
+          );
+        }
+        const timeoutMs = timeout_seconds * 1000;
+        return connectors.request<ExecResult>(
+          row,
+          'exec',
+          { command, cwd: cwd ? relative(cwd) : undefined, timeoutMs },
+          timeoutMs + 15_000,
+        );
+      },
+      toModelOutput: ({ output }) => ({
+        type: 'text',
+        value: [
+          `exit code: ${output.exitCode ?? 'aucun'}${output.timedOut ? ' (délai dépassé, processus tué)' : ''}`,
+          output.stdout ? `stdout:\n${clip(output.stdout)}` : '',
+          output.stderr ? `stderr:\n${clip(output.stderr, 4_000)}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      }),
+    }),
+  };
+}
+
+/** Asks the user once to let the bot run this command (an open question is not asked again). */
+async function askApproval(
+  ctx: { bot: BotRow; db: Db; questions: QuestionService; machines: Map<string, ConnectorRow> },
+  row: ProjectRow,
+  command: string,
+): Promise<void> {
+  const [open] = await ctx.db
+    .select({ id: questions.id })
+    .from(questions)
+    .where(
+      and(
+        eq(questions.botId, ctx.bot.id),
+        eq(questions.status, 'open'),
+        sql`${questions.projectCommand}->>'projectId' = ${row.id}`,
+        sql`${questions.projectCommand}->>'command' = ${command}`,
+      ),
+    )
+    .limit(1);
+  if (open) return;
+  const texts = await hubTexts(ctx.db);
+  const machine = ctx.machines.get(row.connectorId);
+  await ctx.questions.ask(
+    ctx.bot,
+    texts.commandAsk(ctx.bot.name, row.name, machine?.hostname ?? machine?.name ?? '', command),
+    [...texts.commandAnswers],
+    { projectCommand: { projectId: row.id, command } },
+  );
+}
