@@ -23,7 +23,25 @@ const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 /** Paths are relative to the project's folder, with `/`. */
 const relative = (input: string) => input.replaceAll('\\', '/').replace(/^(\.\/|\/)+/, '');
 
-const projectSchema = z.string().min(1).describe('Nom du projet (voir local_projects)');
+const projectSchema = z
+  .string()
+  .optional()
+  .describe('Nom du projet (voir local_projects) ; par défaut le projet actif');
+
+/** "PC-de-Joris, linux, en ligne": where a project is, and whether bots can reach it now. */
+export function projectPlace(machine: ConnectorRow | undefined, online: boolean): string {
+  return [
+    machine?.hostname ?? machine?.name ?? 'ordinateur inconnu',
+    machine?.os,
+    online ? 'en ligne' : 'hors ligne',
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
+/** For the bot, when the project's computer cannot be reached now. */
+export const OFFLINE_HINT =
+  "son ordinateur est hors ligne : tu n'y accèdes pas tant que l'utilisateur n'a pas ouvert l'app MowBot desktop.";
 
 const intentSchema = z
   .string()
@@ -43,9 +61,14 @@ export function buildLocalTools(ctx: {
   projects: ProjectRow[];
   machines: Map<string, ConnectorRow>;
   files: WorkspaceFiles;
+  /** The project the bot works in now (the user may change it while the bot works). */
+  activeProjectId(): Promise<string | null>;
+  /** The bot picks the project it works in (null: none). */
+  setActiveProject(projectId: string | null): Promise<void>;
 }): ToolSet {
   const { bot, connectors, projects, machines } = ctx;
   if (projects.length === 0) return {};
+  const names = projects.map((p) => p.name).join(', ');
 
   const find = (name: string): ProjectRow => {
     const wanted = fold(name);
@@ -53,20 +76,27 @@ export function buildLocalTools(ctx: {
       projects.find((p) => p.id === name) ??
       projects.find((p) => fold(p.name) === wanted) ??
       projects.find((p) => fold(p.name).includes(wanted));
-    if (!found) {
-      throw new Error(
-        `Aucun projet « ${name} ». Projets : ${projects.map((p) => p.name).join(', ')}.`,
-      );
-    }
+    if (!found) throw new Error(`Aucun projet « ${name} ». Projets : ${names}.`);
     return found;
   };
+  /** The project named, else the active one, else the only one there is. */
+  const resolve = async (name: string | undefined): Promise<ProjectRow> => {
+    if (name?.trim()) return find(name.trim());
+    const activeId = await ctx.activeProjectId();
+    const active =
+      projects.find((p) => p.id === activeId) ?? (projects.length === 1 && projects[0]);
+    if (active) return active;
+    throw new Error(
+      `Aucun projet actif : précise project (${names}), ou choisis-en un avec local_use_project.`,
+    );
+  };
   const call = async <T>(
-    name: string,
+    name: string | undefined,
     op: Parameters<ConnectorService['request']>[1],
     args: Record<string, unknown>,
     timeoutMs?: number,
   ) => {
-    const project = find(name);
+    const project = await resolve(name);
     return { project, data: await connectors.request<T>(project, op, args, timeoutMs) };
   };
 
@@ -75,8 +105,9 @@ export function buildLocalTools(ctx: {
       description:
         "Liste les projets que l'utilisateur a partagés depuis son ordinateur (app MowBot desktop) : dossiers où tu peux lire, écrire, chercher et lancer des commandes avec les outils local_*.",
       inputSchema: z.object({}),
-      execute: async () =>
-        projects
+      execute: async () => {
+        const activeId = await ctx.activeProjectId();
+        return projects
           .map((p) => {
             const machine = machines.get(p.connectorId);
             const where = machine
@@ -85,9 +116,29 @@ export function buildLocalTools(ctx: {
             const online = connectors.isOnline(p.connectorId) ? 'en ligne' : 'hors ligne';
             const mode =
               p.mode === 'auto' ? 'commandes libres' : "commandes avec l'accord de l'utilisateur";
-            return `- ${p.name} : ${p.path} (${where}) · ${online} · ${mode}`;
+            return `- ${p.name} : ${p.path} (${where}) · ${online} · ${mode}${p.id === activeId ? ' · projet actif' : ''}`;
           })
-          .join('\n'),
+          .join('\n');
+      },
+    }),
+
+    local_use_project: tool({
+      description:
+        "Choisit le projet où tu travailles (le projet actif) : les outils local_* y vont quand tu ne précises pas project, et l'utilisateur le voit dans la conversation. Sers-t'en quand il te dit sur quel projet il travaille. Vide : plus de projet actif.",
+      inputSchema: z.object({
+        project: z.string().describe("Nom du projet ; vide pour n'en garder aucun"),
+      }),
+      execute: async ({ project }) => {
+        if (!project.trim()) {
+          await ctx.setActiveProject(null);
+          return 'Plus de projet actif.';
+        }
+        const row = find(project.trim());
+        await ctx.setActiveProject(row.id);
+        const online = connectors.isOnline(row.connectorId);
+        const place = projectPlace(machines.get(row.connectorId), online);
+        return `Projet actif : ${row.name} (${place}).${online ? '' : ` Attention, ${OFFLINE_HINT}`}`;
+      },
     }),
 
     local_list: tool({
@@ -215,7 +266,7 @@ export function buildLocalTools(ctx: {
       execute: async ({ project, path }) =>
         pullProject(
           { bot, files: ctx.files, connectors },
-          find(project),
+          await resolve(project),
           path ? relative(path).replace(/\/+$/, '') : '',
         ),
     }),
@@ -232,7 +283,7 @@ export function buildLocalTools(ctx: {
           .describe('Message du commit : ce que tu as changé et pourquoi'),
       }),
       execute: async ({ project, message }) =>
-        pushProject({ bot, files: ctx.files, connectors }, find(project), message),
+        pushProject({ bot, files: ctx.files, connectors }, await resolve(project), message),
     }),
 
     local_exec: tool({
@@ -246,7 +297,7 @@ export function buildLocalTools(ctx: {
         timeout_seconds: z.number().int().min(1).max(600).default(120),
       }),
       execute: async ({ project, command, cwd, timeout_seconds }) => {
-        const row = find(project);
+        const row = await resolve(project);
         if (row.mode !== 'auto' && !(await connectors.consumeGrant(row.id, bot.id, command))) {
           await askApproval(ctx, row, command);
           throw new Error(

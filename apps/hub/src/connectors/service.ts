@@ -9,9 +9,9 @@ import {
 import { and, asc, eq, inArray, notInArray } from 'drizzle-orm';
 import WebSocket from 'ws';
 import { z } from 'zod';
-import type { BotRow } from '../bots/service';
+import { type BotRow, toBot } from '../bots/service';
 import type { Db } from '../db/client';
-import { connectors, projectGrants, projects } from '../db/schema';
+import { bots, connectors, projectGrants, projects } from '../db/schema';
 import type { EventBus } from '../events';
 import { notFound } from '../http/problems';
 import { HUB_TEXTS } from '../i18n';
@@ -75,6 +75,13 @@ interface Link {
   pending: Map<string, Pending>;
 }
 
+/** Whether this bot may work in the project (its scope: all bots, some teams, some bots). */
+export function usableBy(row: ProjectRow, bot: Pick<BotRow, 'id' | 'teamId'>): boolean {
+  if (row.scope.kind === 'all') return true;
+  if (row.scope.kind === 'bots') return row.scope.ids.includes(bot.id);
+  return bot.teamId !== null && row.scope.ids.includes(bot.teamId);
+}
+
 export function toConnector(row: ConnectorRow, online: boolean): Connector {
   return {
     id: row.id,
@@ -123,6 +130,7 @@ export class ConnectorService {
       .select({ id: projects.id })
       .from(projects)
       .where(eq(projects.connectorId, id));
+    const working = await this.botsIn(gone.map((project) => project.id));
     const [row] = await this.deps.db.delete(connectors).where(eq(connectors.id, id)).returning();
     if (!row) throw notFound('Connector not found');
     this.links.get(id)?.socket.close(REVOKED_CLOSE_CODE, 'Revoked');
@@ -130,6 +138,7 @@ export class ConnectorService {
       this.deps.events.publish({ type: 'project.deleted', projectId: project.id });
     }
     this.deps.events.publish({ type: 'connector.deleted', connectorId: id });
+    await this.publishBots(working);
   }
 
   async authenticate(token: string): Promise<ConnectorRow | null> {
@@ -208,17 +217,19 @@ export class ConnectorService {
     announced: z.infer<typeof announcedSchema>[],
   ): Promise<void> {
     const keys = announced.map((p) => p.key);
+    const unshared = and(
+      eq(projects.connectorId, connectorId),
+      keys.length ? notInArray(projects.key, keys) : undefined,
+    );
+    const going = await this.deps.db.select({ id: projects.id }).from(projects).where(unshared);
+    const working = await this.botsIn(going.map((project) => project.id));
     const removed = await this.deps.db
       .delete(projects)
-      .where(
-        and(
-          eq(projects.connectorId, connectorId),
-          keys.length ? notInArray(projects.key, keys) : undefined,
-        ),
-      )
+      .where(unshared)
       .returning({ id: projects.id });
     for (const { id } of removed)
       this.deps.events.publish({ type: 'project.deleted', projectId: id });
+    await this.publishBots(working);
     for (const shared of announced) {
       const [row] = await this.deps.db
         .insert(projects)
@@ -294,12 +305,24 @@ export class ConnectorService {
 
   /** The projects this bot may work in. */
   async accessibleTo(bot: BotRow): Promise<ProjectRow[]> {
-    const rows = await this.projects();
-    return rows.filter((row) => {
-      if (row.scope.kind === 'all') return true;
-      if (row.scope.kind === 'bots') return row.scope.ids.includes(bot.id);
-      return bot.teamId !== null && row.scope.ids.includes(bot.teamId);
-    });
+    return (await this.projects()).filter((row) => usableBy(row, bot));
+  }
+
+  /** The bots working in these projects, before the projects go (which clears it). */
+  private async botsIn(projectIds: string[]): Promise<string[]> {
+    if (projectIds.length === 0) return [];
+    const rows = await this.deps.db
+      .select({ id: bots.id })
+      .from(bots)
+      .where(inArray(bots.projectId, projectIds));
+    return rows.map((row) => row.id);
+  }
+
+  /** Everyone hears these bots changed: their project went. */
+  private async publishBots(botIds: string[]): Promise<void> {
+    if (botIds.length === 0) return;
+    const rows = await this.deps.db.select().from(bots).where(inArray(bots.id, botIds));
+    for (const row of rows) this.deps.events.publish({ type: 'bot.updated', bot: toBot(row) });
   }
 
   /** What each project's computer is, for the bots (OS, shell). */

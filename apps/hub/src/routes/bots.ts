@@ -4,6 +4,7 @@ import {
   botIdParamsSchema,
   botListSchema,
   botMoveSchema,
+  botProjectSchema,
   botSchema,
   botUpdateSchema,
   messageListQuerySchema,
@@ -135,6 +136,24 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
       }
       return updated;
     },
+  );
+
+  app.put(
+    '/bots/:id/project',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags,
+        operationId: 'setBotProject',
+        description:
+          'Picks the project the bot works in (a folder shared from your computer that it may use), or none: its `local_*` tools go there when no project is named, and a short note in the conversation tells it.',
+        security: bearerSecurity,
+        params: botIdParamsSchema,
+        body: botProjectSchema,
+        response: { 200: botSchema, ...errorResponses },
+      },
+    },
+    async (request) => runtime.setProject(request.params.id, request.body.projectId),
   );
 
   app.get(

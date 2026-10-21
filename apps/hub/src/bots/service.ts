@@ -29,6 +29,7 @@ export function toBot(row: BotRow): Bot {
     statusDetail: row.statusDetail,
     avatarSeed: row.avatarSeed,
     managerId: row.managerId,
+    projectId: row.projectId,
     createdAt: row.createdAt.toISOString(),
   };
 }

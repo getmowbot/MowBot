@@ -234,6 +234,10 @@ export const bots = pgTable(
     dailyTokenBudget: integer('daily_token_budget'),
     /** The bot that created this one (org chart). */
     managerId: uuid('manager_id').references((): AnyPgColumn => bots.id, { onDelete: 'set null' }),
+    /** The project it works in (folder shared from the user's computer): local_* default to it. */
+    projectId: uuid('project_id').references((): AnyPgColumn => projects.id, {
+      onDelete: 'set null',
+    }),
     createdAt: createdAt(),
   },
   (t) => [
@@ -294,6 +298,8 @@ export interface MessageMeta {
   silent?: boolean;
   /** What the user pointed at with @ in the message. */
   mentions?: MessageMention[];
+  /** A note that the user changed the project the bot works in. */
+  projectNote?: boolean;
 }
 
 /** Work assigned to a bot by another bot (or by the user). */
