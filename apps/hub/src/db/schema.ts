@@ -1,4 +1,5 @@
 import type {
+  AutomationStatus,
   BotStatus,
   CanvasContent,
   CanvasSize,
@@ -461,4 +462,29 @@ export const vaultEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('vault_events_item_created_idx').on(t.itemId, t.createdAt)],
+);
+
+/** A bot's script run by the hub on the bot's computer at a steady pace (no model involved). */
+export const automations = pgTable(
+  'automations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    command: text('command').notNull(),
+    intervalSeconds: integer('interval_seconds').notNull(),
+    /** Removed with the canvas: the user took the card off, the automation has no purpose. */
+    canvasId: uuid('canvas_id').references(() => canvases.id, { onDelete: 'cascade' }),
+    until: timestamp('until', { withTimezone: true }),
+    status: text('status').$type<AutomationStatus>().notNull().default('active'),
+    runs: integer('runs').notNull().default(0),
+    failures: integer('failures').notNull().default(0),
+    lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+    lastResult: text('last_result'),
+    stoppedReason: text('stopped_reason'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('automations_status_idx').on(t.status)],
 );

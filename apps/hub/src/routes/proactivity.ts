@@ -1,4 +1,8 @@
 import {
+  automationIdParamsSchema,
+  automationListSchema,
+  automationSchema,
+  automationUpdateSchema,
   notificationListSchema,
   notificationReadSchema,
   routineCreateSchema,
@@ -16,6 +20,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { bearerSecurity, requireAuth } from '../http/auth-hook';
 import { errorResponses, HttpProblem, notFound } from '../http/problems';
+import { toAutomation } from '../proactivity/automations';
 
 /** A webhook may fire its routine at most this often. */
 const WEBHOOK_MIN_GAP_MS = 10_000;
@@ -259,6 +264,63 @@ export const proactivityRoutes: FastifyPluginAsyncZod = async (app) => {
       if (settings.paused && !before.paused) runtime.pauseAll();
       if (!settings.paused && before.paused) await runtime.resumeAll();
       return settings;
+    },
+  );
+
+  app.get(
+    '/automations',
+    {
+      preHandler: requireAuth('read'),
+      schema: {
+        tags: ['routines'],
+        operationId: 'listAutomations',
+        description:
+          "Bots' scripts the hub runs on their computers at a steady pace (no model involved): active, paused, and those stopped in the last day.",
+        security: bearerSecurity,
+        response: { 200: automationListSchema, ...errorResponses },
+      },
+    },
+    async () => ({ items: (await app.services.automations.list()).map(toAutomation) }),
+  );
+
+  app.patch(
+    '/automations/:id',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags: ['routines'],
+        operationId: 'updateAutomation',
+        description: 'Pauses or resumes an automation.',
+        security: bearerSecurity,
+        params: automationIdParamsSchema,
+        body: automationUpdateSchema,
+        response: { 200: automationSchema, ...errorResponses },
+      },
+    },
+    async (request) => {
+      await app.services.automations.row(request.params.id);
+      return toAutomation(
+        await app.services.automations.update(request.params.id, { status: request.body.status }),
+      );
+    },
+  );
+
+  app.delete(
+    '/automations/:id',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags: ['routines'],
+        operationId: 'deleteAutomation',
+        description: 'Stops and deletes an automation.',
+        security: bearerSecurity,
+        params: automationIdParamsSchema,
+        response: { 204: z.null(), ...errorResponses },
+      },
+    },
+    async (request, reply) => {
+      await app.services.automations.remove(request.params.id);
+      return reply.code(204).send(null);
     },
   );
 };
