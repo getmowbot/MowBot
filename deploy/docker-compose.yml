@@ -58,8 +58,12 @@ services:
       MOWBOT_COMPUTER_REACH: dns
       MOWBOT_COMPUTER_RUNTIME: ${MOWBOT_COMPUTER_RUNTIME:-}
       MOWBOT_COMPUTER_IDLE_MINUTES: ${MOWBOT_COMPUTER_IDLE_MINUTES:-30}
+      MOWBOT_WHISPER_MODEL: ${MOWBOT_WHISPER_MODEL:-onnx-community/whisper-base}
+      MOWBOT_WHISPER_LANGUAGE: ${MOWBOT_WHISPER_LANGUAGE:-}
     volumes:
       - workspaces:/data/workspaces
+      # Whisper, downloaded at the first voice message.
+      - models:/data/models
     networks: [internal, computers]
 
   # Image of the computers the hub starts (not a running service).
@@ -93,6 +97,7 @@ volumes:
   postgres-data:
   caddy-data:
   caddy-config:
+  models:
   # Fixed name: the hub mounts one sub-folder per workspace into each computer.
   workspaces:
     name: mowbot-workspaces

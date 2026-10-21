@@ -129,10 +129,49 @@ export const messageMentionSchema = z.discriminatedUnion('kind', [
 ]);
 export type MessageMention = z.infer<typeof messageMentionSchema>;
 
+/** A file the user sent with a message, kept in the bot's workspace (`inbox/`). */
+export const messageAttachmentSchema = z.object({
+  workspaceId: z.uuid(),
+  path: z.string(),
+  name: z.string(),
+  size: z.number().int().nonnegative(),
+  /** Pictures (`image/…`) show as thumbnails and reach the model as images. */
+  mimeType: z.string(),
+});
+export type MessageAttachment = z.infer<typeof messageAttachmentSchema>;
+
+/** Files stored by `POST /bots/{id}/attachments`, to send with a message. */
+export const attachmentUploadSchema = z.object({ items: z.array(messageAttachmentSchema) });
+export type AttachmentUpload = z.infer<typeof attachmentUploadSchema>;
+
+export const transcriptStatusSchema = z.enum(['pending', 'done', 'failed']);
+export type TranscriptStatus = z.infer<typeof transcriptStatusSchema>;
+
+/** Bars a waveform keeps at most. */
+export const MAX_PEAKS = 200;
+
 /** Display parts of a message (the exact model transcript is kept server-side). */
 export const messagePartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
   z.object({ type: z.literal('reasoning'), text: z.string() }),
+  /** A file or a picture the user attached. */
+  z.object({ type: z.literal('attachment'), ...messageAttachmentSchema.shape }),
+  /**
+   * A voice message the user recorded, transcribed on the hub (Whisper, locally). The bot hears
+   * the transcript once it is there.
+   */
+  z.object({
+    type: z.literal('audio'),
+    workspaceId: z.uuid(),
+    path: z.string(),
+    mimeType: z.string(),
+    durationMs: z.number().int().nonnegative(),
+    /** Loudness along the recording, 0–1: the bars of its waveform. */
+    peaks: z.array(z.number().min(0).max(1)).max(MAX_PEAKS),
+    /** What was said; null until transcribed ('' when nothing could be heard). */
+    transcript: z.string().nullable(),
+    transcriptStatus: transcriptStatusSchema,
+  }),
   z.object({
     type: z.literal('tool'),
     toolCallId: z.string(),
@@ -253,10 +292,41 @@ export const vaultRequestAnswerSchema = z.object({
 });
 export type VaultRequestAnswer = z.infer<typeof vaultRequestAnswerSchema>;
 
-export const sendMessageSchema = z.object({
-  text: z.string().trim().min(1).max(20_000),
-  /** Bots, teams, files and projects written as `@label` in the text, handed to the bot with their details. */
-  mentions: z.array(mentionSchema).max(10).optional(),
+/** Files a message can carry. */
+export const MAX_ATTACHMENTS = 10;
+
+export const sendMessageSchema = z
+  .object({
+    /** May be empty when files are attached. */
+    text: z.string().trim().max(20_000).default(''),
+    /** Bots, teams, files and projects written as `@label` in the text, handed to the bot with their details. */
+    mentions: z.array(mentionSchema).max(10).optional(),
+    /** Files of the bot's workspace sent along, usually just uploaded with `uploadAttachments`. */
+    attachments: z
+      .array(z.object({ path: workspacePathSchema.min(1) }))
+      .max(MAX_ATTACHMENTS)
+      .optional(),
+  })
+  .refine((message) => message.text.length > 0 || (message.attachments?.length ?? 0) > 0, {
+    message: 'Write something or attach a file',
+    path: ['text'],
+  });
+export type SendMessage = z.input<typeof sendMessageSchema>;
+
+/** What a client tells of a voice message it uploads (multipart fields next to the `file`). */
+export const voiceFieldsSchema = z.object({
+  /** Length measured while recording; the hub corrects it once decoded. */
+  durationMs: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(60 * 60_000)
+    .optional(),
+  /** Waveform bars, 0–1, comma-separated (computed by the hub when absent). */
+  peaks: z
+    .string()
+    .max(MAX_PEAKS * 6)
+    .optional(),
 });
 
 /** Messages between bots, newest page first. */

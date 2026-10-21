@@ -16,15 +16,24 @@ COPY apps/hub apps/hub
 RUN pnpm --filter @mowbot/hub build \
   && pnpm --filter @mowbot/hub deploy --prod --legacy /out \
   && rm -rf /out/dist && cp -r apps/hub/dist /out/dist
+# The ONNX runtime (speech recognition) ships for every OS: only Linux is kept.
+RUN find /out/node_modules -type d -path '*onnxruntime-node/bin/napi-v*/*' \
+  \( -name darwin -o -name win32 \) -prune -exec rm -rf {} +
 
 FROM node:24-slim
 ENV NODE_ENV=production
+# ffmpeg decodes voice messages (webm, m4a…) for Whisper; the model is downloaded once to
+# /data/models on first use.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
+ENV MOWBOT_MODELS_DIR=/data/models
 WORKDIR /app
 COPY --from=build /out/package.json ./
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
 # Owned by `node` (uid 1000, same as the computers' `bot`) so a fresh volume mounted here is writable.
-RUN mkdir -p /data/workspaces && chown node:node /data/workspaces
+RUN mkdir -p /data/workspaces /data/models && chown node:node /data/workspaces /data/models
 USER node
 EXPOSE 8787
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s \

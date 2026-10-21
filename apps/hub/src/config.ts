@@ -39,6 +39,14 @@ const envSchema = z.object({
   MOWBOT_TIME_ZONE: z.string().default('Europe/Paris'),
   /** Where push notifications go (Expo's push service, which relays to Apple and Google). */
   MOWBOT_PUSH_URL: z.url().default('https://exp.host/--/api/v2/push/send'),
+  /** Where models run by the hub itself (speech recognition) are downloaded once and kept. */
+  MOWBOT_MODELS_DIR: z.string().default('.data/models'),
+  /** Whisper model (ONNX, Hugging Face id) transcribing voice messages, on the hub's CPU. */
+  MOWBOT_WHISPER_MODEL: z.string().default('onnx-community/whisper-base'),
+  /** Language spoken in voice messages (`fr`, `en`…); unset: the owner's language. */
+  MOWBOT_WHISPER_LANGUAGE: z.string().min(2).max(20).optional(),
+  /** ffmpeg binary, to decode recordings (webm, m4a…) and make them playable everywhere. */
+  MOWBOT_FFMPEG: z.string().default('ffmpeg'),
 });
 
 export interface Config {
@@ -67,6 +75,12 @@ export interface Config {
   };
   timeZone: string;
   pushUrl: string;
+  voice: {
+    modelsDir: string;
+    model: string;
+    language: string | undefined;
+    ffmpeg: string;
+  };
 }
 
 export function parseMasterKey(value: string): Buffer {
@@ -116,5 +130,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     timeZone: e.MOWBOT_TIME_ZONE,
     pushUrl: e.MOWBOT_PUSH_URL,
+    voice: {
+      modelsDir: path.resolve(e.MOWBOT_MODELS_DIR),
+      model: e.MOWBOT_WHISPER_MODEL,
+      language: e.MOWBOT_WHISPER_LANGUAGE,
+      ffmpeg: e.MOWBOT_FFMPEG,
+    },
   };
 }

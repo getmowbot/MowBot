@@ -304,6 +304,11 @@ export class WorkspaceFiles {
     return { rel, abs };
   }
 
+  /** Makes sure a folder exists (with its parents); returns its normalized path. */
+  async ensureDir(workspaceId: string, dir: string): Promise<string> {
+    return (await this.ensureFolder(workspaceId, dir)).rel;
+  }
+
   /**
    * Copies a file or folder into a folder of another workspace (symlinks left out), as
    * `name (n)` when the name is taken.
