@@ -1,6 +1,14 @@
 import type { Bot, Computer, Team } from '@mowbot/contract';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowRightLeft, FolderOpen, Lock, Monitor, Trash2, UserPlus } from 'lucide-react-native';
+import {
+  ArrowRightLeft,
+  Eraser,
+  FolderOpen,
+  Lock,
+  Monitor,
+  Trash2,
+  UserPlus,
+} from 'lucide-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -25,7 +33,7 @@ import {
   teamForm,
   teamMembers,
 } from '../../../lib/org-forms';
-import { useDeleteTeam, useUpdateTeam } from '../../../lib/org-queries';
+import { useClearTeam, useDeleteTeam, useUpdateTeam } from '../../../lib/org-queries';
 import { useBots, useComputers, useTeams } from '../../../lib/queries';
 import { colors } from '../../../theme';
 
@@ -67,7 +75,10 @@ function TeamDetails({
   const others = bots.filter((bot) => !bot.isChef && bot.teamId !== team.id);
   const whereIs = (bot: Bot) =>
     teams.find((other) => other.id === bot.teamId)?.name ?? t('orgAdmin.fields.solo');
-  const block = teamDeleteBlock(team, members.length);
+  const block = teamDeleteBlock(team);
+  const clear = useClearTeam();
+  const [cleared, setCleared] = useState(false);
+  const names = members.map((bot) => bot.name).join(', ');
 
   const save = () => {
     setError(null);
@@ -83,7 +94,9 @@ function TeamDetails({
   const confirmDelete = async () => {
     const ok = await confirm(
       t('orgAdmin.team.delete'),
-      t('orgAdmin.team.confirmDelete', { name: team.name }),
+      members.length > 0
+        ? t('orgAdmin.team.confirmDeleteWithBots', { name: team.name, bots: names })
+        : t('orgAdmin.team.confirmDelete', { name: team.name }),
       { label: t('common.delete'), destructive: true },
     );
     if (!ok) return;
@@ -91,6 +104,20 @@ function TeamDetails({
     remove.mutate(team.id, {
       onSuccess: () => (router.canGoBack() ? router.back() : router.replace('/bots')),
       onError: (err) => setError(problemMessage(err, t('orgAdmin.team.notDeleted'), t)),
+    });
+  };
+
+  const confirmClear = async () => {
+    const ok = await confirm(
+      t('orgAdmin.team.clear'),
+      t('orgAdmin.team.confirmClear', { name: team.name, bots: names }),
+      { label: t('orgAdmin.team.clear'), destructive: true },
+    );
+    if (!ok) return;
+    setError(null);
+    clear.mutate(team.id, {
+      onSuccess: () => setCleared(true),
+      onError: (err) => setError(problemMessage(err, t('orgAdmin.team.notCleared'), t)),
     });
   };
 
@@ -226,6 +253,15 @@ function TeamDetails({
           loading={update.isPending}
           disabled={!changed || !form.name.trim()}
         />
+        {members.length > 0 ? (
+          <Button
+            label={cleared ? t('orgAdmin.team.cleared') : t('orgAdmin.team.clear')}
+            icon={Eraser}
+            variant="secondary"
+            onPress={() => void confirmClear()}
+            loading={clear.isPending}
+          />
+        ) : null}
         {block !== 'main' ? (
           <Button
             label={t('orgAdmin.team.delete')}
@@ -233,13 +269,7 @@ function TeamDetails({
             variant="danger"
             onPress={() => void confirmDelete()}
             loading={remove.isPending}
-            disabled={block !== null}
           />
-        ) : null}
-        {block === 'notEmpty' ? (
-          <T variant="caption" tone="faint" style={styles.center}>
-            {t('orgAdmin.team.deleteBotsFirst')}
-          </T>
         ) : null}
       </FormActions>
     </Screen>

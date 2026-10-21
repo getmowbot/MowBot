@@ -1,7 +1,16 @@
 import type { Bot, Team } from '@mowbot/contract';
 import { useMutation } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { Crown, FolderOpen, Lock, Monitor, Settings2, Trash2, UserPlus } from 'lucide-react';
+import {
+  Crown,
+  Eraser,
+  FolderOpen,
+  Lock,
+  Monitor,
+  Settings2,
+  Trash2,
+  UserPlus,
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -94,6 +103,18 @@ function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
     onSuccess: () => void navigate({ to: '/org' }),
     onError: (err) => setError(problemMessage(err, t('team.notDeleted'))),
   });
+  const [cleared, setCleared] = useState(false);
+  const clear = useMutation({
+    mutationFn: async () => {
+      const { error } = await api.DELETE('/api/v1/teams/{id}/messages', {
+        params: { path: { id: team.id } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => setCleared(true),
+    onError: (err) => setError(problemMessage(err, t('team.notCleared'))),
+  });
+  const names = members.map((bot) => bot.name).join(', ');
 
   return (
     <Card className="space-y-4">
@@ -154,14 +175,31 @@ function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
           <Button type="submit" disabled={save.isPending}>
             {save.isPending ? t('common.saving') : saved ? t('common.saved') : t('common.save')}
           </Button>
+          {members.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              className="ml-auto"
+              disabled={clear.isPending}
+              onClick={() =>
+                confirm(t('team.confirmClear', { name: team.name, bots: names })) && clear.mutate()
+              }
+            >
+              <Eraser className="size-3.5" /> {cleared ? t('team.cleared') : t('team.clear')}
+            </Button>
+          )}
           {!team.isMain && (
             <Button
+              type="button"
               variant="destructive"
-              className="ml-auto"
-              disabled={members.length > 0 || remove.isPending}
-              title={members.length > 0 ? t('team.deleteBotsFirst') : undefined}
+              className={cn(members.length === 0 && 'ml-auto')}
+              disabled={remove.isPending}
               onClick={() =>
-                confirm(t('team.confirmDelete', { name: team.name })) && remove.mutate()
+                confirm(
+                  members.length > 0
+                    ? t('team.confirmDeleteWithBots', { name: team.name, bots: names })
+                    : t('team.confirmDelete', { name: team.name }),
+                ) && remove.mutate()
               }
             >
               <Trash2 className="size-3.5" /> {t('team.delete')}

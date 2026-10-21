@@ -66,10 +66,16 @@ export const fr = {
     isolatedHint:
       'Seuls son lead et le Chef peuvent écrire à ses bots. Pour les données sensibles.',
     delete: 'Supprimer l’équipe',
-    deleteBotsFirst: 'Supprime ou déplace d’abord ses bots pour pouvoir supprimer l’équipe.',
     confirmDelete:
       'Supprimer l’équipe {{name}} ? Son PC est supprimé, ses fichiers vont dans la corbeille de l’Équipe principale.',
+    confirmDeleteWithBots:
+      'Supprimer l’équipe {{name}} et ses bots ({{bots}}) ? Leurs conversations et leurs PC dédiés sont supprimés, le PC de l’équipe aussi ; ses fichiers vont dans la corbeille de l’Équipe principale.',
     notDeleted: 'Équipe non supprimée.',
+    clear: 'Vider les conversations',
+    confirmClear:
+      'Vider les conversations de tous les bots de {{name}} ({{bots}}) ? Ils s’arrêtent et repartent de zéro ; leurs fichiers et leurs tâches restent.',
+    cleared: 'Conversations vidées',
+    notCleared: 'Conversations non vidées.',
   },
   bot: {
     identity: 'Identité',
@@ -218,10 +224,16 @@ export const en: Widen<typeof fr> = {
     leadHint: 'It splits the work and can create bots in the team.',
     isolatedHint: 'Only its lead and the Chef can write to its bots. For sensitive data.',
     delete: 'Delete the team',
-    deleteBotsFirst: 'Delete or move its bots first to delete the team.',
     confirmDelete:
       'Delete the team {{name}}? Its PC is deleted, its files go to the Main team’s trash.',
+    confirmDeleteWithBots:
+      'Delete the team {{name}} and its bots ({{bots}})? Their conversations and dedicated PCs are deleted, the team’s PC too; its files go to the Main team’s trash.',
     notDeleted: 'Team not deleted.',
+    clear: 'Clear conversations',
+    confirmClear:
+      'Clear the conversations of every bot in {{name}} ({{bots}})? They stop and start over; their files and tasks stay.',
+    cleared: 'Conversations cleared',
+    notCleared: 'Conversations not cleared.',
   },
   bot: {
     identity: 'Identity',
