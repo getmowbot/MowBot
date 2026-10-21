@@ -5,6 +5,7 @@ import { en as filesView } from './areas/filesView';
 import { en as mcp } from './areas/mcp';
 import { en as orgAdmin } from './areas/orgAdmin';
 import { en as pcView } from './areas/pcView';
+import { en as projects } from './areas/projects';
 import { en as push } from './areas/push';
 import { en as vault } from './areas/vault';
 import type { Catalog } from './catalog';
@@ -293,6 +294,7 @@ export const en: Catalog = {
   filesView,
   vault,
   mcp,
+  projects,
   chatInput,
   push,
 };

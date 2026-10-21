@@ -5,6 +5,7 @@ import { fr as filesView } from './areas/filesView';
 import { fr as mcp } from './areas/mcp';
 import { fr as orgAdmin } from './areas/orgAdmin';
 import { fr as pcView } from './areas/pcView';
+import { fr as projects } from './areas/projects';
 import { fr as push } from './areas/push';
 import { fr as vault } from './areas/vault';
 
@@ -294,6 +295,7 @@ export const fr = {
   filesView,
   vault,
   mcp,
+  projects,
   chatInput,
   push,
 } as const;

@@ -39,4 +39,8 @@ export const keys = {
   mcpServers: ['mcp-servers'] as const,
   /** The latest calls bots made to one MCP server, newest first. */
   mcpCalls: (serverId: string) => ['mcp-calls', serverId] as const,
+  /** Folders shared from the user's computers by the desktop app. */
+  projects: ['projects'] as const,
+  /** The user's computers linked through the desktop app. */
+  connectors: ['connectors'] as const,
 };
