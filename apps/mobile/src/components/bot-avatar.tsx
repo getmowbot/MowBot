@@ -1,19 +1,30 @@
-import { type BodyShape, type BotGenome, botGenome } from '@mowbot/design';
-import { useEffect, useMemo, useRef } from 'react';
+import {
+  type BodyShape,
+  type BotGenome,
+  botGenome,
+  type Expression,
+  FACES,
+  HAPPY_MS,
+  HEAD_FOLLOW,
+} from '@mowbot/design';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
+  type EntryExitAnimationFunction,
   type SharedValue,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
+import { bump, expressionAfter, glanceStretch, keyframes } from '../lib/bot-expression';
 import type { BotMood } from '../lib/bot-mood';
 import { colors, springs } from '../theme';
 
@@ -28,6 +39,8 @@ const BODY: Record<BodyShape, string> = {
 /** How far the eye pair travels from the center, in body units. */
 const TRAVEL = { x: 15, y: 11 };
 const EYE_Y = 42;
+/** The head turns, leans and breathes around a point near the bottom of the body. */
+const PIVOT = { x: 50, y: 92 };
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
@@ -60,15 +73,64 @@ function nextGaze(mood: BotMood, curiosity: number): { x: number; y: number; del
   }
 }
 
-/** Eye height multiplier per mood (blinks multiply on top). */
-const OPENNESS: Record<BotMood, number> = {
-  idle: 1,
-  thinking: 0.9,
-  working: 0.62,
-  waiting: 1.15,
-  sleeping: 1,
-  error: 0.7,
+/** Asleep: a soft downward arc. Happy: an upturned one, like a smile in the eyes. */
+function arcPath(cx: number, w: number, shape: 'closed' | 'happy') {
+  const bend = shape === 'closed' ? w * 1.1 : -w * 1.25;
+  const y = shape === 'closed' ? EYE_Y : EYE_Y + w * 0.45;
+  return `M${cx - w * 0.85} ${y} Q${cx} ${y + bend} ${cx + w * 0.85} ${y}`;
+}
+
+// One keyframed blink (or two in a row): it can never be left half-closed.
+const shut = () => withTiming(0.08, { duration: 70, easing: Easing.inOut(Easing.quad) });
+const reopen = () => withTiming(1, { duration: 130, easing: Easing.inOut(Easing.quad) });
+const blinking = (twice: boolean) =>
+  twice ? withSequence(shut(), reopen(), shut(), reopen()) : withSequence(shut(), reopen());
+
+const SNAPPY = springs.snappy;
+
+/** Arc eyes draw in from their middle. */
+const drawIn: EntryExitAnimationFunction = () => {
+  'worklet';
+  return {
+    initialValues: { opacity: 0, transform: [{ scaleX: 0.3 }] },
+    animations: {
+      opacity: withSpring(1, SNAPPY),
+      transform: [{ scaleX: withSpring(1, SNAPPY) }],
+    },
+  };
 };
+
+/** The thought bubble pops in and out from its tail. */
+const popIn: EntryExitAnimationFunction = () => {
+  'worklet';
+  return {
+    initialValues: { opacity: 0, transform: [{ scale: 0 }] },
+    animations: { opacity: withSpring(1, SNAPPY), transform: [{ scale: withSpring(1, SNAPPY) }] },
+  };
+};
+const popOut: EntryExitAnimationFunction = () => {
+  'worklet';
+  return {
+    initialValues: { opacity: 1, transform: [{ scale: 1 }] },
+    animations: { opacity: withSpring(0, SNAPPY), transform: [{ scale: withSpring(0, SNAPPY) }] },
+  };
+};
+
+/** The expression shown: the mood, or a beat of joy right after the bot is done working. */
+function useExpression(mood: BotMood): Expression {
+  const [shown, setShown] = useState(mood);
+  const [happy, setHappy] = useState(false);
+  if (shown !== mood) {
+    setShown(mood);
+    setHappy(expressionAfter(shown, mood) === 'happy');
+  }
+  useEffect(() => {
+    if (!happy) return;
+    const timer = setTimeout(() => setHappy(false), HAPPY_MS);
+    return () => clearTimeout(timer);
+  }, [happy]);
+  return happy ? 'happy' : mood;
+}
 
 interface Props {
   seed: string;
@@ -88,21 +150,22 @@ function frame(size: number, pad: number) {
 
 interface EyeProps {
   cx: number;
-  side: -1 | 1;
   genome: BotGenome;
   at(v: number): number;
   scale: number;
   blink: SharedValue<number>;
-  openness: SharedValue<number>;
+  open: SharedValue<number>;
   tilt: SharedValue<number>;
+  stretch: SharedValue<number>;
 }
 
-function Eye({ cx, side, genome, at, scale, blink, openness, tilt }: EyeProps) {
+function Eye({ cx, genome, at, scale, blink, open, tilt, stretch }: EyeProps) {
   const style = useAnimatedStyle(() => ({
     transform: [
-      // Worried brows when something went wrong.
-      { rotate: `${side * -tilt.get()}deg` },
-      { scaleY: blink.get() * openness.get() },
+      // A quick glance stretches the eye sideways; it tilts and opens along its own axis.
+      { scaleX: stretch.get() },
+      { rotate: `${tilt.get()}deg` },
+      { scaleY: blink.get() * open.get() },
     ],
   }));
   const width = genome.eyeWidth * scale;
@@ -123,7 +186,43 @@ function Eye({ cx, side, genome, at, scale, blink, openness, tilt }: EyeProps) {
   );
 }
 
-/** A continuous turn (working arc, thinking dots); still when motion is reduced. */
+interface ArcEyeProps {
+  cx: number;
+  width: number;
+  shape: 'closed' | 'happy';
+  at(v: number): number;
+  scale: number;
+}
+
+function ArcEye({ cx, width, shape, at, scale }: ArcEyeProps) {
+  const half = width + 2;
+  const side = half * 2 * scale;
+  return (
+    <Animated.View
+      entering={drawIn}
+      style={[
+        styles.abs,
+        { left: at(cx - half), top: at(EYE_Y - half), width: side, height: side },
+      ]}
+    >
+      <Svg
+        width={side}
+        height={side}
+        viewBox={`${cx - half} ${EYE_Y - half} ${half * 2} ${half * 2}`}
+      >
+        <Path
+          d={arcPath(cx, width, shape)}
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth={3.6}
+          strokeLinecap="round"
+        />
+      </Svg>
+    </Animated.View>
+  );
+}
+
+/** A continuous turn (working arc); still when motion is reduced. */
 function useSpin(period: number, reduced: boolean) {
   const turn = useSharedValue(0);
   useEffect(() => {
@@ -132,6 +231,22 @@ function useSpin(period: number, reduced: boolean) {
     return () => cancelAnimation(turn);
   }, [period, reduced, turn]);
   return useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.get()}deg` }] }));
+}
+
+/** A cycle from 0 to 1, repeated forever after `delay` ms; 0 when `still`. */
+function useCycle(period: number, delay: number, still: boolean) {
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    if (still) return;
+    progress.set(
+      withDelay(
+        delay,
+        withRepeat(withTiming(1, { duration: period, easing: Easing.linear }), -1, false),
+      ),
+    );
+    return () => cancelAnimation(progress);
+  }, [period, delay, still, progress]);
+  return progress;
 }
 
 interface HaloProps {
@@ -161,26 +276,6 @@ function WorkingArc({ size, pad, color, reduced }: HaloProps) {
   );
 }
 
-function ThinkingDots({ size, pad, color, reduced }: HaloProps) {
-  const spin = useSpin(3600, reduced);
-  return (
-    <Animated.View style={[StyleSheet.absoluteFill, spin]} pointerEvents="none">
-      <Svg width={size} height={size} viewBox={`${-pad} ${-pad} ${100 + pad * 2} ${100 + pad * 2}`}>
-        {[0, 120, 240].map((angle, i) => (
-          <Circle
-            key={angle}
-            cx={50 + 58 * Math.cos((angle * Math.PI) / 180)}
-            cy={50 + 58 * Math.sin((angle * Math.PI) / 180)}
-            r={4 - i * 0.9}
-            fill={color}
-            opacity={0.95 - i * 0.25}
-          />
-        ))}
-      </Svg>
-    </Animated.View>
-  );
-}
-
 function WaitingRing({ size, pad, color, reduced }: HaloProps) {
   const pulse = useSharedValue(0.5);
   useEffect(() => {
@@ -201,67 +296,274 @@ function WaitingRing({ size, pad, color, reduced }: HaloProps) {
   );
 }
 
-/**
- * A bot as a little character, drawn from the same genome as on the web: flat colored body,
- * two white pill eyes that blink at the bot's own rhythm and glance around, an expression
- * per mood. The body is static SVG; eyes and halos move as native views on the UI thread.
- */
-export function BotAvatar({ seed, size = 40, mood = 'idle', badge = false, still }: Props) {
-  const genome = useMemo(() => botGenome(seed), [seed]);
-  const reduced = useReducedMotion();
-  const quiet = still ?? size < 20;
-  const halos = size >= 36;
-  const pad = halos ? 14 : 2;
-  const { scale, at } = frame(size, pad);
+/** The thought bubble's box, in body units: it reaches past the top right of the avatar. */
+const BUBBLE = { x: 72, y: -22, width: 60, height: 52, tail: { x: 76, y: 26 } };
+const THOUGHT_DOT = 2.6;
+
+interface BubbleProps {
+  color: string;
+  at(v: number): number;
+  scale: number;
+  still: boolean;
+}
+
+function ThoughtDot({ index, color, scale, still }: Omit<BubbleProps, 'at'> & { index: number }) {
+  const progress = useCycle(1100, index * 180, still);
+  const style = useAnimatedStyle(() => {
+    const lift = still ? 0 : bump(progress.get());
+    return {
+      opacity: still ? 0.8 : 0.35 + 0.65 * lift,
+      transform: [{ translateY: -2.5 * lift * scale }],
+    };
+  });
+  const side = THOUGHT_DOT * 2 * scale;
+  return (
+    <Animated.View
+      style={[
+        styles.abs,
+        {
+          left: (99 + index * 9 - THOUGHT_DOT - BUBBLE.x) * scale,
+          top: (-3 - THOUGHT_DOT - BUBBLE.y) * scale,
+          width: side,
+          height: side,
+          borderRadius: side / 2,
+          backgroundColor: color,
+        },
+        style,
+      ]}
+    />
+  );
+}
+
+/** "…" in a little cloud above the head while the bot thinks. */
+function ThoughtBubble({ color, at, scale, still }: BubbleProps) {
+  const width = BUBBLE.width * scale;
+  const height = BUBBLE.height * scale;
+  return (
+    <Animated.View
+      entering={popIn}
+      exiting={popOut}
+      style={[
+        styles.abs,
+        {
+          left: at(BUBBLE.x),
+          top: at(BUBBLE.y),
+          width,
+          height,
+          transformOrigin: [
+            (BUBBLE.tail.x - BUBBLE.x) * scale,
+            (BUBBLE.tail.y - BUBBLE.y) * scale,
+            0,
+          ],
+        },
+      ]}
+    >
+      <Svg
+        width={width}
+        height={height}
+        viewBox={`${BUBBLE.x} ${BUBBLE.y} ${BUBBLE.width} ${BUBBLE.height}`}
+      >
+        <G fill="#ffffff">
+          <Circle cx={77} cy={24} r={3.2} />
+          <Circle cx={86} cy={13} r={5} />
+          <Circle cx={96} cy={-6} r={10} />
+          <Circle cx={109} cy={-9} r={11} />
+          <Circle cx={121} cy={-3} r={9} />
+          <Ellipse cx={108} cy={1} rx={19} ry={9} />
+        </G>
+      </Svg>
+      {[0, 1, 2].map((i) => (
+        <ThoughtDot key={i} index={i} color={color} scale={scale} still={still} />
+      ))}
+    </Animated.View>
+  );
+}
+
+/** A little "z" drifting up and fading away from a sleeping bot. */
+function Snore({ index, at, scale }: { index: number; at(v: number): number; scale: number }) {
+  const progress = useCycle(3000, index * 1500, false);
+  const style = useAnimatedStyle(() => {
+    const p = progress.get();
+    return {
+      opacity: keyframes(p, 0, 0.9, 0),
+      transform: [
+        { translateX: keyframes(p, 0, 10, 16) * scale },
+        { translateY: keyframes(p, 0, -16, -32) * scale },
+        { scale: keyframes(p, 0.6, 1, 1.15) },
+      ],
+    };
+  });
+  // The z (7×8 units, from 82,22) with room for its stroke.
+  const width = 11 * scale;
+  const height = 12 * scale;
+  return (
+    <Animated.View style={[styles.abs, { left: at(80), top: at(20), width, height }, style]}>
+      <Svg width={width} height={height} viewBox="-2 -2 11 12">
+        <Path
+          d="M0 0h7l-7 8h7"
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth={2.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </Animated.View>
+  );
+}
+
+interface CharacterProps {
+  genome: BotGenome;
+  mood: BotMood;
+  size: number;
+  pad: number;
+}
+
+/** A still character: plain SVG with the mood's face, no animated views (dense lists). */
+function StillCharacter({ genome, mood, size, pad }: CharacterProps) {
+  const face = FACES[mood];
   const half = genome.eyeGap / 2;
+  const { eyeWidth: w, eyeHeight: h } = genome;
+  return (
+    <Svg
+      width={size}
+      height={size}
+      viewBox={`${-pad} ${-pad} ${100 + pad * 2} ${100 + pad * 2}`}
+      style={[StyleSheet.absoluteFill, mood === 'sleeping' && styles.asleep]}
+    >
+      <Path d={BODY[genome.body]} fill={genome.color} />
+      {[50 - half, 50 + half].map((cx, i) =>
+        face.shape === 'pill' ? (
+          <Rect
+            key={cx}
+            x={-w / 2}
+            y={-h / 2}
+            width={w}
+            height={h}
+            rx={w / 2}
+            fill="#ffffff"
+            transform={`translate(${cx} ${EYE_Y}) rotate(${face.tilt[i] ?? 0}) scale(1 ${face.open[i] ?? 1})`}
+          />
+        ) : (
+          <Path
+            key={cx}
+            d={arcPath(cx, w, face.shape)}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth={3.6}
+            strokeLinecap="round"
+          />
+        ),
+      )}
+    </Svg>
+  );
+}
+
+/**
+ * A living character: the eyes blink and glance around by mood, the head follows them and
+ * breathes, the face shows the mood (a thought bubble while it thinks, z's while it sleeps),
+ * it beams and hops when it is done and shakes its head on an error. Everything moves on the
+ * UI thread; JS only picks the next glance and blink.
+ */
+function LiveCharacter({
+  genome,
+  mood,
+  size,
+  pad,
+  halos,
+  reduced,
+}: CharacterProps & { halos: boolean; reduced: boolean }) {
+  const { scale, at } = frame(size, pad);
+  const expression = useExpression(mood);
+  const face = FACES[expression];
   const sleeping = mood === 'sleeping';
+  const half = genome.eyeGap / 2;
 
   const moodRef = useRef(mood);
+  const lookingAt = useRef({ x: 0, y: 0 });
+  const expressionRef = useRef(expression);
   const gazeX = useSharedValue(0);
   const gazeY = useSharedValue(0);
   const blink = useSharedValue(1);
-  const openness = useSharedValue(OPENNESS[mood]);
-  const tilt = useSharedValue(0);
+  const stretch = useSharedValue(1);
+  const openLeft = useSharedValue(face.open[0]);
+  const openRight = useSharedValue(face.open[1]);
+  const tiltLeft = useSharedValue(face.tilt[0]);
+  const tiltRight = useSharedValue(face.tilt[1]);
+  const lean = useSharedValue(face.head);
+  const hop = useSharedValue(0);
   const breath = useSharedValue(1);
 
   useEffect(() => {
     moodRef.current = mood;
-    openness.set(withSpring(OPENNESS[mood], springs.soft));
-    tilt.set(withSpring(mood === 'error' ? 16 : 0, springs.soft));
-  }, [mood, openness, tilt]);
+  }, [mood]);
 
-  // Gaze: wander, read, ponder… according to the mood. Reduced motion keeps the glances
-  // (small, local movements) but makes them rarer and softer.
   useEffect(() => {
-    if (quiet) return;
+    const was = expressionRef.current;
+    expressionRef.current = expression;
+    openLeft.set(withSpring(face.open[0], springs.soft));
+    openRight.set(withSpring(face.open[1], springs.soft));
+    tiltLeft.set(withSpring(face.tilt[0], springs.soft));
+    tiltRight.set(withSpring(face.tilt[1], springs.soft));
+    if (expression === 'error' && was !== 'error' && !reduced) {
+      // A short shake of the head.
+      const swing = (to: number) =>
+        withTiming(to, { duration: 135, easing: Easing.inOut(Easing.sin) });
+      lean.set(withSequence(swing(-9), swing(8), swing(-5), swing(face.head)));
+    } else {
+      lean.set(withSpring(face.head, springs.drift));
+    }
+    if (expression === 'happy' && was !== 'happy' && !reduced) {
+      // A little hop of joy.
+      hop.set(
+        withSequence(
+          withTiming(-7, { duration: 200, easing: Easing.out(Easing.quad) }),
+          withTiming(0, { duration: 250, easing: Easing.in(Easing.quad) }),
+        ),
+      );
+    }
+  }, [expression, face, reduced, openLeft, openRight, tiltLeft, tiltRight, lean, hop]);
+
+  // Gaze: wander, read, ponder… according to the mood. A quick glance stretches the eyes, a
+  // long one often comes with a blink. Reduced motion keeps the glances (small, local
+  // movements) but makes them rarer and softer.
+  useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     const step = () => {
-      const target = nextGaze(moodRef.current, genome.curiosity);
-      const spring = reduced || moodRef.current === 'thinking' ? springs.drift : springs.gaze;
+      const now = moodRef.current;
+      const target = nextGaze(now, genome.curiosity);
+      const soft = reduced || now === 'thinking';
+      const dx = target.x - lookingAt.current.x;
+      const dy = target.y - lookingAt.current.y;
+      lookingAt.current = target;
+      if (Math.hypot(dx, dy) > 1 && now === 'idle' && Math.random() < 0.5) {
+        blink.set(blinking(false));
+      }
+      const glance = glanceStretch(dx, soft);
+      if (glance.peak > 1.01) {
+        stretch.set(
+          withSequence(
+            withTiming(glance.peak, { duration: glance.rise, easing: Easing.out(Easing.quad) }),
+            withTiming(1, { duration: glance.fall, easing: Easing.inOut(Easing.quad) }),
+          ),
+        );
+      }
+      const spring = soft ? springs.drift : springs.gaze;
       gazeX.set(withSpring(target.x, spring));
       gazeY.set(withSpring(target.y, spring));
       timer = setTimeout(step, target.delay * (reduced ? 2 : 1));
     };
     timer = setTimeout(step, rand(200, 900));
     return () => clearTimeout(timer);
-  }, [quiet, reduced, genome.curiosity, gazeX, gazeY]);
+  }, [reduced, genome.curiosity, gazeX, gazeY, blink, stretch]);
 
   // Blinks at the bot's own rhythm, sometimes twice in a row.
   useEffect(() => {
-    if (quiet) return;
     let timer: ReturnType<typeof setTimeout>;
-    const close = () => withTiming(0.08, { duration: 70, easing: Easing.inOut(Easing.quad) });
-    const open = () => withTiming(1, { duration: 130, easing: Easing.inOut(Easing.quad) });
     const schedule = () => {
       timer = setTimeout(
         () => {
-          if (moodRef.current !== 'sleeping') {
-            blink.set(
-              Math.random() < 0.16
-                ? withSequence(close(), open(), close(), open())
-                : withSequence(close(), open()),
-            );
-          }
+          if (moodRef.current !== 'sleeping') blink.set(blinking(Math.random() < 0.16));
           schedule();
         },
         rand(0.45, 1.55) * genome.blinkEvery * 1000,
@@ -269,11 +571,11 @@ export function BotAvatar({ seed, size = 40, mood = 'idle', badge = false, still
     };
     schedule();
     return () => clearTimeout(timer);
-  }, [quiet, genome.blinkEvery, blink]);
+  }, [genome.blinkEvery, blink]);
 
   // Breathing: a slow, barely visible swell from the base.
   useEffect(() => {
-    if (quiet || reduced) return;
+    if (reduced) return;
     const amount = sleeping ? 1.03 : 1.018;
     const phase = (sleeping ? 5500 : 4200) / 2;
     const ease = Easing.inOut(Easing.sin);
@@ -287,9 +589,18 @@ export function BotAvatar({ seed, size = 40, mood = 'idle', badge = false, still
       ),
     );
     return () => cancelAnimation(breath);
-  }, [quiet, reduced, sleeping, breath]);
+  }, [reduced, sleeping, breath]);
 
-  const bodyStyle = useAnimatedStyle(() => ({ transform: [{ scale: breath.get() }] }));
+  // The head (body and eyes) breathes, then follows the eyes: it shifts and turns toward
+  // where they look, on top of the face's tilt, the hop and the shake. One view, one pivot.
+  const headStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: breath.get() },
+      { translateX: gazeX.get() * HEAD_FOLLOW.x * scale },
+      { translateY: (gazeY.get() * HEAD_FOLLOW.y + hop.get()) * scale },
+      { rotate: `${gazeX.get() * HEAD_FOLLOW.turn + lean.get()}deg` },
+    ],
+  }));
   const eyesStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: gazeX.get() * TRAVEL.x * scale },
@@ -297,48 +608,85 @@ export function BotAvatar({ seed, size = 40, mood = 'idle', badge = false, still
     ],
   }));
 
-  const viewBox = `${-pad} ${-pad} ${100 + pad * 2} ${100 + pad * 2}`;
+  const eye = { genome, at, scale, blink, stretch };
+
+  return (
+    <>
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          { transformOrigin: [at(PIVOT.x), at(PIVOT.y), 0] },
+          sleeping && styles.asleep,
+          headStyle,
+        ]}
+      >
+        <Svg
+          width={size}
+          height={size}
+          viewBox={`${-pad} ${-pad} ${100 + pad * 2} ${100 + pad * 2}`}
+        >
+          <Path d={BODY[genome.body]} fill={genome.color} />
+        </Svg>
+        <Animated.View style={[StyleSheet.absoluteFill, eyesStyle]}>
+          {face.shape === 'pill' ? (
+            <>
+              <Eye cx={50 - half} open={openLeft} tilt={tiltLeft} {...eye} />
+              <Eye cx={50 + half} open={openRight} tilt={tiltRight} {...eye} />
+            </>
+          ) : (
+            [50 - half, 50 + half].map((cx) => (
+              <ArcEye
+                key={`${face.shape}-${cx}`}
+                cx={cx}
+                width={genome.eyeWidth}
+                shape={face.shape === 'closed' ? 'closed' : 'happy'}
+                at={at}
+                scale={scale}
+              />
+            ))
+          )}
+        </Animated.View>
+      </Animated.View>
+
+      {halos && mood === 'thinking' && (
+        <ThoughtBubble color={genome.color} at={at} scale={scale} still={reduced} />
+      )}
+      {halos &&
+        sleeping &&
+        !reduced &&
+        [0, 1].map((i) => <Snore key={i} index={i} at={at} scale={scale} />)}
+    </>
+  );
+}
+
+/**
+ * A bot as a little character, drawn from the same genome and faces as on the web: flat
+ * colored body, two white eyes that blink at the bot's own rhythm and glance around, the head
+ * following them, an expression per mood. The body is static SVG; eyes, head and halos move
+ * as native views on the UI thread. `still` (or a tiny size) draws a plain, static SVG.
+ */
+export function BotAvatar({ seed, size = 40, mood = 'idle', badge = false, still }: Props) {
+  const genome = useMemo(() => botGenome(seed), [seed]);
+  const reduced = useReducedMotion();
+  const quiet = still ?? size < 20;
+  // State halos, the thought bubble and the z's on larger avatars.
+  const halos = size >= 36;
+  const pad = halos ? 14 : 2;
+  const { scale, at } = frame(size, pad);
   const halo = { size, pad, color: genome.color, reduced };
-  const eye = { genome, at, scale, blink, openness, tilt };
+  const character = { genome, mood, size, pad };
   const dot = 24 * scale;
 
   return (
     <View style={{ width: size, height: size }} pointerEvents="none">
       {halos && mood === 'working' && <WorkingArc {...halo} />}
-      {halos && mood === 'thinking' && <ThinkingDots {...halo} />}
       {halos && mood === 'waiting' && <WaitingRing {...halo} />}
 
-      <Animated.View
-        style={[
-          StyleSheet.absoluteFill,
-          { transformOrigin: [at(50), at(92), 0], opacity: sleeping ? 0.72 : 1 },
-          bodyStyle,
-        ]}
-      >
-        <Svg width={size} height={size} viewBox={viewBox}>
-          <Path d={BODY[genome.body]} fill={genome.color} />
-          {sleeping &&
-            [50 - half, 50 + half].map((cx) => {
-              const w = genome.eyeWidth;
-              return (
-                <Path
-                  key={cx}
-                  d={`M${cx - w * 0.85} ${EYE_Y} Q${cx} ${EYE_Y + w * 1.1} ${cx + w * 0.85} ${EYE_Y}`}
-                  fill="none"
-                  stroke="#ffffff"
-                  strokeWidth={3.4}
-                  strokeLinecap="round"
-                />
-              );
-            })}
-        </Svg>
-        {!sleeping && (
-          <Animated.View style={[StyleSheet.absoluteFill, eyesStyle]}>
-            <Eye cx={50 - half} side={-1} {...eye} />
-            <Eye cx={50 + half} side={1} {...eye} />
-          </Animated.View>
-        )}
-      </Animated.View>
+      {quiet ? (
+        <StillCharacter {...character} />
+      ) : (
+        <LiveCharacter {...character} halos={halos} reduced={reduced} />
+      )}
 
       {(badge || mood === 'error') && (
         <View
@@ -410,7 +758,9 @@ export function TeamAvatar({ seeds, size = 32 }: { seeds: string[]; size?: numbe
 }
 
 const styles = StyleSheet.create({
+  abs: { position: 'absolute' },
   eye: { position: 'absolute', backgroundColor: '#ffffff' },
+  asleep: { opacity: 0.72 },
   badge: { position: 'absolute', backgroundColor: colors.error, borderColor: colors.background },
   center: { alignItems: 'center', justifyContent: 'center' },
   seat: { borderWidth: 1, borderStyle: 'dashed', borderColor: colors.borderStrong },
