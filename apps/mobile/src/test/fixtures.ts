@@ -1,4 +1,11 @@
-import type { Bot, Message, MessagePart, VaultEvent, VaultItem } from '@mowbot/contract';
+import type {
+  Automation,
+  Bot,
+  Message,
+  MessagePart,
+  VaultEvent,
+  VaultItem,
+} from '@mowbot/contract';
 import i18next, { type TFunction } from 'i18next';
 import { en } from '../i18n/en';
 import { fr } from '../i18n/fr';
@@ -91,6 +98,26 @@ export function vaultEvent(overrides: Partial<VaultEvent> = {}): VaultEvent {
     botId: null,
     computerId: null,
     detail: null,
+    createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    ...overrides,
+  };
+}
+
+export function automation(overrides: Partial<Automation> = {}): Automation {
+  return {
+    id: uuid(),
+    botId: 'bot-1',
+    name: 'Score PSG',
+    command: 'python3 score.py',
+    intervalSeconds: 30,
+    canvasId: null,
+    until: null,
+    status: 'active',
+    runs: 0,
+    failures: 0,
+    lastRunAt: null,
+    lastResult: null,
+    stoppedReason: null,
     createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
     ...overrides,
   };

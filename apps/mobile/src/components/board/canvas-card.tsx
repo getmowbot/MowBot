@@ -11,6 +11,7 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
+import { useCanvasLive } from '../../lib/admin-queries';
 import { CANVAS_SIZES, checklistProgress, foldedSummary } from '../../lib/board';
 import { useCanvasActions } from '../../lib/board-queries';
 import { alertError, confirm, type MenuOption, openOptions } from '../../lib/options-menu';
@@ -23,6 +24,7 @@ import { Surface } from '../ui/surface';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 import { CanvasBody } from './canvas-kinds';
+import { LiveBadge } from './live-badge';
 
 /** The bot that pinned the card, alive (its mood follows what it is doing). */
 function Author({ bot }: { bot: Bot }) {
@@ -43,6 +45,8 @@ interface Props {
 export function CanvasCard({ canvas, bot, first, last, onMove }: Props) {
   const { t, i18n } = useTranslation();
   const { update, remove, press } = useCanvasActions();
+  // An active automation keeps it up to date (one query shared by every card).
+  const live = useCanvasLive(canvas.id);
   const { content } = canvas;
   const workspaceId = bot?.workspaceId ?? null;
   const progress = checklistProgress(content);
@@ -132,6 +136,7 @@ export function CanvasCard({ canvas, bot, first, last, onMove }: Props) {
             </T>
           ) : null}
           <View style={styles.meta}>
+            {live && <LiveBadge />}
             {canvas.hidden && (
               <EyeOff
                 size={12}

@@ -17,6 +17,8 @@ export const keys = {
   /** Every routine, or one bot's (`['routines', botId]`). */
   routines: ['routines'] as const,
   routineRuns: (routineId: string) => ['routine-runs', routineId] as const,
+  /** Bots' scripts the hub runs on their PCs (also tells which home cards are live). */
+  automations: ['automations'] as const,
   system: ['system'] as const,
   devices: ['devices'] as const,
   /** Whether the phone lets the app notify (asked of the phone, not the hub). */

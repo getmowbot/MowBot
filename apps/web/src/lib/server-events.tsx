@@ -1,4 +1,5 @@
 import type {
+  Automation,
   Bot,
   Canvas,
   Message,
@@ -83,6 +84,7 @@ export function ServerEvents() {
             'canvases',
             'notifications',
             'routines',
+            'automations',
             'system',
             'vault',
           ]) {
@@ -179,6 +181,16 @@ export function ServerEvents() {
         case 'routine.updated':
         case 'routine.deleted':
           void queryClient.invalidateQueries({ queryKey: ['routines'] });
+          break;
+        case 'automation.updated':
+          queryClient.setQueryData<Automation[]>(['automations'], (list) =>
+            upsert(list, event.automation),
+          );
+          break;
+        case 'automation.deleted':
+          queryClient.setQueryData<Automation[]>(['automations'], (list) =>
+            list?.filter((a) => a.id !== event.automationId),
+          );
           break;
         case 'system.updated':
           queryClient.setQueryData(['system'], event.settings);

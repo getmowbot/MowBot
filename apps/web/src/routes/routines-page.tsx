@@ -1,19 +1,35 @@
-import type { Bot, Routine, RoutineRunStatus, RoutineTrigger } from '@mowbot/contract';
+import type {
+  Automation,
+  AutomationStatus,
+  Bot,
+  Routine,
+  RoutineRunStatus,
+  RoutineTrigger,
+} from '@mowbot/contract';
 import { useMutation } from '@tanstack/react-query';
-import { ChevronDown, Copy, Play, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Copy, Pause, Play, Plus, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BotAvatar } from '../components/bot-avatar';
+import { LiveDot } from '../components/live-dot';
 import { Button } from '../components/ui/button';
 import { Dialog } from '../components/ui/dialog';
 import { FormError, Input, Label, Select, Textarea } from '../components/ui/form';
 import { Switch } from '../components/ui/switch';
 import { api, apiBaseUrl, problemMessage } from '../lib/auth';
 import { Reveal } from '../lib/motion';
-import { useRoutineRuns, useRoutines } from '../lib/proactivity';
+import {
+  automationEvery,
+  useAutomations,
+  useCanvases,
+  useDeleteAutomation,
+  useRoutineRuns,
+  useRoutines,
+  useUpdateAutomation,
+} from '../lib/proactivity';
 import { useBots } from '../lib/queries';
-import { cn, timeAgo } from '../lib/utils';
+import { cn, formatDate, timeAgo } from '../lib/utils';
 
 const STATUS_STYLE: Record<RoutineRunStatus, string> = {
   running: 'shimmer-text',
@@ -330,6 +346,192 @@ function NewRoutineForm({ bots, onDone }: { bots: Bot[]; onDone(): void }) {
   );
 }
 
+/** Active first, then paused, then the ones that stopped (kept a day); oldest first within. */
+const AUTOMATION_ORDER: Record<AutomationStatus, number> = { active: 0, paused: 1, stopped: 2 };
+
+/** Today: the time alone; later: the date too. */
+function untilLabel(iso: string): string {
+  const sameDay = new Date(iso).toDateString() === new Date().toDateString();
+  return formatDate(
+    iso,
+    sameDay ? { timeStyle: 'short' } : { dateStyle: 'medium', timeStyle: 'short' },
+  );
+}
+
+function AutomationRow({
+  automation,
+  bot,
+  canvasTitle,
+}: {
+  automation: Automation;
+  bot?: Bot;
+  canvasTitle?: string;
+}) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const update = useUpdateAutomation();
+  const remove = useDeleteAutomation();
+  const { status, name } = automation;
+  const error = update.error ?? remove.error;
+  const details = [
+    bot?.name,
+    automationEvery(automation.intervalSeconds),
+    canvasTitle && t('automations.canvas', { title: canvasTitle }),
+    status !== 'stopped' &&
+      automation.until &&
+      t('automations.until', { time: untilLabel(automation.until) }),
+  ].filter(Boolean);
+  return (
+    <li className="py-3">
+      <div className="flex items-start gap-3">
+        {bot ? (
+          <BotAvatar seed={bot.avatarSeed} size={28} className="mt-0.5 shrink-0" />
+        ) : (
+          <span className="size-7 shrink-0" />
+        )}
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate font-medium">{name}</span>
+            <span
+              className={cn(
+                'inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border-strong px-1.5 text-[10px]',
+                status === 'active' ? 'text-foreground/80' : 'text-muted-foreground',
+              )}
+            >
+              {status === 'active' && <LiveDot />}
+              {t(`automations.status.${status}`)}
+            </span>
+            {automation.stoppedReason && (
+              <span
+                title={automation.stoppedReason}
+                className="min-w-0 truncate text-xs text-muted-foreground"
+              >
+                {automation.stoppedReason}
+              </span>
+            )}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">{details.join(' · ')}</p>
+          <p className="text-xs">
+            {automation.lastRunAt ? (
+              <>
+                <span className="text-faint">
+                  {t('automations.lastRun', { time: timeAgo(automation.lastRunAt) })}
+                </span>
+                {automation.lastResult && (
+                  <span
+                    className={automation.failures > 0 ? 'text-warning' : 'text-muted-foreground'}
+                  >
+                    {' · '}
+                    {automation.lastResult}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-faint">{t('automations.notRun')}</span>
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            title={expanded ? undefined : automation.command}
+            className="block w-full pt-1 text-left"
+          >
+            <code
+              className={cn(
+                'block rounded-lg bg-black/40 px-2 py-1 font-mono text-[11px] text-muted-foreground',
+                expanded ? 'whitespace-pre-wrap break-all' : 'truncate',
+              )}
+            >
+              {automation.command}
+            </code>
+          </button>
+          {error && (
+            <p role="alert" className="pt-1 text-xs text-destructive">
+              {problemMessage(error, t('common.actionFailed'))}
+            </p>
+          )}
+        </div>
+        {status !== 'stopped' && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() =>
+              update.mutate({
+                id: automation.id,
+                status: status === 'active' ? 'paused' : 'active',
+              })
+            }
+            disabled={update.isPending}
+            aria-label={
+              status === 'active'
+                ? t('automations.pause', { name })
+                : t('automations.resume', { name })
+            }
+            title={status === 'active' ? t('automations.pauseShort') : t('automations.resumeShort')}
+          >
+            {status === 'active' ? <Pause className="size-4" /> : <Play className="size-4" />}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() =>
+            confirm(t('automations.confirmDelete', { name })) && remove.mutate(automation.id)
+          }
+          disabled={remove.isPending}
+          aria-label={t('common.deleteNamed', { name })}
+          title={t('common.delete')}
+          className="hover:text-destructive"
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+/** Bots' scripts the hub runs on their PCs, without the AI: what runs, how often, how it went. */
+function Automations() {
+  const { t } = useTranslation();
+  const automations = useAutomations();
+  const bots = useBots();
+  const canvases = useCanvases();
+  const items = (automations.data ?? [])
+    .slice()
+    .sort((a, b) => AUTOMATION_ORDER[a.status] - AUTOMATION_ORDER[b.status]);
+
+  return (
+    <Reveal delay={0.05} className="space-y-3">
+      <div>
+        <h2 className="font-medium">{t('automations.title')}</h2>
+        <p className="text-sm text-muted-foreground">{t('automations.subtitle')}</p>
+      </div>
+      {automations.isSuccess && items.length === 0 && (
+        <p className="rounded-2xl border border-dashed border-border-strong px-6 py-10 text-center text-sm text-muted-foreground">
+          {t('automations.empty')}
+        </p>
+      )}
+      {items.length > 0 && (
+        <ul className="glass divide-y divide-border rounded-2xl px-4 py-1">
+          {items.map((automation) => (
+            <AutomationRow
+              key={automation.id}
+              automation={automation}
+              bot={bots.data?.find((b) => b.id === automation.botId)}
+              canvasTitle={
+                automation.canvasId
+                  ? canvases.data?.find((c) => c.id === automation.canvasId)?.title
+                  : undefined
+              }
+            />
+          ))}
+        </ul>
+      )}
+    </Reveal>
+  );
+}
+
 /** Every routine and check-in, by bot: what fires when, how it went, switches and history. */
 export function RoutinesPage() {
   const { t } = useTranslation();
@@ -371,6 +573,8 @@ export function RoutinesPage() {
           </ul>
         </Reveal>
       ))}
+
+      <Automations />
 
       <Dialog open={creating} onClose={() => setCreating(false)} title={t('routines.new')}>
         <NewRoutineForm bots={bots.data ?? []} onDone={() => setCreating(false)} />

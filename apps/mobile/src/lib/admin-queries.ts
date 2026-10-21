@@ -1,4 +1,6 @@
 import type {
+  Automation,
+  AutomationStatus,
   Device,
   Me,
   MeUpdate,
@@ -13,7 +15,9 @@ import type {
   SystemSettingsUpdate,
 } from '@mowbot/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import i18n from '../i18n';
+import { isCanvasLive } from './automations';
 import { problemCode } from './hub-url';
 import { data, keys } from './queries';
 import { api } from './session';
@@ -217,6 +221,63 @@ export function useRunRoutine() {
       void client.invalidateQueries({ queryKey: keys.routineRuns(routineId) });
       void client.invalidateQueries({ queryKey: keys.routines });
     },
+  });
+}
+
+/* ------------------------------------------------------------------ automations */
+
+const fetchAutomations = async () => (await data(api().GET('/api/v1/automations'))).items;
+
+/** Bots' scripts the hub runs on their PCs, kept live by events (finished ones stay a day). */
+export function useAutomations() {
+  return useQuery({ queryKey: keys.automations, queryFn: fetchAutomations });
+}
+
+/**
+ * Whether an active automation keeps this home card up to date: the same query as the list,
+ * the card only re-renders when its own answer changes.
+ */
+export function useCanvasLive(canvasId: string): boolean {
+  const select = useCallback((items: Automation[]) => isCanvasLive(items, canvasId), [canvasId]);
+  const live = useQuery({ queryKey: keys.automations, queryFn: fetchAutomations, select });
+  return live.data ?? false;
+}
+
+function upsertAutomation(
+  list: Automation[] | undefined,
+  automation: Automation,
+): Automation[] | undefined {
+  if (!list) return list;
+  return list.some((a) => a.id === automation.id)
+    ? list.map((a) => (a.id === automation.id ? automation : a))
+    : [...list, automation];
+}
+
+/** Pauses or resumes an automation (resuming clears its failures). */
+export function useUpdateAutomation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Exclude<AutomationStatus, 'stopped'> }) =>
+      data(api().PATCH('/api/v1/automations/{id}', { params: { path: { id } }, body: { status } })),
+    onSuccess: (automation) =>
+      client.setQueryData<Automation[]>(keys.automations, (list) =>
+        upsertAutomation(list, automation),
+      ),
+  });
+}
+
+/** Stops and deletes an automation. */
+export function useDeleteAutomation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (automationId: string) =>
+      noContent(
+        api().DELETE('/api/v1/automations/{id}', { params: { path: { id: automationId } } }),
+      ),
+    onSuccess: (_, automationId) =>
+      client.setQueryData<Automation[]>(keys.automations, (list) =>
+        list?.filter((a) => a.id !== automationId),
+      ),
   });
 }
 
