@@ -188,7 +188,7 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
         .string()
         .max(8000)
         .optional()
-        .describe('Ce que tu as fait, où sont les livrables, ou ce qui te bloque'),
+        .describe('Ce que tu as fait (et où sont les fichiers, s’il y en a), ou ce qui te bloque'),
     }),
     execute: async ({ id, status, result }) => {
       const task = await ctx.tasks

@@ -114,7 +114,7 @@ export function buildTools(ctx: ToolContext): ToolSet {
 
     tools.write_file = tool({
       description:
-        'Écrit (ou remplace) un fichier texte dans /workspace, en créant les dossiers manquants.',
+        'Écrit (ou remplace) un fichier texte dans /workspace, en créant les dossiers manquants. Seulement pour un fichier utile (livrable demandé, données à garder ou à passer à un bot) : un récap ou une réponse va dans ton message.',
       inputSchema: z.object({
         path: z.string().describe('Chemin, ex. /workspace/outputs/rapport.md'),
         content: z.string(),
