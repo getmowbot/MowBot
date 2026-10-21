@@ -1,4 +1,4 @@
-import type { Bot, Mention, Message, Task } from '@mowbot/contract';
+import type { AttachmentUpload, Bot, Mention, Message, Task } from '@mowbot/contract';
 import {
   QueryClient,
   useInfiniteQuery,
@@ -7,6 +7,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useState } from 'react';
+import type { PendingAttachment } from './attachments';
 import {
   type Conversation,
   markPressed,
@@ -16,6 +17,7 @@ import {
 } from './message-cache';
 import { keys } from './query-keys';
 import { api } from './session';
+import { postFile } from './uploads';
 
 export { keys };
 
@@ -152,29 +154,90 @@ export function useLiveMessage(botId: string) {
   }).data;
 }
 
-/** A message to send: its text, and what it points at with @ (bots, teams, files). */
+/**
+ * A message to send: its text, what it points at with @ (bots, teams, files), and the files
+ * picked for it (uploaded to the bot's inbox first).
+ */
 export interface Outgoing {
   text: string;
   mentions?: Mention[];
+  files?: PendingAttachment[];
+}
+
+/** A message the hub took: in the conversation at once (its events may come after). */
+function useAddMessage() {
+  const client = useQueryClient();
+  return (message: Message) =>
+    client.setQueryData<Conversation>(keys.messages(message.botId), (current) =>
+      current && !current.items.some((m) => m.id === message.id)
+        ? { ...current, items: [...current.items, message] }
+        : current,
+    );
 }
 
 export function useSendMessage(botId: string) {
-  const client = useQueryClient();
+  const added = useAddMessage();
   return useMutation({
-    mutationFn: ({ text, mentions }: Outgoing) =>
-      data(
+    mutationFn: async ({ text, mentions, files }: Outgoing) => {
+      // One file at a time: a phone's upload is a native transfer each.
+      const attachments: { path: string }[] = [];
+      for (const file of files ?? []) {
+        const uploaded = (await postFile(
+          `/api/v1/bots/${encodeURIComponent(botId)}/attachments`,
+          file,
+        )) as AttachmentUpload;
+        attachments.push(...uploaded.items.map((item) => ({ path: item.path })));
+      }
+      return data(
         api().POST('/api/v1/bots/{id}/messages', {
           params: { path: { id: botId } },
-          body: mentions?.length ? { text, mentions } : { text },
+          body: {
+            text,
+            ...(mentions?.length ? { mentions } : {}),
+            ...(attachments.length ? { attachments } : {}),
+          },
         }),
-      ),
-    onSuccess: (message) => {
-      client.setQueryData<Conversation>(keys.messages(message.botId), (current) =>
-        current && !current.items.some((m) => m.id === message.id)
-          ? { ...current, items: [...current.items, message] }
-          : current,
       );
     },
+    onSuccess: added,
+  });
+}
+
+/** A recording to send as a voice message (an m4a file, from the recorder). */
+export interface OutgoingVoice {
+  uri: string;
+  durationMs: number;
+  peaks: number[];
+}
+
+/** A voice message: shown at once with its waveform; the transcript follows by events. */
+export function useSendVoice(botId: string) {
+  const added = useAddMessage();
+  return useMutation({
+    mutationFn: async ({ uri, durationMs, peaks }: OutgoingVoice) =>
+      (await postFile(
+        `/api/v1/bots/${encodeURIComponent(botId)}/messages/voice`,
+        { uri, name: 'voice.m4a', mimeType: 'audio/mp4' },
+        { durationMs: String(Math.round(durationMs)), peaks: peaks.join(',') },
+      )) as Message,
+    onSuccess: added,
+  });
+}
+
+/** Transcribes again a voice message the bot could not hear. */
+export function useRetryTranscript(botId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (messageId: string) =>
+      data(
+        api().POST('/api/v1/bots/{id}/messages/{messageId}/transcribe', {
+          params: { path: { id: botId, messageId } },
+        }),
+      ),
+    onSuccess: (message) =>
+      client.setQueryData<Conversation>(keys.messages(message.botId), (current) =>
+        current ? upsertMessage(current, message) : current,
+      ),
   });
 }
 

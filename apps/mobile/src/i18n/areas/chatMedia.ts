@@ -1,0 +1,66 @@
+import type { Widen } from '../catalog';
+
+/** Ce qui part avec un message : fichiers, photos, messages vocaux. */
+export const fr = {
+  attach: {
+    add: 'Joindre',
+    photos: 'Photos',
+    camera: 'Prendre une photo',
+    document: 'Document',
+    remove: 'Retirer {{name}}',
+    tooBig: '{{name}} dépasse {{size}}.',
+    tooMany: '{{count}} fichiers au plus par message.',
+    photosDenied: 'Autorise l’accès aux photos dans les réglages pour en joindre.',
+    cameraDenied: 'Autorise l’appareil photo dans les réglages pour prendre une photo.',
+    sending: 'Envoi des fichiers…',
+    open: 'Ouvrir {{name}}',
+  },
+  voice: {
+    record: 'Maintiens pour enregistrer un message vocal',
+    holdHint: 'Maintiens le micro pour enregistrer.',
+    slideToCancel: 'Glisse pour annuler',
+    releaseToCancel: 'Relâche pour annuler',
+    micDenied: 'Autorise le micro dans les réglages pour enregistrer.',
+    notSent: 'Message vocal non envoyé.',
+    play: 'Écouter le message vocal',
+    pause: 'Pause',
+    transcript: 'Transcription',
+    transcribing: 'Transcription…',
+    failed: 'Transcription impossible',
+    silent: 'Rien d’audible',
+    retry: 'Réessayer',
+    unplayable: 'Lecture impossible.',
+  },
+};
+
+export const en: Widen<typeof fr> = {
+  attach: {
+    add: 'Attach',
+    photos: 'Photos',
+    camera: 'Take a photo',
+    document: 'Document',
+    remove: 'Remove {{name}}',
+    tooBig: '{{name}} is over {{size}}.',
+    tooMany: 'At most {{count}} files per message.',
+    photosDenied: 'Allow access to photos in Settings to attach some.',
+    cameraDenied: 'Allow the camera in Settings to take a photo.',
+    sending: 'Sending files…',
+    open: 'Open {{name}}',
+  },
+  voice: {
+    record: 'Hold to record a voice message',
+    holdHint: 'Hold the mic to record.',
+    slideToCancel: 'Slide to cancel',
+    releaseToCancel: 'Release to cancel',
+    micDenied: 'Allow the microphone in Settings to record.',
+    notSent: 'Voice message not sent.',
+    play: 'Play the voice message',
+    pause: 'Pause',
+    transcript: 'Transcript',
+    transcribing: 'Transcribing…',
+    failed: 'Could not transcribe',
+    silent: 'Nothing audible',
+    retry: 'Retry',
+    unplayable: 'Cannot play it.',
+  },
+};

@@ -4,6 +4,7 @@ import { Fragment, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, type TextStyle, View } from 'react-native';
 import { segments } from '../../lib/activity';
+import { userMedia } from '../../lib/attachments';
 import { moodOf } from '../../lib/bot-mood';
 import { mentionSegments } from '../../lib/chat-input';
 import { chipBots, type IncomingPlace, runSummary, senderOf, withSender } from '../../lib/incoming';
@@ -17,8 +18,10 @@ import { ShimmerText } from '../ui/shimmer-text';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 import { MessageCanvas } from './message-canvas';
+import { MessageFiles } from './message-files';
 import { TakeoverRequest } from './takeover-request';
 import { VaultRequest } from './vault-request';
+import { VoiceMessage } from './voice-message';
 
 /** Under a message that reached the bot while it worked: taken into its ongoing answer. */
 function Steered({ message, style }: { message: Message; style?: TextStyle }) {
@@ -60,6 +63,7 @@ function MentionedText({ message, workspaceId }: { message: Message; workspaceId
   );
 }
 
+/** What the user sent: a voice message, pictures and files, their text. */
 export function UserMessage({
   message,
   workspaceId = null,
@@ -68,13 +72,27 @@ export function UserMessage({
   /** The bot's workspace, where its file mentions are. */
   workspaceId?: string | null;
 }) {
+  const { pictures, files, voice } = userMedia(message.parts);
+  const text = messageText(message).trim().length > 0;
   return (
     <View style={styles.sent}>
-      <View style={styles.right}>
-        <View style={[styles.bubble, styles.userBubble]}>
-          <MentionedText message={message} workspaceId={workspaceId} />
+      {voice && (
+        <View style={styles.right}>
+          <VoiceMessage message={message} part={voice} />
         </View>
-      </View>
+      )}
+      {(pictures.length > 0 || files.length > 0) && (
+        <View style={styles.right}>
+          <MessageFiles pictures={pictures} files={files} version={message.id} />
+        </View>
+      )}
+      {text && (
+        <View style={styles.right}>
+          <View style={[styles.bubble, styles.userBubble]}>
+            <MentionedText message={message} workspaceId={workspaceId} />
+          </View>
+        </View>
+      )}
       <Steered message={message} />
     </View>
   );
