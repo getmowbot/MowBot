@@ -28,6 +28,9 @@ export interface TestApp {
   close(): Promise<void>;
 }
 
+type ShellAnswer = { exitCode?: number; stdout?: string; stderr?: string };
+type Awaitable<T> = T | Promise<T>;
+
 /**
  * Stands in for Docker: each "container" is a real mow-agent listening on localhost, wired
  * to a fake VNC server that echoes bytes back (none for the MCP computer, which has no desktop).
@@ -51,10 +54,8 @@ export class FakeRuntime implements ComputerRuntime {
   readonly ran: { kind: ComputerSpec['kind']; command: string }[] = [];
   /** Answers each shell command with the command itself (to see what reached the computer). */
   echoCommands = false;
-  /** Answers the shell commands it recognises (the others get an empty success). */
-  shell:
-    | ((script: string) => { exitCode?: number; stdout?: string; stderr?: string } | undefined)
-    | null = null;
+  /** Answers the shell commands it recognises (the others get an empty success), maybe later. */
+  shell: ((script: string) => Awaitable<ShellAnswer | undefined>) | null = null;
   /** Starts the process behind /stdio (an MCP server), when a test needs one. */
   stdio:
     | ((
@@ -90,7 +91,7 @@ export class FakeRuntime implements ComputerRuntime {
           this.commands.push(script);
           this.ran.push({ kind: spec.kind, command: script });
         }
-        const scripted = script ? this.shell?.(script) : undefined;
+        const scripted = script ? await this.shell?.(script) : undefined;
         if (scripted) {
           return { exitCode: 0, stdout: '', stderr: '', timedOut: false, ...scripted };
         }

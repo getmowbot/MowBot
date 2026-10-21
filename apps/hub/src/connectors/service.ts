@@ -9,7 +9,7 @@ import {
 import { and, asc, eq, inArray, notInArray } from 'drizzle-orm';
 import WebSocket from 'ws';
 import { z } from 'zod';
-import { type BotRow, toBot } from '../bots/service';
+import type { BotRow, BotService } from '../bots/service';
 import type { Db } from '../db/client';
 import { bots, connectors, projectGrants, projects } from '../db/schema';
 import type { EventBus } from '../events';
@@ -103,7 +103,7 @@ export function toConnector(row: ConnectorRow, online: boolean): Connector {
 export class ConnectorService {
   private readonly links = new Map<string, Link>();
 
-  constructor(private readonly deps: { db: Db; events: EventBus }) {}
+  constructor(private readonly deps: { db: Db; events: EventBus; bots: BotService }) {}
 
   // Connectors
 
@@ -322,7 +322,7 @@ export class ConnectorService {
   private async publishBots(botIds: string[]): Promise<void> {
     if (botIds.length === 0) return;
     const rows = await this.deps.db.select().from(bots).where(inArray(bots.id, botIds));
-    for (const row of rows) this.deps.events.publish({ type: 'bot.updated', bot: toBot(row) });
+    for (const row of rows) this.deps.bots.publish(row);
   }
 
   /** What each project's computer is, for the bots (OS, shell). */

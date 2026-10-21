@@ -20,6 +20,20 @@ export const modelRefSchema = z.object({
 });
 export type ModelRef = z.infer<typeof modelRefSchema>;
 
+/**
+ * The tool call a working bot is running right now, for the apps to word it ("Lance npm",
+ * "Écrit à Sacha · …"). Kept by the hub in memory only.
+ */
+export const botActivitySchema = z.object({
+  toolName: z.string(),
+  /**
+   * The few short fields of the call's input the apps word it with (`intent`, `to`, `url`,
+   * `command`, `path`…), strings cut to 120 characters. Never contents nor secrets.
+   */
+  input: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+});
+export type BotActivity = z.infer<typeof botActivitySchema>;
+
 export const botSchema = z.object({
   id: z.uuid(),
   name: z.string(),
@@ -44,6 +58,8 @@ export const botSchema = z.object({
   dailyTokenBudget: z.number().int().nullable(),
   status: botStatusSchema,
   statusDetail: z.string().nullable(),
+  /** What the bot is doing right now: the tool call it runs; null while it thinks or writes, or rests. */
+  activity: botActivitySchema.nullable(),
   /** Seed of the bot's character (shape, colors, eyes): see @mowbot/design. */
   avatarSeed: z.string(),
   /**

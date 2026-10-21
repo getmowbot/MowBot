@@ -23,7 +23,7 @@ import { and, desc, eq, lt } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { INBOX, toAttachment } from '../agents/attachments';
-import { type BotRow, toBot, toMessage } from '../bots/service';
+import { type BotRow, toMessage } from '../bots/service';
 import { messages } from '../db/schema';
 import { bearerSecurity, requireAuth } from '../http/auth-hook';
 import { errorResponses, HttpProblem } from '../http/problems';
@@ -128,7 +128,7 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: botSchema, ...errorResponses },
       },
     },
-    async (request) => toBot(await bots.row(request.params.id)),
+    async (request) => bots.toBot(await bots.row(request.params.id)),
   );
 
   app.patch(

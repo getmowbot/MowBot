@@ -8559,6 +8559,39 @@
                               "null"
                             ]
                           },
+                          "activity": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "toolName": {
+                                    "type": "string"
+                                  },
+                                  "input": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "additionalProperties": {
+                                      "type": [
+                                        "string",
+                                        "number",
+                                        "boolean"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "toolName",
+                                  "input"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "avatarSeed": {
                             "type": "string"
                           },
@@ -8598,6 +8631,7 @@
                           "dailyTokenBudget",
                           "status",
                           "statusDetail",
+                          "activity",
                           "avatarSeed",
                           "projectId",
                           "createdAt"
@@ -8998,6 +9032,39 @@
                         "null"
                       ]
                     },
+                    "activity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "toolName": {
+                              "type": "string"
+                            },
+                            "input": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "toolName",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -9037,6 +9104,7 @@
                     "dailyTokenBudget",
                     "status",
                     "statusDetail",
+                    "activity",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -9502,6 +9570,39 @@
                         "null"
                       ]
                     },
+                    "activity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "toolName": {
+                              "type": "string"
+                            },
+                            "input": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "toolName",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -9541,6 +9642,7 @@
                     "dailyTokenBudget",
                     "status",
                     "statusDetail",
+                    "activity",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -9998,6 +10100,39 @@
                         "null"
                       ]
                     },
+                    "activity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "toolName": {
+                              "type": "string"
+                            },
+                            "input": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "toolName",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -10037,6 +10172,7 @@
                     "dailyTokenBudget",
                     "status",
                     "statusDetail",
+                    "activity",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -10393,6 +10529,39 @@
                         "null"
                       ]
                     },
+                    "activity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "toolName": {
+                              "type": "string"
+                            },
+                            "input": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "toolName",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -10432,6 +10601,7 @@
                     "dailyTokenBudget",
                     "status",
                     "statusDetail",
+                    "activity",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -18427,6 +18597,39 @@
                         "null"
                       ]
                     },
+                    "activity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "toolName": {
+                              "type": "string"
+                            },
+                            "input": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "toolName",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -18466,6 +18669,7 @@
                     "dailyTokenBudget",
                     "status",
                     "statusDetail",
+                    "activity",
                     "avatarSeed",
                     "projectId",
                     "createdAt"

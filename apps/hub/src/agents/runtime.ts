@@ -18,7 +18,8 @@ import type {
 } from '@mowbot/contract';
 import { type LanguageModel, type ModelMessage, stepCountIs, streamText, type ToolSet } from 'ai';
 import { and, asc, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
-import { type BotRow, type BotService, toBot, toMessage } from '../bots/service';
+import { activityInput, type BotActivities } from '../bots/activity';
+import { type BotRow, type BotService, toMessage } from '../bots/service';
 import type { AgentClient, ExecResult } from '../computers/agent-client';
 import type { ComputerService, Logger } from '../computers/service';
 import { type ConnectorService, type ProjectRow, usableBy } from '../connectors/service';
@@ -252,6 +253,41 @@ function masked(secrets: SecretScope, tools: ToolSet): ToolSet {
               return secrets.mask(await execute(input, options));
             } catch (error) {
               throw secrets.maskError(error);
+            }
+          },
+        },
+      ];
+    }),
+  );
+}
+
+/**
+ * While a tool call runs, it is what the bot is doing: the apps show it (with only a few short
+ * fields of its input, vault secrets masked).
+ */
+function tracked(
+  botId: string,
+  activity: BotActivities,
+  secrets: SecretScope,
+  tools: ToolSet,
+): ToolSet {
+  return Object.fromEntries(
+    Object.entries(tools).map(([name, entry]) => {
+      const { execute } = entry;
+      if (!execute) return [name, entry];
+      return [
+        name,
+        {
+          ...entry,
+          execute: async (input: unknown, options: Parameters<typeof execute>[1]) => {
+            activity.start(botId, options.toolCallId, {
+              toolName: name,
+              input: secrets.mask(activityInput(name, input)),
+            });
+            try {
+              return await execute(input, options);
+            } finally {
+              activity.end(botId, options.toolCallId);
             }
           },
         },
@@ -835,7 +871,7 @@ export class BotRuntime {
         throw new HttpProblem(409, 'project_not_allowed', 'This bot may not use this project');
       }
     }
-    if (bot.projectId === (row?.id ?? null)) return toBot(bot);
+    if (bot.projectId === (row?.id ?? null)) return this.deps.bots.toBot(bot);
     const updated = await this.deps.bots.update(botId, { projectId: row?.id ?? null });
     let text =
       "[L'utilisateur a retiré le projet actif : précise project dans les outils local_*.]";
@@ -1545,7 +1581,7 @@ export class BotRuntime {
       const machines = connectors ? await connectors.connectorsOf(projects) : new Map();
       const active = projects.find((p) => p.id === bot.projectId);
       const activeOnline = Boolean(active && connectors?.isOnline(active.connectorId));
-      const tools = masked(secrets, {
+      const toolset = masked(secrets, {
         ...buildTools({
           botId,
           botName: bot.name,
@@ -1639,6 +1675,7 @@ export class BotRuntime {
             })
           : {}),
       });
+      const tools = tracked(botId, this.deps.bots.activity, secrets, toolset);
       const system = systemPrompt({
         bot,
         ownerName: account?.name ?? "l'utilisateur",
@@ -1840,6 +1877,7 @@ export class BotRuntime {
           outputTokens: outcome.usage.outputTokens ?? 0,
         },
       });
+      this.deps.bots.activity.clear(botId);
       await this.deps.bots.update(botId, { status: 'idle', statusDetail: null });
       const answer = textOf(parts);
       this.pushFinished(bot, created, parts, autonomous, answer, null);
@@ -1866,6 +1904,8 @@ export class BotRuntime {
         errorCode: stopped ? null : 'run_failed',
         error: stopped ? null : errorMessage(error),
       });
+      // A call cut short may still be ending: the bot does nothing any more.
+      this.deps.bots.activity.clear(botId);
       await this.deps.bots.update(botId, {
         status: stopped ? 'idle' : 'error',
         statusDetail: stopped ? null : errorMessage(error),
@@ -1887,6 +1927,7 @@ export class BotRuntime {
         error: errorMessage(error),
       });
     } finally {
+      this.deps.bots.activity.clear(botId);
       this.live.delete(created.id);
       this.controllers.delete(botId);
       this.screen.releaseAll(botId);

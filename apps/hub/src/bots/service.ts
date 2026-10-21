@@ -1,15 +1,17 @@
-import type { Bot, BotUpdate, Message, MessagePart } from '@mowbot/contract';
+import type { Bot, BotActivity, BotUpdate, Message, MessagePart } from '@mowbot/contract';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { bots, messages } from '../db/schema';
 import type { EventBus } from '../events';
 import { notFound } from '../http/problems';
 import type { WorkspaceFiles } from '../workspaces/files';
+import { BotActivities } from './activity';
 
 export type BotRow = typeof bots.$inferSelect;
 export type MessageRow = typeof messages.$inferSelect;
 
-export function toBot(row: BotRow): Bot {
+/** `activity`: what the bot is doing right now (BotService knows it; a new bot does nothing yet). */
+export function toBot(row: BotRow, activity: BotActivity | null = null): Bot {
   return {
     id: row.id,
     name: row.name,
@@ -27,6 +29,7 @@ export function toBot(row: BotRow): Bot {
     dailyTokenBudget: row.dailyTokenBudget,
     status: row.status,
     statusDetail: row.statusDetail,
+    activity,
     avatarSeed: row.avatarSeed,
     managerId: row.managerId,
     projectId: row.projectId,
@@ -69,15 +72,67 @@ export function botFolder(name: string): string {
   return `bots/${slug || 'bot'}`;
 }
 
+/** A bot's activity goes out at most this often: a burst of quick tool calls is one event. */
+export const ACTIVITY_PUBLISH_MS = 300;
+
 export class BotService {
+  /** The tool calls the bots are running (in memory), shown with them. */
+  readonly activity = new BotActivities((botId) => this.publishSoon(botId));
+  /** Activity changes waiting to go out, by bot. */
+  private readonly pending = new Map<string, NodeJS.Timeout>();
+  /** The activity each bot last went out with (JSON): unchanged, nothing to send. */
+  private readonly published = new Map<string, string>();
+
   constructor(
     private readonly db: Db,
     private readonly events: EventBus,
+    private readonly publishDelayMs = ACTIVITY_PUBLISH_MS,
   ) {}
+
+  toBot(row: BotRow): Bot {
+    return toBot(row, this.activity.of(row.id));
+  }
+
+  /** Tells everyone how the bot is now (what it does included). */
+  publish(row: BotRow): Bot {
+    const bot = this.toBot(row);
+    clearTimeout(this.pending.get(row.id));
+    this.pending.delete(row.id);
+    this.published.set(row.id, JSON.stringify(bot.activity));
+    this.events.publish({ type: 'bot.updated', bot });
+    return bot;
+  }
+
+  private unchanged(botId: string): boolean {
+    return (this.published.get(botId) ?? 'null') === JSON.stringify(this.activity.of(botId));
+  }
+
+  /** What the bot does changed: said once things settle, as it is then. */
+  private publishSoon(botId: string): void {
+    if (this.pending.has(botId)) return;
+    const timer = setTimeout(() => {
+      this.pending.delete(botId);
+      if (this.unchanged(botId)) return;
+      void this.row(botId).then(
+        (row) => {
+          if (!this.unchanged(botId)) this.publish(row);
+        },
+        () => undefined, // Deleted meanwhile.
+      );
+    }, this.publishDelayMs);
+    timer.unref();
+    this.pending.set(botId, timer);
+  }
+
+  /** The hub stops: nothing more goes out. */
+  close(): void {
+    for (const timer of this.pending.values()) clearTimeout(timer);
+    this.pending.clear();
+  }
 
   async list(): Promise<Bot[]> {
     const rows = await this.db.select().from(bots).orderBy(bots.createdAt);
-    return rows.map(toBot);
+    return rows.map((row) => this.toBot(row));
   }
 
   async row(id: string): Promise<BotRow> {
@@ -122,8 +177,6 @@ export class BotService {
   async update(id: string, values: BotUpdate | Partial<BotRow>): Promise<Bot> {
     const [row] = await this.db.update(bots).set(values).where(eq(bots.id, id)).returning();
     if (!row) throw notFound('Bot not found');
-    const bot = toBot(row);
-    this.events.publish({ type: 'bot.updated', bot });
-    return bot;
+    return this.publish(row);
   }
 }
