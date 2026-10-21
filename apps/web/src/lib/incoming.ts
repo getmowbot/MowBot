@@ -28,21 +28,18 @@ const senderKey = (sender: Sender) =>
 export interface IncomingPlace {
   /** On a run's first message: the whole run, whose senders and kinds it names. */
   run: Message[] | null;
-  /** The run has several senders: each message names its own. */
-  mixed: boolean;
 }
 
 /**
- * Consecutive incoming messages share one line saying who sent them: bots' messages together,
- * the user's or the hub's only with their own.
+ * Consecutive incoming messages stay close: bots' messages together (each a line naming its
+ * sender), the user's or the hub's only with their own, under one line saying who sent them.
  */
 export function incomingPlaces(messages: Message[]): Map<string, IncomingPlace> {
   const places = new Map<string, IncomingPlace>();
   let run: Message[] = [];
   const close = () => {
-    const mixed = new Set(run.map((m) => senderKey(senderOf(m)))).size > 1;
     run.forEach((m, i) => {
-      places.set(m.id, { run: i === 0 ? run : null, mixed });
+      places.set(m.id, { run: i === 0 ? run : null });
     });
     run = [];
   };
@@ -144,9 +141,33 @@ export function nameSegments<T extends { name: string }>(
   return out;
 }
 
-/** The text opened by `@name`, which shows as the sender's chip: inline, or above a list or a heading. */
-export function withSender(name: string, text: string): string {
-  return /^\s*([#>|]|```|[-*+]\s|\d+[.)]\s)/.test(text)
-    ? `@${name}\n\n${text}`
-    : `@${name} ${text}`;
+const SENTENCE = /^.*?[.!?…](?=\s|$)/;
+const SUMMARY_MAX = 140;
+
+/**
+ * A text in a few words, for a folded message: its first sentence, markdown aside (with the
+ * next one when the first is only a greeting), cut when long.
+ */
+export function shortSummary(text: string): string {
+  const plain = text
+    .replace(/```[\s\S]*?(```|$)/g, ' ')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+|\d+[.)]\s+)/gm, '')
+    .replace(/[*_~`|]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  let summary = SENTENCE.exec(plain)?.[0] ?? plain;
+  if (summary.split(' ').length <= 3 && summary.length < plain.length) {
+    const next = SENTENCE.exec(plain.slice(summary.length).trimStart())?.[0];
+    summary = next ? `${summary} ${next}` : plain;
+  }
+  return summary.length > SUMMARY_MAX ? `${summary.slice(0, SUMMARY_MAX - 1).trimEnd()}…` : summary;
+}
+
+/** A message from another bot in a few words: what its sender wrote for it, or its first sentence. */
+export function summaryOf(message: Message): string {
+  const written = message.summary?.trim();
+  if (written) return written;
+  return shortSummary(message.parts.map((p) => (p.type === 'text' ? p.text : '')).join(''));
 }

@@ -28,6 +28,7 @@ import { BotAvatar } from '../components/bot-avatar';
 import { BotBrowserView, ViewSwitch } from '../components/bot-browser-view';
 import { BotChip } from '../components/bot-chip';
 import { BotMenu, RenameField } from '../components/bot-menu';
+import { type Talk, TalkDialog, TalkLine } from '../components/bot-talk';
 import { CanvasBody } from '../components/canvas-body';
 import { ChatComposer } from '../components/chat-composer';
 import { StatusBadge } from '../components/computer-status';
@@ -52,7 +53,7 @@ import {
   incomingPlaces,
   runSummary,
   senderOf,
-  withSender,
+  summaryOf,
 } from '../lib/incoming';
 import { reveal } from '../lib/motion';
 import { useQuestions } from '../lib/proactivity';
@@ -166,27 +167,54 @@ function IncomingLine({ run }: { run: Message[] }) {
   );
 }
 
+/** What another bot wrote: one line with its sender and the gist, the whole message a click away. */
+function FromBotMessage({ message }: { message: Message }) {
+  const { t } = useTranslation();
+  const bots = useBots();
+  const [open, setOpen] = useState(false);
+  const chips = useMemo(() => chipBots(bots.data, message), [bots.data, message]);
+  const sender = senderOf(message);
+  const name = sender.kind === 'bot' ? sender.name : '';
+  const bot = bots.data?.find((b) => b.id === message.fromBotId) ?? {
+    id: null,
+    name,
+    avatarSeed: name,
+  };
+  const talk: Talk = {
+    title: t(`chat.talk.from.${message.kind}`, { name: bot.name }),
+    bot,
+    text: message.parts.map((p) => (p.type === 'text' ? p.text : '')).join(''),
+    at: message.createdAt,
+  };
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <TalkLine
+        title={talk.title}
+        bot={bot}
+        summary={summaryOf(message)}
+        onOpen={() => setOpen(true)}
+        className="max-w-[92%]"
+      />
+      <TalkDialog talk={talk} chips={chips} open={open} onClose={() => setOpen(false)} />
+      {message.steered && <SteeredHint />}
+    </div>
+  );
+}
+
 /**
- * What another bot, the user (a task) or a routine gave this bot: a soft bubble under a quiet
- * line naming its senders, the bots its text names shown as chips.
+ * What the user (a task) or a routine gave this bot: a soft bubble under a quiet line saying
+ * what it is; another bot's message, a line opening it.
  */
 function IncomingMessage({ message, place }: { message: Message; place: IncomingPlace }) {
   const bots = useBots();
   const chips = useMemo(() => chipBots(bots.data, message), [bots.data, message]);
-  const sender = senderOf(message);
-  const from = sender.kind === 'bot' ? chips.find((b) => b.id === sender.id) : undefined;
+  if (senderOf(message).kind === 'bot') return <FromBotMessage message={message} />;
   const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('');
-  // Several senders above: each message opens with its own.
-  const name = sender.kind === 'bot' ? (from?.name ?? sender.name) : null;
   return (
     <div className="flex flex-col items-center gap-1.5">
       {place.run && <IncomingLine run={place.run} />}
       <div className="max-w-[92%] rounded-2xl bg-white/[0.055] px-4 py-2.5">
-        <Markdown
-          text={place.mixed && name ? withSender(name, text) : text}
-          bots={chips}
-          className="text-[14px] text-foreground/85"
-        />
+        <Markdown text={text} bots={chips} className="text-[14px] text-foreground/85" />
       </div>
       {message.steered && <SteeredHint />}
     </div>
