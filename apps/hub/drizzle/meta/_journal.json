@@ -127,6 +127,13 @@
       "when": 1792601135219,
       "tag": "0017_bot_project",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792603437142,
+      "tag": "0018_mcp_computer",
+      "breakpoints": true
     }
   ]
 }

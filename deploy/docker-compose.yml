@@ -54,6 +54,7 @@ services:
       MOWBOT_WORKSPACES_DIR: /data/workspaces
       MOWBOT_WORKSPACES_VOLUME: mowbot-workspaces
       MOWBOT_WORKSTATION_IMAGE: ${MOWBOT_WORKSTATION_IMAGE:-mowbot/workstation:local}
+      MOWBOT_MCP_IMAGE: ${MOWBOT_MCP_IMAGE:-mowbot/mcp:local}
       MOWBOT_COMPUTER_NETWORK: mowbot-computers
       MOWBOT_COMPUTER_REACH: dns
       MOWBOT_COMPUTER_RUNTIME: ${MOWBOT_COMPUTER_RUNTIME:-}
@@ -73,6 +74,14 @@ services:
       context: ..
       dockerfile: workstation/Dockerfile
     image: ${MOWBOT_WORKSTATION_IMAGE:-mowbot/workstation:local}
+    profiles: [build]
+
+  # Image of the MCP computer, where the MCP servers run (no desktop; not a running service).
+  mcp:
+    build:
+      context: ..
+      dockerfile: workstation/mcp.Dockerfile
+    image: ${MOWBOT_MCP_IMAGE:-mowbot/mcp:local}
     profiles: [build]
 
   caddy:

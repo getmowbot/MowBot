@@ -50,3 +50,18 @@ jobs:
           done
           docker logs pc
           exit 1
+      - run: docker build -f workstation/mcp.Dockerfile -t mowbot/mcp:ci .
+      - name: MCP computer runs its agent and the servers' tools
+        run: |
+          docker run -d --name mcp -e MOWBOT_AGENT_TOKEN=ci-token -p 127.0.0.1:7071:7070 mowbot/mcp:ci
+          for i in $(seq 1 30); do
+            if curl -fsS -H 'authorization: Bearer ci-token' http://127.0.0.1:7071/health; then
+              curl -fsS -H 'authorization: Bearer ci-token' -H 'content-type: application/json' \
+                -d '{"command":"node --version && npx --version && python3 --version && pipx --version && uvx --version && git --version"}' \
+                http://127.0.0.1:7071/exec | tee /tmp/exec | jq -e '.exitCode == 0'
+              exit $?
+            fi
+            sleep 2
+          done
+          docker logs mcp
+          exit 1

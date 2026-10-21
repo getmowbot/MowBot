@@ -7,19 +7,32 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type {
   McpCall,
+  McpComputer,
+  McpScope,
   McpServer,
   McpServerCreate,
   McpServerUpdate,
   McpStatus,
 } from '@mowbot/contract';
-import { and, desc, eq, inArray, lt } from 'drizzle-orm';
+import { and, desc, eq, lt } from 'drizzle-orm';
 import type { BotRow } from '../bots/service';
-import type { ComputerService, Logger } from '../computers/service';
+import type { ExecResult } from '../computers/agent-client';
+import { type ComputerService, type Logger, toMcpComputer } from '../computers/service';
 import { open, seal } from '../crypto/secretbox';
 import type { Db } from '../db/client';
-import { bots, computers, mcpCalls, mcpServers, type StoredMcpTool } from '../db/schema';
+import { isUniqueViolation } from '../db/errors';
+import {
+  bots,
+  computers,
+  mcpCalls,
+  mcpServers,
+  type StoredMcpTool,
+  workspaces,
+} from '../db/schema';
 import type { EventBus } from '../events';
 import { HttpProblem, notFound } from '../http/problems';
+import { newAgentTokenSealed } from '../teams/bootstrap';
+import type { WorkspaceFiles } from '../workspaces/files';
 import { type OAuthState, StoredOAuthProvider } from './oauth';
 import { AgentStdioTransport } from './transport';
 
@@ -31,6 +44,14 @@ const IDLE_MS = 10 * 60_000;
 const CONNECT_TIMEOUT_MS = 90_000;
 const CALL_TIMEOUT_MS = 120_000;
 const CALLS_KEPT = 200;
+/** Setup commands run on the MCP computer (installs can be slow). */
+const SETUP_TIMEOUT_MS = 300_000;
+/** Shorter values are not masked (too likely to appear by chance). */
+const MIN_MASKED = 4;
+/** Environment variables whose value is a credential. */
+const SECRET_NAME = /token|key|secret|pass|auth|cookie|credential|session|bearer|pat$/i;
+
+export const MCP_COMPUTER_NAME = 'PC MCP';
 
 interface Connection {
   client: Client;
@@ -116,16 +137,28 @@ export interface McpDeps {
   events: EventBus;
   masterKey: Buffer;
   computers: ComputerService;
+  files: WorkspaceFiles;
+}
+
+/** `text` with these values hidden (longest first, so a value containing another goes whole). */
+export function maskValues(text: string, values: readonly string[]): string {
+  let masked = text;
+  for (const value of [...values].sort((a, b) => b.length - a.length)) {
+    if (value.length >= MIN_MASKED) masked = masked.replaceAll(value, '••••');
+  }
+  return masked;
 }
 
 /**
- * The MCP gateway: servers the user (or a bot, on its own computer) adds, the connections to
- * them (remote over HTTP from the hub, stdio on the bot's computer through mow-agent), their
- * tools, and the calls bots make.
+ * The MCP gateway: servers the user (or the Chef) adds, the connections to them (remote over
+ * HTTP from the hub; local ones over stdio on the MCP computer, through its mow-agent), their
+ * tools, and the calls bots make. Servers a bot installed on its own computer before the MCP
+ * computer existed still run there, for the bots of that computer, until moved.
  */
 export class McpService {
   private log: Logger = { warn: () => {}, error: () => {} };
   private readonly connections = new Map<string, Promise<Connection>>();
+  private mcpComputerId: Promise<string> | null = null;
   private sweeper: NodeJS.Timeout | null = null;
 
   constructor(private readonly deps: McpDeps) {}
@@ -183,10 +216,7 @@ export class McpService {
       : {};
   }
 
-  async create(
-    input: McpServerCreate,
-    by: { botId?: string; computerId?: string } = {},
-  ): Promise<McpServerRow> {
+  async create(input: McpServerCreate, by: { botId?: string } = {}): Promise<McpServerRow> {
     if (input.transport === 'http' && !input.url) {
       throw new HttpProblem(400, 'mcp_url_required', 'A remote server needs its URL');
     }
@@ -208,7 +238,6 @@ export class McpService {
         secretsSealed: this.sealSecrets(id, secrets),
         secretKeys: Object.keys(secrets),
         scope: input.scope,
-        computerId: by.computerId ?? null,
         createdByBotId: by.botId ?? null,
       })
       .returning();
@@ -356,13 +385,101 @@ export class McpService {
     }
   }
 
+  // -------------------------------------------------------------------------------------------
+  // The MCP computer
+
+  /** The MCP computer's id, creating it (and its own workspace) on first need. */
+  async mcpComputer(): Promise<string> {
+    if (!this.mcpComputerId) {
+      const pending = this.ensureMcpComputer();
+      this.mcpComputerId = pending;
+      pending.catch(() => {
+        if (this.mcpComputerId === pending) this.mcpComputerId = null;
+      });
+    }
+    return this.mcpComputerId;
+  }
+
+  private async ensureMcpComputer(): Promise<string> {
+    const { db, files, masterKey } = this.deps;
+    const [existing] = await db.select().from(computers).where(eq(computers.kind, 'mcp'));
+    if (existing) {
+      await files.ensure(existing.workspaceId);
+      return existing.id;
+    }
+    try {
+      const created = await db.transaction(async (tx) => {
+        const [workspace] = await tx
+          .insert(workspaces)
+          .values({ name: MCP_COMPUTER_NAME, ownerType: 'mcp' })
+          .returning();
+        if (!workspace) throw new Error('Workspace insert returned no row');
+        const [row] = await tx
+          .insert(computers)
+          .values({
+            name: MCP_COMPUTER_NAME,
+            kind: 'mcp',
+            workspaceId: workspace.id,
+            agentTokenSealed: newAgentTokenSealed(masterKey),
+          })
+          .returning();
+        if (!row) throw new Error('Computer insert returned no row');
+        return row;
+      });
+      await files.ensure(created.workspaceId);
+      return created.id;
+    } catch (error) {
+      // Another hub process created it first.
+      if (!isUniqueViolation(error)) throw error;
+      return this.ensureMcpComputer();
+    }
+  }
+
+  /** The MCP computer's state (asleep until a local server or a setup command needs it). */
+  async computerState(): Promise<McpComputer> {
+    const [row] = await this.deps.db.select().from(computers).where(eq(computers.kind, 'mcp'));
+    return toMcpComputer(row);
+  }
+
+  async startComputer(): Promise<McpComputer> {
+    await this.deps.computers.start(await this.mcpComputer());
+    return this.computerState();
+  }
+
+  /** Puts the MCP computer to sleep: its servers stop and start again on their next use. */
+  async stopComputer(): Promise<McpComputer> {
+    const state = await this.computerState();
+    if (state.id) await this.deps.computers.stop(state.id);
+    return this.computerState();
+  }
+
+  /**
+   * Runs a shell command on the MCP computer (as `bot`, in /workspace; its home is kept), e.g.
+   * installing a server or signing in to a service once.
+   */
+  async exec(command: string, timeoutMs = SETUP_TIMEOUT_MS): Promise<ExecResult> {
+    const agent = await this.agentFor(await this.mcpComputer());
+    return agent.exec(command, { timeoutMs });
+  }
+
+  /** Where a server runs: the hub (remote), its legacy computer, or the MCP computer. */
+  private async computerOf(row: McpServerRow): Promise<string | null> {
+    if (row.transport !== 'stdio') return null;
+    return row.computerId ?? (await this.mcpComputer());
+  }
+
   /** The computer's agent, starting the computer if it sleeps. */
   private async agentFor(computerId: string) {
     const { computers } = this.deps;
-    const pc = await computers.get(computerId);
+    let pc = await computers.get(computerId);
     if (pc.status !== 'running') {
       await computers.start(computerId);
       await computers.waitForBoot(computerId);
+      pc = await computers.get(computerId);
+      if (pc.status !== 'running') {
+        const what = pc.kind === 'mcp' ? 'The MCP computer' : `Computer ${pc.name}`;
+        throw new Error(`${what} did not start${pc.statusDetail ? `: ${pc.statusDetail}` : ''}`);
+      }
     }
     void computers.touch(computerId);
     return computers.agentFor(computerId);
@@ -370,12 +487,28 @@ export class McpService {
 
   private async open(row: McpServerRow, computerId: string | null): Promise<Connection> {
     const client = new Client({ name: 'MowBot', version: '1.0.0' });
+    const key = this.key(row, computerId);
+    // Set before connecting: the client chains its own handler (failing pending calls) to it.
+    const closed = () => this.connections.delete(key);
     let transport: Transport;
     if (row.transport === 'stdio') {
       if (!computerId || !row.command) throw new Error('A local MCP server runs on a computer');
       const agent = await this.agentFor(computerId);
-      transport = new AgentStdioTransport(agent.stdioEndpoint(), row.command, this.secretsOf(row));
-      await withTimeout(client.connect(transport), CONNECT_TIMEOUT_MS, row.name);
+      const stdio = new AgentStdioTransport(
+        agent.stdioEndpoint(),
+        row.command,
+        this.secretsOf(row),
+      );
+      transport = stdio;
+      transport.onclose = closed;
+      try {
+        await withTimeout(client.connect(transport), CONNECT_TIMEOUT_MS, row.name);
+      } catch (error) {
+        await client.close().catch(() => undefined);
+        // What the program said before it stopped: "command not found", a missing variable…
+        const said = stdio.stderr.trim().slice(-600);
+        throw new Error(said ? `${message(error)}. ${said}` : message(error));
+      }
     } else {
       if (!row.url) throw new Error('A remote MCP server needs its URL');
       const url = new URL(row.url);
@@ -384,17 +517,17 @@ export class McpService {
         ...(row.auth === 'oauth' ? { authProvider: this.provider(row) } : {}),
       };
       transport = new StreamableHTTPClientTransport(url, options);
+      transport.onclose = closed;
       try {
         await withTimeout(client.connect(transport), CONNECT_TIMEOUT_MS, row.name);
       } catch (error) {
         if (error instanceof UnauthorizedError) throw error;
         // Older servers speak SSE.
         transport = new SSEClientTransport(url, options);
+        transport.onclose = closed;
         await withTimeout(client.connect(transport), CONNECT_TIMEOUT_MS, row.name);
       }
     }
-    const key = this.key(row, computerId);
-    transport.onclose = () => this.connections.delete(key);
     return { client, transport, usedAt: Date.now() };
   }
 
@@ -411,33 +544,11 @@ export class McpService {
     return connection;
   }
 
-  /** Where a local server runs when no bot asks for it (the user refreshing its tools). */
-  private async someComputer(row: McpServerRow): Promise<string> {
-    if (row.computerId) return row.computerId;
-    const candidates = await this.deps.db
-      .select({
-        computerId: bots.computerId,
-        teamId: bots.teamId,
-        id: bots.id,
-        status: computers.status,
-      })
-      .from(bots)
-      .innerJoin(computers, eq(computers.id, bots.computerId));
-    const inScope = candidates.filter((bot) => this.inScope(row, bot));
-    const pick = inScope.find((bot) => bot.status === 'running') ?? inScope[0];
-    if (!pick?.computerId) {
-      throw new HttpProblem(409, 'mcp_no_computer', 'No bot with a computer can run this server');
-    }
-    return pick.computerId;
-  }
-
   /** Connects, lists the tools and keeps them; the server's status follows. */
-  async refresh(id: string, computerId?: string | null): Promise<McpServerRow> {
+  async refresh(id: string): Promise<McpServerRow> {
     const row = await this.row(id);
     try {
-      const where =
-        row.transport === 'stdio' ? (computerId ?? (await this.someComputer(row))) : null;
-      const { client } = await this.connection(row, where);
+      const { client } = await this.connection(row, await this.computerOf(row));
       const tools: StoredMcpTool[] = [];
       let cursor: string | undefined;
       do {
@@ -472,14 +583,14 @@ export class McpService {
       await this.setStatus(
         id,
         needsAuth ? 'needs_auth' : 'error',
-        needsAuth ? null : message(error),
+        needsAuth ? null : this.mask(row, message(error)),
       );
       throw error instanceof HttpProblem
         ? error
         : new HttpProblem(
             502,
             needsAuth ? 'mcp_needs_auth' : 'mcp_unreachable',
-            needsAuth ? 'Sign in to this server first' : message(error),
+            needsAuth ? 'Sign in to this server first' : this.mask(row, message(error)),
           );
     }
   }
@@ -493,18 +604,24 @@ export class McpService {
     return bot.teamId !== null && row.scope.ids.includes(bot.teamId);
   }
 
-  /** The servers whose tools this bot gets. */
+  /**
+   * The servers whose tools this bot gets: those in scope, wherever the bot works (a local one
+   * runs on the MCP computer), except legacy ones, kept to the bots of their computer.
+   */
   async accessibleTo(bot: BotRow): Promise<McpServerRow[]> {
     const rows = await this.deps.db.select().from(mcpServers).where(eq(mcpServers.enabled, true));
-    return rows.filter(
-      (row) =>
-        this.inScope(row, bot) &&
-        (row.computerId === null || row.computerId === bot.computerId) &&
-        (row.transport === 'http' || bot.computerId !== null),
+    return rows.filter((row) => this.canUse(row, bot));
+  }
+
+  canUse(row: McpServerRow, bot: Pick<BotRow, 'id' | 'teamId' | 'computerId'>): boolean {
+    return (
+      row.enabled &&
+      this.inScope(row, bot) &&
+      (row.computerId === null || row.computerId === bot.computerId)
     );
   }
 
-  /** Calls a tool for a bot (on its computer for a local server) and keeps a trace. */
+  /** Calls a tool for a bot (local servers run on the MCP computer) and keeps a trace. */
   async call(
     row: McpServerRow,
     bot: BotRow,
@@ -514,18 +631,20 @@ export class McpService {
     const started = Date.now();
     let error: string | null = null;
     try {
-      const computerId = row.transport === 'stdio' ? bot.computerId : null;
+      const computerId = await this.computerOf(row);
       const { client } = await this.connection(row, computerId);
+      // In use: the MCP computer stays awake.
+      if (computerId) void this.deps.computers.touch(computerId);
       const result = (await withTimeout(
         client.callTool({ name: tool, arguments: args }),
         CALL_TIMEOUT_MS,
         `${row.name} · ${tool}`,
       )) as CallToolResult;
-      if (result.isError) error = textOf(result).slice(0, 500) || 'error';
+      if (result.isError) error = this.mask(row, textOf(result)).slice(0, 500) || 'error';
       if (row.status !== 'ok') await this.setStatus(row.id, 'ok', null);
       return result;
     } catch (caught) {
-      error = message(caught);
+      error = this.mask(row, message(caught));
       if (caught instanceof UnauthorizedError) await this.setStatus(row.id, 'needs_auth', null);
       throw caught;
     } finally {
@@ -568,12 +687,79 @@ export class McpService {
     return rows.map(toCall);
   }
 
-  /** Servers a bot installed on its own computer. */
-  async installedBy(botId: string): Promise<McpServerRow[]> {
-    return this.deps.db
-      .select()
-      .from(mcpServers)
-      .where(inArray(mcpServers.createdByBotId, [botId]));
+  // -------------------------------------------------------------------------------------------
+  // Secrets
+
+  /**
+   * The secret values a server was given: its headers, and the variables that look like
+   * credentials (by name, or a long opaque value); not plain settings (`LOG_LEVEL=info`), which
+   * would hide ordinary words. With `Bearer …`, also the bare token.
+   */
+  private secretValuesOf(row: McpServerRow): string[] {
+    return Object.entries(this.secretsOf(row)).flatMap(([key, value]) => {
+      const secret =
+        row.transport === 'http' ||
+        SECRET_NAME.test(key) ||
+        (value.length >= 20 && !/\s/.test(value) && !value.startsWith('/'));
+      if (!secret) return [];
+      const bare = /^bearer\s+(.+)$/i.exec(value)?.[1];
+      return bare ? [value, bare] : [value];
+    });
+  }
+
+  /** `text` without the server's secret values (what it says may echo them). */
+  mask(row: McpServerRow, text: string): string {
+    return row.secretsSealed ? maskValues(text, this.secretValuesOf(row)) : text;
+  }
+
+  /** Every server's secret values, to hide them from what the MCP computer prints. */
+  async secretValues(): Promise<string[]> {
+    return (await this.list()).flatMap((row) => this.secretValuesOf(row));
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // Legacy servers (installed by a bot on its own computer)
+
+  /**
+   * Moves a server a bot installed on its own computer to the MCP computer. The bots that had it
+   * keep it: a server for "all" becomes one for that computer's team (or its bots).
+   */
+  async moveToMcpComputer(id: string): Promise<McpServerRow> {
+    const row = await this.row(id);
+    if (row.transport !== 'stdio' || !row.computerId) {
+      throw new HttpProblem(409, 'mcp_not_legacy', 'This server already runs on the MCP computer');
+    }
+    let scope: McpScope = row.scope;
+    if (scope.kind === 'all') {
+      const [pc] = await this.deps.db
+        .select({ kind: computers.kind, teamId: computers.teamId })
+        .from(computers)
+        .where(eq(computers.id, row.computerId));
+      if (pc?.kind === 'team' && pc.teamId) {
+        scope = { kind: 'teams', ids: [pc.teamId] };
+      } else {
+        const users = await this.deps.db
+          .select({ id: bots.id })
+          .from(bots)
+          .where(eq(bots.computerId, row.computerId));
+        scope = { kind: 'bots', ids: users.map((bot) => bot.id) };
+      }
+    }
+    await this.disconnect(id);
+    const [updated] = await this.deps.db
+      .update(mcpServers)
+      .set({
+        computerId: null,
+        scope,
+        status: 'unknown',
+        statusDetail: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(mcpServers.id, id))
+      .returning();
+    if (!updated) throw notFound('MCP server not found');
+    this.publish(updated);
+    return updated;
   }
 
   async close(): Promise<void> {

@@ -30,16 +30,25 @@ export interface TestApp {
 
 /**
  * Stands in for Docker: each "container" is a real mow-agent listening on localhost, wired
- * to a fake VNC server that echoes bytes back.
+ * to a fake VNC server that echoes bytes back (none for the MCP computer, which has no desktop).
  */
 export class FakeRuntime implements ComputerRuntime {
   readonly machines = new Map<
     string,
-    { agent: Agent; vnc: net.Server; port: number; running: boolean; workspaceId: string }
+    {
+      agent: Agent;
+      vnc: net.Server | null;
+      port: number;
+      running: boolean;
+      workspaceId: string;
+      kind: ComputerSpec['kind'];
+    }
   >();
   failNextStart: Error | null = null;
   /** Shell commands the computers ran, in order. */
   readonly commands: string[] = [];
+  /** The same, with the kind of computer each ran on. */
+  readonly ran: { kind: ComputerSpec['kind']; command: string }[] = [];
   /** Answers each shell command with the command itself (to see what reached the computer). */
   echoCommands = false;
   /** Answers the shell commands it recognises (the others get an empty success). */
@@ -47,8 +56,13 @@ export class FakeRuntime implements ComputerRuntime {
     | ((script: string) => { exitCode?: number; stdout?: string; stderr?: string } | undefined)
     | null = null;
   /** Starts the process behind /stdio (an MCP server), when a test needs one. */
-  stdio: ((command: string, env: Record<string, string>) => ChildProcessWithoutNullStreams) | null =
-    null;
+  stdio:
+    | ((
+        command: string,
+        env: Record<string, string>,
+        kind: ComputerSpec['kind'],
+      ) => ChildProcessWithoutNullStreams)
+    | null = null;
 
   async start(spec: ComputerSpec): Promise<{ containerId: string }> {
     if (this.failNextStart) {
@@ -58,20 +72,24 @@ export class FakeRuntime implements ComputerRuntime {
     }
     const containerId = `fake-${spec.id}`;
     if (this.machines.get(containerId)?.running) return { containerId };
-    const vnc = net.createServer((socket) => socket.pipe(socket));
-    await new Promise<void>((resolve) => vnc.listen(0, '127.0.0.1', resolve));
+    const vnc = spec.kind === 'mcp' ? null : net.createServer((socket) => socket.pipe(socket));
+    if (vnc) await new Promise<void>((resolve) => vnc.listen(0, '127.0.0.1', resolve));
     const agent = createAgent({
       token: spec.agentToken,
-      vncPort: (vnc.address() as net.AddressInfo).port,
+      // Nothing listens there for the MCP computer.
+      vncPort: vnc ? (vnc.address() as net.AddressInfo).port : 9,
       spawnStdio: (command, env) => {
         if (!this.stdio) throw new Error('No stdio process in this test');
-        return this.stdio(command, env);
+        return this.stdio(command, env, spec.kind);
       },
       run: async (command, args) => {
         // scrot writes its PNG to the path given last.
         if (command === 'scrot') await writeFile(args.at(-1) as string, TINY_PNG);
         const script = command === 'bash' ? (args.at(-1) ?? '') : '';
-        if (script) this.commands.push(script);
+        if (script) {
+          this.commands.push(script);
+          this.ran.push({ kind: spec.kind, command: script });
+        }
         const scripted = script ? this.shell?.(script) : undefined;
         if (scripted) {
           return { exitCode: 0, stdout: '', stderr: '', timedOut: false, ...scripted };
@@ -87,6 +105,7 @@ export class FakeRuntime implements ComputerRuntime {
       port,
       running: true,
       workspaceId: spec.workspaceId,
+      kind: spec.kind,
     });
     return { containerId };
   }
@@ -96,7 +115,8 @@ export class FakeRuntime implements ComputerRuntime {
     if (!machine?.running) return;
     machine.running = false;
     await machine.agent.close();
-    await new Promise((resolve) => machine.vnc.close(resolve));
+    const { vnc } = machine;
+    if (vnc) await new Promise((resolve) => vnc.close(resolve));
   }
 
   async remove(computerId: string): Promise<void> {

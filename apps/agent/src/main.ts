@@ -6,6 +6,8 @@ if (!token) {
   console.error('MOWBOT_AGENT_TOKEN is required');
   process.exit(1);
 }
+// Not handed down to the commands and MCP servers the agent starts.
+delete process.env.MOWBOT_AGENT_TOKEN;
 
 const agent = createAgent({
   token,

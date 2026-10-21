@@ -1,4 +1,5 @@
 import path from 'node:path';
+import type { ComputerKind } from '@mowbot/contract';
 import Docker from 'dockerode';
 import type { Config } from '../config';
 import { HttpProblem } from '../http/problems';
@@ -7,6 +8,8 @@ export const AGENT_PORT = 7070;
 
 export interface ComputerSpec {
   id: string;
+  /** `mcp`: the MCP computer, from its own image (no desktop). */
+  kind: ComputerKind;
   workspaceId: string;
   agentToken: string;
 }
@@ -52,7 +55,7 @@ export class DockerComputerRuntime implements ComputerRuntime {
     // (installs, browser profile) and its workspace are volumes and stay.
     if (info && !info.State.Running) {
       const current = await this.docker
-        .getImage(this.config.computers.image)
+        .getImage(this.imageOf(spec.kind))
         .inspect()
         .catch(() => null);
       if (current && current.Id !== info.Image) {
@@ -61,7 +64,7 @@ export class DockerComputerRuntime implements ComputerRuntime {
       }
     }
     if (!info) {
-      await this.ensureImage();
+      await this.ensureImage(spec.kind);
       await this.ensureNetwork();
       container = await this.docker.createContainer(this.containerOptions(name, spec));
       info = await container.inspect();
@@ -108,15 +111,20 @@ export class DockerComputerRuntime implements ComputerRuntime {
     return { host: '127.0.0.1', port: Number(binding.HostPort) };
   }
 
-  private async ensureImage(): Promise<void> {
-    const { image } = this.config.computers;
+  private imageOf(kind: ComputerKind): string {
+    return kind === 'mcp' ? this.config.computers.mcpImage : this.config.computers.image;
+  }
+
+  private async ensureImage(kind: ComputerKind): Promise<void> {
+    const image = this.imageOf(kind);
     try {
       await this.docker.getImage(image).inspect();
     } catch {
+      const dockerfile = kind === 'mcp' ? 'workstation/mcp.Dockerfile' : 'workstation/Dockerfile';
       throw new HttpProblem(
         503,
         'workstation_image_missing',
-        `Image ${image} not found. Build it with: docker build -f workstation/Dockerfile -t ${image} .`,
+        `Image ${image} not found. Build it with: docker build -f ${dockerfile} -t ${image} .`,
       );
     }
   }
@@ -133,7 +141,8 @@ export class DockerComputerRuntime implements ComputerRuntime {
   }
 
   private containerOptions(name: string, spec: ComputerSpec): Docker.ContainerCreateOptions {
-    const { image, network, reach, runtime } = this.config.computers;
+    const { network, reach, runtime } = this.config.computers;
+    const mcp = spec.kind === 'mcp';
     const workspaceMount: Docker.MountSettings = this.config.workspacesVolume
       ? {
           Type: 'volume',
@@ -149,14 +158,17 @@ export class DockerComputerRuntime implements ComputerRuntime {
         };
     return {
       name,
-      Image: image,
-      Hostname: `pc-${spec.id.slice(0, 8)}`,
-      Labels: { 'dev.mowbot.computer': spec.id },
+      Image: this.imageOf(spec.kind),
+      Hostname: mcp ? 'mcp' : `pc-${spec.id.slice(0, 8)}`,
+      Labels: { 'dev.mowbot.computer': spec.id, 'dev.mowbot.kind': spec.kind },
+      // Only what mow-agent needs: never the hub's own secrets.
       Env: [`MOWBOT_AGENT_TOKEN=${spec.agentToken}`, `MOWBOT_COMPUTER_ID=${spec.id}`],
       ExposedPorts: { [`${AGENT_PORT}/tcp`]: {} },
       HostConfig: {
+        // The home keeps installs, caches and the servers' own config and tokens.
         Mounts: [{ Type: 'volume', Source: `${name}-home`, Target: '/home/bot' }, workspaceMount],
-        ShmSize: 1024 ** 3,
+        // Chrome needs a large /dev/shm; the MCP computer has no browser.
+        ...(mcp ? {} : { ShmSize: 1024 ** 3 }),
         RestartPolicy: { Name: 'unless-stopped' },
         NetworkMode: network,
         Init: true,

@@ -131,6 +131,8 @@
 - [x] Serveurs MCP distants (Streamable HTTP, repli SSE) avec en-têtes secrets scellés ou connexion OAuth 2.1 (enregistrement dynamique, PKCE, jetons gardés chiffrés et rafraîchis par le hub)
 - [x] Serveurs MCP locaux (stdio) lancés sur le PC d'un bot : mow-agent relaie le processus par WebSocket (`/stdio`), le PC démarre au besoin ; les secrets arrivent en variables d'environnement
 - [x] Portée : tous les bots, des équipes ou des bots choisis ; un bot installe lui-même un serveur sur son PC (`mcp_add_local`, `mcp_remove_local`), réservé aux bots de ce PC
+- [x] PC MCP : les serveurs locaux tournent sur leur propre ordinateur (image `mowbot/mcp`, sans bureau, démarré au besoin), plus sur ceux des bots ; le Chef les gère (`mcp_list`, `mcp_add`, `mcp_update`, `mcp_remove`, `mcp_setup`) et les autres bots les lui demandent ; les anciens serveurs locaux se déplacent sur le PC MCP depuis les pages MCP
+- [x] Résultats MCP longs : le début est gardé (48 000 caractères) avec une note qui invite à demander moins ; les bots n'utilisent un serveur que par ses outils
 - [x] Outils exposés `mcp__<serveur>__<outil>` (jusqu'à 40), au-delà `mcp_search_tools` + `mcp_call` ; images des résultats montrées au modèle ; valeurs du coffre masquées
 - [x] Journal des appels par serveur (200 derniers), état (ok, erreur, connexion requise), connexions fermées après inactivité
 - [x] Pages MCP (web et app) : ajout, connexion OAuth, outils, portée, activation, journal

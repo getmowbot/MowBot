@@ -50,7 +50,8 @@ or a local model.
   the models. Bots ask you for a password with a masked form that goes straight to the vault.
 
 **Tools and your projects**
-- MCP servers: remote (with OAuth) or local, run on a bot's PC; a bot can install one itself.
+- MCP servers: remote (with OAuth) or local, run on their own MCP computer (Node, Python, uv),
+  apart from the bots' PCs; the Chef adds and sets them up for the bots that need them.
 - The **desktop app** shares folders of your computer as projects, even when the hub is on a
   remote server. Bots read, edit, search and run commands there (commands with your approval,
   or freely in auto mode), or copy the project to their PC to install and test it and bring
@@ -152,6 +153,7 @@ pnpm dev
 - Hub: http://localhost:8787/api/v1/health, OpenAPI at `/api/v1/openapi.json`
 - On first start the hub prints the setup token in its logs.
 - Bots' PCs: `docker build -f workstation/Dockerfile -t mowbot/workstation:local .`
+- MCP computer (local MCP servers): `docker build -f workstation/mcp.Dockerfile -t mowbot/mcp:local .`
 
 | Command | |
 |---|---|
@@ -173,7 +175,7 @@ apps/desktop          Desktop app (Tauri): the web app plus the Rust connector f
 packages/contract     Shared zod schemas, the source of truth of the API
 packages/api-client   TypeScript client generated from the OpenAPI document
 packages/design       Design tokens and the bots' characters (shared by every app)
-workstation/          Docker image of the bots' PCs
+workstation/          Docker images of the bots' PCs and of the MCP computer
 deploy/               Production docker-compose and Caddy
 ```
 

@@ -117,7 +117,7 @@ export async function createServices(
     questions,
     notifications,
   });
-  const mcp = new McpService({ db, events, masterKey: config.masterKey, computers });
+  const mcp = new McpService({ db, events, masterKey: config.masterKey, computers, files });
   const connectors = new ConnectorService({ db, events });
   const automations = new AutomationService({
     db,

@@ -1,4 +1,4 @@
-import type { McpServer } from '@mowbot/contract';
+import type { McpComputer, McpServer } from '@mowbot/contract';
 import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { api, apiBaseUrl } from './auth';
 
@@ -12,6 +12,34 @@ export function useMcpServers() {
       return data.items;
     },
   });
+}
+
+const MOVING = new Set<McpComputer['status']>(['starting', 'stopping']);
+
+/**
+ * The computer local servers run on (kept live by `mcp.computer`; polled while it starts or
+ * stops, in case an event is missed).
+ */
+export function useMcpComputer() {
+  return useQuery({
+    queryKey: ['mcp-computer'],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/mcp/computer');
+      if (error || !data) throw error;
+      return data;
+    },
+    refetchInterval: (query) =>
+      query.state.data && MOVING.has(query.state.data.status) ? 3_000 : false,
+  });
+}
+
+/** Puts a server a bot installed on its own PC on the MCP computer. */
+export async function moveMcpServer(serverId: string): Promise<McpServer> {
+  const { data, error } = await api.POST('/api/v1/mcp/servers/{id}/move', {
+    params: { path: { id: serverId } },
+  });
+  if (error || !data) throw error;
+  return data;
 }
 
 /** The latest calls bots made to a server, newest first; no event announces them, so polled. */

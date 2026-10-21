@@ -14,6 +14,7 @@ import {
   durationText,
   emptyDraft,
   installedText,
+  isLegacy,
   liveScope,
   type McpDraft,
   removeSecretBody,
@@ -85,7 +86,7 @@ describe('status', () => {
     const local = mcpServer({ transport: 'stdio', status: 'unknown' });
     expect(statusText(local, en, 'en')).toEqual({
       label: 'Pending',
-      hint: 'Starting on a bot’s PC and listing its tools…',
+      hint: 'Starting on the MCP computer and listing its tools…',
     });
     expect(statusText(mcpServer({ enabled: false }), fr, 'fr').label).toBe('Désactivé');
   });
@@ -136,17 +137,20 @@ describe('who gets the tools', () => {
     });
   });
 
-  it('says which bot installed it, on which PC', () => {
+  it('says where it runs, and which bot added it', () => {
     expect(installedText(mcpServer(), names, fr)).toBeNull();
-    expect(
-      installedText(mcpServer({ createdByBotId: 'bot-1', computerId: 'pc-1' }), names, fr),
-    ).toBe('Installé par Nova sur PC de Nova');
+    const legacy = mcpServer({ transport: 'stdio', createdByBotId: 'bot-1', computerId: 'pc-1' });
+    expect(installedText(legacy, names, fr)).toBe('Installé par Nova sur PC de Nova');
+    expect(isLegacy(legacy)).toBe(true);
     expect(installedText(mcpServer({ createdByBotId: 'gone' }), names, en)).toBe(
-      'Installed by Deleted bot',
+      'Added by Deleted bot',
     );
     expect(installedText(mcpServer({ computerId: 'pc-2' }), names, en)).toBe(
       'Installed on Deleted PC',
     );
+    const local = mcpServer({ transport: 'stdio', createdByBotId: 'bot-1' });
+    expect(installedText(local, names, fr)).toBe('Sur le PC MCP · Ajouté par Nova');
+    expect(isLegacy(local)).toBe(false);
   });
 
   it('sums a server up on its row', () => {
@@ -161,6 +165,10 @@ describe('who gets the tools', () => {
     expect(serverHint(github, names, fr)).toBe('Connecté · Distant · 2 outils\nÉquipe : Dev');
     const local = mcpServer({ transport: 'stdio', status: 'unknown', computerId: 'pc-1' });
     expect(serverHint(local, names, en)).toBe('Pending · Local\nAll bots · on PC de Nova only');
+    const onMcpPc = mcpServer({ transport: 'stdio', status: 'unknown' });
+    expect(serverHint(onMcpPc, names, fr)).toBe(
+      'En attente · Local\nTous les bots · sur le PC MCP',
+    );
   });
 
   it('sorts servers by name', () => {

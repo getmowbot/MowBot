@@ -1,8 +1,11 @@
 import { z } from 'zod';
 
+import { computerStatusSchema } from './computers';
+
 /**
  * MCP servers: tools from elsewhere for the bots. `http`: a remote server (Streamable HTTP,
- * SSE for older ones), reached by the hub; `stdio`: a program run on the bot's own computer.
+ * SSE for older ones), reached by the hub; `stdio`: a program run on the MCP computer (or, for
+ * servers a bot installed before, on that bot's computer).
  */
 export const mcpTransportSchema = z.enum(['http', 'stdio']);
 export type McpTransport = z.infer<typeof mcpTransportSchema>;
@@ -43,7 +46,11 @@ export const mcpServerSchema = z.object({
   /** Names of the headers (http) or environment variables (stdio) set; values never come back. */
   secretKeys: z.array(z.string()),
   scope: mcpScopeSchema,
-  /** Installed by a bot on this computer: only the bots of that computer use it. */
+  /**
+   * A local server installed by a bot on this computer before the MCP computer existed: it runs
+   * there and only the bots of that computer use it (`move` puts it on the MCP computer). Null:
+   * a local server runs on the MCP computer.
+   */
   computerId: z.uuid().nullable(),
   createdByBotId: z.uuid().nullable(),
   enabled: z.boolean(),
@@ -98,6 +105,16 @@ export const mcpOAuthStartResultSchema = z.object({
   /** Where to send the user's browser (null: already signed in). */
   authorizationUrl: z.string().nullable(),
 });
+
+/** The computer local (stdio) servers run on: started when a server is needed, asleep when idle. */
+export const mcpComputerSchema = z.object({
+  /** Null until it is first needed. */
+  id: z.uuid().nullable(),
+  status: computerStatusSchema,
+  statusDetail: z.string().nullable(),
+  lastActivityAt: z.iso.datetime().nullable(),
+});
+export type McpComputer = z.infer<typeof mcpComputerSchema>;
 
 export const mcpCallSchema = z.object({
   id: z.uuid(),

@@ -378,7 +378,10 @@ deploy() {
   step "Construction des images"
   if [[ -z $(docker images -q "$(env_get MOWBOT_WORKSTATION_IMAGE)" 2>/dev/null) ]]; then
     note "La première fois : 10 à 20 minutes (le PC des bots embarque Ubuntu, un bureau et Chrome)."
+  elif [[ -z $(docker images -q "$(env_get MOWBOT_MCP_IMAGE)" 2>/dev/null) ]]; then
+    note "Nouveau : le PC MCP, où tournent les serveurs MCP (quelques minutes)."
   fi
+  # The hub, Caddy, and the images of the computers: the bots' PCs and the MCP computer.
   # Without attestations, an unchanged image keeps its id: nothing restarts for nothing.
   BUILDX_NO_DEFAULT_ATTESTATIONS=1 compose --profile build build
   step "Démarrage"

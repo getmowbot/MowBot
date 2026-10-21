@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "computers_mcp_pc_unique" ON "computers" USING btree ("kind") WHERE "computers"."kind" = 'mcp';

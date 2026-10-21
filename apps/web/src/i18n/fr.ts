@@ -998,14 +998,14 @@ export const fr = {
     examples: {
       remote: 'Un service en ligne',
       remoteHint: 'Notion, avec ta connexion (OAuth)',
-      local: 'Un programme sur les PC',
+      local: 'Un programme sur le PC MCP',
       localHint: 'GitHub, avec ton jeton en variable d’environnement',
     },
     /** A server's type, as a badge. */
-    transport: { http: 'Distant', stdio: 'Local sur les PC' },
+    transport: { http: 'Distant', stdio: 'Local' },
     transportHints: {
       http: 'Une URL, joignable par le hub',
-      stdio: 'Une commande lancée sur les PC des bots',
+      stdio: 'Une commande lancée sur le PC MCP',
     },
     status: { ok: 'OK', error: 'Erreur', needs_auth: 'Connexion requise', unknown: 'Inconnu' },
     connecting: 'Connexion…',
@@ -1026,6 +1026,25 @@ export const fr = {
     installedBy: 'Installé par {{bot}} sur {{pc}}',
     addedBy: 'Ajouté par {{bot}}',
     onPc: 'Sur {{pc}}',
+    onMcpPc: 'Sur le PC MCP',
+    legacy: 'Ancien : tourne sur le PC d’un bot, pour les bots de ce PC seulement.',
+    move: 'Déplacer sur le PC MCP',
+    moving: 'Déplacement…',
+    confirmMove:
+      'Déplacer « {{name}} » sur le PC MCP ? Les bots qui l’avaient le gardent. S’il a été installé à la main (pipx, pip…), demande d’abord au Chef de l’installer sur le PC MCP.',
+    computer: {
+      name: 'PC MCP',
+      hint: 'L’ordinateur où tournent les serveurs locaux. Il s’allume quand un bot en a besoin et se met en veille ensuite.',
+      status: {
+        stopped: 'En veille',
+        starting: 'Démarre…',
+        running: 'Allumé',
+        stopping: 'Se met en veille…',
+        error: 'Erreur',
+      },
+      start: 'Allumer',
+      stop: 'Mettre en veille',
+    },
     deletedBot: 'Bot supprimé',
     deletedPc: 'PC supprimé',
     secretCount_one: '{{count}} secret',
@@ -1061,9 +1080,9 @@ export const fr = {
     oauthHint: 'À l’enregistrement, un onglet s’ouvre pour te connecter au service.',
     command: 'Commande',
     commandHint:
-      'Lancée sur le PC de chaque bot qui utilise ses outils (allumé si besoin), comme dans un terminal.',
+      'Lancée sur le PC MCP (allumé si besoin), comme dans un terminal : npx -y …, uvx … Pour un programme à installer d’abord, demande au Chef.',
     commandHintPc:
-      'Lancée sur le PC où un bot l’a installée ; seuls les bots de ce PC l’utilisent.',
+      'Lancée sur le PC où un bot l’a installée ; seuls les bots de ce PC l’utilisent. Déplace-la sur le PC MCP.',
     headers: 'En-têtes',
     headersHint: 'Optionnels. Chiffrés comme le jeton, jamais réaffichés.',
     env: 'Variables d’environnement',
