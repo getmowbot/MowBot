@@ -1,5 +1,6 @@
-import type { Notification, Question, SystemSettingsUpdate } from '@mowbot/contract';
+import type { Automation, Notification, Question, SystemSettingsUpdate } from '@mowbot/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { i18n } from '../i18n';
 import { api } from './auth';
 
 export function useCanvases() {
@@ -94,6 +95,69 @@ export function useRoutineRuns(routineId: string | null) {
       return data.items;
     },
   });
+}
+
+/** Bots' scripts the hub runs on their PCs: active, paused, and those stopped in the last day. */
+export function useAutomations<T = Automation[]>(select?: (items: Automation[]) => T) {
+  return useQuery({
+    queryKey: ['automations'],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/automations');
+      if (error || !data) throw error;
+      return data.items;
+    },
+    select,
+  });
+}
+
+/** The active automation keeping this canvas up to date, if any (one fetch for every card). */
+export function useLiveAutomation(canvasId: string): Automation | null {
+  const live = useAutomations((items) =>
+    items.find((a) => a.status === 'active' && a.canvasId === canvasId),
+  );
+  return live.data ?? null;
+}
+
+/** Pauses or resumes an automation; the hub's event confirms it on every device. */
+export function useUpdateAutomation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'active' | 'paused' }) => {
+      const { data, error } = await api.PATCH('/api/v1/automations/{id}', {
+        params: { path: { id } },
+        body: { status },
+      });
+      if (error || !data) throw error;
+      return data;
+    },
+    onSuccess: (automation) =>
+      queryClient.setQueryData<Automation[]>(['automations'], (list) =>
+        list?.map((a) => (a.id === automation.id ? automation : a)),
+      ),
+  });
+}
+
+export function useDeleteAutomation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.DELETE('/api/v1/automations/{id}', {
+        params: { path: { id } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_, id) =>
+      queryClient.setQueryData<Automation[]>(['automations'], (list) =>
+        list?.filter((a) => a.id !== id),
+      ),
+  });
+}
+
+/** An automation's pace: "toutes les 30 s", "toutes les 5 min"… */
+export function automationEvery(seconds: number): string {
+  if (seconds % 3600 === 0) return i18n.t('automations.every.hours', { count: seconds / 3600 });
+  if (seconds % 60 === 0) return i18n.t('automations.every.minutes', { count: seconds / 60 });
+  return i18n.t('automations.every.seconds', { count: seconds });
 }
 
 /** Whether this browser may show system notifications (asked once, by the user's click). */

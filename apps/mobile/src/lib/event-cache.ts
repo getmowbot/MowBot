@@ -1,4 +1,5 @@
 import type {
+  Automation,
   Bot,
   Canvas,
   Computer,
@@ -51,6 +52,7 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         'notifications',
         'questions',
         'routines',
+        'automations',
         'system',
         'providers',
         'devices',
@@ -115,6 +117,15 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
     case 'routine.updated':
     case 'routine.deleted':
       void client.invalidateQueries({ queryKey: keys.routines });
+      break;
+    case 'automation.updated':
+      // Each run (its result, its failures), a pause, the end: the list and the Live badges.
+      client.setQueryData<Automation[]>(keys.automations, (list) => upsert(list, event.automation));
+      break;
+    case 'automation.deleted':
+      client.setQueryData<Automation[]>(keys.automations, (list) =>
+        list?.filter((a) => a.id !== event.automationId),
+      );
       break;
     case 'system.updated':
       client.setQueryData<SystemSettings>(keys.system, event.settings);

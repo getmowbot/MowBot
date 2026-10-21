@@ -26,7 +26,7 @@ const webLink = z.url({ protocol: /^https?$/ }).max(2_000);
 export const SHOW_IN_CHAT = 'show_in_chat';
 
 /** What a bot sends; the hub turns it into a canvas (ids for list items, camelCase…). */
-const contentSchema = z.discriminatedUnion('kind', [
+export const contentSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('score'),
     home: z.object({ name: z.string().min(1).max(60), logo: imagePath.optional() }),
@@ -139,7 +139,7 @@ const picture = (value: string): string =>
  * Turns a bot's content into a canvas. A list keeps the ids (and the ticks) of items whose text
  * did not change, so updating a shopping list does not undo what the user ticked.
  */
-function toContent(
+export function toContent(
   input: z.infer<typeof contentSchema>,
   previous: CanvasContent | undefined,
 ): CanvasContent {

@@ -16,6 +16,7 @@ import { EventBus } from './events';
 import { TicketService } from './http/tickets';
 import { OrgService } from './org/service';
 import type { TaskService } from './org/tasks';
+import { AutomationService } from './proactivity/automations';
 import { CanvasService } from './proactivity/canvases';
 import { NotificationService, SystemService } from './proactivity/notifications';
 import { QuestionService } from './proactivity/questions';
@@ -50,6 +51,7 @@ export interface Services {
   questions: QuestionService;
   vault: VaultService;
   push: PushService;
+  automations: AutomationService;
   /** Main team, its PC, the Chef and its daily summary (at startup and right after setup). */
   bootstrap(): Promise<void>;
 }
@@ -108,6 +110,15 @@ export async function createServices(
     questions,
     notifications,
   });
+  const automations = new AutomationService({
+    db,
+    events,
+    canvases,
+    notifications,
+    computers,
+    system,
+    vault,
+  });
   const runtime = new BotRuntime({
     db,
     events,
@@ -124,10 +135,12 @@ export async function createServices(
     vault,
     browser,
     push,
+    automations,
     finishedPushAfterMs: overrides.finishedPushAfterMs,
     modelFor: overrides.modelFor,
     askTimeoutMs: overrides.askTimeoutMs,
   });
+  automations.setRuntime(runtime);
   return {
     config,
     db,
@@ -151,6 +164,7 @@ export async function createServices(
     questions,
     vault,
     push,
+    automations,
     bootstrap,
   };
 }

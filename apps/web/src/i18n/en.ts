@@ -608,6 +608,33 @@ export const en: Catalog = {
     notify: 'Tell me the result each time',
     create: 'Create',
   },
+  automations: {
+    title: 'Automations',
+    subtitle:
+      'Scripts your bots run on their PC without waking the AI: a live score, a price watch…',
+    empty:
+      'No automations. Your bots create them when you ask for something live: a match score, a price to watch, a parcel to track…',
+    status: { active: 'Active', paused: 'Paused', stopped: 'Finished' },
+    every: {
+      seconds_one: 'every second',
+      seconds_other: 'every {{count}} s',
+      minutes_one: 'every minute',
+      minutes_other: 'every {{count}} min',
+      hours_one: 'every hour',
+      hours_other: 'every {{count}} h',
+    },
+    canvas: 'updates “{{title}}”',
+    until: 'until {{time}}',
+    lastRun: 'Last run {{time}}',
+    notRun: 'Not run yet.',
+    pause: 'Pause “{{name}}”',
+    pauseShort: 'Pause',
+    resume: 'Resume “{{name}}”',
+    resumeShort: 'Resume',
+    confirmDelete: 'Delete the automation “{{name}}”? Its script stops running.',
+    live: 'Live',
+    liveHint: 'Updated automatically {{every}} by {{bot}}’s script',
+  },
   proactivity: {
     title: 'Proactivity',
     subtitle:

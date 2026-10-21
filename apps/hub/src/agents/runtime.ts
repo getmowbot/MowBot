@@ -23,6 +23,7 @@ import type { EventBus } from '../events';
 import { HttpProblem } from '../http/problems';
 import type { OrgService } from '../org/service';
 import { TaskService } from '../org/tasks';
+import type { AutomationService } from '../proactivity/automations';
 import type { CanvasService } from '../proactivity/canvases';
 import type { NotificationService, SystemService } from '../proactivity/notifications';
 import type { QuestionService } from '../proactivity/questions';
@@ -32,6 +33,7 @@ import type { PushService } from '../push/service';
 import type { SecretScope } from '../vault/secrets';
 import type { VaultService } from '../vault/service';
 import type { WorkspaceFiles } from '../workspaces/files';
+import { buildAutomationTools } from './automation-tools';
 import { BrowserHub } from './browser';
 import { buildBrowserTools } from './browser-tools';
 import { buildCanvasTools, SHOW_IN_CHAT } from './canvas-tools';
@@ -89,6 +91,7 @@ export interface RuntimeDeps {
   vault: VaultService;
   /** Tells the user's phones when a bot finished what they asked. */
   push?: PushService;
+  automations?: AutomationService;
   finishedPushAfterMs?: number;
   /** Shared with the vault, which reads and writes the computers' Chrome. */
   browser?: BrowserHub;
@@ -546,6 +549,23 @@ export class BotRuntime {
       const { steeredInto: _, ...meta } = row.meta ?? {};
       await this.save(row.id, { meta });
     }
+  }
+
+  /** Context for the bot's next turn that calls for no answer now (it is not woken up). */
+  async note(botId: string, text: string, display: string): Promise<void> {
+    const [row] = await this.deps.db
+      .insert(messages)
+      .values({
+        botId,
+        role: 'user',
+        kind: 'routine',
+        meta: { silent: true },
+        parts: [{ type: 'text', text: display }],
+        modelMessages: [{ role: 'user', content: text }],
+        status: 'done',
+      })
+      .returning();
+    if (row) this.publish(row);
   }
 
   /**
@@ -1121,6 +1141,9 @@ export class BotRuntime {
           showInChat,
           files: this.deps.files,
         }),
+        ...(this.deps.automations
+          ? buildAutomationTools({ self: bot, automations: this.deps.automations })
+          : {}),
         ...buildVaultTools({
           self: bot,
           vault: this.deps.vault,

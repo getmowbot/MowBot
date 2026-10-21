@@ -40,7 +40,15 @@ import { isAndroid, isIOS } from '../../../../lib/platform';
 import { botsById, keys, useBots, useMe, useSendMessage } from '../../../../lib/queries';
 import { colors, shape, spacing, type } from '../../../../theme';
 
-const HOME_QUERIES = [keys.me, keys.bots, keys.system, keys.questions, keys.canvases];
+const HOME_QUERIES = [
+  keys.me,
+  keys.bots,
+  keys.system,
+  keys.questions,
+  keys.canvases,
+  // Which cards are live.
+  keys.automations,
+];
 
 /** The hour, kept current (the greeting turns to "good evening" while the app is open). */
 function useHour(): number {

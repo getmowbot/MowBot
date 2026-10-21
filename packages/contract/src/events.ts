@@ -3,7 +3,12 @@ import { botSchema, messageSchema } from './bots';
 import { canvasSchema } from './canvases';
 import { computerSchema } from './computers';
 import { questionSchema } from './questions';
-import { notificationSchema, routineSchema, systemSettingsSchema } from './routines';
+import {
+  automationSchema,
+  notificationSchema,
+  routineSchema,
+  systemSettingsSchema,
+} from './routines';
 import { taskSchema } from './tasks';
 import { teamSchema } from './teams';
 import { vaultItemSchema } from './vault';
@@ -31,6 +36,8 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('canvas.deleted'), canvasId: z.uuid() }),
   z.object({ type: z.literal('routine.updated'), routine: routineSchema }),
   z.object({ type: z.literal('routine.deleted'), routineId: z.uuid() }),
+  z.object({ type: z.literal('automation.updated'), automation: automationSchema }),
+  z.object({ type: z.literal('automation.deleted'), automationId: z.uuid() }),
   z.object({ type: z.literal('notification.created'), notification: notificationSchema }),
   /** A bot asked the user something, or the question was answered. */
   z.object({ type: z.literal('question.updated'), question: questionSchema }),

@@ -622,6 +622,33 @@ export const fr = {
     notify: 'Me prévenir du résultat à chaque passage',
     create: 'Créer',
   },
+  automations: {
+    title: 'Automatisations',
+    subtitle:
+      'Des scripts que tes bots font tourner sur leur PC, sans réveiller l’IA : un score en direct, une surveillance de prix…',
+    empty:
+      'Aucune automatisation. Tes bots en créent quand tu leur demandes quelque chose en direct : le score d’un match, un prix à surveiller, un colis à suivre…',
+    status: { active: 'Active', paused: 'En pause', stopped: 'Terminée' },
+    every: {
+      seconds_one: 'chaque seconde',
+      seconds_other: 'toutes les {{count}} s',
+      minutes_one: 'chaque minute',
+      minutes_other: 'toutes les {{count}} min',
+      hours_one: 'chaque heure',
+      hours_other: 'toutes les {{count}} h',
+    },
+    canvas: 'met à jour « {{title}} »',
+    until: 'jusqu’à {{time}}',
+    lastRun: 'Dernier passage {{time}}',
+    notRun: 'Pas encore lancée.',
+    pause: 'Mettre « {{name}} » en pause',
+    pauseShort: 'Mettre en pause',
+    resume: 'Reprendre « {{name}} »',
+    resumeShort: 'Reprendre',
+    confirmDelete: 'Supprimer l’automatisation « {{name}} » ? Son script ne tournera plus.',
+    live: 'En direct',
+    liveHint: 'Mis à jour automatiquement {{every}} par le script de {{bot}}',
+  },
   proactivity: {
     title: 'Proactivité',
     subtitle:

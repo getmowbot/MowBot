@@ -41,6 +41,10 @@ export class FakeRuntime implements ComputerRuntime {
   readonly commands: string[] = [];
   /** Answers each shell command with the command itself (to see what reached the computer). */
   echoCommands = false;
+  /** Answers the shell commands it recognises (the others get an empty success). */
+  shell:
+    | ((script: string) => { exitCode?: number; stdout?: string; stderr?: string } | undefined)
+    | null = null;
 
   async start(spec: ComputerSpec): Promise<{ containerId: string }> {
     if (this.failNextStart) {
@@ -60,6 +64,10 @@ export class FakeRuntime implements ComputerRuntime {
         if (command === 'scrot') await writeFile(args.at(-1) as string, TINY_PNG);
         const script = command === 'bash' ? (args.at(-1) ?? '') : '';
         if (script) this.commands.push(script);
+        const scripted = script ? this.shell?.(script) : undefined;
+        if (scripted) {
+          return { exitCode: 0, stdout: '', stderr: '', timedOut: false, ...scripted };
+        }
         const stdout = this.echoCommands ? script : '';
         return { exitCode: 0, stdout, stderr: '', timedOut: false };
       },

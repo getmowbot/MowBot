@@ -86,6 +86,12 @@ export function confirm(
   });
 }
 
+/** Shows something to read (a command, a detail), closed with OK. */
+export function showInfo(title: string, message?: string): void {
+  if (Platform.OS === 'web') globalThis.alert([title, message].filter(Boolean).join('\n\n'));
+  else Alert.alert(title, message, undefined, { userInterfaceStyle: 'dark' });
+}
+
 /** Shows an error the user should see (a failed action). */
 export function alertError(message: string): void {
   if (Platform.OS === 'web') globalThis.alert(message);

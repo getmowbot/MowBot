@@ -126,3 +126,41 @@ export const systemSettingsSchema = z.object({
 export type SystemSettings = z.infer<typeof systemSettingsSchema>;
 export const systemSettingsUpdateSchema = systemSettingsSchema.omit({ timeZone: true }).partial();
 export type SystemSettingsUpdate = z.infer<typeof systemSettingsUpdateSchema>;
+
+/**
+ * Automations: a script a bot wrote, run by the hub on the bot's computer at a steady pace,
+ * without waking the bot (no model, no tokens). Its output updates a home page canvas,
+ * notifies the user, wakes the bot when something happens, or ends the automation.
+ */
+export const automationStatusSchema = z.enum(['active', 'paused', 'stopped']);
+export type AutomationStatus = z.infer<typeof automationStatusSchema>;
+
+export const automationSchema = z.object({
+  id: z.uuid(),
+  botId: z.uuid(),
+  name: z.string(),
+  /** Shell command run on the bot's computer (in /workspace). */
+  command: z.string(),
+  intervalSeconds: z.number().int(),
+  /** The home page canvas it keeps up to date (null: it only notifies or wakes the bot). */
+  canvasId: z.uuid().nullable(),
+  /** Stops by itself at this time. */
+  until: z.iso.datetime().nullable(),
+  status: automationStatusSchema,
+  runs: z.number().int(),
+  /** Consecutive failures; paused after a few, and the bot is told. */
+  failures: z.number().int(),
+  lastRunAt: z.iso.datetime().nullable(),
+  /** What the last run did, or why it failed. */
+  lastResult: z.string().nullable(),
+  /** Why it stopped (finished, deadline, by the user…). */
+  stoppedReason: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+});
+export type Automation = z.infer<typeof automationSchema>;
+
+export const automationListSchema = z.object({ items: z.array(automationSchema) });
+export const automationIdParamsSchema = z.object({ id: z.uuid() });
+
+/** The user pauses or resumes an automation. */
+export const automationUpdateSchema = z.object({ status: z.enum(['active', 'paused']) });

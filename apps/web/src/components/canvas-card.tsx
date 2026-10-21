@@ -18,9 +18,11 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { i18n } from '../i18n';
 import { api, problemMessage } from '../lib/auth';
+import { automationEvery, useLiveAutomation } from '../lib/proactivity';
 import { cn, timeAgo } from '../lib/utils';
 import { BotAvatar } from './bot-avatar';
 import { CanvasBody, type CardPress, type ChecklistActions } from './canvas-body';
+import { LiveDot } from './live-dot';
 
 /** Columns a card spans in the home grid (1 on phones, 2 on tablets, 3 on wide screens). */
 export const SPAN: Record<CanvasSize, string> = {
@@ -313,6 +315,7 @@ export function CanvasCard({
   const fold = useFoldCanvas(canvas);
   const checklist = useChecklist(canvas);
   const press = useCardPress(canvas);
+  const live = useLiveAutomation(canvas.id);
   const folded = canvas.collapsed;
   const summary = folded ? foldedSummary(content) : null;
   return (
@@ -342,6 +345,18 @@ export function CanvasCard({
             <span className="min-w-0 truncate text-sm text-muted-foreground">· {summary}</span>
           )}
         </button>
+        {live && (
+          <span
+            title={t('automations.liveHint', {
+              every: automationEvery(live.intervalSeconds),
+              bot: bot?.name ?? '',
+            })}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border-strong px-1.5 text-[10px] text-muted-foreground"
+          >
+            <LiveDot />
+            {t('automations.live')}
+          </span>
+        )}
         {content.kind === 'checklist' && content.items.length > 0 && (
           <span className="text-xs tabular-nums text-faint">
             {content.items.filter((i) => i.done).length}/{content.items.length}
