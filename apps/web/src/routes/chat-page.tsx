@@ -4,11 +4,21 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Hand, Maximize2, Monitor, PanelRightClose, Power, Sparkles, Undo2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  Fragment,
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityGroup, type ActivityPart } from '../components/activity';
 import { BotAvatar } from '../components/bot-avatar';
 import { BotBrowserView, ViewSwitch } from '../components/bot-browser-view';
+import { BotChip } from '../components/bot-chip';
 import { BotMenu, RenameField } from '../components/bot-menu';
 import { CanvasBody } from '../components/canvas-body';
 import { ChatComposer } from '../components/chat-composer';
@@ -21,6 +31,14 @@ import { i18n } from '../i18n';
 import { api, problemMessage } from '../lib/auth';
 import { moodOf, statusLabel } from '../lib/bot-mood';
 import { mentionSegments } from '../lib/chat-input';
+import {
+  chipBots,
+  type IncomingPlace,
+  incomingPlaces,
+  runSummary,
+  senderOf,
+  withSender,
+} from '../lib/incoming';
 import { reveal } from '../lib/motion';
 import { useQuestions } from '../lib/proactivity';
 import {
@@ -73,32 +91,86 @@ function SteeredHint() {
   return <p className="px-1 text-[11px] text-faint">{t('chat.steered')}</p>;
 }
 
-/** What another bot (or the user, for a task) gave this bot: a quieter, outlined bubble. */
-function IncomingMessage({ message }: { message: Message }) {
+/** Under an answer cut by the step limit; the last one can be resumed. */
+function StepLimitHint({ onContinue }: { onContinue?: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <p className="flex items-center gap-2 text-xs text-faint">
+      {t('chat.stepLimit')}
+      {onContinue && (
+        <button
+          type="button"
+          onClick={onContinue}
+          className="rounded-full border border-border-strong px-2.5 py-0.5 text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.06] hover:text-foreground"
+        >
+          {t('chat.continue')}
+        </button>
+      )}
+    </p>
+  );
+}
+
+/** Above a run of incoming messages, quietly: who sent them, and what they are. */
+function IncomingLine({ run }: { run: Message[] }) {
   const { t } = useTranslation();
   const bots = useBots();
-  const from = bots.data?.find((b) => b.id === message.fromBotId);
-  const name = from?.name ?? message.fromName ?? t('chat.you');
-  const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('');
+  const { senders, kinds } = runSummary(run);
+  const what = kinds.map((kind) => t(`common.kinds.${kind}`)).join(', ');
+  if (senders.length === 0) {
+    return <p className="text-center text-xs text-faint first-letter:uppercase">{what}</p>;
+  }
   return (
-    <div className="flex flex-col items-end gap-1">
-      <div className="max-w-[85%] space-y-1 rounded-2xl rounded-br-md border border-border-strong bg-white/[0.03] px-4 py-2.5">
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {(from || message.fromName) && <BotAvatar seed={from?.avatarSeed ?? name} size={16} />}
-          {from ? (
-            <Link
-              to={from.isChef ? '/chef' : '/bots/$botId'}
-              params={{ botId: from.id }}
-              className="font-medium text-foreground/90 hover:underline"
-            >
-              {name}
-            </Link>
-          ) : (
-            <span className="font-medium text-foreground/90">{name}</span>
-          )}
-          <span>· {t(`common.kinds.${message.kind}`)}</span>
-        </p>
-        <Markdown text={text} className="text-[14.5px]" />
+    <p className="text-center text-xs leading-5 text-faint">
+      {t('chat.incoming', { count: run.length })}{' '}
+      {senders.map((sender, i) => {
+        const key = sender.kind === 'bot' ? (sender.id ?? sender.name) : sender.kind;
+        const bot = sender.kind === 'bot' ? bots.data?.find((b) => b.id === sender.id) : undefined;
+        return (
+          <Fragment key={key}>
+            {i > 0 && (i === senders.length - 1 ? ` ${t('chat.and')} ` : ', ')}
+            {sender.kind === 'bot' ? (
+              <BotChip
+                plain
+                bot={
+                  bot ?? {
+                    id: null,
+                    name: sender.name,
+                    avatarSeed: sender.name,
+                  }
+                }
+              />
+            ) : (
+              <span className="font-medium text-muted-foreground">{t('activityPage.you')}</span>
+            )}
+          </Fragment>
+        );
+      })}
+      {what && ` · ${what}`}
+    </p>
+  );
+}
+
+/**
+ * What another bot, the user (a task) or a routine gave this bot: a soft bubble under a quiet
+ * line naming its senders, the bots its text names shown as chips.
+ */
+function IncomingMessage({ message, place }: { message: Message; place: IncomingPlace }) {
+  const bots = useBots();
+  const chips = useMemo(() => chipBots(bots.data, message), [bots.data, message]);
+  const sender = senderOf(message);
+  const from = sender.kind === 'bot' ? chips.find((b) => b.id === sender.id) : undefined;
+  const text = message.parts.map((p) => (p.type === 'text' ? p.text : '')).join('');
+  // Several senders above: each message opens with its own.
+  const name = sender.kind === 'bot' ? (from?.name ?? sender.name) : null;
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      {place.run && <IncomingLine run={place.run} />}
+      <div className="max-w-[92%] rounded-2xl bg-white/[0.055] px-4 py-2.5">
+        <Markdown
+          text={place.mixed && name ? withSender(name, text) : text}
+          bots={chips}
+          className="text-[14px] text-foreground/85"
+        />
       </div>
       {message.steered && <SteeredHint />}
     </div>
@@ -239,11 +311,14 @@ function BotMessage({
   message,
   bot,
   onAnswer,
+  onContinue,
 }: {
   message: Message;
   bot: Bot;
   /** The user pressed a card's button or answered a vault request: their answer follows. */
   onAnswer(): void;
+  /** Cut by the step limit and still the last answer: the user can tell the bot to go on. */
+  onContinue?: () => void;
 }) {
   const { t } = useTranslation();
   const streaming = message.status === 'streaming';
@@ -309,6 +384,9 @@ function BotMessage({
           </p>
         )}
         {message.status === 'stopped' && <p className="text-xs text-faint">{t('chat.stopped')}</p>}
+        {message.status === 'done' && message.stepLimit && (
+          <StepLimitHint onContinue={onContinue} />
+        )}
       </div>
     </div>
   );
@@ -495,6 +573,7 @@ export function ChatPage() {
 
   // Follow the conversation while the user is at the bottom.
   const items = messages.data ?? [];
+  const places = incomingPlaces(items);
   const lastLength = items.at(-1)?.parts.reduce((n, p) => n + ('text' in p ? p.text.length : 1), 0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when a message arrives or grows
   useLayoutEffect(() => {
@@ -585,32 +664,42 @@ export function ChatPage() {
               <EmptyState bot={bot} onPick={(text) => send.mutate({ text })} />
             )}
             <AnimatePresence initial={false}>
-              {items.map((message) => (
-                <motion.div
-                  key={message.id}
-                  variants={reveal}
-                  initial={hydrated.current ? 'hidden' : false}
-                  animate="shown"
-                  layout="position"
-                  transition={springs.soft}
-                >
-                  {message.role === 'user' ? (
-                    message.fromBotId || message.fromName || message.kind !== 'chat' ? (
-                      <IncomingMessage message={message} />
+              {items.map((message, index) => {
+                const place = places.get(message.id);
+                return (
+                  <motion.div
+                    key={message.id}
+                    variants={reveal}
+                    initial={hydrated.current ? 'hidden' : false}
+                    animate="shown"
+                    layout="position"
+                    transition={springs.soft}
+                    // Further down a run of incoming messages: close to the one before.
+                    className={cn(place && !place.run && '-mt-4')}
+                  >
+                    {message.role === 'user' ? (
+                      place ? (
+                        <IncomingMessage message={message} place={place} />
+                      ) : (
+                        <UserMessage message={message} />
+                      )
                     ) : (
-                      <UserMessage message={message} />
-                    )
-                  ) : (
-                    <BotMessage
-                      message={message}
-                      bot={bot}
-                      onAnswer={() => {
-                        stickToBottom.current = true;
-                      }}
-                    />
-                  )}
-                </motion.div>
-              ))}
+                      <BotMessage
+                        message={message}
+                        bot={bot}
+                        onAnswer={() => {
+                          stickToBottom.current = true;
+                        }}
+                        onContinue={
+                          index === items.length - 1 && !send.isPending
+                            ? () => send.mutate({ text: 'Continue' })
+                            : undefined
+                        }
+                      />
+                    )}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         </div>

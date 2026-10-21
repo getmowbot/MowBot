@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { type ChipBot, nameSegments } from '../lib/incoming';
 import { cn } from '../lib/utils';
+import { BotChip } from './bot-chip';
 
 const components: Components = {
   p: ({ node: _, ...props }) => <p className="mb-3 leading-relaxed last:mb-0" {...props} />,
@@ -58,10 +61,64 @@ const components: Components = {
   td: ({ node: _, ...props }) => <td className="border-b border-border px-2 py-1.5" {...props} />,
 };
 
-export function Markdown({ text, className }: { text: string; className?: string }) {
+/** The bits of the Markdown tree bot names are looked for in. */
+interface MdNode {
+  type: string;
+  value?: string;
+  children?: MdNode[];
+  data?: { hName: string; hProperties: Record<string, string> };
+}
+
+/** Bot names in the text become chips (`<span data-bot>`), links and code aside. */
+function remarkBots(bots: ChipBot[]) {
+  const walk = (node: MdNode) => {
+    if (!node.children || node.type === 'link' || node.type === 'linkReference') return;
+    node.children = node.children.flatMap((child): MdNode[] => {
+      if (child.type !== 'text') {
+        walk(child);
+        return [child];
+      }
+      return nameSegments(child.value ?? '', bots).map(({ text, ref }) =>
+        ref
+          ? {
+              type: 'botChip',
+              data: { hName: 'span', hProperties: { dataBot: String(bots.indexOf(ref)) } },
+              children: [{ type: 'text', value: text }],
+            }
+          : { type: 'text', value: text },
+      );
+    });
+  };
+  return () => walk;
+}
+
+export function Markdown({
+  text,
+  className,
+  bots,
+}: {
+  text: string;
+  className?: string;
+  /** Bots shown as chips (character and colored name) where the text names them. */
+  bots?: ChipBot[];
+}) {
+  const withBots = useMemo(() => {
+    if (!bots?.length) return null;
+    const chips: Components = {
+      ...components,
+      span: ({ node: _, ...props }) => {
+        const bot = bots[Number((props as Record<string, unknown>)['data-bot'] ?? Number.NaN)];
+        return bot ? <BotChip bot={bot} /> : <span {...props} />;
+      },
+    };
+    return { plugins: [remarkGfm, remarkBots(bots)], components: chips };
+  }, [bots]);
   return (
     <div className={cn('text-[14.5px] text-foreground/95', className)}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown
+        remarkPlugins={withBots?.plugins ?? [remarkGfm]}
+        components={withBots?.components ?? components}
+      >
         {text}
       </ReactMarkdown>
     </div>

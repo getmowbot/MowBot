@@ -4726,6 +4726,7 @@ export interface operations {
                             })[];
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
+                            stepLimit: boolean;
                             errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                             error: string | null;
                             usage: {
@@ -4965,6 +4966,7 @@ export interface operations {
                         })[];
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
+                        stepLimit: boolean;
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                         error: string | null;
                         usage: {
@@ -5247,6 +5249,7 @@ export interface operations {
                         })[];
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
+                        stepLimit: boolean;
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                         error: string | null;
                         usage: {
@@ -5477,6 +5480,7 @@ export interface operations {
                         })[];
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
+                        stepLimit: boolean;
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                         error: string | null;
                         usage: {
@@ -6283,6 +6287,7 @@ export interface operations {
                             })[];
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
+                            stepLimit: boolean;
                             errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                             error: string | null;
                             usage: {

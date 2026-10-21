@@ -153,6 +153,8 @@ export const en: Catalog = {
       generic: 'Something went wrong.',
     },
     stopped: 'Stopped.',
+    stepLimit: 'Step limit reached',
+    continue: 'Continue',
     greeting: 'Hi, I’m {{name}}.',
     greetingChef: 'Hi, I’m the Chef.',
     chefIntro:
@@ -171,6 +173,9 @@ export const en: Catalog = {
     noModel: 'Connect a model (Command Code, OpenAI or compatible) to wake {{name}} up.',
     connectModel: 'Connect a model',
     steered: 'Taken into account mid-answer',
+    incoming_one: 'Message from',
+    incoming_other: 'Messages from',
+    and: 'and',
     commands: {
       stop: 'Stop what it is doing',
       clear: 'Start the conversation over',

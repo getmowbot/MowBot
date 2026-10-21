@@ -1,7 +1,7 @@
 import type { Message } from '@mowbot/contract';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Sparkles } from 'lucide-react-native';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -28,9 +28,9 @@ import { Surface } from '../../../components/ui/surface';
 import { T } from '../../../components/ui/text';
 import { moodOf } from '../../../lib/bot-mood';
 import { revealOffset } from '../../../lib/chat-scroll';
-import { isIncoming, liveMessage } from '../../../lib/message-cache';
+import { incomingPlaces } from '../../../lib/incoming';
+import { liveMessage } from '../../../lib/message-cache';
 import {
-  botsById,
   type Outgoing,
   useBots,
   useConversation,
@@ -46,10 +46,6 @@ const KEYBOARD_GAP = 12;
 const LAST_MESSAGE_GAP = 28;
 /** Room kept around a field typed into (below the header, above the message bar). */
 const FIELD_MARGIN = 12;
-
-function Separator() {
-  return <View style={styles.separator} />;
-}
 
 /** Conversation with a bot: newest at the bottom, older pages loaded while scrolling up. */
 export default function ChatScreen() {
@@ -76,7 +72,20 @@ export default function ChatScreen() {
   }, [items]);
 
   const data = useMemo(() => [...(items ?? [])].reverse(), [items]);
-  const byId = useMemo(() => botsById(bots.data), [bots.data]);
+  const places = useMemo(() => incomingPlaces(items ?? []), [items]);
+  // Inverted: the item before a separator shows under it. Within a run, the bubbles stay close.
+  const Separator = useCallback(
+    ({ leadingItem }: { leadingItem?: Message }) => (
+      <View
+        style={
+          leadingItem && places.get(leadingItem.id)?.run === null
+            ? styles.runSeparator
+            : styles.separator
+        }
+      />
+    ),
+    [places],
+  );
 
   // Keyboard open: the home-indicator inset gives way to the keyboard, leaving KEYBOARD_GAP.
   const keyboardOffset = insets.bottom + DOCK_GAP - KEYBOARD_GAP;
@@ -143,19 +152,24 @@ export default function ChatScreen() {
     send.mutate(message, { onError: () => setError(t('errors.messageNotSent')) });
   };
 
-  const renderItem: ListRenderItem<Message> = ({ item }) => {
+  const renderItem: ListRenderItem<Message> = ({ item, index }) => {
     const seen = known.current;
     const fresh = seen !== null && !seen.has(item.id);
     seen?.add(item.id);
+    const place = places.get(item.id);
     let content: ReactNode;
-    if (item.role === 'assistant') content = <BotMessage message={item} bot={bot} />;
-    else if (isIncoming(item))
+    if (item.role === 'assistant')
       content = (
-        <IncomingMessage
+        <BotMessage
           message={item}
-          from={item.fromBotId ? byId.get(item.fromBotId) : undefined}
+          bot={bot}
+          // Newest first: only the last answer can be resumed.
+          onContinue={
+            index === 0 && !send.isPending ? () => sendMessage({ text: 'Continue' }) : undefined
+          }
         />
       );
+    else if (place) content = <IncomingMessage message={item} place={place} bots={bots.data} />;
     else content = <UserMessage message={item} workspaceId={bot.workspaceId} />;
     return (
       <Animated.View entering={fresh ? reveal() : undefined}>
@@ -250,6 +264,7 @@ const styles = StyleSheet.create({
   missing: { alignItems: 'center', gap: 16 },
   content: { flexGrow: 1, paddingHorizontal: 16 },
   separator: { height: 22 },
+  runSeparator: { height: 8 },
   top: { alignItems: 'center', paddingBottom: 12 },
   empty: { flex: 1, justifyContent: 'center', paddingVertical: 24 },
   dock: { position: 'absolute', left: 0, right: 0, bottom: 0 },
