@@ -5,14 +5,15 @@ Des équipes de bots IA self-hosted. Chaque équipe partage un vrai PC Linux (bu
 - Spécification : [docs/SPEC.md](docs/SPEC.md)
 - Roadmap : [docs/ROADMAP.md](docs/ROADMAP.md)
 
-> **État : P4 et P3b.**
+> **État : P5.**
+> - Le coffre : quand tu te connectes à un site sur le PC d'un bot, la session est gardée et les bots des autres PC s'en servent ; identifiants et clés s'utilisent sans jamais être montrés aux modèles.
 > - Les bots agissent d'eux-mêmes : routines (cron, intervalle, webhook), réveils périodiques, notifications et bilan du soir, budgets et pause globale.
 > - Ils épinglent leurs résultats sur la page d'accueil (score, liste de courses, chiffres…) et te posent leurs questions avec des réponses en boutons.
 > - Chaque bot navigue dans sa propre fenêtre de Chrome, sans prendre l'écran, et tu la vois en direct.
 > - Les équipes de bots se parlent, se confient des tâches et s'échangent des fichiers, sur des PC Linux partagés.
 > - L'API est sécurisée ; l'interface est en français et en anglais.
 >
-> Prochaine étape : le coffre de sessions (P5).
+> Prochaine étape : les serveurs MCP (P6).
 
 ## Structure
 
