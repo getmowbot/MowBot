@@ -1,10 +1,13 @@
-import type {
-  HTMLAttributes,
-  InputHTMLAttributes,
-  LabelHTMLAttributes,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
+import { Eye, EyeOff } from 'lucide-react';
+import {
+  type HTMLAttributes,
+  type InputHTMLAttributes,
+  type LabelHTMLAttributes,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+  useState,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 
 const field =
@@ -12,6 +15,33 @@ const field =
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(field, 'h-10', className)} {...props} />;
+}
+
+/** A masked field; the eye shows what is being typed (stored values never come back). */
+export function SecretInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  const { t } = useTranslation();
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="relative min-w-0 flex-1">
+      <Input
+        {...props}
+        type={shown ? 'text' : 'password'}
+        autoComplete="new-password"
+        spellCheck={false}
+        className={cn('pr-10', className)}
+      />
+      <button
+        type="button"
+        onClick={() => setShown((v) => !v)}
+        disabled={props.disabled}
+        aria-pressed={shown}
+        aria-label={shown ? t('vault.hideTyping') : t('vault.showTyping')}
+        className="absolute inset-y-0 right-0 grid w-10 place-items-center text-faint transition-colors hover:text-foreground disabled:opacity-40"
+      >
+        {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+      </button>
+    </div>
+  );
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {

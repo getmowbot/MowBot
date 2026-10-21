@@ -43,6 +43,8 @@ const WORDED_PROBLEMS = [
   'invalid_totp',
   'empty_login',
   'invalid_site',
+  'request_answered',
+  'empty_answer',
 ] as const;
 type WordedProblem = (typeof WORDED_PROBLEMS)[number];
 
