@@ -1,4 +1,11 @@
-import type { Automation, Notification, Question, SystemSettingsUpdate } from '@mowbot/contract';
+import type {
+  Automation,
+  AutomationOutcome,
+  AutomationStop,
+  Notification,
+  Question,
+  SystemSettingsUpdate,
+} from '@mowbot/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { i18n } from '../i18n';
 import { api } from './auth';
@@ -158,6 +165,49 @@ export function automationEvery(seconds: number): string {
   if (seconds % 3600 === 0) return i18n.t('automations.every.hours', { count: seconds / 3600 });
   if (seconds % 60 === 0) return i18n.t('automations.every.minutes', { count: seconds / 60 });
   return i18n.t('automations.every.seconds', { count: seconds });
+}
+
+type AutomationError = NonNullable<AutomationOutcome['error']>;
+
+/** Failures whose detail is the script's own words (or what is wrong with its output). */
+const SCRIPT_ERRORS: ReadonlySet<AutomationError['kind']> = new Set(['exit', 'output', 'other']);
+
+function automationErrorLabel({ kind, code, detail }: AutomationError): string {
+  switch (kind) {
+    case 'exit':
+      return code === null
+        ? i18n.t('automations.errors.exit')
+        : i18n.t('automations.errors.exitCode', { code });
+    case 'timeout':
+      return i18n.t('automations.errors.timeout', { limit: detail });
+    default:
+      return i18n.t(`automations.errors.${kind}`);
+  }
+}
+
+/** What the last run did: "Carte mise à jour · Bot réveillé", or why it failed. */
+export function automationOutcomeLabel(outcome: AutomationOutcome): string {
+  if (outcome.error) return automationErrorLabel(outcome.error);
+  if (outcome.actions.length === 0) return i18n.t('automations.actions.none');
+  return outcome.actions.map((action) => i18n.t(`automations.actions.${action}`)).join(' · ');
+}
+
+/** The script's own words about a failed run (stderr, invalid output…), when it has some. */
+export function automationErrorDetail(outcome: AutomationOutcome): string | null {
+  const { error } = outcome;
+  return error && SCRIPT_ERRORS.has(error.kind) && error.detail ? error.detail : null;
+}
+
+/** Why it ended or paused on its own, after its status: the script's words, "après 3 échecs"… */
+export function automationStopLabel(stop: AutomationStop): string | null {
+  switch (stop.reason) {
+    case 'done':
+      return stop.detail;
+    case 'deadline':
+      return i18n.t('automations.stop.deadline');
+    case 'failures':
+      return i18n.t('automations.stop.failures', { count: Number(stop.detail) });
+  }
 }
 
 /** Whether this browser may show system notifications (asked once, by the user's click). */

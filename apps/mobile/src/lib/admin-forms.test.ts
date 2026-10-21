@@ -24,6 +24,7 @@ import {
   parseDay,
   parseLocalDateTime,
   routineProblem,
+  runReasonText,
   sameTrigger,
   triggerDraft,
 } from './routine-form';
@@ -205,6 +206,20 @@ describe('routine triggers', () => {
     expect(nextRunText(new Date(2026, 9, 23, 8, 0).toISOString(), en, 'en', now)).toMatch(
       /^Friday at /,
     );
+  });
+
+  it('words why a run was skipped, else shows the hub’s error', () => {
+    expect(runReasonText({ reason: 'quiet_hours', detail: null }, fr)).toBe('Heures calmes');
+    expect(runReasonText({ reason: 'budget_all', detail: null }, en)).toBe('Daily budget reached');
+    expect(runReasonText({ reason: 'still_running' }, en)).toBe('The previous run isn’t finished');
+    expect(runReasonText({ reason: 'interrupted' }, fr)).toBe('Interrompue');
+    expect(runReasonText({ reason: null, detail: 'Provider unreachable' }, fr)).toBe(
+      'Provider unreachable',
+    );
+    // Older runs carry their reason in French.
+    expect(runReasonText({ reason: null, detail: 'Heures calmes' }, en)).toBe('Heures calmes');
+    expect(runReasonText({ reason: null, detail: null }, en)).toBeNull();
+    expect(runReasonText({ reason: null }, en)).toBeNull();
   });
 
   it('reads the days and times typed for a one-off run', () => {

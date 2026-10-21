@@ -116,8 +116,8 @@ export function automation(overrides: Partial<Automation> = {}): Automation {
     runs: 0,
     failures: 0,
     lastRunAt: null,
-    lastResult: null,
-    stoppedReason: null,
+    lastOutcome: null,
+    stop: null,
     createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
     ...overrides,
   };

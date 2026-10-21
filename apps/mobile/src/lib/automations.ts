@@ -1,4 +1,9 @@
-import type { Automation, AutomationStatus } from '@mowbot/contract';
+import type {
+  Automation,
+  AutomationOutcome,
+  AutomationStatus,
+  AutomationStop,
+} from '@mowbot/contract';
 import type { TFunction } from 'i18next';
 import { clockText, dateTimeText } from './routine-form';
 import { timeAgo } from './time';
@@ -48,25 +53,81 @@ export function automationTone(
 }
 
 /**
+ * What a run did ("Carte mise à jour · Bot réveillé", "Rien de neuf"), or why it failed
+ * ("Le script a échoué (code 1)").
+ */
+export function outcomeText(outcome: AutomationOutcome, t: TFunction): string {
+  const { error } = outcome;
+  if (error) {
+    if (error.kind === 'exit' && error.code !== null) {
+      return t('appAdmin.automations.error.exitCode', { code: error.code });
+    }
+    // A timeout's detail is the limit it ran over ("60 s").
+    if (error.kind === 'timeout') {
+      return t('appAdmin.automations.error.timeout', { limit: error.detail || '60 s' });
+    }
+    return t(`appAdmin.automations.error.${error.kind}`);
+  }
+  if (!outcome.ok) return t('appAdmin.automations.error.other');
+  return outcome.actions.length > 0
+    ? outcome.actions.map((action) => t(`appAdmin.automations.did.${action}`)).join(' · ')
+    : t('appAdmin.automations.did.nothing');
+}
+
+/** Errors whose detail is worth reading: the script's own output, or what is wrong with it. */
+const READABLE_ERRORS: ReadonlySet<NonNullable<AutomationOutcome['error']>['kind']> = new Set([
+  'exit',
+  'output',
+  'other',
+]);
+
+/** The last run's error as the script or the hub gave it (shown on demand), or null. */
+export function errorDetail(outcome: Automation['lastOutcome']): string | null {
+  const error = outcome?.error;
+  return error && READABLE_ERRORS.has(error.kind) && error.detail.trim() ? error.detail : null;
+}
+
+/**
+ * Why it ended or paused on its own: "Terminée : Match fini" (the script's words),
+ * "Échéance atteinte", "En pause après 3 échecs".
+ */
+export function stopText(stop: AutomationStop, t: TFunction): string {
+  switch (stop.reason) {
+    case 'done':
+      return stop.detail
+        ? t('appAdmin.automations.stop.doneWith', { detail: stop.detail })
+        : t('appAdmin.automations.stop.done');
+    case 'deadline':
+      return t('appAdmin.automations.stop.deadline');
+    case 'failures': {
+      const count = Number.parseInt(stop.detail ?? '', 10);
+      return Number.isNaN(count)
+        ? t('appAdmin.automations.status.paused')
+        : t('appAdmin.automations.stop.failures', { count });
+    }
+  }
+}
+
+/**
  * What it did last: why it paused or ended (when it did), when it last ran and what that run
- * gave ("Match terminé · il y a 3 min · 2-1").
+ * gave ("Terminée : Match fini · il y a 3 min · Carte mise à jour").
  */
 export function automationDetail(
-  automation: Pick<Automation, 'status' | 'stoppedReason' | 'lastRunAt' | 'lastResult'>,
+  automation: Pick<Automation, 'status' | 'stop' | 'lastRunAt' | 'lastOutcome'>,
   t: TFunction,
   language: string,
   now = Date.now(),
 ): string {
   const parts: string[] = [];
-  if (automation.status !== 'active' && automation.stoppedReason) {
-    parts.push(automation.stoppedReason);
+  if (automation.status !== 'active' && automation.stop) {
+    parts.push(stopText(automation.stop, t));
   }
   parts.push(
     automation.lastRunAt
       ? timeAgo(automation.lastRunAt, t, language, now)
       : t('appAdmin.automations.neverRun'),
   );
-  if (automation.lastResult) parts.push(automation.lastResult);
+  if (automation.lastOutcome) parts.push(outcomeText(automation.lastOutcome, t));
   return parts.join(' · ');
 }
 

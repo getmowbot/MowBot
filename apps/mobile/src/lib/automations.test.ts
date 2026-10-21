@@ -1,4 +1,4 @@
-import type { Automation } from '@mowbot/contract';
+import type { Automation, AutomationOutcome } from '@mowbot/contract';
 import { QueryClient } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -7,13 +7,30 @@ import {
   automationDetail,
   automationStatusLabel,
   automationTone,
+  errorDetail,
   isCanvasLive,
+  outcomeText,
   rhythmText,
   sortAutomations,
+  stopText,
   untilText,
 } from './automations';
 import { applyServerEvent } from './event-cache';
 import { keys } from './query-keys';
+
+type ErrorKind = NonNullable<AutomationOutcome['error']>['kind'];
+
+const success = (...actions: AutomationOutcome['actions']): AutomationOutcome => ({
+  ok: true,
+  actions,
+  error: null,
+});
+
+const failure = (kind: ErrorKind, code: number | null = null, detail = ''): AutomationOutcome => ({
+  ok: false,
+  actions: [],
+  error: { kind, code, detail },
+});
 
 let fr: TFunction;
 let en: TFunction;
@@ -73,34 +90,95 @@ describe('automation status', () => {
     expect(automationDetail(automation(), fr, 'fr', now)).toBe('Pas encore lancée');
     expect(
       automationDetail(
-        automation({ lastRunAt: twoMinutesAgo, lastResult: '2-1 (67’)' }),
+        automation({ lastRunAt: twoMinutesAgo, lastOutcome: success('canvas') }),
         fr,
         'fr',
         now,
       ),
-    ).toBe('il y a 2 min · 2-1 (67’)');
+    ).toBe('il y a 2 min · Carte mise à jour');
     expect(
       automationDetail(
         automation({
           status: 'stopped',
-          stoppedReason: 'Match terminé',
+          stop: { reason: 'done', detail: 'Match terminé' },
           lastRunAt: twoMinutesAgo,
-          lastResult: '3-1',
+          lastOutcome: success('canvas', 'notify'),
         }),
         en,
         'en',
         now,
       ),
-    ).toBe('Match terminé · 2 min ago · 3-1');
+    ).toBe('Finished: Match terminé · 2 min ago · Card updated · Notification sent');
+    expect(
+      automationDetail(
+        automation({
+          status: 'paused',
+          failures: 3,
+          stop: { reason: 'failures', detail: '3' },
+          lastRunAt: twoMinutesAgo,
+          lastOutcome: failure('timeout', null, '60 s'),
+        }),
+        fr,
+        'fr',
+        now,
+      ),
+    ).toBe('En pause après 3 échecs · il y a 2 min · Le script a dépassé 60 s');
     // A reason left from an earlier pause is not shown once it runs again.
     expect(
       automationDetail(
-        automation({ stoppedReason: 'old', lastRunAt: twoMinutesAgo }),
+        automation({ stop: { reason: 'deadline', detail: null }, lastRunAt: twoMinutesAgo }),
         en,
         'en',
         now,
       ),
     ).toBe('2 min ago');
+  });
+});
+
+describe('automation outcome', () => {
+  it('lists what the run did, or says it had nothing new', () => {
+    expect(outcomeText(success('canvas', 'notify', 'wake'), fr)).toBe(
+      'Carte mise à jour · Notification envoyée · Bot réveillé',
+    );
+    expect(outcomeText(success('wake'), en)).toBe('Bot woken');
+    expect(outcomeText(success(), fr)).toBe('Rien de neuf');
+    expect(outcomeText(success(), en)).toBe('Nothing new');
+  });
+
+  it('words why the run failed, with the exit code', () => {
+    expect(outcomeText(failure('exit', 1), fr)).toBe('Le script a échoué (code 1)');
+    expect(outcomeText(failure('exit', 2), en)).toBe('The script failed (code 2)');
+    expect(outcomeText(failure('exit'), fr)).toBe('Le script a échoué');
+    expect(outcomeText(failure('timeout', null, '90 s'), en)).toBe('The script ran over 90 s');
+    expect(outcomeText(failure('timeout'), fr)).toBe('Le script a dépassé 60 s');
+    expect(outcomeText(failure('output'), fr)).toBe('Sortie JSON invalide');
+    expect(outcomeText(failure('no_canvas'), fr)).toBe('Pas de carte à mettre à jour');
+    expect(outcomeText(failure('no_computer'), en)).toBe('The bot no longer has a computer');
+    expect(outcomeText(failure('other'), fr)).toBe('Erreur');
+    expect(outcomeText({ ok: false, actions: [], error: null }, en)).toBe('Error');
+  });
+
+  it('keeps the script’s own words to read on demand', () => {
+    expect(errorDetail(failure('exit', 1, 'Traceback: KeyError'))).toBe('Traceback: KeyError');
+    expect(errorDetail(failure('output', null, 'score Required'))).toBe('score Required');
+    // Nothing more to read than the label.
+    expect(errorDetail(failure('timeout', null, '60 s'))).toBeNull();
+    expect(errorDetail(failure('no_canvas', null, 'canvas'))).toBeNull();
+    expect(errorDetail(failure('exit', 1, '  '))).toBeNull();
+    expect(errorDetail(success('canvas'))).toBeNull();
+    expect(errorDetail(null)).toBeNull();
+  });
+
+  it('says why it ended or paused on its own', () => {
+    expect(stopText({ reason: 'done', detail: 'Match terminé' }, fr)).toBe(
+      'Terminée : Match terminé',
+    );
+    expect(stopText({ reason: 'done', detail: null }, en)).toBe('Finished');
+    expect(stopText({ reason: 'deadline', detail: null }, fr)).toBe('Échéance atteinte');
+    expect(stopText({ reason: 'deadline', detail: null }, en)).toBe('Deadline reached');
+    expect(stopText({ reason: 'failures', detail: '3' }, fr)).toBe('En pause après 3 échecs');
+    expect(stopText({ reason: 'failures', detail: '1' }, en)).toBe('Paused after 1 failure');
+    expect(stopText({ reason: 'failures', detail: null }, en)).toBe('Paused');
   });
 });
 
@@ -137,7 +215,7 @@ describe('automation list', () => {
     const client = new QueryClient();
     const first = automation();
     client.setQueryData<Automation[]>(keys.automations, [first]);
-    const ran = { ...first, runs: 1, lastResult: '1-0' };
+    const ran = { ...first, runs: 1, lastOutcome: success('canvas') };
     applyServerEvent(client, { type: 'automation.updated', automation: ran });
     const added = automation({ name: 'Prix' });
     applyServerEvent(client, { type: 'automation.updated', automation: added });

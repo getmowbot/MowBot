@@ -25,7 +25,7 @@ import {
 } from '../../../lib/admin-queries';
 import { alertError, confirm } from '../../../lib/options-menu';
 import { keys, useBots } from '../../../lib/queries';
-import { describeTrigger, nextRunText } from '../../../lib/routine-form';
+import { describeTrigger, nextRunText, runReasonText } from '../../../lib/routine-form';
 import { hubUrl } from '../../../lib/session';
 import { timeAgo } from '../../../lib/time';
 import { fonts } from '../../../theme';
@@ -58,7 +58,10 @@ function History({ routine, bot }: { routine: Routine; bot: Bot | undefined }) {
               key={run.id}
               icon={RUN_ICONS[run.status]}
               label={t(`appAdmin.routines.status.${run.status}`)}
-              hint={run.detail ?? (run.messageId ? t('appAdmin.routines.seeAnswer') : undefined)}
+              hint={
+                runReasonText(run, t) ??
+                (run.messageId ? t('appAdmin.routines.seeAnswer') : undefined)
+              }
               value={timeAgo(run.startedAt, t, i18n.language)}
               destructive={run.status === 'error'}
               chevron={Boolean(run.messageId && bot)}
@@ -114,7 +117,7 @@ function RoutineDetail({ routine, bot }: { routine: Routine; bot: Bot | undefine
       onSuccess: (result) => {
         if (result.status === 'skipped' || result.status === 'error') {
           alertError(
-            [t(`appAdmin.routines.status.${result.status}`), result.detail]
+            [t(`appAdmin.routines.status.${result.status}`), runReasonText(result, t)]
               .filter(Boolean)
               .join(' · '),
           );
