@@ -14,6 +14,7 @@ import type { Db } from './db/client';
 import { bots as botsTable } from './db/schema';
 import { EventBus } from './events';
 import { TicketService } from './http/tickets';
+import { McpService } from './mcp/service';
 import { OrgService } from './org/service';
 import type { TaskService } from './org/tasks';
 import { AutomationService } from './proactivity/automations';
@@ -52,6 +53,7 @@ export interface Services {
   vault: VaultService;
   push: PushService;
   automations: AutomationService;
+  mcp: McpService;
   /** Main team, its PC, the Chef and its daily summary (at startup and right after setup). */
   bootstrap(): Promise<void>;
 }
@@ -110,6 +112,7 @@ export async function createServices(
     questions,
     notifications,
   });
+  const mcp = new McpService({ db, events, masterKey: config.masterKey, computers });
   const automations = new AutomationService({
     db,
     events,
@@ -136,6 +139,7 @@ export async function createServices(
     browser,
     push,
     automations,
+    mcp,
     finishedPushAfterMs: overrides.finishedPushAfterMs,
     modelFor: overrides.modelFor,
     askTimeoutMs: overrides.askTimeoutMs,
@@ -165,6 +169,7 @@ export async function createServices(
     vault,
     push,
     automations,
+    mcp,
     bootstrap,
   };
 }

@@ -867,6 +867,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mcp/servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMcpServers"];
+        put?: never;
+        /** @description Adds a server. Its tools are listed in the background (follow `mcp.updated`); an OAuth server first needs `oauth/start`. */
+        post: operations["createMcpServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp/servers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteMcpServer"];
+        options?: never;
+        head?: never;
+        patch: operations["updateMcpServer"];
+        trace?: never;
+    };
+    "/api/v1/mcp/servers/{id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Connects again and lists the tools (a local server starts on a bot’s computer). */
+        post: operations["refreshMcpServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp/servers/{id}/oauth/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Starts signing in to the server: open `authorizationUrl` in the browser; it comes back to `<redirectBase>/api/v1/mcp/oauth/callback`. */
+        post: operations["startMcpOAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mcp/servers/{id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The latest calls bots made to this server, newest first. */
+        get: operations["listMcpCalls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/routines": {
         parameters: {
             query?: never;
@@ -6697,6 +6781,631 @@ export interface operations {
                             site: string;
                             cookies: number;
                             itemId: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    listMcpServers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            slug: string;
+                            /** @enum {string} */
+                            transport: "http" | "stdio";
+                            url: string | null;
+                            command: string | null;
+                            /** @enum {string} */
+                            auth: "none" | "oauth";
+                            secretKeys: string[];
+                            scope: {
+                                /** @enum {string} */
+                                kind: "all" | "teams" | "bots";
+                                ids: string[];
+                            };
+                            computerId: string | null;
+                            createdByBotId: string | null;
+                            enabled: boolean;
+                            /** @enum {string} */
+                            status: "unknown" | "ok" | "error" | "needs_auth";
+                            statusDetail: string | null;
+                            tools: {
+                                name: string;
+                                description: string | null;
+                                readOnly: boolean | null;
+                                destructive: boolean | null;
+                            }[];
+                            toolsAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    createMcpServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @enum {string} */
+                    transport: "http" | "stdio";
+                    /** Format: uri */
+                    url?: string;
+                    command?: string;
+                    /**
+                     * @default none
+                     * @enum {string}
+                     */
+                    auth?: "none" | "oauth";
+                    secrets?: {
+                        [key: string]: string;
+                    };
+                    /**
+                     * @default {
+                     *       "kind": "all",
+                     *       "ids": []
+                     *     }
+                     */
+                    scope?: {
+                        /** @enum {string} */
+                        kind: "all" | "teams" | "bots";
+                        ids: string[];
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        slug: string;
+                        /** @enum {string} */
+                        transport: "http" | "stdio";
+                        url: string | null;
+                        command: string | null;
+                        /** @enum {string} */
+                        auth: "none" | "oauth";
+                        secretKeys: string[];
+                        scope: {
+                            /** @enum {string} */
+                            kind: "all" | "teams" | "bots";
+                            ids: string[];
+                        };
+                        computerId: string | null;
+                        createdByBotId: string | null;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        status: "unknown" | "ok" | "error" | "needs_auth";
+                        statusDetail: string | null;
+                        tools: {
+                            name: string;
+                            description: string | null;
+                            readOnly: boolean | null;
+                            destructive: boolean | null;
+                        }[];
+                        toolsAt: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    deleteMcpServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    updateMcpServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /** Format: uri */
+                    url?: string;
+                    command?: string;
+                    /** @enum {string} */
+                    auth?: "none" | "oauth";
+                    secrets?: {
+                        [key: string]: string | null;
+                    };
+                    scope?: {
+                        /** @enum {string} */
+                        kind: "all" | "teams" | "bots";
+                        ids: string[];
+                    };
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        slug: string;
+                        /** @enum {string} */
+                        transport: "http" | "stdio";
+                        url: string | null;
+                        command: string | null;
+                        /** @enum {string} */
+                        auth: "none" | "oauth";
+                        secretKeys: string[];
+                        scope: {
+                            /** @enum {string} */
+                            kind: "all" | "teams" | "bots";
+                            ids: string[];
+                        };
+                        computerId: string | null;
+                        createdByBotId: string | null;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        status: "unknown" | "ok" | "error" | "needs_auth";
+                        statusDetail: string | null;
+                        tools: {
+                            name: string;
+                            description: string | null;
+                            readOnly: boolean | null;
+                            destructive: boolean | null;
+                        }[];
+                        toolsAt: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    refreshMcpServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        slug: string;
+                        /** @enum {string} */
+                        transport: "http" | "stdio";
+                        url: string | null;
+                        command: string | null;
+                        /** @enum {string} */
+                        auth: "none" | "oauth";
+                        secretKeys: string[];
+                        scope: {
+                            /** @enum {string} */
+                            kind: "all" | "teams" | "bots";
+                            ids: string[];
+                        };
+                        computerId: string | null;
+                        createdByBotId: string | null;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        status: "unknown" | "ok" | "error" | "needs_auth";
+                        statusDetail: string | null;
+                        tools: {
+                            name: string;
+                            description: string | null;
+                            readOnly: boolean | null;
+                            destructive: boolean | null;
+                        }[];
+                        toolsAt: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    startMcpOAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uri */
+                    redirectBase: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        authorizationUrl: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    listMcpCalls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            serverId: string;
+                            botId: string | null;
+                            tool: string;
+                            ok: boolean;
+                            durationMs: number;
+                            error: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
                         }[];
                     };
                 };

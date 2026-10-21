@@ -23,6 +23,7 @@ import { deviceRoutes } from './routes/devices';
 import { eventRoutes } from './routes/events';
 import { fileRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
+import { mcpRoutes } from './routes/mcp';
 import { proactivityRoutes } from './routes/proactivity';
 import { providerRoutes } from './routes/providers';
 import { questionRoutes } from './routes/questions';
@@ -149,6 +150,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
       await api.register(taskRoutes);
       await api.register(questionRoutes);
       await api.register(vaultRoutes);
+      await api.register(mcpRoutes);
       await api.register(proactivityRoutes);
       await api.register(canvasRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
@@ -161,10 +163,12 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
   services.vault.setLogger(app.log);
   services.push.setLogger(app.log);
   services.automations.setLogger(app.log);
+  services.mcp.setLogger(app.log);
   services.vault.watchTakeovers();
   app.addHook('onClose', async () => {
     services.scheduler.stop();
     services.automations.stop();
+    await services.mcp.close();
     services.vault.close();
     await services.runtime.close();
     await services.computers.close();

@@ -1,3 +1,4 @@
+import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import net from 'node:net';
@@ -45,6 +46,9 @@ export class FakeRuntime implements ComputerRuntime {
   shell:
     | ((script: string) => { exitCode?: number; stdout?: string; stderr?: string } | undefined)
     | null = null;
+  /** Starts the process behind /stdio (an MCP server), when a test needs one. */
+  stdio: ((command: string, env: Record<string, string>) => ChildProcessWithoutNullStreams) | null =
+    null;
 
   async start(spec: ComputerSpec): Promise<{ containerId: string }> {
     if (this.failNextStart) {
@@ -59,6 +63,10 @@ export class FakeRuntime implements ComputerRuntime {
     const agent = createAgent({
       token: spec.agentToken,
       vncPort: (vnc.address() as net.AddressInfo).port,
+      spawnStdio: (command, env) => {
+        if (!this.stdio) throw new Error('No stdio process in this test');
+        return this.stdio(command, env);
+      },
       run: async (command, args) => {
         // scrot writes its PNG to the path given last.
         if (command === 'scrot') await writeFile(args.at(-1) as string, TINY_PNG);

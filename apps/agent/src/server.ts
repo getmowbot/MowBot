@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile, rm } from 'node:fs/promises';
 import http from 'node:http';
@@ -33,6 +33,8 @@ export interface AgentOptions {
   devtoolsUrl?: string;
   /** Process runner, replaced in tests. */
   run?: Runner;
+  /** Starts a long-lived process for /stdio (an MCP server), replaced in tests. */
+  spawnStdio?: (command: string, env: Record<string, string>) => ChildProcessWithoutNullStreams;
 }
 
 export interface Agent {
@@ -202,6 +204,69 @@ function canConnect(host: string, port: number, timeoutMs = 500): Promise<boolea
 }
 
 /** Pipes an RFB WebSocket to the local VNC server. */
+/** What the hub and a /stdio process exchange, one JSON frame per line of the process. */
+type StdioFrame =
+  | { t: 'start'; command: string; env?: Record<string, string> }
+  | { t: 'in'; d: string }
+  | { t: 'out'; d: string }
+  | { t: 'err'; d: string }
+  | { t: 'exit'; code: number | null };
+
+const MAX_STDIO_LINE = 4 * 1024 * 1024;
+
+/**
+ * A long-lived process (an MCP server speaking JSON-RPC over stdio) bridged to a WebSocket:
+ * the first frame starts it, then lines in and out; it is killed when the socket closes.
+ */
+function bridgeStdio(
+  ws: WebSocket,
+  start: (command: string, env: Record<string, string>) => ChildProcessWithoutNullStreams,
+): void {
+  const send = (frame: StdioFrame) => {
+    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(frame));
+  };
+  let child: ChildProcessWithoutNullStreams | null = null;
+  ws.on('message', (data: Buffer) => {
+    let frame: StdioFrame;
+    try {
+      frame = JSON.parse(data.toString()) as StdioFrame;
+    } catch {
+      return;
+    }
+    if (frame.t === 'start' && !child) {
+      child = start(frame.command, frame.env ?? {});
+      let buffered = '';
+      child.stdout.on('data', (chunk: Buffer) => {
+        buffered += chunk.toString();
+        let newline = buffered.indexOf('\n');
+        while (newline >= 0) {
+          const line = buffered.slice(0, newline).replace(/\r$/, '');
+          buffered = buffered.slice(newline + 1);
+          if (line.trim()) send({ t: 'out', d: line });
+          newline = buffered.indexOf('\n');
+        }
+        if (buffered.length > MAX_STDIO_LINE) buffered = '';
+      });
+      child.stderr.on('data', (chunk: Buffer) =>
+        send({ t: 'err', d: chunk.toString().slice(-4_000) }),
+      );
+      child.on('error', (error) => {
+        send({ t: 'err', d: error.message });
+        send({ t: 'exit', code: null });
+        ws.close();
+      });
+      child.on('exit', (code) => {
+        send({ t: 'exit', code });
+        ws.close();
+      });
+    } else if (frame.t === 'in' && child) {
+      child.stdin.write(`${frame.d}\n`);
+    }
+  });
+  ws.on('close', () => child?.kill());
+  ws.on('error', () => child?.kill());
+}
+
 function bridgeVnc(ws: WebSocket, host: string, port: number): void {
   const tcp = net.connect({ host, port });
   ws.on('message', (data: Buffer) => tcp.write(data));
@@ -257,6 +322,14 @@ export function createAgent(options: AgentOptions): Agent {
   const vncPort = options.vncPort ?? 5900;
   const display = options.display ?? ':0';
   const run = options.run ?? spawnRunner;
+  const spawnStdio =
+    options.spawnStdio ??
+    ((command: string, env: Record<string, string>) =>
+      spawn('bash', ['-lc', command], {
+        cwd: options.workdir,
+        env: { ...process.env, ...env },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }));
   const tokenDigest = digest(options.token);
   const state = { controlLocked: false };
   const x11Env = { DISPLAY: display };
@@ -336,13 +409,14 @@ export function createAgent(options: AgentOptions): Agent {
   const wss = new WebSocketServer({ noServer: true });
   server.on('upgrade', (request, socket, head) => {
     const pathname = new URL(request.url ?? '/', 'http://agent').pathname;
-    const known = pathname === '/vnc' || pathname === '/cdp';
+    const known = pathname === '/vnc' || pathname === '/cdp' || pathname === '/stdio';
     if (!known || !authorized(request.headers.authorization)) {
       socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
       return;
     }
     wss.handleUpgrade(request, socket, head, (ws) => {
       if (pathname === '/vnc') bridgeVnc(ws, vncHost, vncPort);
+      else if (pathname === '/stdio') bridgeStdio(ws, spawnStdio);
       else void bridgeCdp(ws, options.devtoolsUrl ?? 'http://127.0.0.1:9222');
     });
   });

@@ -112,4 +112,12 @@ export class AgentClient {
       headers: { authorization: `Bearer ${this.token}` },
     };
   }
+
+  /** A long-lived process on the computer, its stdio over a WebSocket (MCP servers). */
+  stdioEndpoint(): { url: string; headers: Record<string, string> } {
+    return {
+      url: this.url('/stdio', 'ws'),
+      headers: { authorization: `Bearer ${this.token}` },
+    };
+  }
 }
