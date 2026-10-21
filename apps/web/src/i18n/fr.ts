@@ -572,6 +572,52 @@ export const fr = {
       openaiHint: 'Clé API de platform.openai.com.',
       compatible: 'Compatible OpenAI',
       compatibleHint: 'OpenRouter, Ollama, xAI, DeepSeek… : URL de base + clé.',
+      chatgpt: 'OpenAI (compte ChatGPT)',
+      chatgptHint:
+        'Tes bots utilisent ton forfait ChatGPT (Plus, Pro…) : pas de clé API, tu te connectes avec ton compte ChatGPT.',
+    },
+    chatgpt: {
+      signIn: 'Se connecter avec ChatGPT',
+      signInAgain: 'Se reconnecter',
+      waiting: 'Termine la connexion sur la page d’OpenAI, dans ton navigateur…',
+      desktopOnly:
+        'La connexion avec ChatGPT se fait dans l’app desktop MowBot : OpenAI ne renvoie la connexion qu’à l’ordinateur qui a ouvert le navigateur. Ouvre MowBot sur ton ordinateur, puis Réglages → Modèles → Ajouter.',
+      download: 'Télécharger l’app desktop',
+      welcomeTitle: 'Tu utilises ton forfait ChatGPT',
+      welcomeBody:
+        'Les requêtes de tes bots comptent désormais dans l’utilisation de ton forfait ChatGPT, que tu gères dans les réglages de ChatGPT.',
+      gotIt: 'Compris',
+      manageUsage: 'Gérer l’utilisation',
+      plan: 'ChatGPT {{plan}}',
+      usingPlan: 'Utilise ton forfait ChatGPT',
+      connected: 'Connecté',
+      needsSignIn: 'Déconnecté',
+      needsSignInBody:
+        'OpenAI a mis fin à cette session ChatGPT : reconnecte-toi pour que les bots puissent l’utiliser.',
+      needsSignInDesktop: 'Reconnecte-toi depuis l’app desktop MowBot (Réglages → Modèles).',
+      limited: 'Limite d’utilisation atteinte',
+      limitedBody:
+        'La limite peut être celle de ton forfait ou une limite propre à l’app. En attendant, les bots passent à leur modèle de secours.',
+      reconnected: 'Session ChatGPT renouvelée.',
+      errors: {
+        timeout: 'La connexion a pris trop de temps : réessaie.',
+        denied: 'Connexion annulée sur la page d’OpenAI.',
+        browser: 'Impossible d’ouvrir le navigateur.',
+        listen: 'Impossible d’attendre la réponse d’OpenAI sur cet ordinateur.',
+        planNotGranted:
+          'L’utilisation de ton forfait ChatGPT n’a pas été autorisée : reconnecte-toi et autorise-la.',
+        otherClient: 'OpenAI a répondu pour un autre enregistrement de MowBot : réessaie.',
+        incomplete: 'La réponse d’OpenAI était incomplète : réessaie.',
+        exchange: 'OpenAI a refusé la connexion.',
+        unreachable: 'OpenAI ne répond pas : vérifie ta connexion.',
+        mismatch: 'La connexion ne correspond pas : réessaie.',
+        failed: 'La connexion a échoué.',
+        updateDesktop:
+          'Mets à jour l’app desktop MowBot (0.2.3 ou plus) pour te connecter avec ChatGPT.',
+        invalidIdToken: 'Le hub n’a pas pu vérifier cette connexion auprès d’OpenAI : réessaie.',
+        otherAccount: 'C’est un autre compte ChatGPT : ajoute-le comme nouveau fournisseur.',
+        signInRequired: 'Session ChatGPT terminée : reconnecte-toi depuis l’app desktop.',
+      },
     },
     headers: 'En-têtes HTTP',
     headerName: 'Nom de l’en-tête',
