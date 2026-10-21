@@ -1,4 +1,4 @@
-import type { MessagePart, TaskStatus } from '@mowbot/contract';
+import type { BotActivity, MessagePart, TaskStatus } from '@mowbot/contract';
 import type { TFunction } from 'i18next';
 import { shortSummary } from './incoming';
 
@@ -47,6 +47,15 @@ export const SHOW_IN_CHAT = 'show_in_chat';
 const str = (value: unknown) => (typeof value === 'string' ? value : '');
 
 const workspacePath = (value: unknown) => str(value).replace(/^\/workspace\/?/, '') || 'workspace';
+
+/** A place in a project of the user's computer: the path, or the project itself. */
+const projectPath = (input: Input) => str(input.path) || str(input.project) || '.';
+
+/** `Tape « … »`, or `Tape du texte` without the text (what a bot is doing leaves it out). */
+function typing(value: unknown, t: TFunction): string {
+  const text = str(value).slice(0, 60);
+  return text ? t('activity.tool.type', { text }) : t('activity.tool.typeAny');
+}
 
 /** `Écrit à Nova · La playlist est prête`: the gist the bot gave (or the first sentence). */
 function withGist(who: string, input: Input, text: unknown): string {
@@ -141,7 +150,7 @@ function describeComputer(input: Input, t: TFunction): string {
     case 'move':
       return t('activity.tool.move', { at });
     case 'type':
-      return t('activity.tool.type', { text: str(input.text).slice(0, 60) });
+      return typing(input.text, t);
     case 'key':
       return t('activity.tool.key', { keys: str(input.keys) });
     case 'scroll':
@@ -176,6 +185,22 @@ interface ToolMeta {
   kind(input: Input): ActivityKind | null;
 }
 
+const openPage: ToolMeta = {
+  icon: (i) => (searchQuery(i.url) ? 'search' : 'globe'),
+  title: (i, t) => describeUrl(i.url, t),
+  kind: (i) => (searchQuery(i.url) ? 'search' : 'page'),
+};
+
+/** A tool of an MCP server (`mcp__github__create_issue`, or through mcp_call). */
+const mcpTool: ToolMeta = {
+  icon: () => 'tool',
+  title: (i, t) =>
+    str(i.server) && str(i.tool)
+      ? t('activity.tool.mcpTool', { server: str(i.server), tool: str(i.tool) })
+      : '',
+  kind: () => null,
+};
+
 const TOOLS: Record<string, ToolMeta> = {
   bash: {
     icon: () => 'terminal',
@@ -197,10 +222,49 @@ const TOOLS: Record<string, ToolMeta> = {
     title: (i, t) => t('activity.tool.list', { path: workspacePath(i.path) }),
     kind: () => 'read',
   },
-  open_url: {
-    icon: (i) => (searchQuery(i.url) ? 'search' : 'globe'),
-    title: (i, t) => describeUrl(i.url, t),
-    kind: (i) => (searchQuery(i.url) ? 'search' : 'page'),
+  browser_open: openPage,
+  // Conversations from before the bots had their own browser window.
+  open_url: openPage,
+  browser_snapshot: {
+    icon: () => 'file',
+    title: (_, t) => t('activity.tool.browserRead'),
+    kind: () => null,
+  },
+  browser_click: {
+    icon: () => 'pointer',
+    title: (_, t) => t('activity.tool.browserClick'),
+    kind: () => null,
+  },
+  browser_type: {
+    icon: () => 'pointer',
+    title: (i, t) => typing(i.text, t),
+    kind: () => null,
+  },
+  browser_select: {
+    icon: () => 'pointer',
+    title: (i, t) => t('activity.tool.browserSelect', { option: str(i.option) }),
+    kind: () => null,
+  },
+  browser_press: {
+    icon: () => 'pointer',
+    title: (i, t) => t('activity.tool.key', { keys: str(i.key) }),
+    kind: () => null,
+  },
+  browser_scroll: {
+    icon: () => 'pointer',
+    title: (i, t) =>
+      i.direction === 'up' ? t('activity.tool.scrollUp') : t('activity.tool.scrollDown'),
+    kind: () => null,
+  },
+  browser_back: {
+    icon: () => 'globe',
+    title: (_, t) => t('activity.tool.browserBack'),
+    kind: () => null,
+  },
+  browser_screenshot: {
+    icon: () => 'camera',
+    title: (_, t) => t('activity.tool.browserScreenshot'),
+    kind: () => 'capture',
   },
   screenshot: {
     icon: () => 'camera',
@@ -291,34 +355,140 @@ const TOOLS: Record<string, ToolMeta> = {
     title: (_, t) => t('activity.tool.showInChat'),
     kind: () => null,
   },
+  set_focus: {
+    icon: () => 'user-edit',
+    title: (i, t) =>
+      str(i.text).trim()
+        ? t('activity.tool.setFocus', { text: str(i.text).trim() })
+        : t('activity.tool.clearFocus'),
+    kind: () => null,
+  },
+  stop_bot: {
+    icon: () => 'user-edit',
+    title: (i, t) => t('activity.tool.stopBot', { name: str(i.bot) }),
+    kind: () => null,
+  },
+  request_takeover: {
+    icon: () => 'monitor',
+    title: (_, t) => t('activity.tool.requestTakeover'),
+    kind: () => 'question',
+  },
+  vault_request: {
+    icon: () => 'lock',
+    title: (i, t) => t('activity.tool.vaultRequest', { service: str(i.service) }),
+    kind: () => 'question',
+  },
+  mcp_call: mcpTool,
+  mcp_search_tools: {
+    icon: () => 'search',
+    title: (_, t) => t('activity.tool.mcpSearch'),
+    kind: () => null,
+  },
+  // Projects: folders of the user's own computer.
+  local_exec: {
+    icon: () => 'terminal',
+    title: (i, t) => describeCommand(i.command, t),
+    kind: () => 'command',
+  },
+  local_read: {
+    icon: () => 'file',
+    title: (i, t) => t('activity.tool.read', { path: projectPath(i) }),
+    kind: () => 'read',
+  },
+  local_write: {
+    icon: () => 'file-pen',
+    title: (i, t) => t('activity.tool.write', { path: projectPath(i) }),
+    kind: () => 'write',
+  },
+  local_edit: {
+    icon: () => 'file-pen',
+    title: (i, t) => t('activity.tool.edit', { path: projectPath(i) }),
+    kind: () => 'write',
+  },
+  local_list: {
+    icon: () => 'folder',
+    title: (i, t) => t('activity.tool.list', { path: projectPath(i) }),
+    kind: () => 'read',
+  },
+  local_find: {
+    icon: () => 'search',
+    title: (i, t) => t('activity.tool.findFiles', { pattern: str(i.pattern) }),
+    kind: () => 'read',
+  },
+  local_search: {
+    icon: () => 'search',
+    title: (i, t) => t('activity.tool.search', { query: str(i.pattern) }),
+    kind: () => 'read',
+  },
+  local_pull: {
+    icon: () => 'folder',
+    title: (i, t) => t('activity.tool.pullProject', { project: str(i.project) || '…' }),
+    kind: () => null,
+  },
+  local_push: {
+    icon: () => 'folder',
+    title: (i, t) => t('activity.tool.pushProject', { project: str(i.project) || '…' }),
+    kind: () => null,
+  },
+  local_projects: {
+    icon: () => 'folder',
+    title: (_, t) => t('activity.tool.listProjects'),
+    kind: () => null,
+  },
+  local_use_project: {
+    icon: () => 'folder',
+    title: (i, t) => t('activity.tool.useProject', { project: str(i.project) }),
+    kind: () => null,
+  },
 };
 
 const FALLBACK: ToolMeta = { icon: () => 'tool', title: () => '', kind: () => null };
 
-const meta = (part: ToolPart) => TOOLS[part.toolName] ?? FALLBACK;
-const input = (part: ToolPart) => (part.input ?? {}) as Input;
+/** `mcp__github__create_issue`: a tool of an MCP server, called directly. */
+const MCP_TOOL = /^mcp__(.+?)__(.+)$/;
+
+/** How a call is worded, and its input as the wording reads it (MCP tools: server and tool). */
+function metaOf(toolName: string, raw: unknown): [ToolMeta, Input] {
+  const given = (raw ?? {}) as Input;
+  const direct = MCP_TOOL.exec(toolName);
+  if (direct) return [mcpTool, { ...given, server: direct[1], tool: direct[2] }];
+  return [TOOLS[toolName] ?? FALLBACK, given];
+}
 
 export function toolIcon(part: ToolPart): ActivityIcon {
-  return meta(part).icon(input(part));
+  const [meta, i] = metaOf(part.toolName, part.input);
+  return meta.icon(i);
+}
+
+/**
+ * A tool call in a few words: what the bot says it is doing (`intent`), or a label derived
+ * from the call ("Lance npm", "Écrit à Sacha · …", "Ouvre github.com").
+ */
+export function actionTitle(
+  { toolName, input: raw }: Pick<BotActivity, 'toolName'> & { input: unknown },
+  t: TFunction,
+): string {
+  const [meta, i] = metaOf(toolName, raw);
+  const intent = str(i.intent).trim();
+  if (intent) return intent;
+  return meta.title(i, t) || toolName;
 }
 
 /** What the bot says it is doing (`intent`), or a label derived from the call. */
-export function toolTitle(part: ToolPart, t: TFunction): string {
-  const intent = str(input(part).intent).trim();
-  if (intent) return intent;
-  return meta(part).title(input(part), t) || part.toolName;
-}
+export const toolTitle = (part: ToolPart, t: TFunction) => actionTitle(part, t);
 
 /** With an intent as title, the mechanical label (click coordinates…) goes into the details. */
 export function toolMechanics(part: ToolPart, t: TFunction): string {
-  return str(input(part).intent).trim() ? meta(part).title(input(part), t) : '';
+  const [meta, i] = metaOf(part.toolName, part.input);
+  return str(i.intent).trim() ? meta.title(i, t) : '';
 }
 
 /** `2 recherches · 1 page · 5 captures` */
 export function summarize(tools: ToolPart[], t: TFunction): string {
   const counts = new Map<ActivityKind, number>();
   for (const part of tools) {
-    const kind = meta(part).kind(input(part));
+    const [meta, i] = metaOf(part.toolName, part.input);
+    const kind = meta.kind(i);
     if (kind) counts.set(kind, (counts.get(kind) ?? 0) + 1);
   }
   if (counts.size === 0) return t('activity.actions', { count: tools.length });

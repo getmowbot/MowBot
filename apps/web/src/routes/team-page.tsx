@@ -20,15 +20,17 @@ import { useOrgDialogs } from '../components/org-dialogs';
 import { Button } from '../components/ui/button';
 import { Card, FormError, Input, Label, Select, Textarea } from '../components/ui/form';
 import { api, problemMessage } from '../lib/auth';
-import { moodOf, statusLabel } from '../lib/bot-mood';
+import { isBusy, moodOf, statusLabel } from '../lib/bot-mood';
 import { Reveal, reveal, stagger } from '../lib/motion';
 import { useBots, useComputers, useTeam } from '../lib/queries';
 import { cn } from '../lib/utils';
 
+/** A member: what it works on (its role when it says nothing), and what it does right now. */
 function MemberCard({ bot, lead }: { bot: Bot; lead: boolean }) {
   const { t } = useTranslation();
   const dialogs = useOrgDialogs();
   const mood = moodOf(bot);
+  const status = bot.status === 'idle' ? null : statusLabel(bot);
   return (
     <motion.div variants={reveal} className="glass flex items-center gap-3 rounded-2xl p-3">
       <Link
@@ -37,7 +39,7 @@ function MemberCard({ bot, lead }: { bot: Bot; lead: boolean }) {
         className="flex min-w-0 flex-1 items-center gap-3"
       >
         <BotAvatar seed={bot.avatarSeed} size={44} mood={mood} />
-        <span className="min-w-0">
+        <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5 font-medium">
             <span className="truncate">{bot.name}</span>
             {lead && (
@@ -47,15 +49,30 @@ function MemberCard({ bot, lead }: { bot: Bot; lead: boolean }) {
               />
             )}
           </span>
-          <span className="block truncate text-xs text-muted-foreground">{bot.role}</span>
-          <span
-            className={cn(
-              'block truncate text-xs',
-              mood === 'idle' ? 'text-faint' : 'shimmer-text',
-            )}
-          >
-            {statusLabel(bot, mood)}
-          </span>
+          {bot.focus ? (
+            <span title={`${bot.focus} — ${bot.role}`} className="block truncate text-sm">
+              {bot.focus}
+            </span>
+          ) : (
+            <span title={bot.role} className="block truncate text-xs text-muted-foreground">
+              {bot.role}
+            </span>
+          )}
+          {status && (
+            <span
+              title={status}
+              className={cn(
+                'block truncate text-xs',
+                isBusy(bot)
+                  ? 'shimmer-text'
+                  : bot.status === 'error'
+                    ? 'text-destructive/80'
+                    : 'text-faint',
+              )}
+            >
+              {status}
+            </span>
+          )}
         </span>
       </Link>
       <Button

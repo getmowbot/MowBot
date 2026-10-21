@@ -90,6 +90,21 @@ export function useCreateBot() {
   });
 }
 
+/** Sets the model a bot thinks with (`/model`). */
+export function useSetModel(botId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (choice: { providerId: string; model: string }) =>
+      data(
+        api().PATCH('/api/v1/bots/{id}', {
+          params: { path: { id: botId } },
+          body: { providerId: choice.providerId, model: choice.model },
+        }),
+      ),
+    onSuccess: (bot) => putBot(client, bot),
+  });
+}
+
 /** Saves a bot's settings, then its team's lead if that changed. */
 export function useSaveBot() {
   const client = useQueryClient();

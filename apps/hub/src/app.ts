@@ -176,6 +176,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
     services.connectors.close();
     services.vault.close();
     await services.runtime.close();
+    services.bots.close();
     await services.computers.close();
   });
 

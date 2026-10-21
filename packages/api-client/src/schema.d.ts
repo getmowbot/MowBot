@@ -4483,6 +4483,13 @@ export interface operations {
                             /** @enum {string} */
                             status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                             statusDetail: string | null;
+                            activity: {
+                                toolName: string;
+                                input: {
+                                    [key: string]: string | number | boolean;
+                                };
+                            } | null;
+                            focus: string | null;
                             avatarSeed: string;
                             projectId: string | null;
                             /** Format: date-time */
@@ -4591,6 +4598,13 @@ export interface operations {
                         /** @enum {string} */
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
+                        activity: {
+                            toolName: string;
+                            input: {
+                                [key: string]: string | number | boolean;
+                            };
+                        } | null;
+                        focus: string | null;
                         avatarSeed: string;
                         projectId: string | null;
                         /** Format: date-time */
@@ -4683,6 +4697,13 @@ export interface operations {
                         /** @enum {string} */
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
+                        activity: {
+                            toolName: string;
+                            input: {
+                                [key: string]: string | number | boolean;
+                            };
+                        } | null;
+                        focus: string | null;
                         avatarSeed: string;
                         projectId: string | null;
                         /** Format: date-time */
@@ -4855,6 +4876,13 @@ export interface operations {
                         /** @enum {string} */
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
+                        activity: {
+                            toolName: string;
+                            input: {
+                                [key: string]: string | number | boolean;
+                            };
+                        } | null;
+                        focus: string | null;
                         avatarSeed: string;
                         projectId: string | null;
                         /** Format: date-time */
@@ -4953,6 +4981,13 @@ export interface operations {
                         /** @enum {string} */
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
+                        activity: {
+                            toolName: string;
+                            input: {
+                                [key: string]: string | number | boolean;
+                            };
+                        } | null;
+                        focus: string | null;
                         avatarSeed: string;
                         projectId: string | null;
                         /** Format: date-time */
@@ -6840,6 +6875,13 @@ export interface operations {
                         /** @enum {string} */
                         status: "idle" | "working" | "waiting_user" | "waiting_bot" | "error" | "paused";
                         statusDetail: string | null;
+                        activity: {
+                            toolName: string;
+                            input: {
+                                [key: string]: string | number | boolean;
+                            };
+                        } | null;
+                        focus: string | null;
                         avatarSeed: string;
                         projectId: string | null;
                         /** Format: date-time */

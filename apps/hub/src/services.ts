@@ -106,6 +106,7 @@ export async function createServices(
   );
   const providers = new ProviderService(db, config.masterKey, config.chatgpt);
   const bots = new BotService(db, events);
+  await bots.watchTasks();
   const org = new OrgService(db, files, computers, events, config.masterKey);
   const browser = new BrowserHub();
   const vault = new VaultService({
@@ -118,7 +119,7 @@ export async function createServices(
     notifications,
   });
   const mcp = new McpService({ db, events, masterKey: config.masterKey, computers, files });
-  const connectors = new ConnectorService({ db, events });
+  const connectors = new ConnectorService({ db, events, bots });
   const automations = new AutomationService({
     db,
     events,

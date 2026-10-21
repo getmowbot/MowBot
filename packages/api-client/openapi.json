@@ -8559,6 +8559,45 @@
                               "null"
                             ]
                           },
+                          "activity": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "toolName": {
+                                    "type": "string"
+                                  },
+                                  "input": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "additionalProperties": {
+                                      "type": [
+                                        "string",
+                                        "number",
+                                        "boolean"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "toolName",
+                                  "input"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "focus": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "avatarSeed": {
                             "type": "string"
                           },
@@ -8598,6 +8637,8 @@
                           "dailyTokenBudget",
                           "status",
                           "statusDetail",
+                          "activity",
+                          "focus",
                           "avatarSeed",
                           "projectId",
                           "createdAt"
@@ -8998,6 +9039,45 @@
                         "null"
                       ]
                     },
+                    "activity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "toolName": {
+                              "type": "string"
+                            },
+                            "input": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "toolName",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "focus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -9037,6 +9117,8 @@
                     "dailyTokenBudget",
                     "status",
                     "statusDetail",
+                    "activity",
+                    "focus",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -9502,6 +9584,45 @@
                         "null"
                       ]
                     },
+                    "activity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "toolName": {
+                              "type": "string"
+                            },
+                            "input": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "toolName",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "focus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -9541,6 +9662,8 @@
                     "dailyTokenBudget",
                     "status",
                     "statusDetail",
+                    "activity",
+                    "focus",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -9998,6 +10121,45 @@
                         "null"
                       ]
                     },
+                    "activity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "toolName": {
+                              "type": "string"
+                            },
+                            "input": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "toolName",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "focus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -10037,6 +10199,8 @@
                     "dailyTokenBudget",
                     "status",
                     "statusDetail",
+                    "activity",
+                    "focus",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -10393,6 +10557,45 @@
                         "null"
                       ]
                     },
+                    "activity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "toolName": {
+                              "type": "string"
+                            },
+                            "input": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "toolName",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "focus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -10432,6 +10635,8 @@
                     "dailyTokenBudget",
                     "status",
                     "statusDetail",
+                    "activity",
+                    "focus",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -18427,6 +18632,45 @@
                         "null"
                       ]
                     },
+                    "activity": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "toolName": {
+                              "type": "string"
+                            },
+                            "input": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "toolName",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "focus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -18466,6 +18710,8 @@
                     "dailyTokenBudget",
                     "status",
                     "statusDetail",
+                    "activity",
+                    "focus",
                     "avatarSeed",
                     "projectId",
                     "createdAt"

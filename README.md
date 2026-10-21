@@ -33,7 +33,9 @@ or a local model.
   into account at its next step; a bot can stop another one.
 - Bots show rather than describe: cards with images and buttons, galleries, files, scores,
   checklists, routes. `@` points at a bot, a team or a file; `/` runs a command (`/stop`,
-  `/clear`, `/pc`, `/files`…).
+  `/clear`, `/model`, `/pc`, `/files`…).
+- Who does what, at a glance: each bot says what it works on ("Building the home page"), and
+  its row shows what it does right now ("Running npm", "Writing to Sacha", "waiting for Nova").
 - Characters with moods: each bot is a little creature that thinks, reads, waits, sleeps and
   beams when it is done.
 

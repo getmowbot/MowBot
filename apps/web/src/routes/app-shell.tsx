@@ -31,7 +31,7 @@ import { LanguageMenu } from '../components/language-menu';
 import { OrgDialogsProvider, useOrgDialogs } from '../components/org-dialogs';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../lib/auth';
-import { moodOf, statusLabel } from '../lib/bot-mood';
+import { botLine, isBusy, moodOf } from '../lib/bot-mood';
 import { useAccountLocale } from '../lib/locale';
 import { useNotifications, useSystem } from '../lib/proactivity';
 import { useBots, useChef, useComputers, useMe, useTeams } from '../lib/queries';
@@ -153,9 +153,29 @@ function useFolded(): [Set<string>, (teamId: string) => void] {
   return [folded, toggle];
 }
 
+/** What a bot is doing (its current action, who it waits for), or its role while it rests. */
+function BotLine({ bot, className }: { bot: Bot; className?: string }) {
+  useTranslation(); // re-render the line when the language changes
+  const line = botLine(bot);
+  return (
+    <span
+      title={line}
+      className={cn(
+        'block truncate',
+        isBusy(bot)
+          ? 'shimmer-text'
+          : bot.status === 'error'
+            ? 'text-destructive/80'
+            : 'text-faint',
+        className,
+      )}
+    >
+      {line}
+    </span>
+  );
+}
+
 function BotNav({ bot, onNavigate }: { bot: Bot; onNavigate(): void }) {
-  useTranslation(); // re-render the status line when the language changes
-  const mood = moodOf(bot);
   return (
     <NavItem
       to="/bots/$botId"
@@ -163,13 +183,11 @@ function BotNav({ bot, onNavigate }: { bot: Bot; onNavigate(): void }) {
       onNavigate={onNavigate}
       className="py-1.5"
     >
-      <BotAvatar seed={bot.avatarSeed} size={24} mood={mood} />
-      <span className="min-w-0 flex-1 truncate">{bot.name}</span>
-      {mood !== 'idle' && mood !== 'error' && (
-        <span className="shimmer-text max-w-[45%] shrink-0 truncate text-[11px]">
-          {statusLabel(bot, mood)}
-        </span>
-      )}
+      <BotAvatar seed={bot.avatarSeed} size={24} mood={moodOf(bot)} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate leading-tight">{bot.name}</span>
+        <BotLine bot={bot} className="text-[11px] leading-tight" />
+      </span>
     </NavItem>
   );
 }
@@ -285,14 +303,7 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
           <BotAvatar seed={bot.avatarSeed} size={30} mood={mood} />
           <span className="min-w-0 flex-1">
             <span className="block truncate font-medium text-foreground">{bot.name}</span>
-            <span
-              className={cn(
-                'block truncate text-xs',
-                mood !== 'idle' ? 'shimmer-text' : 'text-faint',
-              )}
-            >
-              {statusLabel(bot, mood)}
-            </span>
+            <BotLine bot={bot} className="text-xs" />
           </span>
         </NavItem>
       )}

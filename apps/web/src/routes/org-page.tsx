@@ -7,7 +7,7 @@ import { BotAvatar, TeamAvatar } from '../components/bot-avatar';
 import { StatusDot } from '../components/computer-status';
 import { useOrgDialogs } from '../components/org-dialogs';
 import { Button } from '../components/ui/button';
-import { moodOf, statusLabel } from '../lib/bot-mood';
+import { botLine, isBusy, moodOf } from '../lib/bot-mood';
 import { Reveal, reveal, stagger } from '../lib/motion';
 import { useBots, useChef, useComputers, useTeams } from '../lib/queries';
 import { cn } from '../lib/utils';
@@ -15,6 +15,7 @@ import { cn } from '../lib/utils';
 function BotLine({ bot, lead }: { bot: Bot; lead?: boolean }) {
   const { t } = useTranslation();
   const mood = moodOf(bot);
+  const line = botLine(bot);
   return (
     <Link
       to={bot.isChef ? '/chef' : '/bots/$botId'}
@@ -33,9 +34,10 @@ function BotLine({ bot, lead }: { bot: Bot; lead?: boolean }) {
           )}
         </span>
         <span
-          className={cn('block truncate text-xs', mood === 'idle' ? 'text-faint' : 'shimmer-text')}
+          title={line}
+          className={cn('block truncate text-xs', isBusy(bot) ? 'shimmer-text' : 'text-faint')}
         >
-          {mood === 'idle' ? bot.role : statusLabel(bot, mood)}
+          {line}
         </span>
       </span>
     </Link>

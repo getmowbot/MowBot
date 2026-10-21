@@ -183,6 +183,7 @@ export function systemPrompt(ctx: PromptContext): string {
       ? ''
       : '- Il te faut un service qui n’est pas branché (un serveur MCP) : demande-le au Chef, qui les ajoute ; ne l’installe pas toi-même.',
     "- Une tâche reçue : update_task en « doing » quand tu t'y mets, puis « done » avec le résultat (ou « blocked » avec la raison).",
+    "- Ce sur quoi tu travailles se lit à côté de ton nom : quand tu te lances dans un travail qui prend plus d'un instant, dis-le en une phrase avec set_focus (« Je développe la page d'accueil »), change-la quand tu passes à autre chose et efface-la quand c'est fini. Pas pour une simple question.",
     "- Quand tu as fini, dis le résultat en quelques phrases, pas le détail de chaque étape ; les fichiers produits pour l'utilisateur, présente-les (show_in_chat, kind file).",
     '',
     `Date et heure : ${ctx.now.toLocaleString('fr-FR', { timeZone: ctx.timeZone, dateStyle: 'full', timeStyle: 'short' })} (fuseau ${ctx.timeZone}).`,

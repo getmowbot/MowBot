@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { ChevronRight, Crown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { type BotMood, moodOf, statusLabel } from '../lib/bot-mood';
+import { type BotMood, botLine, moodOf, statusLabel } from '../lib/bot-mood';
 import { isIOS } from '../lib/platform';
 import { useLiveMessage } from '../lib/queries';
 import { colors } from '../theme';
@@ -24,21 +24,43 @@ export function useBotMood(bot: Bot): BotMood {
   return moodOf(bot, live);
 }
 
-/** One line of what a bot is up to: its live status while busy, its role otherwise. */
+/** A line in the tone of the bot's state: shimmering while busy, red on a problem, quiet otherwise. */
+function Toned({ mood, children }: { mood: BotMood; children: string }) {
+  if (BUSY.has(mood)) return <ShimmerText>{children}</ShimmerText>;
+  return (
+    <T variant="footnote" tone={mood === 'error' ? 'danger' : 'faint'} numberOfLines={1}>
+      {children}
+    </T>
+  );
+}
+
+/**
+ * One line of what a bot is up to: what it works on and, while at it, what it does right now
+ * ("Je développe la page d'accueil · Lance npm"); its role when it has nothing to say.
+ */
 export function BotStatusLine({ bot, mood }: { bot: Bot; mood: BotMood }) {
   const { t } = useTranslation();
-  if (BUSY.has(mood)) return <ShimmerText>{statusLabel(bot, mood, t)}</ShimmerText>;
-  if (mood === 'error' || mood === 'sleeping') {
-    return (
-      <T variant="footnote" tone={mood === 'error' ? 'danger' : 'faint'} numberOfLines={1}>
-        {statusLabel(bot, mood, t)}
-      </T>
-    );
-  }
+  const live = useLiveMessage(bot.id);
+  return <Toned mood={mood}>{botLine(bot, mood, t, live)}</Toned>;
+}
+
+/** For a team: what the bot works on (its role when it says nothing), and under it what it does now. */
+export function BotFocusLines({ bot, mood }: { bot: Bot; mood: BotMood }) {
+  const { t } = useTranslation();
+  const live = useLiveMessage(bot.id);
   return (
-    <T variant="footnote" tone="faint" numberOfLines={1}>
-      {bot.role}
-    </T>
+    <>
+      {bot.focus ? (
+        <T variant="callout" numberOfLines={2}>
+          {bot.focus}
+        </T>
+      ) : (
+        <T variant="footnote" tone="faint" numberOfLines={1}>
+          {bot.role}
+        </T>
+      )}
+      {bot.status !== 'idle' && <Toned mood={mood}>{statusLabel(bot, mood, t, live)}</Toned>}
+    </>
   );
 }
 
@@ -55,7 +77,7 @@ export function BotRow({ bot, lead = false, size = 40 }: Props) {
   return (
     <Touchable
       accessibilityRole="button"
-      accessibilityLabel={`${bot.name}, ${statusLabel(bot, mood, t)}`}
+      accessibilityLabel={`${bot.name}, ${botLine(bot, mood, t)}`}
       onPress={() => openChat(bot)}
       style={styles.row}
     >

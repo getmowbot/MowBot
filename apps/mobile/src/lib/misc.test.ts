@@ -3,7 +3,7 @@ import { resolveLanguage } from '../i18n/catalog';
 import { en } from '../i18n/en';
 import { fr } from '../i18n/fr';
 import { bot, message, tool, translator } from '../test/fixtures';
-import { moodOf, statusLabel } from './bot-mood';
+import { botLine, moodOf, statusLabel } from './bot-mood';
 import { eventsSocketUrl, normalizeHubUrl, problemCode } from './hub-url';
 import { timeAgo } from './time';
 
@@ -73,6 +73,47 @@ describe('bot status', () => {
     expect(statusLabel(waiting, 'waiting', await translator('en'))).toBe('waiting for Nova');
     expect(statusLabel(bot({ status: 'working' }), 'working', await translator('en'))).toBe(
       'working on its PC…',
+    );
+  });
+
+  it('says what a working bot runs, from the hub or from its answer under way', async () => {
+    const t = await translator('fr');
+    const npm = bot({
+      status: 'working',
+      activity: { toolName: 'bash', input: { command: 'cd /app && npm test' } },
+    });
+    expect(moodOf(npm)).toBe('working');
+    expect(statusLabel(npm, moodOf(npm), t)).toBe('Lance npm');
+    const writing = bot({
+      status: 'working',
+      activity: { toolName: 'send_message', input: { to: 'Sacha', summary: 'La démo est prête' } },
+    });
+    expect(statusLabel(writing, 'working', t)).toBe('Écrit à Sacha · La démo est prête');
+    // The answer being written knows first.
+    const live = message({
+      status: 'streaming',
+      parts: [tool('browser_open', { url: 'https://www.github.com/getmowbot' }, 'running')],
+    });
+    expect(statusLabel(npm, moodOf(npm, live), t, live)).toBe('Ouvre github.com');
+    // Between two calls, it thinks.
+    expect(statusLabel(bot({ status: 'working' }), 'thinking', t)).toBe('réfléchit…');
+  });
+
+  it('puts what a bot works on first, its role when it says nothing', async () => {
+    const t = await translator('fr');
+    const idle = bot({ status: 'idle', role: 'Développeuse' });
+    expect(botLine(idle, 'idle', t)).toBe('Développeuse');
+    expect(botLine({ ...idle, focus: 'Je développe la page d’accueil' }, 'idle', t)).toBe(
+      'Je développe la page d’accueil',
+    );
+    const working = bot({
+      status: 'working',
+      focus: 'Je développe la page d’accueil',
+      activity: { toolName: 'local_exec', input: { command: 'npm run build' } },
+    });
+    expect(botLine(working, 'working', t)).toBe('Je développe la page d’accueil · Lance npm');
+    expect(botLine(bot({ status: 'waiting_bot', statusDetail: 'Nova' }), 'waiting', t)).toBe(
+      'attend Nova',
     );
   });
 

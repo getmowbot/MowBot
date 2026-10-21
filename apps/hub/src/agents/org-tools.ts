@@ -2,6 +2,7 @@ import { taskStatusSchema } from '@mowbot/contract';
 import { type ToolSet, tool } from 'ai';
 import { eq, or } from 'drizzle-orm';
 import { z } from 'zod';
+import { cleanFocus, FOCUS_MAX } from '../bots/focus';
 import { type BotRow, type BotService, botFolder } from '../bots/service';
 import { type ConnectorService, usableBy } from '../connectors/service';
 import type { Db } from '../db/client';
@@ -118,13 +119,17 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
         db.select({ id: computers.id, kind: computers.kind }).from(computers),
       ]);
       const pcKind = new Map(pcs.map((pc) => [pc.id, pc.kind]));
-      const line = (bot: BotRow) =>
-        [
+      const line = (bot: BotRow) => {
+        // What it works on: its own words, else the task it is doing.
+        const { focus } = ctx.bots.toBot(bot);
+        return [
           `- ${bot.name}${bot.id === self.id ? ' (toi)' : ''} — ${bot.role}`,
           `, ${STATUS_LABELS[bot.status]}`,
+          focus ? ` : « ${focus} »` : '',
           bot.computerId && pcKind.get(bot.computerId) === 'dedicated' ? ', PC dédié' : '',
           bot.mission ? `\n  Mission : ${bot.mission}` : '',
         ].join('');
+      };
       const sections = allTeams.map((team) => {
         const members = allBots.filter((bot) => bot.teamId === team.id);
         const lead = members.find((bot) => bot.id === team.leadBotId);
@@ -334,6 +339,24 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
       },
     });
   }
+
+  tools.set_focus = tool({
+    description:
+      "Dit en une phrase ce sur quoi tu travailles (« Je développe la page d'accueil », « Je vérifie mes maquettes ») : l'utilisateur et les autres bots la voient à côté de ton nom. Mets-la quand tu te lances dans un travail, change-la quand tu passes à un autre, efface-la (text vide) quand il est fini.",
+    inputSchema: z.object({
+      text: z
+        .string()
+        .max(FOCUS_MAX * 3)
+        .describe(
+          `À la première personne, au présent, dans la langue de l'utilisateur, ${FOCUS_MAX} caractères au plus ; vide pour l'effacer`,
+        ),
+    }),
+    execute: async ({ text }) => {
+      const focus = cleanFocus(text);
+      await ctx.bots.update(self.id, { focus });
+      return focus ? `C'est affiché : « ${focus} ».` : "C'est effacé.";
+    },
+  });
 
   tools.update_bot = tool({
     description:

@@ -1,6 +1,7 @@
-import type { Computer, Message, TaskStatus } from '@mowbot/contract';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Computer, Message, Provider, TaskStatus } from '@mowbot/contract';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './auth';
+import type { Listing } from './models';
 
 export function useMe() {
   return useQuery({
@@ -197,6 +198,36 @@ export function useProviders() {
       return data.items;
     },
   });
+}
+
+/** What each provider lists, fetched while `enabled` (the same cache as the Models page). */
+export function useListings(
+  providers: readonly Pick<Provider, 'id'>[],
+  enabled: boolean,
+): Map<string, Listing> {
+  const results = useQueries({
+    queries: providers.map((provider) => ({
+      queryKey: ['models', provider.id],
+      enabled,
+      retry: false,
+      staleTime: 5 * 60_000,
+      queryFn: async () => {
+        const { data, error } = await api.GET('/api/v1/providers/{id}/models', {
+          params: { path: { id: provider.id } },
+        });
+        if (error || !data) throw error;
+        return data.items;
+      },
+    })),
+  });
+  return new Map(
+    providers.map((provider, index): [string, Listing] => {
+      const result = results[index];
+      if (result?.isSuccess) return [provider.id, { state: 'ready', items: result.data }];
+      if (result?.isError) return [provider.id, { state: 'unreachable' }];
+      return [provider.id, { state: 'loading' }];
+    }),
+  );
 }
 
 export function useTasks(filter: { botId?: string; status?: TaskStatus } = {}) {

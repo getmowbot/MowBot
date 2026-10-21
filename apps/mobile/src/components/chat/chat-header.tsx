@@ -1,4 +1,4 @@
-import type { Bot } from '@mowbot/contract';
+import type { Bot, Message } from '@mowbot/contract';
 import { router } from 'expo-router';
 import { ArrowLeft, ChevronLeft, Ellipsis, EllipsisVertical } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -18,10 +18,13 @@ import { useBotMenu } from './bot-menu';
 interface Props {
   bot: Bot;
   mood: BotMood;
+  /** The answer being written: what it runs shows at once. */
+  live?: Message | null;
   onLayout(event: LayoutChangeEvent): void;
 }
 
-function Identity({ bot, mood }: { bot: Bot; mood: BotMood }) {
+/** The bot's name, and what it is doing · its role (the model is in its settings). */
+function Identity({ bot, mood, live }: { bot: Bot; mood: BotMood; live?: Message | null }) {
   const { t } = useTranslation();
   return (
     <>
@@ -31,7 +34,7 @@ function Identity({ bot, mood }: { bot: Bot; mood: BotMood }) {
           {bot.name}
         </T>
         <ShimmerText active={mood !== 'idle'} style={styles.status} numberOfLines={1}>
-          {statusLabel(bot, mood, t)}
+          {`${statusLabel(bot, mood, t, live)} · ${bot.role}`}
         </ShimmerText>
       </View>
     </>
@@ -43,7 +46,7 @@ function Identity({ bot, mood }: { bot: Bot; mood: BotMood }) {
  * bot's name and state centered between them in a compact capsule. iOS 26: Liquid Glass over a
  * fade; older iOS: the same in blur; Android: a center-aligned Material 3 top app bar.
  */
-export function ChatHeader({ bot, mood, onLayout }: Props) {
+export function ChatHeader({ bot, mood, live, onLayout }: Props) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const glass = useLiquidGlass();
@@ -58,7 +61,7 @@ export function ChatHeader({ bot, mood, onLayout }: Props) {
           <IconButton icon={ArrowLeft} label={t('common.back')} onPress={back} size={44} />
           <View style={styles.center}>
             <View style={styles.identity}>
-              <Identity bot={bot} mood={mood} />
+              <Identity bot={bot} mood={mood} live={live} />
             </View>
           </View>
           <IconButton icon={EllipsisVertical} label={optionsLabel} onPress={openMenu} size={44} />
@@ -73,7 +76,7 @@ export function ChatHeader({ bot, mood, onLayout }: Props) {
       <IconButton icon={ChevronLeft} label={t('common.back')} onPress={back} raised size={44} />
       <View style={styles.center}>
         <Surface variant="bar" radius={glass ? 20 : 18} style={styles.capsule}>
-          <Identity bot={bot} mood={mood} />
+          <Identity bot={bot} mood={mood} live={live} />
         </Surface>
       </View>
       <IconButton icon={Ellipsis} label={optionsLabel} onPress={openMenu} raised size={44} />

@@ -250,6 +250,7 @@ export default function ChatScreen() {
       <ChatHeader
         bot={bot}
         mood={mood}
+        live={live}
         onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
       />
 

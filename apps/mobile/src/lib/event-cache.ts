@@ -169,11 +169,15 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
     case 'system.updated':
       client.setQueryData<SystemSettings>(keys.system, event.settings);
       break;
-    case 'bot.updated':
+    case 'bot.updated': {
+      const before = client.getQueryData<Bot[]>(keys.bots)?.find((b) => b.id === event.bot.id);
       client.setQueryData<Bot[]>(keys.bots, (list) => upsert(list, event.bot));
-      // A new bot may come with a new PC.
-      void client.invalidateQueries({ queryKey: keys.computers });
+      // A new bot may come with a new PC (what it is doing changes often: not for that).
+      if (before?.computerId !== event.bot.computerId) {
+        void client.invalidateQueries({ queryKey: keys.computers });
+      }
       break;
+    }
     case 'bot.deleted':
       client.setQueryData<Bot[]>(keys.bots, (list) => list?.filter((b) => b.id !== event.botId));
       break;

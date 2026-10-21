@@ -2,6 +2,7 @@ import type { Bot } from '@mowbot/contract';
 import { router } from 'expo-router';
 import {
   CalendarClock,
+  Cpu,
   Eraser,
   FolderCode,
   FolderOpen,
@@ -30,6 +31,7 @@ const ICONS: Record<CommandName, LucideIcon> = {
   stop: Square,
   clear: Eraser,
   project: FolderCode,
+  model: Cpu,
   pc: Monitor,
   files: FolderOpen,
   settings: Settings2,
@@ -38,8 +40,14 @@ const ICONS: Record<CommandName, LucideIcon> = {
   routines: CalendarClock,
 };
 
-/** The `/` commands of a conversation (titled in the user's language), and running one. */
-export function useChatCommands(bot: Bot): {
+/**
+ * The `/` commands of a conversation (titled in the user's language), and running one.
+ * `pickModel`: `/model` lists the models in the composer.
+ */
+export function useChatCommands(
+  bot: Bot,
+  pickModel: () => void,
+): {
   commands: ChatCommand[];
   run(name: CommandName): void;
 } {
@@ -71,6 +79,9 @@ export function useChatCommands(bot: Bot): {
         return;
       case 'project':
         pickProject?.();
+        return;
+      case 'model':
+        pickModel();
         return;
       case 'pc':
         if (bot.computerId) open(`/pc/${bot.computerId}?bot=${bot.id}`);
