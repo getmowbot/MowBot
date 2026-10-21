@@ -42,6 +42,19 @@ const toolError = (error: unknown): never => {
   throw error;
 };
 
+/** What a message to another bot says in a few words: the user sees it folded in the conversation. */
+const SUMMARY = z
+  .string()
+  .optional()
+  .describe(
+    "L'essentiel de ton message en quelques mots (10 au plus), sans salutation : c'est ce que l'utilisateur voit dans la conversation, le message entier s'ouvre d'un clic.",
+  );
+
+const summed = (summary: string | undefined) => {
+  const text = summary?.replace(/\s+/g, ' ').trim();
+  return text ? { summary: text.length > 140 ? `${text.slice(0, 139).trimEnd()}…` : text } : {};
+};
+
 /** Directory, messages, questions and tasks between bots; teams and bots for the Chef and leads. */
 export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
   const { self, db, runtime, org } = ctx;
@@ -110,15 +123,16 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
     inputSchema: z.object({
       to: z.string().describe('Nom du bot'),
       text: z.string().min(1).max(8000),
+      summary: SUMMARY,
     }),
-    execute: async ({ to, text }) => {
+    execute: async ({ to, text, summary }) => {
       const target = await findBot(to);
       await runtime.checkReach(self, target, ctx.depth);
       await runtime.deliver(target.id, {
         from: self,
         kind: 'chat',
         text,
-        meta: { depth: ctx.depth },
+        meta: { depth: ctx.depth, ...summed(summary) },
       });
       return `Message envoyé à ${target.name}.`;
     },
@@ -153,10 +167,11 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
     inputSchema: z.object({
       to: z.string().describe('Nom du bot'),
       question: z.string().min(1).max(8000),
+      summary: SUMMARY,
     }),
-    execute: async ({ to, question }, { abortSignal }) => {
+    execute: async ({ to, question, summary }, { abortSignal }) => {
       const target = await findBot(to);
-      const answer = await runtime.ask(self, target, question, ctx.depth, abortSignal);
+      const answer = await runtime.ask(self, target, question, ctx.depth, abortSignal, summary);
       return `Réponse de ${target.name} :\n${answer}`;
     },
   });

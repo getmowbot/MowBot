@@ -173,7 +173,7 @@ describe('organisation', () => {
 describe('bots talking to each other', () => {
   it('delivers a message, wakes the other bot up and shows it in the feed', async () => {
     const chefModel = scripted([
-      toolTurn('send_message', { to: 'nova', text: 'Salut !' }),
+      toolTurn('send_message', { to: 'nova', text: 'Salut !', summary: '  Bonjour   du Chef ' }),
       textTurn('Fait.'),
     ]);
     const novaModel = scripted([textTurn('Bien reçu.')]);
@@ -189,6 +189,7 @@ describe('bots talking to each other', () => {
       role: 'user',
       fromBotId: chef.id,
       fromName: 'Chef',
+      summary: 'Bonjour du Chef',
       kind: 'chat',
       parts: [{ type: 'text', text: 'Salut !' }],
     });
@@ -202,16 +203,17 @@ describe('bots talking to each other', () => {
 
   it('lets a bot ask another and wait for the answer', async () => {
     const chefModel = scripted([
-      toolTurn('ask_bot', { to: 'Nova', question: 'Quelle heure est-il ?' }),
+      toolTurn('ask_bot', { to: 'Nova', question: 'Quelle heure est-il ?', summary: "L'heure" }),
       textTurn('Nova dit midi.'),
     ]);
-    const { createBot, say, chef, events } = await start({
+    const { createBot, say, chef, events, conversation } = await start({
       Chef: chefModel,
       Nova: scripted([textTurn('Midi pile.')]),
     });
-    await createBot({ name: 'Nova' });
+    const nova = await createBot({ name: 'Nova' });
     await say(chef.id, "Demande l'heure à Nova");
     expect(promptOf(chefModel, 1)).toContain('Réponse de Nova :\\nMidi pile.');
+    expect((await conversation(nova.id))[0]).toMatchObject({ kind: 'ask', summary: "L'heure" });
     expect(events).toContainEqual(
       expect.objectContaining({
         type: 'bot.updated',
@@ -297,7 +299,13 @@ describe('bots talking to each other', () => {
       creatorBotId: chef.id,
     });
     const report = (await conversation(chef.id)).find((m) => m.kind === 'task');
-    expect(report).toMatchObject({ fromBotId: nova.id, taskId: items[0]?.id });
+    expect(report).toMatchObject({
+      fromBotId: nova.id,
+      taskId: items[0]?.id,
+      summary: 'Terminée · Rapport',
+    });
+    const given = (await conversation(nova.id)).find((m) => m.kind === 'task');
+    expect(given).toMatchObject({ fromBotId: chef.id, summary: 'Rapport' });
     expect(report?.parts[0]).toMatchObject({
       type: 'text',
       text: expect.stringContaining('terminée'),

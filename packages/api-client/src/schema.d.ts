@@ -4825,6 +4825,7 @@ export interface operations {
                             role: "user" | "assistant";
                             fromBotId: string | null;
                             fromName: string | null;
+                            summary: string | null;
                             /** @enum {string} */
                             kind: "chat" | "ask" | "task" | "routine";
                             taskId: string | null;
@@ -5110,6 +5111,7 @@ export interface operations {
                         role: "user" | "assistant";
                         fromBotId: string | null;
                         fromName: string | null;
+                        summary: string | null;
                         /** @enum {string} */
                         kind: "chat" | "ask" | "task" | "routine";
                         taskId: string | null;
@@ -5490,6 +5492,7 @@ export interface operations {
                         role: "user" | "assistant";
                         fromBotId: string | null;
                         fromName: string | null;
+                        summary: string | null;
                         /** @enum {string} */
                         kind: "chat" | "ask" | "task" | "routine";
                         taskId: string | null;
@@ -5744,6 +5747,7 @@ export interface operations {
                         role: "user" | "assistant";
                         fromBotId: string | null;
                         fromName: string | null;
+                        summary: string | null;
                         /** @enum {string} */
                         kind: "chat" | "ask" | "task" | "routine";
                         taskId: string | null;
@@ -6005,6 +6009,7 @@ export interface operations {
                         role: "user" | "assistant";
                         fromBotId: string | null;
                         fromName: string | null;
+                        summary: string | null;
                         /** @enum {string} */
                         kind: "chat" | "ask" | "task" | "routine";
                         taskId: string | null;
@@ -6272,6 +6277,7 @@ export interface operations {
                         role: "user" | "assistant";
                         fromBotId: string | null;
                         fromName: string | null;
+                        summary: string | null;
                         /** @enum {string} */
                         kind: "chat" | "ask" | "task" | "routine";
                         taskId: string | null;
@@ -7116,6 +7122,7 @@ export interface operations {
                             role: "user" | "assistant";
                             fromBotId: string | null;
                             fromName: string | null;
+                            summary: string | null;
                             /** @enum {string} */
                             kind: "chat" | "ask" | "task" | "routine";
                             taskId: string | null;

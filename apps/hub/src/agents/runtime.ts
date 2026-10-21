@@ -296,7 +296,7 @@ export class BotRuntime {
         kind: 'task',
         text: notice.text,
         display: notice.display,
-        meta: { taskId: notice.task.id, depth: notice.depth },
+        meta: { taskId: notice.task.id, depth: notice.depth, summary: notice.summary },
       }),
     );
   }
@@ -423,6 +423,8 @@ export class BotRuntime {
     question: string,
     depth: number,
     signal?: AbortSignal,
+    /** The question in a few words, for the apps. */
+    summary?: string,
   ): Promise<string> {
     for (let cursor: string | undefined = to.id; cursor; cursor = this.waiting.get(cursor)) {
       if (cursor === from.id) {
@@ -436,7 +438,12 @@ export class BotRuntime {
     const answer = new Promise<string>((resolve) =>
       this.asks.set(askId, { askerId: from.id, resolve, late: false, depth }),
     );
-    await this.deliver(to.id, { from, kind: 'ask', text: question, meta: { askId, depth } });
+    await this.deliver(to.id, {
+      from,
+      kind: 'ask',
+      text: question,
+      meta: { askId, depth, ...(summary ? { summary } : {}) },
+    });
     this.waiting.set(from.id, to.id);
     await this.deps.bots.update(from.id, {
       status: 'waiting_bot',

@@ -1,13 +1,13 @@
 import type { Bot, Message } from '@mowbot/contract';
 import { router } from 'expo-router';
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, type TextStyle, View } from 'react-native';
 import { segments } from '../../lib/activity';
 import { userMedia } from '../../lib/attachments';
 import { moodOf } from '../../lib/bot-mood';
 import { mentionSegments } from '../../lib/chat-input';
-import { chipBots, type IncomingPlace, runSummary, senderOf, withSender } from '../../lib/incoming';
+import { chipBots, type IncomingPlace, runSummary, senderOf, summaryOf } from '../../lib/incoming';
 import { messageText } from '../../lib/message-cache';
 import { colors } from '../../theme';
 import { ActivityLine } from '../activity-line';
@@ -17,6 +17,7 @@ import { Markdown } from '../markdown';
 import { ShimmerText } from '../ui/shimmer-text';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
+import { type Talk, TalkLine, TalkSheet } from './bot-talk';
 import { MessageCanvas } from './message-canvas';
 import { MessageFiles } from './message-files';
 import { TakeoverRequest } from './takeover-request';
@@ -137,9 +138,40 @@ function IncomingLine({ run, bots }: { run: Message[]; bots: Bot[] | undefined }
   );
 }
 
+/** What another bot wrote: one line with its sender and the gist, the whole message a tap away. */
+function FromBotMessage({ message, bots }: { message: Message; bots: Bot[] | undefined }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const chips = useMemo(() => chipBots(bots, message), [bots, message]);
+  const name = message.fromName ?? '';
+  const bot = bots?.find((b) => b.id === message.fromBotId) ?? {
+    id: null,
+    name,
+    avatarSeed: name,
+  };
+  const talk: Talk = {
+    title: t(`chat.talk.from.${message.kind}`, { name: bot.name }),
+    bot,
+    text: messageText(message),
+    at: message.createdAt,
+  };
+  return (
+    <View style={styles.incoming}>
+      <TalkLine
+        title={talk.title}
+        bot={bot}
+        summary={summaryOf(message)}
+        onPress={() => setOpen(true)}
+      />
+      <TalkSheet talk={talk} chips={chips} visible={open} onClose={() => setOpen(false)} />
+      <Steered message={message} style={styles.centered} />
+    </View>
+  );
+}
+
 /**
- * What another bot, the user (a task) or a routine gave this bot: a soft bubble under a quiet
- * line naming its senders, the bots its text names shown as chips.
+ * What the user (a task) or a routine gave this bot: a soft bubble under a quiet line saying
+ * what it is; another bot's message, a line opening it.
  */
 export function IncomingMessage({
   message,
@@ -151,20 +183,12 @@ export function IncomingMessage({
   bots: Bot[] | undefined;
 }) {
   const chips = useMemo(() => chipBots(bots, message), [bots, message]);
-  const sender = senderOf(message);
-  const from = sender.kind === 'bot' ? chips.find((b) => b.id === sender.id) : undefined;
-  const text = messageText(message);
-  // Several senders above: each message opens with its own.
-  const name = sender.kind === 'bot' ? (from?.name ?? sender.name) : null;
+  if (senderOf(message).kind === 'bot') return <FromBotMessage message={message} bots={bots} />;
   return (
     <View style={styles.incoming}>
       {place.run && <IncomingLine run={place.run} bots={bots} />}
       <View style={styles.incomingBubble}>
-        <Markdown
-          text={place.mixed && name ? withSender(name, text) : text}
-          bots={chips}
-          style={styles.incomingText}
-        />
+        <Markdown text={messageText(message)} bots={chips} style={styles.incomingText} />
       </View>
       <Steered message={message} style={styles.centered} />
     </View>

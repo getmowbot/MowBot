@@ -35,14 +35,18 @@ import {
   type ActivityPart,
   activityHeadline,
   activitySteps,
+  isTalk,
   type ReasoningPart,
   type ToolPart,
+  talkOf,
   toolIcon,
   toolMechanics,
   toolTitle,
 } from '../lib/activity';
+import { useBots } from '../lib/queries';
 import { authHeaders, hubUrl } from '../lib/session';
 import { colors, fonts, springs } from '../theme';
+import { chipsOf, type Talk, TalkSheet } from './chat/bot-talk';
 import { ShimmerText } from './ui/shimmer-text';
 import { T } from './ui/text';
 import { Touchable } from './ui/touchable';
@@ -93,6 +97,49 @@ function Screenshot({ workspaceId, path }: { workspaceId: string; path: string }
       transition={250}
       style={styles.screenshot}
     />
+  );
+}
+
+/** A message or a question to another bot: opens large, with what came back. */
+function TalkStep({ part }: { part: ToolPart }) {
+  const { t } = useTranslation();
+  const bots = useBots();
+  const [open, setOpen] = useState(false);
+  const Icon = ICONS[toolIcon(part)];
+  const { to, asks, text, answer } = talkOf(part);
+  const bot = bots.data?.find((b) => b.id === to || b.name.toLowerCase() === to.toLowerCase()) ?? {
+    id: null,
+    name: to,
+    avatarSeed: to,
+  };
+  const talk: Talk = {
+    title: t(asks ? 'chat.talk.to.ask' : 'chat.talk.to.chat', { name: bot.name }),
+    bot,
+    text,
+    answer: answer
+      ? {
+          title: answer.fromBot
+            ? t('chat.talk.answerFrom', { name: bot.name })
+            : t('chat.talk.outcome'),
+          text: answer.text,
+        }
+      : undefined,
+  };
+  return (
+    <View>
+      <Touchable disabled={!text} onPress={() => setOpen(true)} style={styles.stepRow}>
+        <Icon size={13} color={part.state === 'error' ? colors.danger : colors.textFaint} />
+        <ShimmerText active={part.state === 'running'} color={colors.textFaint}>
+          {toolTitle(part, t)}
+        </ShimmerText>
+      </Touchable>
+      <TalkSheet
+        talk={talk}
+        chips={chipsOf(bots.data)}
+        visible={open}
+        onClose={() => setOpen(false)}
+      />
+    </View>
   );
 }
 
@@ -194,7 +241,11 @@ export function ActivityLine({ parts, live }: { parts: ActivityPart[]; live: boo
         <Animated.View entering={enter} style={styles.steps}>
           {steps.map((part, index) =>
             part.type === 'tool' ? (
-              <ToolStep key={part.toolCallId} part={part} />
+              isTalk(part) ? (
+                <TalkStep key={part.toolCallId} part={part} />
+              ) : (
+                <ToolStep key={part.toolCallId} part={part} />
+              )
             ) : (
               // biome-ignore lint/suspicious/noArrayIndexKey: reasoning parts only ever append
               <ReasoningStep key={`reasoning-${index}`} part={part} />

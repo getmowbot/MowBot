@@ -24,6 +24,7 @@ import {
   Lock,
   LockOpen,
   type LucideIcon,
+  Maximize2,
   MessageCircleQuestion,
   Monitor,
   MousePointer2,
@@ -42,7 +43,10 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { i18n } from '../i18n';
+import { shortSummary } from '../lib/incoming';
+import { useBots } from '../lib/queries';
 import { cn } from '../lib/utils';
+import { chipsOf, type Talk, TalkDialog } from './bot-talk';
 import { useWorkspaceFileUrl } from './markdown-document';
 
 type ToolPart = Extract<MessagePart, { type: 'tool' }>;
@@ -77,6 +81,17 @@ function describeUrl(value: unknown): string {
   } catch {
     return i18n.t('activity.open', { target: str(value) });
   }
+}
+
+/** `Écrit à Nova · La playlist est prête`: to whom, and the gist the bot gave (or its first sentence). */
+function talkTitle(
+  key: 'activity.sendMessage' | 'activity.askBot',
+  input: Input,
+  text: unknown,
+): string {
+  const who = i18n.t(key, { name: str(input.to) });
+  const gist = str(input.summary).trim() || shortSummary(str(text));
+  return gist ? `${who} · ${gist}` : who;
 }
 
 /** `cd /tmp && curl -sL …` → `Lance curl` / `Running curl`. */
@@ -254,7 +269,7 @@ const TOOLS: Record<string, ToolMeta> = {
   list_bots: { icon: () => Users, title: () => i18n.t('activity.listBots'), kind: () => null },
   send_message: {
     icon: () => Send,
-    title: (i) => i18n.t('activity.sendMessage', { name: str(i.to) }),
+    title: (i) => talkTitle('activity.sendMessage', i, i.text),
     kind: () => 'message',
   },
   share_file: {
@@ -274,7 +289,7 @@ const TOOLS: Record<string, ToolMeta> = {
   },
   ask_bot: {
     icon: () => MessageCircleQuestion,
-    title: (i) => i18n.t('activity.askBot', { name: str(i.to) }),
+    title: (i) => talkTitle('activity.askBot', i, i.question),
     kind: () => 'question',
   },
   assign_task: {
@@ -417,6 +432,63 @@ const expand = {
   exit: { height: 0, opacity: 0 },
   transition: springs.soft,
 };
+
+/** The hub's words before a question's answer, in the tool's output. */
+const ANSWER_PREFIX = /^Réponse de [^\n]*:\n/;
+
+/** A message or a question to another bot: opens large, with what came back. */
+function TalkStep({ part }: { part: ToolPart }) {
+  const { t } = useTranslation();
+  const bots = useBots();
+  const [open, setOpen] = useState(false);
+  const Icon = toolIcon(part);
+  const i = input(part);
+  const asks = part.toolName === 'ask_bot';
+  const name = str(i.to).trim();
+  const bot = bots.data?.find(
+    (b) => b.id === name || b.name.toLowerCase() === name.toLowerCase(),
+  ) ?? { id: null, name, avatarSeed: name };
+  const output = part.state === 'running' ? '' : (part.output ?? '');
+  const talk: Talk = {
+    title: t(asks ? 'chat.talk.to.ask' : 'chat.talk.to.chat', { name: bot.name }),
+    bot,
+    text: str(asks ? i.question : i.text),
+    // A message only gets "sent"; a question its answer, or why none came.
+    answer:
+      output && (asks || part.state === 'error')
+        ? {
+            title: ANSWER_PREFIX.test(output)
+              ? t('chat.talk.answerFrom', { name: bot.name })
+              : t('chat.talk.outcome'),
+            text: output.replace(ANSWER_PREFIX, ''),
+          }
+        : undefined,
+  };
+  return (
+    <li>
+      <button
+        type="button"
+        disabled={!talk.text}
+        onClick={() => setOpen(true)}
+        className="group flex max-w-full items-center gap-2 py-0.5 text-left text-faint transition-colors duration-200 enabled:hover:text-muted-foreground disabled:cursor-default"
+      >
+        <Icon className={cn('size-3.5 shrink-0', part.state === 'error' && 'text-destructive')} />
+        <span className={cn('truncate', part.state === 'running' && 'shimmer-text')}>
+          {toolTitle(part)}
+        </span>
+        <Maximize2 className="size-3 shrink-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      </button>
+      <TalkDialog
+        talk={talk}
+        chips={chipsOf(bots.data)}
+        open={open}
+        onClose={() => setOpen(false)}
+      />
+    </li>
+  );
+}
+
+const isTalk = (part: ToolPart) => part.toolName === 'send_message' || part.toolName === 'ask_bot';
 
 function ToolStep({ part }: { part: ToolPart }) {
   useTranslation(); // re-render the labels when the language changes
@@ -563,7 +635,11 @@ export function ActivityGroup({ parts, live }: { parts: ActivityPart[]; live: bo
             <ul className="ml-[6.5px] mt-1 space-y-0.5 border-l border-border pl-3">
               {steps.map((part, index) =>
                 part.type === 'tool' ? (
-                  <ToolStep key={part.toolCallId} part={part} />
+                  isTalk(part) ? (
+                    <TalkStep key={part.toolCallId} part={part} />
+                  ) : (
+                    <ToolStep key={part.toolCallId} part={part} />
+                  )
                 ) : (
                   // biome-ignore lint/suspicious/noArrayIndexKey: reasoning parts only ever append
                   <ReasoningStep key={`reasoning-${index}`} part={part} />

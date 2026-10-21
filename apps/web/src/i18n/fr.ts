@@ -185,6 +185,18 @@ export const fr = {
     incoming_one: 'Message de',
     incoming_other: 'Messages de',
     and: 'et',
+    talk: {
+      from: {
+        chat: 'Message de {{name}}',
+        ask: 'Question de {{name}}',
+        task: 'Tâche de {{name}}',
+        routine: 'Message de {{name}}',
+      },
+      to: { chat: 'Message à {{name}}', ask: 'Question à {{name}}' },
+      answerFrom: 'Réponse de {{name}}',
+      outcome: 'Suite',
+      openChat: 'Ouvrir la conversation avec {{name}}',
+    },
     /** Titles of the / commands of the composer (the names stay as typed). */
     commands: {
       stop: 'Arrêter ce qu’il fait',

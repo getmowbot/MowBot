@@ -236,6 +236,8 @@ export const messageSchema = z.object({
   fromBotId: z.uuid().nullable(),
   /** Name of the sending bot when it wrote (kept if that bot is deleted). */
   fromName: z.string().nullable(),
+  /** From another bot: what it says in a few words, written by the sender (null: clients derive one from the text). */
+  summary: z.string().nullable(),
   /** `ask`: a question awaiting this bot's answer; `task`: a task assigned or updated; `routine`: a routine or check-in fired. */
   kind: messageKindSchema,
   taskId: z.uuid().nullable(),

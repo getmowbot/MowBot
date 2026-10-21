@@ -290,6 +290,8 @@ export type MessageErrorCode = NonNullable<Message['errorCode']>;
 export interface MessageMeta {
   /** Sender's name when it was sent (still shown if that bot is deleted). */
   fromName?: string;
+  /** From another bot: the message in a few words, as the apps show it folded. */
+  summary?: string;
   depth?: number;
   askId?: string;
   taskId?: string;

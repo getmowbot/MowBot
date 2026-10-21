@@ -41,6 +41,7 @@ export function toMessage(row: MessageRow): Message {
     role: row.role,
     fromBotId: row.fromBotId,
     fromName: row.meta?.fromName ?? null,
+    summary: row.meta?.summary ?? null,
     kind: row.kind,
     taskId: row.meta?.taskId ?? null,
     parts: row.parts,

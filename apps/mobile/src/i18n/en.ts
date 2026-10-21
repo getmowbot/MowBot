@@ -123,6 +123,18 @@ export const en: Catalog = {
     incoming_one: 'Message from',
     incoming_other: 'Messages from',
     and: 'and',
+    talk: {
+      from: {
+        chat: 'Message from {{name}}',
+        ask: 'Question from {{name}}',
+        task: 'Task from {{name}}',
+        routine: 'Message from {{name}}',
+      },
+      to: { chat: 'Message to {{name}}', ask: 'Question to {{name}}' },
+      answerFrom: 'Answer from {{name}}',
+      outcome: 'What happened',
+      openChat: 'Open the conversation with {{name}}',
+    },
     kind: {
       chat: 'message',
       ask: 'question',
