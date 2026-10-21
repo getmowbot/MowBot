@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { canvasContentSchema } from './canvases';
+import { workspacePathSchema } from './files';
 import { vaultFieldSchema } from './vault';
 
 export const botStatusSchema = z.enum([
@@ -98,6 +99,22 @@ export const botMoveSchema = z.object({
 });
 export type BotMove = z.infer<typeof botMoveSchema>;
 
+/** What the user points at with @ in a message: a bot, a team, or a file of the bot's workspace. */
+export const mentionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('bot'), id: z.uuid() }),
+  z.object({ kind: z.literal('team'), id: z.uuid() }),
+  z.object({ kind: z.literal('file'), path: workspacePathSchema.min(1) }),
+]);
+export type Mention = z.infer<typeof mentionSchema>;
+
+/** A mention as the message keeps it: `label` is what follows the @ in the text. */
+export const messageMentionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('bot'), id: z.uuid(), label: z.string() }),
+  z.object({ kind: z.literal('team'), id: z.uuid(), label: z.string() }),
+  z.object({ kind: z.literal('file'), path: z.string(), label: z.string() }),
+]);
+export type MessageMention = z.infer<typeof messageMentionSchema>;
+
 /** Display parts of a message (the exact model transcript is kept server-side). */
 export const messagePartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
@@ -158,6 +175,8 @@ export const messageSchema = z.object({
   parts: z.array(messagePartSchema),
   /** Arrived while the bot was working, and taken into its ongoing answer. */
   steered: z.boolean(),
+  /** What the user pointed at with @ (shown highlighted in the text). */
+  mentions: z.array(messageMentionSchema),
   status: z.enum(['streaming', 'done', 'error', 'stopped']),
   /** Why the answer failed, for clients to word it; `error` keeps the technical detail. */
   errorCode: z.enum(['no_model', 'hub_restart', 'run_failed']).nullable(),
@@ -206,6 +225,8 @@ export type VaultRequestAnswer = z.infer<typeof vaultRequestAnswerSchema>;
 
 export const sendMessageSchema = z.object({
   text: z.string().trim().min(1).max(20_000),
+  /** Bots, teams and files written as `@label` in the text, handed to the bot with their details. */
+  mentions: z.array(mentionSchema).max(10).optional(),
 });
 
 /** Messages between bots, newest page first. */

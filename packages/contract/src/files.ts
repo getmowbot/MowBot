@@ -39,6 +39,17 @@ export const downloadTicketRequestSchema = z.object({
   path: workspacePathSchema,
 });
 
+export const fileSearchQuerySchema = z.object({
+  /** Part of a name or path; empty: the latest files changed. */
+  q: z.string().max(200).default(''),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export const fileSearchResultSchema = z.object({
+  items: z.array(fileEntrySchema),
+});
+export type FileSearchResult = z.infer<typeof fileSearchResultSchema>;
+
 export const uploadResultSchema = z.object({
   entries: z.array(fileEntrySchema),
 });

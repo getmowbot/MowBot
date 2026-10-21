@@ -338,6 +338,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workspaces/{id}/files/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Files and folders whose path contains `q` (names starting with it first); without `q`, the files changed last. */
+        get: operations["searchFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workspaces/{id}/files/content": {
         parameters: {
             query?: never;
@@ -3094,6 +3111,79 @@ export interface operations {
             };
         };
     };
+    searchFiles: {
+        parameters: {
+            query?: {
+                q?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            name: string;
+                            path: string;
+                            /** @enum {string} */
+                            type: "file" | "directory";
+                            size: number;
+                            /** Format: date-time */
+                            modifiedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     getFileContent: {
         parameters: {
             query?: {
@@ -4467,6 +4557,24 @@ export interface operations {
                                 status: "pending" | "saved" | "declined";
                             })[];
                             steered: boolean;
+                            mentions: ({
+                                /** @enum {string} */
+                                kind: "bot";
+                                /** Format: uuid */
+                                id: string;
+                                label: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "team";
+                                /** Format: uuid */
+                                id: string;
+                                label: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "file";
+                                path: string;
+                                label: string;
+                            })[];
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
                             errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
@@ -4535,6 +4643,21 @@ export interface operations {
             content: {
                 "application/json": {
                     text: string;
+                    mentions?: ({
+                        /** @enum {string} */
+                        kind: "bot";
+                        /** Format: uuid */
+                        id: string;
+                    } | {
+                        /** @enum {string} */
+                        kind: "team";
+                        /** Format: uuid */
+                        id: string;
+                    } | {
+                        /** @enum {string} */
+                        kind: "file";
+                        path: string;
+                    })[];
                 };
             };
         };
@@ -4673,6 +4796,24 @@ export interface operations {
                             status: "pending" | "saved" | "declined";
                         })[];
                         steered: boolean;
+                        mentions: ({
+                            /** @enum {string} */
+                            kind: "bot";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "team";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "file";
+                            path: string;
+                            label: string;
+                        })[];
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
@@ -4937,6 +5078,24 @@ export interface operations {
                             status: "pending" | "saved" | "declined";
                         })[];
                         steered: boolean;
+                        mentions: ({
+                            /** @enum {string} */
+                            kind: "bot";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "team";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "file";
+                            path: string;
+                            label: string;
+                        })[];
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
@@ -5149,6 +5308,24 @@ export interface operations {
                             status: "pending" | "saved" | "declined";
                         })[];
                         steered: boolean;
+                        mentions: ({
+                            /** @enum {string} */
+                            kind: "bot";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "team";
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                        } | {
+                            /** @enum {string} */
+                            kind: "file";
+                            path: string;
+                            label: string;
+                        })[];
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
@@ -5937,6 +6114,24 @@ export interface operations {
                                 status: "pending" | "saved" | "declined";
                             })[];
                             steered: boolean;
+                            mentions: ({
+                                /** @enum {string} */
+                                kind: "bot";
+                                /** Format: uuid */
+                                id: string;
+                                label: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "team";
+                                /** Format: uuid */
+                                id: string;
+                                label: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "file";
+                                path: string;
+                                label: string;
+                            })[];
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
                             errorCode: ("no_model" | "hub_restart" | "run_failed") | null;

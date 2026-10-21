@@ -4,6 +4,7 @@ import type {
   BotMove,
   Canvas,
   CanvasContent,
+  Mention,
   Message,
   MessageKind,
   MessagePart,
@@ -41,6 +42,7 @@ import { buildBrowserTools } from './browser-tools';
 import { buildCanvasTools, SHOW_IN_CHAT } from './canvas-tools';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
 import { buildMcpTools } from './mcp-tools';
+import { resolveMentions } from './mentions';
 import { buildOrgTools } from './org-tools';
 import { buildProactiveTools } from './proactive-tools';
 import { systemPrompt } from './prompt';
@@ -456,11 +458,21 @@ export class BotRuntime {
     }
   }
 
-  async send(botId: string, text: string): Promise<Message> {
-    await this.deps.bots.row(botId);
+  async send(botId: string, text: string, mentions: Mention[] = []): Promise<Message> {
+    const bot = await this.deps.bots.row(botId);
     // Writing to the bot moves on from the questions it asked.
     await this.deps.questions.closeOpen(botId);
-    return this.post(botId, text, text);
+    const { context, kept } = await resolveMentions(this.deps, bot, mentions);
+    return this.post(
+      botId,
+      context
+        ? `${text}
+
+${context}`
+        : text,
+      text,
+      kept.length > 0 ? { mentions: kept } : undefined,
+    );
   }
 
   /** The user answered a bot's question: the answer reaches the bot as their message. */
@@ -478,7 +490,12 @@ export class BotRuntime {
   }
 
   /** A message from the user: `text` for the bot, `display` for the app. */
-  private async post(botId: string, text: string, display: string): Promise<Message> {
+  private async post(
+    botId: string,
+    text: string,
+    display: string,
+    meta?: MessageMeta,
+  ): Promise<Message> {
     const [row] = await this.deps.db
       .insert(messages)
       .values({
@@ -487,6 +504,7 @@ export class BotRuntime {
         parts: [{ type: 'text', text: display }],
         modelMessages: [{ role: 'user', content: text }],
         status: 'done',
+        ...(meta ? { meta } : {}),
       })
       .returning();
     if (!row) throw new Error('Message insert returned no row');

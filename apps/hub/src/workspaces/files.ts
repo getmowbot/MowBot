@@ -23,6 +23,14 @@ const invalidPath = (detail = 'Invalid path') => new HttpProblem(400, 'invalid_p
 const alreadyExists = (detail = 'Path already exists') =>
   new HttpProblem(409, 'already_exists', detail);
 
+/** Folders a search does not go into: tools' caches, nobody looks for a file there. */
+const SEARCH_SKIPPED = new Set(['node_modules', '.git', '.venv', '__pycache__', '.cache']);
+const SEARCH_MAX_DEPTH = 8;
+const SEARCH_MAX_VISITED = 5_000;
+
+/** For matching: lower case, without accents. */
+const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
 const isNotFound = (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOENT';
 
 /**
@@ -140,6 +148,38 @@ export class WorkspaceFiles {
       a.type === b.type ? a.name.localeCompare(b.name, 'fr') : a.type === 'directory' ? -1 : 1,
     );
     return { path: rel, entries };
+  }
+
+  /**
+   * Files and folders whose path contains `query` (case and accents aside), names starting with
+   * it first; without a query, the files changed last. The trash and heavy folders are skipped.
+   */
+  async search(workspaceId: string, query: string, limit = 20): Promise<FileEntry[]> {
+    const { base } = await this.resolve(workspaceId, '', true);
+    const needle = fold(query.trim());
+    const found: FileEntry[] = [];
+    let visited = 0;
+    const walk = async (abs: string, rel: string, depth: number): Promise<void> => {
+      const names = await readdir(abs).catch(() => [] as string[]);
+      for (const name of names) {
+        if (++visited > SEARCH_MAX_VISITED) return;
+        if ((!rel && name === TRASH_FOLDER) || SEARCH_SKIPPED.has(name)) continue;
+        const childRel = joinRel(rel, name);
+        const childAbs = path.join(abs, name);
+        const entry = await this.entry(childRel, childAbs).catch(() => null);
+        if (!entry) continue;
+        if (needle ? fold(childRel).includes(needle) : entry.type === 'file') found.push(entry);
+        if (entry.type === 'directory' && depth < SEARCH_MAX_DEPTH) {
+          await walk(childAbs, childRel, depth + 1);
+        }
+      }
+    };
+    await walk(base, '', 0);
+    if (!needle) {
+      return found.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt)).slice(0, limit);
+    }
+    const rank = (e: FileEntry) => (fold(e.name).startsWith(needle) ? 0 : 1);
+    return found.sort((a, b) => rank(a) - rank(b) || a.path.length - b.path.length).slice(0, limit);
   }
 
   async stat(workspaceId: string, file: string): Promise<FileEntry & { abs: string }> {
