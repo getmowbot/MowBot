@@ -45,8 +45,8 @@ import {
   type Trigger,
   triggerAt,
 } from '../lib/chat-input';
-import { projectsFor, useProjects } from '../lib/projects';
 import { formatSize, IMAGE } from '../lib/files';
+import { projectsFor, useProjects } from '../lib/projects';
 import { useBots, useTeams } from '../lib/queries';
 import { cn } from '../lib/utils';
 import {
