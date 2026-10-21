@@ -10171,6 +10171,9 @@
                               "stopped"
                             ]
                           },
+                          "stepLimit": {
+                            "type": "boolean"
+                          },
                           "errorCode": {
                             "anyOf": [
                               {
@@ -10233,6 +10236,7 @@
                           "steered",
                           "mentions",
                           "status",
+                          "stepLimit",
                           "errorCode",
                           "error",
                           "usage",
@@ -11267,6 +11271,9 @@
                         "stopped"
                       ]
                     },
+                    "stepLimit": {
+                      "type": "boolean"
+                    },
                     "errorCode": {
                       "anyOf": [
                         {
@@ -11329,6 +11336,7 @@
                     "steered",
                     "mentions",
                     "status",
+                    "stepLimit",
                     "errorCode",
                     "error",
                     "usage",
@@ -12436,6 +12444,9 @@
                         "stopped"
                       ]
                     },
+                    "stepLimit": {
+                      "type": "boolean"
+                    },
                     "errorCode": {
                       "anyOf": [
                         {
@@ -12498,6 +12509,7 @@
                     "steered",
                     "mentions",
                     "status",
+                    "stepLimit",
                     "errorCode",
                     "error",
                     "usage",
@@ -13486,6 +13498,9 @@
                         "stopped"
                       ]
                     },
+                    "stepLimit": {
+                      "type": "boolean"
+                    },
                     "errorCode": {
                       "anyOf": [
                         {
@@ -13548,6 +13563,7 @@
                     "steered",
                     "mentions",
                     "status",
+                    "stepLimit",
                     "errorCode",
                     "error",
                     "usage",
@@ -16226,6 +16242,9 @@
                               "stopped"
                             ]
                           },
+                          "stepLimit": {
+                            "type": "boolean"
+                          },
                           "errorCode": {
                             "anyOf": [
                               {
@@ -16293,6 +16312,7 @@
                           "steered",
                           "mentions",
                           "status",
+                          "stepLimit",
                           "errorCode",
                           "error",
                           "usage",

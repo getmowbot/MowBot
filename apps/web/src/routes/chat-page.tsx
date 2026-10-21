@@ -92,6 +92,25 @@ function SteeredHint() {
   return <p className="px-1 text-[11px] text-faint">{t('chat.steered')}</p>;
 }
 
+/** Under an answer cut by the step limit; the last one can be resumed. */
+function StepLimitHint({ onContinue }: { onContinue?: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <p className="flex items-center gap-2 text-xs text-faint">
+      {t('chat.stepLimit')}
+      {onContinue && (
+        <button
+          type="button"
+          onClick={onContinue}
+          className="rounded-full border border-border-strong px-2.5 py-0.5 text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.06] hover:text-foreground"
+        >
+          {t('chat.continue')}
+        </button>
+      )}
+    </p>
+  );
+}
+
 /** Above a run of incoming messages, quietly: who sent them, and what they are. */
 function IncomingLine({ run }: { run: Message[] }) {
   const { t } = useTranslation();
@@ -299,6 +318,7 @@ function BotMessage({
   bot,
   onAnswer,
   onShowPc,
+  onContinue,
 }: {
   message: Message;
   bot: Bot;
@@ -306,6 +326,8 @@ function BotMessage({
   onAnswer(): void;
   /** Opens the PC panel (to take control from a takeover card). */
   onShowPc(): void;
+  /** Cut by the step limit and still the last answer: the user can tell the bot to go on. */
+  onContinue?: () => void;
 }) {
   const { t } = useTranslation();
   const streaming = message.status === 'streaming';
@@ -381,6 +403,9 @@ function BotMessage({
           </p>
         )}
         {message.status === 'stopped' && <p className="text-xs text-faint">{t('chat.stopped')}</p>}
+        {message.status === 'done' && message.stepLimit && (
+          <StepLimitHint onContinue={onContinue} />
+        )}
       </div>
     </div>
   );
@@ -661,7 +686,7 @@ export function ChatPage() {
               <EmptyState bot={bot} onPick={(text) => send.mutate({ text })} />
             )}
             <AnimatePresence initial={false}>
-              {items.map((message) => {
+              {items.map((message, index) => {
                 const place = places.get(message.id);
                 return (
                   <motion.div
@@ -688,6 +713,11 @@ export function ChatPage() {
                           stickToBottom.current = true;
                         }}
                         onShowPc={() => setShowPc(true)}
+                        onContinue={
+                          index === items.length - 1 && !send.isPending
+                            ? () => send.mutate({ text: 'Continue' })
+                            : undefined
+                        }
                       />
                     )}
                   </motion.div>

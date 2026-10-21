@@ -283,6 +283,8 @@ export interface MessageMeta {
   runId?: string;
   /** On an answer: the bot acted on its own (routine, other bots), not for the user. */
   autonomous?: boolean;
+  /** On an answer: cut by the step limit (the bot summed up what is left). */
+  stepLimit?: boolean;
   /** Arrived while the bot was working and joined that answer (id): already handled. */
   steeredInto?: string;
   /** Context only (e.g. "stopped by …"): does not call for an answer. */

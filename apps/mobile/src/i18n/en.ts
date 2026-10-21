@@ -93,6 +93,8 @@ export const en: Catalog = {
     stop: 'Stop',
     thinking: '{{name}} is thinking…',
     stopped: 'Stopped.',
+    stepLimit: 'Step limit reached',
+    continue: 'Continue',
     steered: 'Taken into account mid-answer',
     vaultRequest: {
       totp: '2FA code (seed or otpauth:// link)',

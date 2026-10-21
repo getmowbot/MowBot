@@ -15,6 +15,7 @@ import { BotChip } from '../bot-chip';
 import { Markdown } from '../markdown';
 import { ShimmerText } from '../ui/shimmer-text';
 import { T } from '../ui/text';
+import { Touchable } from '../ui/touchable';
 import { MessageCanvas } from './message-canvas';
 import { TakeoverRequest } from './takeover-request';
 import { VaultRequest } from './vault-request';
@@ -152,7 +153,35 @@ export function IncomingMessage({
   );
 }
 
-export function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
+/** Under an answer cut by the step limit; the last one can be resumed. */
+function StepLimit({ onContinue }: { onContinue?: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.stepLimit}>
+      <T variant="caption" tone="faint">
+        {t('chat.stepLimit')}
+      </T>
+      {onContinue && (
+        <Touchable accessibilityRole="button" onPress={onContinue} style={styles.continue}>
+          <T variant="caption" tone="muted">
+            {t('chat.continue')}
+          </T>
+        </Touchable>
+      )}
+    </View>
+  );
+}
+
+export function BotMessage({
+  message,
+  bot,
+  onContinue,
+}: {
+  message: Message;
+  bot: Bot;
+  /** Cut by the step limit and still the last answer: the user can tell the bot to go on. */
+  onContinue?: () => void;
+}) {
   const { t } = useTranslation();
   const streaming = message.status === 'streaming';
   const blocks = segments(message.parts);
@@ -226,6 +255,7 @@ export function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
             {t('chat.stopped')}
           </T>
         )}
+        {message.status === 'done' && message.stepLimit && <StepLimit onContinue={onContinue} />}
       </View>
     </View>
   );
@@ -263,6 +293,15 @@ const styles = StyleSheet.create({
   bot: { flexDirection: 'row', gap: 12 },
   botBody: { flex: 1, minWidth: 0, gap: 10, paddingTop: 3 },
   thinking: { fontSize: 15, lineHeight: 23 },
+  stepLimit: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  continue: {
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    overflow: 'hidden',
+  },
   error: {
     borderRadius: 12,
     borderWidth: 1,

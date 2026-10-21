@@ -192,6 +192,8 @@ export const messageSchema = z.object({
   /** What the user pointed at with @ (shown highlighted in the text). */
   mentions: z.array(messageMentionSchema),
   status: z.enum(['streaming', 'done', 'error', 'stopped']),
+  /** The bot ran out of steps before finishing: it summed up what is left, and can be told to continue. */
+  stepLimit: z.boolean(),
   /** Why the answer failed, for clients to word it; `error` keeps the technical detail. */
   errorCode: z.enum(['no_model', 'hub_restart', 'run_failed']).nullable(),
   error: z.string().nullable(),

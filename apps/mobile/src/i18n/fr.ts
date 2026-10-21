@@ -93,6 +93,8 @@ export const fr = {
     stop: 'Arrêter',
     thinking: '{{name}} réfléchit…',
     stopped: 'Interrompu.',
+    stepLimit: 'Étapes max atteintes',
+    continue: 'Continuer',
     steered: 'Pris en compte en cours de route',
     vaultRequest: {
       totp: 'Code 2FA (graine ou lien otpauth://)',
