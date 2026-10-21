@@ -51,18 +51,22 @@ import {
   chipBots,
   type IncomingPlace,
   incomingPlaces,
+  inReadingOrder,
   runSummary,
   senderOf,
+  shortSummary,
   summaryOf,
 } from '../lib/incoming';
 import { reveal } from '../lib/motion';
 import { useQuestions } from '../lib/proactivity';
 import {
+  MESSAGES_PAGE,
   useBot,
   useBots,
   useChef,
   useComputer,
   useComputerAction,
+  useEarlierMessages,
   useMe,
   useMessages,
   useProviders,
@@ -382,9 +386,17 @@ function BotMessage({
   onContinue?: () => void;
 }) {
   const { t } = useTranslation();
+  const [unfolded, setUnfolded] = useState(false);
   const streaming = message.status === 'streaming';
   const blocks = segments(message.parts);
   const empty = blocks.length === 0;
+  // An answer to other bots or a routine: its first sentence, the rest a click away.
+  const said = blocks.flatMap((b) => (b.kind === 'text' ? [b.text] : [])).join('\n\n');
+  const gist = message.autonomous && !streaming ? shortSummary(said) : '';
+  const foldable = gist !== '' && said.trim().length > gist.length + 40;
+  const folded = foldable && !unfolded;
+  const firstText = blocks.findIndex((b) => b.kind === 'text');
+  const lastText = blocks.findLastIndex((b) => b.kind === 'text');
   return (
     <div className="flex gap-3">
       <BotAvatar
@@ -435,18 +447,43 @@ function BotMessage({
               />
             );
           }
-          return block.kind === 'activity' ? (
-            <ActivityGroup
-              key={`activity-${block.index}`}
-              parts={block.parts}
-              live={streaming && last}
-            />
-          ) : (
-            <Markdown
-              key={`text-${block.index}`}
-              text={block.text}
-              className={cn(streaming && last && 'streaming')}
-            />
+          if (block.kind === 'activity') {
+            return (
+              <ActivityGroup
+                key={`activity-${block.index}`}
+                parts={block.parts}
+                live={streaming && last}
+              />
+            );
+          }
+          if (folded) {
+            return i === firstText ? (
+              <button
+                key={`text-${block.index}`}
+                type="button"
+                onClick={() => setUnfolded(true)}
+                className="group block max-w-full text-left text-[14.5px] leading-6 text-muted-foreground transition-colors duration-200 hover:text-foreground"
+              >
+                {gist}{' '}
+                <span className="whitespace-nowrap text-faint transition-colors duration-200 group-hover:text-muted-foreground">
+                  · {t('chat.readMore')}
+                </span>
+              </button>
+            ) : null;
+          }
+          return (
+            <Fragment key={`text-${block.index}`}>
+              <Markdown text={block.text} className={cn(streaming && last && 'streaming')} />
+              {foldable && i === lastText && (
+                <button
+                  type="button"
+                  onClick={() => setUnfolded(false)}
+                  className="text-xs text-faint transition-colors duration-200 hover:text-muted-foreground"
+                >
+                  {t('chat.readLess')}
+                </button>
+              )}
+            </Fragment>
           );
         })}
         {message.status === 'error' && (
@@ -613,6 +650,10 @@ export function ChatPage() {
   const byId = useBot(botId);
   const bot = botId ? byId.data : chef.data;
   const messages = useMessages(bot?.id);
+  const earlier = useEarlierMessages(bot?.id);
+  const { load } = earlier;
+  // How many of the last messages are drawn: more as the user scrolls up, back down at the end.
+  const [shown, setShown] = useState(MESSAGES_PAGE);
   const questions = useQuestions();
   // Oldest first, like the conversation.
   const asked = (questions.data ?? []).filter((q) => q.botId === bot?.id).reverse();
@@ -695,9 +736,54 @@ export function ChatPage() {
     onError: (err) => setError(problemMessage(err, t('chat.voice.notSent'))),
   });
 
-  // Follow the conversation while the user is at the bottom.
-  const items = messages.data ?? [];
+  const all = useMemo(() => inReadingOrder(messages.data ?? []), [messages.data]);
+  const items = all.length > shown ? all.slice(-shown) : all;
   const places = incomingPlaces(items);
+  const hasEarlier = items.length < all.length || earlier.more;
+
+  // Another conversation: from its end again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset when the bot changes
+  useEffect(() => setShown(MESSAGES_PAGE), [bot?.id]);
+
+  // Scrolled up to the top: draw earlier messages (loading them if needed), where they were.
+  const fromBottom = useRef<number | null>(null);
+  const top = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = top.current;
+    const root = scroller.current;
+    if (!el || !root || !hasEarlier) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting || fromBottom.current !== null || earlier.loading) return;
+        fromBottom.current = root.scrollHeight - root.scrollTop;
+        if (items.length < all.length) setShown((n) => n + MESSAGES_PAGE);
+        else
+          void load()
+            .then(() => {
+              setShown((n) => n + MESSAGES_PAGE);
+              // Nothing came (the start was reached): nothing to put back in place.
+              requestAnimationFrame(() => {
+                fromBottom.current = null;
+              });
+            })
+            .catch(() => {
+              fromBottom.current = null;
+            });
+      },
+      { root, rootMargin: '400px 0px 0px 0px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasEarlier, items.length, all.length, earlier.loading, load]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once the earlier messages are drawn
+  useLayoutEffect(() => {
+    const root = scroller.current;
+    if (!root || fromBottom.current === null) return;
+    root.scrollTop = root.scrollHeight - fromBottom.current;
+    fromBottom.current = null;
+  }, [items[0]?.id]);
+
+  // Follow the conversation while the user is at the bottom.
   const lastLength = items.at(-1)?.parts.reduce((n, p) => n + ('text' in p ? p.text.length : 1), 0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when a message arrives or grows
   useLayoutEffect(() => {
@@ -766,10 +852,17 @@ export function ChatPage() {
           onScroll={(event) => {
             const el = event.currentTarget;
             stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 140;
+            // Back at the end: the earlier messages scrolled through are let go.
+            if (stickToBottom.current && shown > MESSAGES_PAGE) setShown(MESSAGES_PAGE);
           }}
           className="min-h-0 flex-1 overflow-y-auto"
         >
           <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 md:px-6">
+            {hasEarlier && (
+              <div ref={top} className="-mb-3 text-center text-xs text-faint">
+                {earlier.loading ? t('common.loading') : null}
+              </div>
+            )}
             {noModel && (
               <motion.div
                 variants={reveal}
@@ -794,9 +887,11 @@ export function ChatPage() {
                   <motion.div
                     key={message.id}
                     variants={reveal}
-                    initial={hydrated.current ? 'hidden' : false}
+                    // New messages arrive at the end; earlier ones show up still, as they were.
+                    initial={hydrated.current && index >= items.length - 2 ? 'hidden' : false}
                     animate="shown"
-                    layout="position"
+                    // Measuring every message at each streamed word weighs on long conversations.
+                    layout={index >= items.length - 3 ? 'position' : false}
                     transition={springs.soft}
                     // Further down a run of incoming messages: close to the one before.
                     className={cn(place && !place.run && '-mt-4')}

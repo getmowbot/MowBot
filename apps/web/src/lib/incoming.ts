@@ -8,6 +8,26 @@ export function isIncoming(message: Message): boolean {
   );
 }
 
+/**
+ * Messages as the bot read them: one that reached it while it worked shows above the answer it
+ * was taken into (that answer started first, but goes on knowing it).
+ */
+export function inReadingOrder(messages: Message[]): Message[] {
+  const ids = new Set(messages.map((m) => m.id));
+  const into = new Map<string, Message[]>();
+  for (const message of messages) {
+    if (message.steeredInto && ids.has(message.steeredInto)) {
+      into.set(message.steeredInto, [...(into.get(message.steeredInto) ?? []), message]);
+    }
+  }
+  if (into.size === 0) return messages;
+  return messages.flatMap((message) =>
+    message.steeredInto && ids.has(message.steeredInto)
+      ? []
+      : [...(into.get(message.id) ?? []), message],
+  );
+}
+
 /** Who wrote an incoming message: a bot (named, even once deleted), the user (a task), or the hub (a routine). */
 export type Sender =
   | { kind: 'bot'; id: string | null; name: string }

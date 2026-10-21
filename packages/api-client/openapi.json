@@ -11267,6 +11267,21 @@
                           "steered": {
                             "type": "boolean"
                           },
+                          "steeredInto": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "autonomous": {
+                            "type": "boolean"
+                          },
                           "mentions": {
                             "type": "array",
                             "items": {
@@ -11445,6 +11460,8 @@
                           "taskId",
                           "parts",
                           "steered",
+                          "steeredInto",
+                          "autonomous",
                           "mentions",
                           "status",
                           "stepLimit",
@@ -12533,6 +12550,21 @@
                     "steered": {
                       "type": "boolean"
                     },
+                    "steeredInto": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "autonomous": {
+                      "type": "boolean"
+                    },
                     "mentions": {
                       "type": "array",
                       "items": {
@@ -12711,6 +12743,8 @@
                     "taskId",
                     "parts",
                     "steered",
+                    "steeredInto",
+                    "autonomous",
                     "mentions",
                     "status",
                     "stepLimit",
@@ -13989,6 +14023,21 @@
                     "steered": {
                       "type": "boolean"
                     },
+                    "steeredInto": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "autonomous": {
+                      "type": "boolean"
+                    },
                     "mentions": {
                       "type": "array",
                       "items": {
@@ -14167,6 +14216,8 @@
                     "taskId",
                     "parts",
                     "steered",
+                    "steeredInto",
+                    "autonomous",
                     "mentions",
                     "status",
                     "stepLimit",
@@ -15131,6 +15182,21 @@
                     "steered": {
                       "type": "boolean"
                     },
+                    "steeredInto": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "autonomous": {
+                      "type": "boolean"
+                    },
                     "mentions": {
                       "type": "array",
                       "items": {
@@ -15309,6 +15375,8 @@
                     "taskId",
                     "parts",
                     "steered",
+                    "steeredInto",
+                    "autonomous",
                     "mentions",
                     "status",
                     "stepLimit",
@@ -16299,6 +16367,21 @@
                     "steered": {
                       "type": "boolean"
                     },
+                    "steeredInto": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "autonomous": {
+                      "type": "boolean"
+                    },
                     "mentions": {
                       "type": "array",
                       "items": {
@@ -16477,6 +16560,8 @@
                     "taskId",
                     "parts",
                     "steered",
+                    "steeredInto",
+                    "autonomous",
                     "mentions",
                     "status",
                     "stepLimit",
@@ -17485,6 +17570,21 @@
                     "steered": {
                       "type": "boolean"
                     },
+                    "steeredInto": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "autonomous": {
+                      "type": "boolean"
+                    },
                     "mentions": {
                       "type": "array",
                       "items": {
@@ -17663,6 +17763,8 @@
                     "taskId",
                     "parts",
                     "steered",
+                    "steeredInto",
+                    "autonomous",
                     "mentions",
                     "status",
                     "stepLimit",
@@ -20374,6 +20476,21 @@
                           "steered": {
                             "type": "boolean"
                           },
+                          "steeredInto": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "autonomous": {
+                            "type": "boolean"
+                          },
                           "mentions": {
                             "type": "array",
                             "items": {
@@ -20557,6 +20674,8 @@
                           "taskId",
                           "parts",
                           "steered",
+                          "steeredInto",
+                          "autonomous",
                           "mentions",
                           "status",
                           "stepLimit",

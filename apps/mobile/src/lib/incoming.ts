@@ -1,6 +1,25 @@
 import type { Bot, Message, MessageKind } from '@mowbot/contract';
 import { isIncoming } from './message-cache';
 
+/**
+ * Messages as the bot read them: one that reached it while it worked shows above the answer it
+ * was taken into (that answer started first, but goes on knowing it).
+ */
+export function inReadingOrder(messages: Message[]): Message[] {
+  const ids = new Set(messages.map((m) => m.id));
+  // A hub from before this sends no `steeredInto`.
+  const target = (m: Message) => (m.steeredInto && ids.has(m.steeredInto) ? m.steeredInto : null);
+  const into = new Map<string, Message[]>();
+  for (const message of messages) {
+    const answer = target(message);
+    if (answer) into.set(answer, [...(into.get(answer) ?? []), message]);
+  }
+  if (into.size === 0) return messages;
+  return messages.flatMap((message) =>
+    target(message) ? [] : [...(into.get(message.id) ?? []), message],
+  );
+}
+
 /** Who wrote an incoming message: a bot (named, even once deleted), the user (a task), or the hub (a routine). */
 export type Sender =
   | { kind: 'bot'; id: string | null; name: string }

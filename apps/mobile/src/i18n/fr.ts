@@ -99,6 +99,8 @@ export const fr = {
     stepLimit: 'Étapes max atteintes',
     continue: 'Continuer',
     steered: 'Pris en compte en cours de route',
+    readMore: 'Lire la suite',
+    readLess: 'Replier',
     vaultRequest: {
       totp: 'Code 2FA (graine ou lien otpauth://)',
       show: 'Afficher',
