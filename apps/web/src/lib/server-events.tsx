@@ -93,6 +93,7 @@ export function ServerEvents() {
             'mcp-computer',
             'projects',
             'connectors',
+            'previews',
           ]) {
             void queryClient.invalidateQueries({ queryKey: [key] });
           }
@@ -199,6 +200,9 @@ export function ServerEvents() {
           break;
         case 'connector.updated':
           setConnector(queryClient, event.connector);
+          break;
+        case 'previews.changed':
+          void queryClient.invalidateQueries({ queryKey: ['previews', event.computerId] });
           break;
         case 'connector.deleted':
           removeConnector(queryClient, event.connectorId);
