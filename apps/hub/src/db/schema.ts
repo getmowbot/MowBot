@@ -251,6 +251,8 @@ export const bots = pgTable(
     model: text('model'),
     status: text('status').$type<BotStatus>().notNull().default('idle'),
     statusDetail: text('status_detail'),
+    /** What the bot says it is working on (set_focus), until it clears it. */
+    focus: text('focus'),
     avatarSeed: text('avatar_seed').notNull(),
     fallbacks: jsonb('fallbacks').$type<ModelRef[]>().notNull().default([]),
     lightModel: jsonb('light_model').$type<ModelRef>(),

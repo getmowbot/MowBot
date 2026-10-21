@@ -1,8 +1,10 @@
-import type { Bot, BotActivity, ServerEvent } from '@mowbot/contract';
+import type { Bot, BotActivity, Message, ServerEvent, Task } from '@mowbot/contract';
 import type { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ACTIVITY_TEXT_MAX, activityInput } from '../src/bots/activity';
+import { cleanFocus, FOCUS_MAX } from '../src/bots/focus';
 import { ACTIVITY_PUBLISH_MS } from '../src/bots/service';
+import { tasks } from '../src/db/schema';
 import { MASK } from '../src/vault/secrets';
 import { bearer, createTestApp, setupOwner } from './helpers';
 import { scripted, textTurn, toolTurn } from './models';
@@ -18,8 +20,11 @@ async function start(model?: MockLanguageModelV4) {
   t = await createTestApp({}, undefined, model ? () => model : undefined);
   const { app, services, runtime } = t;
   const auth = bearer((await setupOwner(app)).accessToken);
-  const inject = async (method: 'GET' | 'POST', url: string, payload?: object) =>
-    app.inject({ method, url, headers: auth, payload });
+  const inject = async (
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    url: string,
+    payload?: object,
+  ) => app.inject({ method, url, headers: auth, payload });
   const chef: Bot = (await inject('GET', '/api/v1/bots')).json().items[0];
   const events: ServerEvent[] = [];
   services.events.subscribe((event) => events.push(event));
@@ -27,6 +32,10 @@ async function start(model?: MockLanguageModelV4) {
   const bot = async (): Promise<Bot> => (await inject('GET', `/api/v1/bots/${chef.id}`)).json();
   return { inject, chef, events, send, bot, services, runtime };
 }
+
+/** What the bot.updated events said the bot worked on, in order. */
+const focuses = (events: ServerEvent[], botId: string) =>
+  events.flatMap((e) => (e.type === 'bot.updated' && e.bot.id === botId ? [e.bot.focus] : []));
 
 /** What the bot.updated events said the bot was doing, in order. */
 const told = (events: ServerEvent[], botId: string) =>
@@ -251,5 +260,88 @@ describe('what a bot is doing', () => {
     activity.clear(chef.id);
     await settled();
     expect(told(events, chef.id)).toEqual([tests, readB, readB, null]);
+  });
+});
+
+describe('what a bot works on', () => {
+  it('keeps a sentence, on one line and short', () => {
+    expect(cleanFocus('  Je développe\n  la page   d’accueil ')).toBe(
+      'Je développe la page d’accueil',
+    );
+    expect(cleanFocus('   ')).toBeNull();
+    expect(cleanFocus(null)).toBeNull();
+    const long = cleanFocus('Je '.repeat(100)) as string;
+    expect(long.length).toBeLessThanOrEqual(FOCUS_MAX);
+    expect(long.endsWith('…')).toBe(true);
+  });
+
+  it('is the sentence the bot sets, shown to the apps and to the other bots, until it clears it', async () => {
+    const model = scripted([
+      toolTurn('set_focus', { text: '  Je développe la page   d’accueil ' }),
+      toolTurn('list_bots', {}, 'call-2'),
+      textTurn('Je m’y mets.'),
+      toolTurn('set_focus', { text: '' }, 'call-3'),
+      textTurn('C’est fini.'),
+    ]);
+    const { send, chef, events, bot, services, inject } = await start(model);
+
+    await send('Fais la page d’accueil');
+    await services.runtime.idle(chef.id);
+    expect((await bot()).focus).toBe('Je développe la page d’accueil');
+    expect(focuses(events, chef.id)).toContain('Je développe la page d’accueil');
+    const conversation: Message[] = (await inject('GET', `/api/v1/bots/${chef.id}/messages`)).json()
+      .items;
+    const directory = conversation
+      .at(-1)
+      ?.parts.find((p) => p.type === 'tool' && p.toolName === 'list_bots');
+    expect(directory?.type === 'tool' && directory.output).toContain(
+      '« Je développe la page d’accueil »',
+    );
+
+    await send('Tu as fini ?');
+    await services.runtime.idle(chef.id);
+    expect((await bot()).focus).toBeNull();
+  });
+
+  it('is the task the bot is doing when it said nothing, its own words first', async () => {
+    const { chef, events, bot, services, inject } = await start();
+    const task: Task = (
+      await inject('POST', '/api/v1/tasks', { assigneeBotId: chef.id, title: 'Préparer la démo' })
+    ).json();
+    await services.runtime.settle();
+    expect((await bot()).focus).toBeNull();
+
+    await inject('PATCH', `/api/v1/tasks/${task.id}`, { status: 'doing' });
+    await services.runtime.settle();
+    expect((await bot()).focus).toBe('Préparer la démo');
+    await settled();
+    expect(focuses(events, chef.id).at(-1)).toBe('Préparer la démo');
+
+    await services.bots.update(chef.id, { focus: 'Je relis le plan de la démo' });
+    expect((await bot()).focus).toBe('Je relis le plan de la démo');
+    await services.bots.update(chef.id, { focus: null });
+    expect((await bot()).focus).toBe('Préparer la démo');
+
+    await inject('PATCH', `/api/v1/tasks/${task.id}`, { status: 'done', result: 'Prête' });
+    await services.runtime.settle();
+    expect((await bot()).focus).toBeNull();
+    await settled();
+    expect(focuses(events, chef.id).at(-1)).toBeNull();
+  });
+
+  it('knows the tasks under way when the hub starts', async () => {
+    const { chef, bot, services } = await start();
+    await services.db
+      .insert(tasks)
+      .values({ title: 'Migrer la base', status: 'doing', assigneeBotId: chef.id });
+    await services.bots.watchTasks();
+    expect((await bot()).focus).toBe('Migrer la base');
+  });
+
+  it('is forgotten when the conversation starts over', async () => {
+    const { chef, bot, services, inject } = await start();
+    await services.bots.update(chef.id, { focus: 'Je range le dossier' });
+    expect((await inject('DELETE', `/api/v1/bots/${chef.id}/messages`)).statusCode).toBe(204);
+    expect((await bot()).focus).toBeNull();
   });
 });

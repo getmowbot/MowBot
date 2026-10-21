@@ -4489,6 +4489,7 @@ export interface operations {
                                     [key: string]: string | number | boolean;
                                 };
                             } | null;
+                            focus: string | null;
                             avatarSeed: string;
                             projectId: string | null;
                             /** Format: date-time */
@@ -4603,6 +4604,7 @@ export interface operations {
                                 [key: string]: string | number | boolean;
                             };
                         } | null;
+                        focus: string | null;
                         avatarSeed: string;
                         projectId: string | null;
                         /** Format: date-time */
@@ -4701,6 +4703,7 @@ export interface operations {
                                 [key: string]: string | number | boolean;
                             };
                         } | null;
+                        focus: string | null;
                         avatarSeed: string;
                         projectId: string | null;
                         /** Format: date-time */
@@ -4879,6 +4882,7 @@ export interface operations {
                                 [key: string]: string | number | boolean;
                             };
                         } | null;
+                        focus: string | null;
                         avatarSeed: string;
                         projectId: string | null;
                         /** Format: date-time */
@@ -4983,6 +4987,7 @@ export interface operations {
                                 [key: string]: string | number | boolean;
                             };
                         } | null;
+                        focus: string | null;
                         avatarSeed: string;
                         projectId: string | null;
                         /** Format: date-time */
@@ -6876,6 +6881,7 @@ export interface operations {
                                 [key: string]: string | number | boolean;
                             };
                         } | null;
+                        focus: string | null;
                         avatarSeed: string;
                         projectId: string | null;
                         /** Format: date-time */

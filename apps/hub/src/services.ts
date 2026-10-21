@@ -106,6 +106,7 @@ export async function createServices(
   );
   const providers = new ProviderService(db, config.masterKey, config.chatgpt);
   const bots = new BotService(db, events);
+  await bots.watchTasks();
   const org = new OrgService(db, files, computers, events, config.masterKey);
   const browser = new BrowserHub();
   const vault = new VaultService({

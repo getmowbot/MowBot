@@ -1141,7 +1141,7 @@ export class BotRuntime {
     await this.deps.questions.closeOpen(botId);
     await this.deps.db.delete(messages).where(eq(messages.botId, botId));
     this.deps.events.publish({ type: 'messages.cleared', botId });
-    await this.deps.bots.update(botId, { status: 'idle', statusDetail: null });
+    await this.deps.bots.update(botId, { status: 'idle', statusDetail: null, focus: null });
     if (bot.computerId) {
       clearTimeout(this.tidyTimers.get(botId));
       this.tidyTimers.delete(botId);

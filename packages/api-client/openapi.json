@@ -8592,6 +8592,12 @@
                               }
                             ]
                           },
+                          "focus": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "avatarSeed": {
                             "type": "string"
                           },
@@ -8632,6 +8638,7 @@
                           "status",
                           "statusDetail",
                           "activity",
+                          "focus",
                           "avatarSeed",
                           "projectId",
                           "createdAt"
@@ -9065,6 +9072,12 @@
                         }
                       ]
                     },
+                    "focus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -9105,6 +9118,7 @@
                     "status",
                     "statusDetail",
                     "activity",
+                    "focus",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -9603,6 +9617,12 @@
                         }
                       ]
                     },
+                    "focus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -9643,6 +9663,7 @@
                     "status",
                     "statusDetail",
                     "activity",
+                    "focus",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -10133,6 +10154,12 @@
                         }
                       ]
                     },
+                    "focus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -10173,6 +10200,7 @@
                     "status",
                     "statusDetail",
                     "activity",
+                    "focus",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -10562,6 +10590,12 @@
                         }
                       ]
                     },
+                    "focus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -10602,6 +10636,7 @@
                     "status",
                     "statusDetail",
                     "activity",
+                    "focus",
                     "avatarSeed",
                     "projectId",
                     "createdAt"
@@ -18630,6 +18665,12 @@
                         }
                       ]
                     },
+                    "focus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "avatarSeed": {
                       "type": "string"
                     },
@@ -18670,6 +18711,7 @@
                     "status",
                     "statusDetail",
                     "activity",
+                    "focus",
                     "avatarSeed",
                     "projectId",
                     "createdAt"

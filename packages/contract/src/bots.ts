@@ -60,6 +60,11 @@ export const botSchema = z.object({
   statusDetail: z.string().nullable(),
   /** What the bot is doing right now: the tool call it runs; null while it thinks or writes, or rests. */
   activity: botActivitySchema.nullable(),
+  /**
+   * What the bot is working on, in a sentence it keeps up to date ("Je développe la page
+   * d'accueil"); else the title of the task it is doing. null: nothing in particular.
+   */
+  focus: z.string().nullable(),
   /** Seed of the bot's character (shape, colors, eyes): see @mowbot/design. */
   avatarSeed: z.string(),
   /**

@@ -1,17 +1,24 @@
 import type { Bot, BotActivity, BotUpdate, Message, MessagePart } from '@mowbot/contract';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { bots, messages } from '../db/schema';
+import { bots, messages, tasks } from '../db/schema';
 import type { EventBus } from '../events';
 import { notFound } from '../http/problems';
 import type { WorkspaceFiles } from '../workspaces/files';
 import { BotActivities } from './activity';
+import { DoingTasks } from './focus';
 
 export type BotRow = typeof bots.$inferSelect;
 export type MessageRow = typeof messages.$inferSelect;
 
-/** `activity`: what the bot is doing right now (BotService knows it; a new bot does nothing yet). */
-export function toBot(row: BotRow, activity: BotActivity | null = null): Bot {
+/**
+ * `activity`: the tool call it runs; `doing`: the title of the task it is doing (BotService
+ * knows both; a new bot does nothing yet).
+ */
+export function toBot(
+  row: BotRow,
+  { activity = null, doing = null }: { activity?: BotActivity | null; doing?: string | null } = {},
+): Bot {
   return {
     id: row.id,
     name: row.name,
@@ -30,6 +37,7 @@ export function toBot(row: BotRow, activity: BotActivity | null = null): Bot {
     status: row.status,
     statusDetail: row.statusDetail,
     activity,
+    focus: row.focus ?? doing,
     avatarSeed: row.avatarSeed,
     managerId: row.managerId,
     projectId: row.projectId,
@@ -72,16 +80,22 @@ export function botFolder(name: string): string {
   return `bots/${slug || 'bot'}`;
 }
 
+/** What changes of a bot on its own (what it runs, its task), as last sent: same, nothing to say. */
+const liveKey = (bot: Bot) => JSON.stringify([bot.activity, bot.focus]);
+
 /** A bot's activity goes out at most this often: a burst of quick tool calls is one event. */
 export const ACTIVITY_PUBLISH_MS = 300;
 
 export class BotService {
   /** The tool calls the bots are running (in memory), shown with them. */
   readonly activity = new BotActivities((botId) => this.publishSoon(botId));
-  /** Activity changes waiting to go out, by bot. */
+  /** The tasks the bots are doing: what they work on when they did not say it. */
+  private readonly doing = new DoingTasks();
+  /** Changes waiting to go out, by bot. */
   private readonly pending = new Map<string, NodeJS.Timeout>();
-  /** The activity each bot last went out with (JSON): unchanged, nothing to send. */
+  /** How each bot last went out (`liveKey`). */
   private readonly published = new Map<string, string>();
+  private unsubscribe: (() => void) | null = null;
 
   constructor(
     private readonly db: Db,
@@ -90,7 +104,22 @@ export class BotService {
   ) {}
 
   toBot(row: BotRow): Bot {
-    return toBot(row, this.activity.of(row.id));
+    return toBot(row, { activity: this.activity.of(row.id), doing: this.doing.titleOf(row.id) });
+  }
+
+  /** Follows the tasks being done: their titles are the focus of the bots that set none. */
+  async watchTasks(): Promise<void> {
+    const rows = await this.db.select().from(tasks).where(eq(tasks.status, 'doing'));
+    for (const row of rows) this.doing.take({ ...row, updatedAt: row.updatedAt.toISOString() });
+    this.unsubscribe?.();
+    this.unsubscribe = this.events.subscribe((event) => {
+      if (event.type === 'task.updated') {
+        for (const botId of this.doing.take(event.task)) this.publishSoon(botId);
+      } else if (event.type === 'bot.deleted') {
+        this.doing.forget(event.botId);
+        this.published.delete(event.botId);
+      }
+    });
   }
 
   /** Tells everyone how the bot is now (what it does included). */
@@ -98,26 +127,21 @@ export class BotService {
     const bot = this.toBot(row);
     clearTimeout(this.pending.get(row.id));
     this.pending.delete(row.id);
-    this.published.set(row.id, JSON.stringify(bot.activity));
+    this.published.set(row.id, liveKey(bot));
     this.events.publish({ type: 'bot.updated', bot });
     return bot;
   }
 
-  private unchanged(botId: string): boolean {
-    return (this.published.get(botId) ?? 'null') === JSON.stringify(this.activity.of(botId));
-  }
-
-  /** What the bot does changed: said once things settle, as it is then. */
+  /** What the bot does changed: said once things settle, as it is then (if still news). */
   private publishSoon(botId: string): void {
     if (this.pending.has(botId)) return;
     const timer = setTimeout(() => {
       this.pending.delete(botId);
-      if (this.unchanged(botId)) return;
       void this.row(botId).then(
         (row) => {
-          if (!this.unchanged(botId)) this.publish(row);
+          if (this.published.get(botId) !== liveKey(this.toBot(row))) this.publish(row);
         },
-        () => undefined, // Deleted meanwhile.
+        () => undefined, // Deleted meanwhile, or the hub is closing.
       );
     }, this.publishDelayMs);
     timer.unref();
@@ -126,6 +150,8 @@ export class BotService {
 
   /** The hub stops: nothing more goes out. */
   close(): void {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
     for (const timer of this.pending.values()) clearTimeout(timer);
     this.pending.clear();
   }
