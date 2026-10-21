@@ -79,7 +79,7 @@ Le hub publie l'agent de chaque ordinateur sur `127.0.0.1` et monte le workspace
 
 ### Réveiller le Chef
 
-Dans l'app, **Modèles → Ajouter** : Command Code (clé de ton abonnement), OpenAI (clé API) ou n'importe quel fournisseur compatible OpenAI (OpenRouter, Ollama…). Le premier fournisseur ajouté est donné au Chef ; le modèle se choisit par bot. Pour les captures d'écran, prends un modèle qui accepte les images.
+Dans l'app, **Modèles → Ajouter** : Command Code (clé de ton abonnement), OpenAI (clé API), OpenAI avec ton compte ChatGPT (ton forfait Plus, Pro… sans clé : **Se connecter avec ChatGPT** dans l'app desktop, voir [DESKTOP.md](DESKTOP.md#se-connecter-avec-chatgpt)) ou n'importe quel fournisseur compatible OpenAI (OpenRouter, Ollama…). Le premier fournisseur ajouté est donné au Chef ; le modèle se choisit par bot. Pour les captures d'écran, prends un modèle qui accepte les images.
 
 ### Depuis le réseau local
 

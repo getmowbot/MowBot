@@ -99,6 +99,7 @@ Then open the address, create your account with the setup token, and add a model
 | Provider | How |
 |---|---|
 | OpenAI | API key |
+| OpenAI (ChatGPT account) | your ChatGPT plan (Plus, Pro…): **Sign in with ChatGPT** in the desktop app, no key ([how](docs/DESKTOP.md#se-connecter-avec-chatgpt)) |
 | Command Code | your subscription key |
 | Any OpenAI-compatible API | OpenRouter, Ollama, vLLM, xAI, DeepSeek… (base URL + key) |
 
