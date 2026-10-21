@@ -1,5 +1,5 @@
 import type { LanguageModelV4StreamPart } from '@ai-sdk/provider';
-import type { Bot, Canvas, Message, Team } from '@mowbot/contract';
+import type { Bot, Canvas, Message, MessagePart, Team } from '@mowbot/contract';
 import { simulateReadableStream } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -18,7 +18,7 @@ async function start(modelFor: (bot: BotRow) => MockLanguageModelV4 | null) {
   t = await createTestApp({}, undefined, modelFor);
   const { app, services } = t;
   const auth = bearer((await setupOwner(app)).accessToken);
-  const inject = async <T>(method: 'GET' | 'POST', url: string, payload?: unknown) => {
+  const inject = async <T>(method: 'GET' | 'POST' | 'DELETE', url: string, payload?: unknown) => {
     const res = await app.inject({ method, url, headers: auth, payload: payload as object });
     return { status: res.statusCode, body: (res.body ? res.json() : null) as T };
   };
@@ -271,6 +271,49 @@ describe('asking for a login in the conversation', () => {
       { part: 0, declined: true },
     );
     expect(again.status).toBe(409);
+  });
+});
+
+describe('asking the user to take control of the computer', () => {
+  it('shows a card that follows the takeover, and wakes the bot when control comes back', async () => {
+    const model = scripted([
+      toolTurn('request_takeover', { reason: 'Connecte-toi à BadNet' }),
+      textTurn('Je t’attends sur le PC.'),
+      textTurn('Merci, je reprends la réservation.'),
+    ]);
+    const { inject, chef, transcript, services } = await start(() => model);
+    await inject('POST', `/api/v1/bots/${chef.id}/messages`, { text: 'Réserve un terrain' });
+    await services.runtime.settle();
+
+    const computerId = chef.computerId as string;
+    const card = async () =>
+      (await transcript()).find((m) => m.role === 'assistant')?.parts[0] as MessagePart;
+    expect(await card()).toEqual({
+      type: 'takeover_request',
+      computerId,
+      reason: 'Connecte-toi à BadNet',
+      url: null,
+      status: 'pending',
+    });
+    const answer = (await transcript()).find((m) => m.role === 'assistant') as Message;
+    expect(answer.parts.some((p) => p.type === 'tool')).toBe(false);
+
+    await inject('POST', `/api/v1/computers/${computerId}/takeover`);
+    await services.runtime.settle();
+    expect(await card()).toMatchObject({ status: 'taken' });
+    // Taking control does not wake the bot: it waits for the hand-back.
+    expect(model.doStreamCalls).toHaveLength(2);
+
+    await inject('DELETE', `/api/v1/computers/${computerId}/takeover`);
+    await services.runtime.settle();
+    expect(await card()).toMatchObject({ status: 'returned' });
+    expect(model.doStreamCalls).toHaveLength(3);
+    expect(promptOf(model, 2)).toContain("[Prise en main] L'utilisateur t'a rendu la main");
+    const messages = await transcript();
+    expect(messages.at(-2)?.parts).toEqual([{ type: 'text', text: expect.stringContaining('🖱️') }]);
+    expect(messages.at(-1)?.parts).toEqual([
+      { type: 'text', text: 'Merci, je reprends la réservation.' },
+    ]);
   });
 });
 

@@ -6,6 +6,7 @@ import { en as mcp } from './areas/mcp';
 import { en as orgAdmin } from './areas/orgAdmin';
 import { en as pcView } from './areas/pcView';
 import { en as push } from './areas/push';
+import { en as takeoverCard } from './areas/takeoverCard';
 import { en as vault } from './areas/vault';
 import type { Catalog } from './catalog';
 
@@ -299,4 +300,5 @@ export const en: Catalog = {
   mcp,
   chatInput,
   push,
+  takeoverCard,
 };

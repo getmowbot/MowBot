@@ -4,6 +4,7 @@ import type {
   BotMove,
   Canvas,
   CanvasContent,
+  Computer,
   Mention,
   Message,
   MessageKind,
@@ -48,6 +49,7 @@ import { buildProactiveTools } from './proactive-tools';
 import { systemPrompt } from './prompt';
 import { FileLocks, ScreenLeases } from './shared-pc';
 import { LAST_STEP_NOTE, MAX_AUTONOMOUS_STEPS, MAX_STEPS, shortenOldOutputs } from './step-budget';
+import { buildTakeoverTools, REQUEST_TAKEOVER } from './takeover-tools';
 import { buildTools, clip } from './tools';
 import { buildVaultTools, VAULT_REQUEST } from './vault-tools';
 
@@ -66,7 +68,7 @@ const ASK_TIMEOUT_MS = 15 * 60_000;
 type MessageRow = typeof messages.$inferSelect;
 
 /** Tools whose result is drawn in the answer itself, not shown as a tool call. */
-const SHOWN_TOOLS = new Set([SHOW_IN_CHAT, VAULT_REQUEST]);
+const SHOWN_TOOLS = new Set([SHOW_IN_CHAT, VAULT_REQUEST, REQUEST_TAKEOVER]);
 
 /** A message that came in mid-answer, as the model sees it. */
 function steeredMessages(row: MessageRow): ModelMessage[] {
@@ -218,6 +220,11 @@ export class BotRuntime {
   private readonly waiting = new Map<string, string>();
   /** When each bot recently wrote to other bots (rate limit). */
   private readonly sends = new Map<string, number[]>();
+  /** Parts of the answers being written, by message id (updated in place from outside). */
+  private readonly live = new Map<string, MessagePart[]>();
+  /** Takeover changes, applied one after the other. */
+  private takeovers: Promise<void> = Promise.resolve();
+  private unsubscribe: (() => void) | null = null;
   readonly screen = new ScreenLeases();
   readonly locks = new FileLocks();
   /** Each bot's own Chrome window, driven over DevTools. */
@@ -528,7 +535,10 @@ ${context}`
     const after = this.deps.finishedPushAfterMs ?? FINISHED_PUSH_AFTER_MS;
     if (autonomous || Date.now() - answer.createdAt.getTime() < after) return;
     const asked = parts.some(
-      (p) => (p.type === 'tool' && p.toolName === 'ask_user') || p.type === 'vault_request',
+      (p) =>
+        (p.type === 'tool' && p.toolName === 'ask_user') ||
+        p.type === 'vault_request' ||
+        p.type === 'takeover_request',
     );
     if (asked) return;
     void hubTexts(this.deps.db).then((texts) =>
@@ -732,6 +742,66 @@ ${context}`
     return toMessage(updated);
   }
 
+  /**
+   * Takeover cards follow their computer: taken when the user gets control (from the card or
+   * the PC page), returned when they hand it back, which wakes up the bot that asked.
+   */
+  watchTakeovers(): void {
+    this.unsubscribe ??= this.deps.events.subscribe((event) => {
+      if (event.type !== 'computer.updated') return;
+      const { computer } = event;
+      this.takeovers = this.takeovers
+        .then(() => this.takeoverChanged(computer))
+        .catch((error) =>
+          this.log.warn({ err: error, computerId: computer.id }, 'Could not update takeover cards'),
+        );
+    });
+  }
+
+  private async takeoverChanged(computer: Computer): Promise<void> {
+    const from = computer.control ? 'pending' : 'taken';
+    const to = computer.control ? 'taken' : 'returned';
+    const wanted = [{ type: 'takeover_request', computerId: computer.id, status: from }];
+    const rows = await this.deps.db
+      .select()
+      .from(messages)
+      .where(sql`${messages.parts} @> ${JSON.stringify(wanted)}::jsonb`);
+    const asked = new Set<string>();
+    for (const row of rows) {
+      // An answer still being written keeps its parts in memory: they change there too.
+      const parts = this.live.get(row.id) ?? row.parts;
+      for (const part of parts) {
+        if (
+          part.type === 'takeover_request' &&
+          part.computerId === computer.id &&
+          part.status === from
+        ) {
+          part.status = to;
+        }
+      }
+      await this.save(row.id, { parts: structuredClone(parts) });
+      asked.add(row.botId);
+    }
+    if (to !== 'returned') return;
+    const display = (await hubTexts(this.deps.db)).takeoverReturned(computer.name);
+    for (const botId of asked) {
+      if (computer.status === 'running') {
+        await this.post(
+          botId,
+          "[Prise en main] L'utilisateur t'a rendu la main sur ton PC : regarde où en est l'écran, puis reprends ta tâche.",
+          display,
+        );
+      } else {
+        // The computer was stopped: the bot hears it at its next turn, without restarting it.
+        await this.note(
+          botId,
+          "[Prise en main] L'utilisateur t'a rendu la main, mais ton PC a été arrêté entre-temps.",
+          display,
+        );
+      }
+    }
+  }
+
   /** A card on the home page: its button answers the bot that pinned it. */
   async pressCanvas(canvas: Canvas, button: number): Promise<void> {
     if (canvas.content.kind !== 'card') {
@@ -795,10 +865,14 @@ ${context}`
 
   /** Resolves when no bot has work queued, including work bots give each other (tests). */
   async settle(): Promise<void> {
+    await this.takeovers;
     while (this.chains.size > 0) await Promise.allSettled([...this.chains.values()]);
   }
 
   async close(): Promise<void> {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+    await this.takeovers;
     for (const timer of this.tidyTimers.values()) clearTimeout(timer);
     this.tidyTimers.clear();
     for (const controller of this.controllers.values()) controller.abort();
@@ -1075,6 +1149,7 @@ ${context}`
     this.controllers.set(botId, controller);
     await this.deps.bots.update(botId, { status: 'working', statusDetail: null });
     const parts: MessagePart[] = [];
+    this.live.set(created.id, parts);
     const computerId = bot.computerId;
     // Windows open before the bot first touched its computer during this run.
     const watch: { windowsBefore: Promise<Set<string> | null> | null } = { windowsBefore: null };
@@ -1184,6 +1259,18 @@ ${context}`
           showPart,
           notifications: this.deps.notifications,
         }),
+        ...(computerId && computer
+          ? buildTakeoverTools({
+              self: bot,
+              computerId,
+              computers: this.deps.computers,
+              browser: this.browser,
+              computer,
+              showPart,
+              notifications: this.deps.notifications,
+              db,
+            })
+          : {}),
       });
       const system = systemPrompt({
         bot,
@@ -1409,6 +1496,7 @@ ${context}`
         error: errorMessage(error),
       });
     } finally {
+      this.live.delete(created.id);
       this.controllers.delete(botId);
       this.screen.releaseAll(botId);
       this.locks.releaseAll(botId);

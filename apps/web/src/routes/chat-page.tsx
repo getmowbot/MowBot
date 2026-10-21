@@ -25,6 +25,7 @@ import { ChatComposer } from '../components/chat-composer';
 import { StatusBadge } from '../components/computer-status';
 import { Markdown } from '../components/markdown';
 import { QuestionCard } from '../components/question-card';
+import { TakeoverCard } from '../components/takeover-card';
 import { Button } from '../components/ui/button';
 import { VaultRequestCard } from '../components/vault-request-card';
 import { i18n } from '../i18n';
@@ -279,6 +280,7 @@ type Segment =
   | { kind: 'text'; text: string; index: number }
   | { kind: 'canvas'; part: CanvasPart; index: number }
   | { kind: 'vault'; part: Extract<MessagePart, { type: 'vault_request' }>; index: number }
+  | { kind: 'takeover'; part: Extract<MessagePart, { type: 'takeover_request' }>; index: number }
   | { kind: 'activity'; parts: ActivityPart[]; index: number };
 
 /**
@@ -300,6 +302,10 @@ function segments(parts: MessagePart[]): Segment[] {
       out.push({ kind: 'vault', part, index });
       return;
     }
+    if (part.type === 'takeover_request') {
+      out.push({ kind: 'takeover', part, index });
+      return;
+    }
     const tail = out.at(-1);
     if (tail?.kind === 'activity') tail.parts.push(part);
     else out.push({ kind: 'activity', parts: [part], index });
@@ -311,12 +317,15 @@ function BotMessage({
   message,
   bot,
   onAnswer,
+  onShowPc,
   onContinue,
 }: {
   message: Message;
   bot: Bot;
   /** The user pressed a card's button or answered a vault request: their answer follows. */
   onAnswer(): void;
+  /** Opens the PC panel (to take control from a takeover card). */
+  onShowPc(): void;
   /** Cut by the step limit and still the last answer: the user can tell the bot to go on. */
   onContinue?: () => void;
 }) {
@@ -361,6 +370,16 @@ function BotMessage({
                 part={block.part}
                 index={block.index}
                 onAnswer={onAnswer}
+              />
+            );
+          }
+          if (block.kind === 'takeover') {
+            return (
+              <TakeoverCard
+                key={`takeover-${block.index}`}
+                part={block.part}
+                botName={bot.name}
+                onShowPc={onShowPc}
               />
             );
           }
@@ -449,6 +468,10 @@ function ComputerPanel({
     action.mutate('takeover');
     setShown('screen');
   };
+  // Control taken from elsewhere (a bot's takeover card): the screen is what the user drives.
+  useEffect(() => {
+    if (inControl) setShown('screen');
+  }, [inControl]);
   return (
     <motion.aside
       initial={{ opacity: 0, x: 24, filter: 'blur(8px)' }}
@@ -689,6 +712,7 @@ export function ChatPage() {
                         onAnswer={() => {
                           stickToBottom.current = true;
                         }}
+                        onShowPc={() => setShowPc(true)}
                         onContinue={
                           index === items.length - 1 && !send.isPending
                             ? () => send.mutate({ text: 'Continue' })

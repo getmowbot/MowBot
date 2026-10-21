@@ -165,6 +165,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
   services.automations.setLogger(app.log);
   services.mcp.setLogger(app.log);
   services.vault.watchTakeovers();
+  services.runtime.watchTakeovers();
   app.addHook('onClose', async () => {
     services.scheduler.stop();
     services.automations.stop();

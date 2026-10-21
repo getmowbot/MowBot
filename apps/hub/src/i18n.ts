@@ -25,6 +25,8 @@ export interface HubTexts {
   asks(bot: string): string;
   needsLogin(bot: string): string;
   loginToSave(what: string): string;
+  needsTakeover(bot: string): string;
+  takeoverReturned(computer: string): string;
   sessionsSaved(sites: string): string;
   sessionsSavedBody(count: number, computer: string): string;
   routineOff(name: string): string;
@@ -70,6 +72,8 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     asks: (bot) => `${bot} te pose une question`,
     needsLogin: (bot) => `${bot} a besoin d'un identifiant`,
     loginToSave: (what) => `${what} : à ranger dans le coffre depuis la conversation.`,
+    needsTakeover: (bot) => `${bot} a besoin que tu prennes la main sur son PC`,
+    takeoverReturned: (computer) => `🖱️ Main rendue sur ${computer}`,
     sessionsSaved: (sites) => `Coffre : ${sites}`,
     sessionsSavedBody: (count, computer) =>
       count > 1
@@ -119,6 +123,8 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     asks: (bot) => `${bot} has a question for you`,
     needsLogin: (bot) => `${bot} needs a login`,
     loginToSave: (what) => `${what}: to save in the vault from the conversation.`,
+    needsTakeover: (bot) => `${bot} needs you to take control of its PC`,
+    takeoverReturned: (computer) => `🖱️ Handed ${computer} back`,
     sessionsSaved: (sites) => `Vault: ${sites}`,
     sessionsSavedBody: (count, computer) =>
       count > 1
