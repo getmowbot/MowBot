@@ -1,4 +1,4 @@
-import type { RoutineTrigger } from '@mowbot/contract';
+import type { RoutineRunReason, RoutineTrigger } from '@mowbot/contract';
 import type { TFunction } from 'i18next';
 import { type Checked, normalizeTime } from './proactivity-form';
 
@@ -90,6 +90,18 @@ export function nextRunText(iso: string, t: TFunction, language: string, now = n
     day = dayText(date);
   }
   return t('appAdmin.routines.dayAt', { day, time });
+}
+
+/**
+ * Why a run was skipped or cut short ("Heures calmes"), else why it failed: the hub's error
+ * (older runs carry their reason there, in French).
+ */
+export function runReasonText(
+  run: { reason: RoutineRunReason | null; detail?: string | null },
+  t: TFunction,
+): string | null {
+  if (run.reason) return t(`appAdmin.routines.reason.${run.reason}`);
+  return run.detail || null;
 }
 
 /* ------------------------------------------------------------------ cron */

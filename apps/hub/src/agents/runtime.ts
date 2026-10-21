@@ -21,6 +21,7 @@ import type { Db } from '../db/client';
 import { bots, type MessageMeta, messages, owner, routineRuns, teams } from '../db/schema';
 import type { EventBus } from '../events';
 import { HttpProblem } from '../http/problems';
+import { hubTexts } from '../i18n';
 import type { OrgService } from '../org/service';
 import { TaskService } from '../org/tasks';
 import type { AutomationService } from '../proactivity/automations';
@@ -509,13 +510,15 @@ export class BotRuntime {
       (p) => (p.type === 'tool' && p.toolName === 'ask_user') || p.type === 'vault_request',
     );
     if (asked) return;
-    this.deps.push?.notify({
-      kind: 'finished',
-      botId: bot.id,
-      botName: bot.name,
-      title: error ? `${bot.name} n'a pas pu finir` : `${bot.name} a fini`,
-      body: error ?? text,
-    });
+    void hubTexts(this.deps.db).then((texts) =>
+      this.deps.push?.notify({
+        kind: 'finished',
+        botId: bot.id,
+        botName: bot.name,
+        title: error ? texts.failed(bot.name) : texts.finished(bot.name),
+        body: error ?? text,
+      }),
+    );
   }
 
   /** Messages that came in since the answer started and can join it; marks them as taken. */
@@ -582,7 +585,9 @@ export class BotRuntime {
         fromBotId: stopper.id,
         kind: 'chat',
         meta: { fromName: stopper.name, silent: true },
-        parts: [{ type: 'text', text: `**${stopper.name} t'a arrêté** · ${reason}` }],
+        parts: [
+          { type: 'text', text: (await hubTexts(this.deps.db)).stoppedBy(stopper.name, reason) },
+        ],
         modelMessages: [{ role: 'user', content: `[${stopper.name} t'a arrêté : ${reason}]` }],
         status: 'done',
       })
@@ -650,7 +655,7 @@ export class BotRuntime {
       await this.post(
         botId,
         `[Coffre] L'utilisateur n'a pas voulu ranger ${label} : fais sans, ou demande-lui autrement.`,
-        `Refusé : ${label}`,
+        (await hubTexts(this.deps.db)).vaultDeclined(label),
       );
       return toMessage(updated);
     }
@@ -701,7 +706,7 @@ export class BotRuntime {
     await this.post(
       botId,
       `[Coffre] L'utilisateur a rangé ${label} dans le coffre (référence ${item.ref}) : utilise ${placeholders}. Tu n'en verras jamais les valeurs.`,
-      `🔒 ${label} rangé dans le coffre`,
+      (await hubTexts(this.deps.db)).vaultSaved(label),
     );
     return toMessage(updated);
   }
@@ -940,15 +945,18 @@ export class BotRuntime {
       const routine = run ? await routines.row(run.routineId).catch(() => null) : null;
       if (!run || !routine) continue;
       if (!outcome.ok) {
-        const settled = await routines.finishRun(runId, outcome.stopped ? 'skipped' : 'error', {
-          detail: outcome.stopped ? 'Interrompu' : outcome.error,
-        });
+        const settled = await routines.finishRun(
+          runId,
+          outcome.stopped ? 'skipped' : 'error',
+          outcome.stopped ? { reason: 'interrupted' } : { detail: outcome.error },
+        );
         if (settled?.disabled) {
+          const texts = await hubTexts(this.deps.db);
           await notifications.create({
             botId: bot.id,
             priority: 'normal',
-            title: `Routine « ${routine.name} » désactivée`,
-            body: `${bot.name} a échoué ${MAX_FAILURES} fois de suite : ${outcome.error}`,
+            title: texts.routineOff(routine.name),
+            body: texts.routineOffBody(bot.name, MAX_FAILURES, outcome.error),
           });
         }
         continue;

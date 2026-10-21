@@ -148,8 +148,12 @@ export function placeholders(
 // ---------------------------------------------------------------------------------------------
 // History
 
-/** Details the hub writes (in French) for the app to word in its own language. */
+/** Codes the hub writes for the app to word in its own language. */
 const KNOWN_DETAILS: Record<string, 'valuesReplaced' | 'refreshed' | 'takeoverEnd'> = {
+  values_replaced: 'valuesReplaced',
+  refreshed: 'refreshed',
+  takeover_end: 'takeoverEnd',
+  // Older lines, written in French before the hub sent codes.
   'valeurs remplacées': 'valuesReplaced',
   'rafraîchie avant usage': 'refreshed',
   'fin de prise de main': 'takeoverEnd',

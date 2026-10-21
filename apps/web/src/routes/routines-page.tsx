@@ -20,7 +20,10 @@ import { Switch } from '../components/ui/switch';
 import { api, apiBaseUrl, problemMessage } from '../lib/auth';
 import { Reveal } from '../lib/motion';
 import {
+  automationErrorDetail,
   automationEvery,
+  automationOutcomeLabel,
+  automationStopLabel,
   useAutomations,
   useCanvases,
   useDeleteAutomation,
@@ -70,7 +73,11 @@ function Runs({ routineId }: { routineId: string }) {
         <li key={run.id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
           <span className={STATUS_STYLE[run.status]}>{t(`routines.status.${run.status}`)}</span>
           <span className="text-faint">{timeAgo(run.startedAt)}</span>
-          {run.detail && <span className="text-muted-foreground">· {run.detail}</span>}
+          {(run.reason || run.detail) && (
+            <span className="text-muted-foreground">
+              · {run.reason ? t(`routines.reasons.${run.reason}`) : run.detail}
+            </span>
+          )}
         </li>
       ))}
     </ul>
@@ -371,8 +378,10 @@ function AutomationRow({
   const [expanded, setExpanded] = useState(false);
   const update = useUpdateAutomation();
   const remove = useDeleteAutomation();
-  const { status, name } = automation;
+  const { status, name, lastOutcome } = automation;
   const error = update.error ?? remove.error;
+  const stopped = status !== 'active' && automation.stop && automationStopLabel(automation.stop);
+  const errorDetail = lastOutcome && automationErrorDetail(lastOutcome);
   const details = [
     bot?.name,
     automationEvery(automation.intervalSeconds),
@@ -401,12 +410,9 @@ function AutomationRow({
               {status === 'active' && <LiveDot />}
               {t(`automations.status.${status}`)}
             </span>
-            {automation.stoppedReason && (
-              <span
-                title={automation.stoppedReason}
-                className="min-w-0 truncate text-xs text-muted-foreground"
-              >
-                {automation.stoppedReason}
+            {stopped && (
+              <span title={stopped} className="min-w-0 truncate text-xs text-muted-foreground">
+                {stopped}
               </span>
             )}
           </p>
@@ -417,12 +423,10 @@ function AutomationRow({
                 <span className="text-faint">
                   {t('automations.lastRun', { time: timeAgo(automation.lastRunAt) })}
                 </span>
-                {automation.lastResult && (
-                  <span
-                    className={automation.failures > 0 ? 'text-warning' : 'text-muted-foreground'}
-                  >
+                {lastOutcome && (
+                  <span className={lastOutcome.ok ? 'text-muted-foreground' : 'text-warning'}>
                     {' · '}
-                    {automation.lastResult}
+                    {automationOutcomeLabel(lastOutcome)}
                   </span>
                 )}
               </>
@@ -430,6 +434,11 @@ function AutomationRow({
               <span className="text-faint">{t('automations.notRun')}</span>
             )}
           </p>
+          {errorDetail && (
+            <p title={errorDetail} className="truncate font-mono text-[11px] text-muted-foreground">
+              {errorDetail}
+            </p>
+          )}
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}

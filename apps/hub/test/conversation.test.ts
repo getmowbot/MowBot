@@ -121,7 +121,7 @@ describe('a bot stopping another', () => {
     ]);
     expect(hers[2]).toMatchObject({
       fromName: 'Chef',
-      parts: [{ type: 'text', text: "**Chef t'a arrêté** · Nova fait déjà cette recherche" }],
+      parts: [{ type: 'text', text: '**Arrêté par Chef** · Nova fait déjà cette recherche' }],
     });
     expect(lea.doStreamCalls).toHaveLength(1);
   });

@@ -1,9 +1,10 @@
-import type { RoutineRunStatus } from '@mowbot/contract';
+import type { RoutineRunReason, RoutineRunStatus } from '@mowbot/contract';
 import { eq } from 'drizzle-orm';
 import type { BotRuntime } from '../agents/runtime';
 import type { Logger } from '../computers/service';
 import type { Db } from '../db/client';
 import { bots } from '../db/schema';
+import { hubTexts } from '../i18n';
 import type { NotificationService, SystemService } from './notifications';
 import type { RoutineRow, RoutineService } from './routines';
 import { inQuietHours } from './schedule';
@@ -70,25 +71,25 @@ export class Scheduler {
   async fire(
     routine: RoutineRow,
     options: { now?: Date; payload?: string; manual?: boolean } = {},
-  ): Promise<{ status: RoutineRunStatus; detail: string | null }> {
+  ): Promise<{ status: RoutineRunStatus; reason: RoutineRunReason | null }> {
     const { routines, system, runtime } = this.deps;
     const now = options.now ?? new Date();
     const settings = await system.get();
     const [bot] = await this.deps.db.select().from(bots).where(eq(bots.id, routine.botId));
-    const skip = async (detail: string) => {
-      await routines.startRun(routine, 'skipped', detail, now);
-      return { status: 'skipped' as const, detail };
+    const skip = async (reason: RoutineRunReason) => {
+      await routines.startRun(routine, 'skipped', reason, now);
+      return { status: 'skipped' as const, reason };
     };
 
-    if (!bot) return skip('Bot supprimé');
-    if (settings.paused && !options.manual) return skip('Pause globale');
-    if (await routines.runningRun(routine.id)) return skip('Le passage précédent n’est pas fini');
+    if (!bot) return skip('bot_deleted');
+    if (settings.paused && !options.manual) return skip('paused');
+    if (await routines.runningRun(routine.id)) return skip('still_running');
     if (
       routine.kind === 'heartbeat' &&
       !options.manual &&
       inQuietHours(settings.quietHours, now, system.timeZone)
     ) {
-      return skip('Heures calmes');
+      return skip('quiet_hours');
     }
     const budget = await this.overBudget(bot);
     if (budget && !options.manual) return skip(budget);
@@ -114,14 +115,17 @@ export class Scheduler {
         .join('\n'),
       meta: { routineId: routine.id, runId: run.id, depth: 0 },
     });
-    return { status: 'running', detail: null };
+    return { status: 'running', reason: null };
   }
 
   /** Why the bot may not act on its own any more today (null: it may). */
-  private async overBudget(bot: typeof bots.$inferSelect): Promise<string | null> {
+  private async overBudget(
+    bot: typeof bots.$inferSelect,
+  ): Promise<'budget_bot' | 'budget_all' | null> {
     const { system, notifications } = this.deps;
     const settings = await system.get();
     const day = new Date().toDateString();
+    const texts = await hubTexts(this.deps.db);
     if (bot.dailyTokenBudget) {
       const spent = await system.autonomousTokensToday(bot.id);
       if (spent >= bot.dailyTokenBudget) {
@@ -130,11 +134,11 @@ export class Scheduler {
           await notifications.create({
             botId: bot.id,
             priority: 'normal',
-            title: `${bot.name} a atteint son budget du jour`,
-            body: `${spent} jetons dépensés sur ${bot.dailyTokenBudget}. Ses routines reprendront demain.`,
+            title: texts.budgetBot(bot.name),
+            body: texts.budgetBotBody(spent, bot.dailyTokenBudget),
           });
         }
-        return 'Budget du jour du bot atteint';
+        return 'budget_bot';
       }
     }
     if (settings.dailyTokenBudget) {
@@ -145,11 +149,11 @@ export class Scheduler {
           await notifications.create({
             botId: null,
             priority: 'normal',
-            title: 'Budget du jour atteint',
-            body: `${spent} jetons dépensés sur ${settings.dailyTokenBudget}. Les routines reprendront demain.`,
+            title: texts.budgetAll,
+            body: texts.budgetAllBody(spent, settings.dailyTokenBudget),
           });
         }
-        return 'Budget du jour atteint';
+        return 'budget_all';
       }
     }
     return null;

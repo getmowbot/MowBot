@@ -150,11 +150,17 @@ describe('history', () => {
       detail: 'password',
     });
     expect(eventText(used, { bots, computers }, fr).hint).toBe('PC de Nova · mot de passe');
-    const refreshed = vaultEvent({ action: 'captured', detail: 'rafraîchie avant usage' });
+    const refreshed = vaultEvent({ action: 'captured', detail: 'refreshed' });
     expect(eventText(refreshed, { bots, computers }, en).hint).toBe('refreshed before use');
+    expect(eventText(refreshed, { bots, computers }, fr).hint).toBe('rafraîchie avant usage');
     expect(eventText(vaultEvent({ action: 'updated' }), { bots, computers }, fr).hint).toBeNull();
+    expect(detailText('values_replaced', en)).toBe('values replaced');
+    expect(detailText('takeover_end', fr)).toBe('à la fin d’une prise de main');
+    expect(detailText('totp', en)).toBe('2FA');
+    // Older lines were written in French by the hub.
     expect(detailText('valeurs remplacées', en)).toBe('values replaced');
-    expect(detailText('fin de prise de main', fr)).toBe('à la fin d’une prise de main');
+    expect(detailText('rafraîchie avant usage', en)).toBe('refreshed before use');
+    expect(detailText('fin de prise de main', en)).toBe('at the end of a takeover');
     expect(detailText('autre chose', en)).toBe('autre chose');
     expect(detailText(null, en)).toBeNull();
   });

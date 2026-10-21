@@ -131,6 +131,11 @@ export const vaultEventSchema = z.object({
   /** The bot involved (null: the user or the hub). */
   botId: z.uuid().nullable(),
   computerId: z.uuid().nullable(),
+  /**
+   * A code the apps word: `takeover_end` (captured when the user handed a PC back),
+   * `refreshed` (re-read from its PC before use), `values_replaced`; on `used`, the field
+   * (`username`, `password`, `totp`, `value`).
+   */
   detail: z.string().nullable(),
   createdAt: z.iso.datetime(),
 });

@@ -10,6 +10,7 @@ import {
   routineListQuerySchema,
   routineListSchema,
   routineRunListSchema,
+  routineRunReasonSchema,
   routineRunStatusSchema,
   routineSchema,
   routineUpdateSchema,
@@ -115,7 +116,10 @@ export const proactivityRoutes: FastifyPluginAsyncZod = async (app) => {
         security: bearerSecurity,
         params: routineIdParamsSchema,
         response: {
-          202: z.object({ status: routineRunStatusSchema, detail: z.string().nullable() }),
+          202: z.object({
+            status: routineRunStatusSchema,
+            reason: routineRunReasonSchema.nullable(),
+          }),
           ...errorResponses,
         },
       },

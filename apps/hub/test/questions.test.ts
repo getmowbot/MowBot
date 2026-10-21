@@ -15,7 +15,7 @@ async function start(chefModel: MockLanguageModelV4) {
   t = await createTestApp({}, undefined, () => chefModel);
   const { app, services } = t;
   const auth = bearer((await setupOwner(app)).accessToken);
-  const inject = async <T>(method: 'GET' | 'POST', url: string, payload?: unknown) => {
+  const inject = async <T>(method: 'GET' | 'POST' | 'PATCH', url: string, payload?: unknown) => {
     const res = await app.inject({ method, url, headers: auth, payload: payload as object });
     return { status: res.statusCode, body: (res.body ? res.json() : null) as T };
   };
@@ -97,5 +97,20 @@ describe('questions to the user', () => {
     await say('Pose-moi tes questions');
     expect(await open()).toHaveLength(3);
     expect(promptOf(model, 4)).toContain('déjà 3 questions sans réponse');
+  });
+});
+
+describe('in the account language', () => {
+  it('writes the notification in English for an English account', async () => {
+    const { inject, say } = await start(
+      scripted([
+        toolTurn('ask_user', { question: 'Book for 8 pm?', options: ['Yes', 'No'] }),
+        textTurn('Ok.'),
+      ]),
+    );
+    await inject('PATCH', '/api/v1/me', { locale: 'en' });
+    await say('Book a table');
+    const notices = await inject<{ items: Notification[] }>('GET', '/api/v1/notifications');
+    expect(notices.body.items[0]).toMatchObject({ title: 'Chef has a question for you' });
   });
 });

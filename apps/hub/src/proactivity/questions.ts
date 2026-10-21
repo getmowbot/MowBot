@@ -4,6 +4,7 @@ import type { Db } from '../db/client';
 import { questions } from '../db/schema';
 import type { EventBus } from '../events';
 import { HttpProblem, notFound } from '../http/problems';
+import { hubTexts } from '../i18n';
 import type { NotificationService } from './notifications';
 
 /** Open questions a bot may have at once: more is nagging. */
@@ -78,7 +79,7 @@ export class QuestionService {
     await this.notifications.create({
       botId: bot.id,
       priority: 'normal',
-      title: `${bot.name} te pose une question`,
+      title: (await hubTexts(this.db)).asks(bot.name),
       body: question,
       push: 'needs_you',
     });

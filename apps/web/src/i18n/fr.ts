@@ -595,6 +595,16 @@ export const fr = {
       error: 'échec',
       skipped: 'sautée',
     },
+    /** Why a run was skipped or cut short. */
+    reasons: {
+      bot_deleted: 'Bot supprimé',
+      paused: 'Pause globale',
+      still_running: 'Le passage précédent n’est pas fini',
+      quiet_hours: 'Heures calmes',
+      budget_bot: 'Budget du jour du bot atteint',
+      budget_all: 'Budget du jour atteint',
+      interrupted: 'Interrompue',
+    },
     trigger: {
       cron: 'cron {{expr}}',
       interval_one: 'toutes les {{count}} minute',
@@ -641,6 +651,29 @@ export const fr = {
     until: 'jusqu’à {{time}}',
     lastRun: 'Dernier passage {{time}}',
     notRun: 'Pas encore lancée.',
+    /** What the last run did. */
+    actions: {
+      canvas: 'Carte mise à jour',
+      notify: 'Notification envoyée',
+      wake: 'Bot réveillé',
+      none: 'Rien de neuf',
+    },
+    /** Why the last run failed. */
+    errors: {
+      exit: 'Le script a échoué',
+      exitCode: 'Le script a échoué (code {{code}})',
+      timeout: 'Le script a dépassé {{limit}}',
+      output: 'Sortie JSON invalide',
+      no_canvas: 'Pas de carte à mettre à jour',
+      no_computer: 'Le bot n’a plus d’ordinateur',
+      other: 'Erreur',
+    },
+    /** Why it ended or paused on its own, after its status (the script's own words when done). */
+    stop: {
+      deadline: 'Échéance atteinte',
+      failures_one: 'après {{count}} échec',
+      failures_other: 'après {{count}} échecs',
+    },
     pause: 'Mettre « {{name}} » en pause',
     pauseShort: 'Mettre en pause',
     resume: 'Reprendre « {{name}} »',
@@ -767,9 +800,9 @@ export const fr = {
       revoked: 'Accès retiré',
     },
     details: {
-      replaced: 'valeurs remplacées',
+      values_replaced: 'valeurs remplacées',
       refreshed: 'rafraîchie avant usage',
-      takeover: 'fin de prise de main',
+      takeover_end: 'fin de prise de main',
     },
     computer: 'PC',
     computerHint: 'Seul le Chrome d’un PC allumé peut être lu.',

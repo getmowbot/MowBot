@@ -19828,16 +19828,29 @@
                         "skipped"
                       ]
                     },
-                    "detail": {
-                      "type": [
-                        "string",
-                        "null"
+                    "reason": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "bot_deleted",
+                            "paused",
+                            "still_running",
+                            "quiet_hours",
+                            "budget_bot",
+                            "budget_all",
+                            "interrupted"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     }
                   },
                   "required": [
                     "status",
-                    "detail"
+                    "reason"
                   ],
                   "additionalProperties": false
                 }
@@ -20012,6 +20025,25 @@
                               "skipped"
                             ]
                           },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "bot_deleted",
+                                  "paused",
+                                  "still_running",
+                                  "quiet_hours",
+                                  "budget_bot",
+                                  "budget_all",
+                                  "interrupted"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "detail": {
                             "type": [
                               "string",
@@ -20052,6 +20084,7 @@
                           "id",
                           "routineId",
                           "status",
+                          "reason",
                           "detail",
                           "messageId",
                           "startedAt",
@@ -21347,16 +21380,111 @@
                               }
                             ]
                           },
-                          "lastResult": {
-                            "type": [
-                              "string",
-                              "null"
+                          "lastOutcome": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "ok": {
+                                    "type": "boolean"
+                                  },
+                                  "actions": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "enum": [
+                                        "canvas",
+                                        "notify",
+                                        "wake"
+                                      ]
+                                    }
+                                  },
+                                  "error": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "exit",
+                                              "timeout",
+                                              "output",
+                                              "no_canvas",
+                                              "no_computer",
+                                              "other"
+                                            ]
+                                          },
+                                          "code": {
+                                            "anyOf": [
+                                              {
+                                                "type": "integer",
+                                                "minimum": -9007199254740991,
+                                                "maximum": 9007199254740991
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "detail": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "code",
+                                          "detail"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "ok",
+                                  "actions",
+                                  "error"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
                             ]
                           },
-                          "stoppedReason": {
-                            "type": [
-                              "string",
-                              "null"
+                          "stop": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "reason": {
+                                    "type": "string",
+                                    "enum": [
+                                      "done",
+                                      "deadline",
+                                      "failures"
+                                    ]
+                                  },
+                                  "detail": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "reason",
+                                  "detail"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
                             ]
                           },
                           "createdAt": {
@@ -21377,8 +21505,8 @@
                           "runs",
                           "failures",
                           "lastRunAt",
-                          "lastResult",
-                          "stoppedReason",
+                          "lastOutcome",
+                          "stop",
                           "createdAt"
                         ],
                         "additionalProperties": false
@@ -21633,16 +21761,111 @@
                         }
                       ]
                     },
-                    "lastResult": {
-                      "type": [
-                        "string",
-                        "null"
+                    "lastOutcome": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "ok": {
+                              "type": "boolean"
+                            },
+                            "actions": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "canvas",
+                                  "notify",
+                                  "wake"
+                                ]
+                              }
+                            },
+                            "error": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "exit",
+                                        "timeout",
+                                        "output",
+                                        "no_canvas",
+                                        "no_computer",
+                                        "other"
+                                      ]
+                                    },
+                                    "code": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "detail": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "code",
+                                    "detail"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "actions",
+                            "error"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     },
-                    "stoppedReason": {
-                      "type": [
-                        "string",
-                        "null"
+                    "stop": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "reason": {
+                              "type": "string",
+                              "enum": [
+                                "done",
+                                "deadline",
+                                "failures"
+                              ]
+                            },
+                            "detail": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "reason",
+                            "detail"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     },
                     "createdAt": {
@@ -21663,8 +21886,8 @@
                     "runs",
                     "failures",
                     "lastRunAt",
-                    "lastResult",
-                    "stoppedReason",
+                    "lastOutcome",
+                    "stop",
                     "createdAt"
                   ],
                   "additionalProperties": false

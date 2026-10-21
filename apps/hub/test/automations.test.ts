@@ -87,7 +87,7 @@ describe('automation output', () => {
       notify: { title: 'But !', priority: 'normal' },
     });
     expect(parseOutput('{}')).toEqual({});
-    expect(() => parseOutput('no json here')).toThrow(/aucun objet JSON/);
+    expect(() => parseOutput('no json here')).toThrow(/no JSON object/);
     expect(() => parseOutput('{"notify": {}}')).toThrow(/notify.title/);
   });
 });
@@ -107,7 +107,7 @@ describe('automations', () => {
       name: 'Score PSG-OM',
       status: 'active',
       runs: 1,
-      lastResult: 'canvas mis à jour',
+      lastOutcome: { ok: true, actions: ['canvas'], error: null },
       intervalSeconds: 30,
     });
     const calls = model.doStreamCalls.length;
@@ -121,7 +121,10 @@ describe('automations', () => {
 
     output = JSON.stringify({ ...JSON.parse(score(3, 1, 'Terminé')), done: 'Match terminé' });
     await services.automations.run(automation?.id ?? '');
-    expect((await list())[0]).toMatchObject({ status: 'stopped', stoppedReason: 'Match terminé' });
+    expect((await list())[0]).toMatchObject({
+      status: 'stopped',
+      stop: { reason: 'done', detail: 'Match terminé' },
+    });
     expect((await canvas())?.content).toMatchObject({ homeScore: 3, status: 'Terminé' });
     // The bot was never woken: it only has a note for later.
     await services.runtime.settle();
@@ -138,10 +141,17 @@ describe('automations', () => {
         : undefined;
     await say('Suis le match');
     const [automation] = await list();
-    expect(automation?.lastResult).toContain('ModuleNotFoundError');
+    expect(automation?.lastOutcome).toMatchObject({
+      ok: false,
+      error: { kind: 'exit', code: 1, detail: 'ModuleNotFoundError: requests' },
+    });
     await services.automations.run(automation?.id ?? '');
     await services.automations.run(automation?.id ?? '');
-    expect((await list())[0]).toMatchObject({ status: 'paused', failures: 3 });
+    expect((await list())[0]).toMatchObject({
+      status: 'paused',
+      failures: 3,
+      stop: { reason: 'failures', detail: '3' },
+    });
     await services.runtime.settle();
     expect(JSON.stringify(model.doStreamCalls.at(-1)?.prompt)).toContain('en pause après 3 échecs');
   });
@@ -163,7 +173,7 @@ describe('automations', () => {
     const notices = await inject<{ items: { title: string }[] }>('GET', '/api/v1/notifications');
     expect(notices.body.items.map((n) => n.title)).toContain('But du PSG');
     expect(JSON.stringify(model.doStreamCalls.at(-1)?.prompt)).toContain('Mbappé a marqué');
-    expect((await list())[0]?.lastResult).toBe('notification « But du PSG », bot réveillé');
+    expect((await list())[0]?.lastOutcome?.actions).toEqual(['notify', 'wake']);
   });
 
   it('can be paused, resumed and deleted by the user, and go with their canvas', async () => {

@@ -18,6 +18,7 @@ import type { Db } from '../db/client';
 import { computers, questions, teams, vaultEvents, vaultGrants, vaultItems } from '../db/schema';
 import type { EventBus } from '../events';
 import { HttpProblem, notFound } from '../http/problems';
+import { hubTexts } from '../i18n';
 import type { NotificationService } from '../proactivity/notifications';
 import type { QuestionService } from '../proactivity/questions';
 import { SecretScope } from './secrets';
@@ -355,7 +356,7 @@ export class VaultService {
       .returning();
     if (!updated) throw notFound('Vault item not found');
     await this.record(id, 'updated', {
-      detail: touchesValues ? 'valeurs remplacées' : null,
+      detail: touchesValues ? 'values_replaced' : null,
     });
     return this.publish(updated);
   }
@@ -572,7 +573,7 @@ export class VaultService {
           const fresh = await this.read(await this.contextOf(row.computerId), row.sites);
           if (fresh.cookies.length > 0) {
             payload = fresh;
-            current = await this.storeSession(row, fresh, { detail: 'rafraîchie avant usage' });
+            current = await this.storeSession(row, fresh, { detail: 'refreshed' });
           }
         } catch (error) {
           this.log.warn({ err: error, itemId: row.id }, 'Could not refresh a vault session');
@@ -834,7 +835,7 @@ export class VaultService {
       const saved: VaultItem[] = [];
       for (const site of sites) {
         try {
-          saved.push(await this.capture({ computerId, site, detail: 'fin de prise de main' }));
+          saved.push(await this.capture({ computerId, site, detail: 'takeover_end' }));
         } catch (error) {
           this.log.warn({ err: error, computerId, site }, 'Could not save a session');
         }
@@ -844,11 +845,12 @@ export class VaultService {
           .select({ name: computers.name })
           .from(computers)
           .where(eq(computers.id, computerId));
+        const texts = await hubTexts(this.deps.db);
         await this.deps.notifications.create({
           botId: null,
           priority: 'digest',
-          title: `Coffre : ${saved.map((item) => item.sites[0]).join(', ')}`,
-          body: `Session${saved.length > 1 ? 's' : ''} ouverte${saved.length > 1 ? 's' : ''} pendant ta prise de main sur ${pc?.name ?? 'un PC'}, enregistrée${saved.length > 1 ? 's' : ''} pour les bots des autres PC.`,
+          title: texts.sessionsSaved(saved.map((item) => item.sites[0]).join(', ')),
+          body: texts.sessionsSavedBody(saved.length, pc?.name ?? 'PC'),
         });
       }
     } catch (error) {

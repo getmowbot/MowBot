@@ -117,20 +117,26 @@ export function valuesOf(
   return values as Values;
 }
 
-/** The hub's history details (written in French for the bots), in the app's language. */
-const DETAILS = {
-  'valeurs remplacées': 'replaced',
-  'rafraîchie avant usage': 'refreshed',
-  'fin de prise de main': 'takeover',
-} as const;
+/** The hub's history details: codes the app words. */
+const DETAILS = ['takeover_end', 'refreshed', 'values_replaced'] as const;
+type Detail = (typeof DETAILS)[number];
+
+/** Older rows hold the French sentences the hub wrote before. */
+const FRENCH_DETAILS = new Map<string, Detail>([
+  ['valeurs remplacées', 'values_replaced'],
+  ['rafraîchie avant usage', 'refreshed'],
+  ['fin de prise de main', 'takeover_end'],
+]);
+
+const isDetail = (detail: string): detail is Detail =>
+  (DETAILS as readonly string[]).includes(detail);
 
 const isField = (detail: string): detail is VaultField =>
   ['username', 'password', 'totp', 'value'].includes(detail);
 
 export function detailLabel(detail: string): string {
-  if (detail in DETAILS) {
-    return i18n.t(`vault.details.${DETAILS[detail as keyof typeof DETAILS]}`);
-  }
+  const code = isDetail(detail) ? detail : FRENCH_DETAILS.get(detail);
+  if (code) return i18n.t(`vault.details.${code}`);
   if (isField(detail)) return i18n.t(`vault.fields.${detail}`);
   return detail;
 }

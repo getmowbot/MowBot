@@ -1,5 +1,5 @@
 import type { Automation, Bot } from '@mowbot/contract';
-import { Pause, Play, SquareTerminal, Trash2 } from 'lucide-react-native';
+import { CircleAlert, Pause, Play, SquareTerminal, Trash2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { useDeleteAutomation, useUpdateAutomation } from '../../lib/admin-queries';
@@ -8,6 +8,8 @@ import {
   automationDetail,
   automationStatusLabel,
   automationTone,
+  errorDetail,
+  outcomeText,
   rhythmText,
   untilText,
 } from '../../lib/automations';
@@ -85,6 +87,16 @@ export function AutomationRow({ automation, bot, canvasTitle }: Props) {
           automation.command,
         ),
     });
+    // A failed run: its label as the title, the script's own words below.
+    const { lastOutcome } = automation;
+    const error = errorDetail(lastOutcome);
+    if (lastOutcome && error) {
+      options.push({
+        label: t('appAdmin.automations.showError'),
+        icon: CircleAlert,
+        onPress: () => showInfo(outcomeText(lastOutcome, t), error),
+      });
+    }
     options.push({
       label: t('appAdmin.automations.delete'),
       icon: Trash2,

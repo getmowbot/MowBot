@@ -6,6 +6,7 @@ import type { BotRow } from '../bots/service';
 import type { AgentClient } from '../computers/agent-client';
 import type { Db } from '../db/client';
 import { computers } from '../db/schema';
+import { hubTexts } from '../i18n';
 import type { NotificationService } from '../proactivity/notifications';
 import { labelOf, type VaultService } from '../vault/service';
 
@@ -144,12 +145,13 @@ export function buildVaultTools(ctx: VaultToolContext): ToolSet {
           itemId: existing?.id ?? null,
           status: 'pending',
         });
+        const texts = await hubTexts(db);
         await ctx.notifications?.create({
           botId: self.id,
           priority: 'normal',
-          title: `${self.name} a besoin d'un identifiant`,
+          title: texts.needsLogin(self.name),
           push: 'needs_you',
-          body: `${service}${account ? ` (${account})` : ''} : à ranger dans le coffre depuis la conversation.`,
+          body: texts.loginToSave(`${service}${account ? ` (${account})` : ''}`),
         });
         return "Formulaire affiché dans la conversation : l'utilisateur le remplit quand il peut. Tu recevras un message avec la référence (ou son refus) ; termine ton tour en attendant.";
       },
