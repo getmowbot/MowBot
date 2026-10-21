@@ -18,6 +18,7 @@ import { DesktopPage } from './routes/desktop-page';
 import { DevicesPage } from './routes/devices-page';
 import { FilesPage } from './routes/files-page';
 import { HomePage } from './routes/home-page';
+import { McpPage } from './routes/mcp-page';
 import { ModelsPage } from './routes/models-page';
 import { OrgPage } from './routes/org-page';
 import { ProactivityPage } from './routes/proactivity-page';
@@ -95,6 +96,11 @@ const vaultRoute = createRoute({
   path: '/vault',
   component: VaultPage,
 });
+const mcpRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/settings/mcp',
+  component: McpPage,
+});
 
 const routinesRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -167,6 +173,7 @@ export const router = createRouter({
       modelsRoute,
       devicesRoute,
       vaultRoute,
+      mcpRoute,
       routinesRoute,
       proactivityRoute,
       orgRoute,

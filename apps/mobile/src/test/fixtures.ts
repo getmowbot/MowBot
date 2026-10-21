@@ -1,6 +1,8 @@
 import type {
   Automation,
   Bot,
+  McpCall,
+  McpServer,
   Message,
   MessagePart,
   VaultEvent,
@@ -118,6 +120,44 @@ export function automation(overrides: Partial<Automation> = {}): Automation {
     lastRunAt: null,
     lastOutcome: null,
     stop: null,
+    createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    ...overrides,
+  };
+}
+
+export function mcpServer(overrides: Partial<McpServer> = {}): McpServer {
+  return {
+    id: uuid(),
+    name: 'GitHub',
+    slug: 'github',
+    transport: 'http',
+    url: 'https://api.githubcopilot.com/mcp/',
+    command: null,
+    auth: 'none',
+    secretKeys: [],
+    scope: { kind: 'all', ids: [] },
+    computerId: null,
+    createdByBotId: null,
+    enabled: true,
+    status: 'ok',
+    statusDetail: null,
+    tools: [],
+    toolsAt: null,
+    createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    updatedAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    ...overrides,
+  };
+}
+
+export function mcpCall(overrides: Partial<McpCall> = {}): McpCall {
+  return {
+    id: uuid(),
+    serverId: 'server-1',
+    botId: null,
+    tool: 'search_issues',
+    ok: true,
+    durationMs: 120,
+    error: null,
     createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
     ...overrides,
   };

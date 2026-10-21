@@ -10,6 +10,7 @@ import {
   LogOut,
   MonitorSmartphone,
   Package,
+  Plug,
   Radio,
   Server,
   Smartphone,
@@ -31,6 +32,7 @@ import {
 import { resolveLanguage } from '../../../../i18n/catalog';
 import { useDevices, useRoutines, useSystem, useUpdateMe } from '../../../../lib/admin-queries';
 import { useLiveConnection } from '../../../../lib/events';
+import { useMcpServers } from '../../../../lib/mcp-queries';
 import { alertError, confirm } from '../../../../lib/options-menu';
 import { urlLabel } from '../../../../lib/provider-form';
 import { useMe, useProviders } from '../../../../lib/queries';
@@ -48,6 +50,7 @@ export default function SettingsScreen() {
   const system = useSystem();
   const devices = useDevices();
   const vault = useVault();
+  const mcp = useMcpServers();
   const updateMe = useUpdateMe();
   const [language, setLanguage] = useState<LanguagePreference>(storedPreference);
 
@@ -72,6 +75,7 @@ export default function SettingsScreen() {
   const activeRoutines = routines.data?.filter((r) => r.enabled).length;
   const activeDevices = devices.data?.filter((d) => !d.revokedAt).length;
   const vaultCount = vault.data?.length;
+  const mcpCount = mcp.data?.length;
   const phoneLanguage = t(`languages.${resolveLanguage('system', deviceLanguage())}`);
 
   return (
@@ -84,6 +88,7 @@ export default function SettingsScreen() {
           system.refetch(),
           devices.refetch(),
           vault.refetch(),
+          mcp.refetch(),
         ])
       }
     >
@@ -112,6 +117,18 @@ export default function SettingsScreen() {
                   : t('vault.count', { count: vaultCount })
             }
             onPress={() => router.push('/vault')}
+          />
+          <ListRow
+            icon={Plug}
+            label={t('mcp.title')}
+            value={
+              mcpCount === undefined
+                ? undefined
+                : mcpCount === 0
+                  ? t('mcp.none')
+                  : t('mcp.count', { count: mcpCount })
+            }
+            onPress={() => router.push('/mcp')}
           />
           <ListRow
             icon={CalendarClock}

@@ -9,6 +9,10 @@ import type {
   ComputerStatus,
   DeviceKind,
   Locale,
+  McpAuth,
+  McpScope,
+  McpStatus,
+  McpTransport,
   Message,
   MessageKind,
   MessagePart,
@@ -491,4 +495,59 @@ export const automations = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('automations_status_idx').on(t.status)],
+);
+
+/** What the hub keeps of a tool an MCP server offers (its schema included, for the bots). */
+export interface StoredMcpTool {
+  name: string;
+  description: string | null;
+  inputSchema: Record<string, unknown>;
+  readOnly: boolean | null;
+  destructive: boolean | null;
+}
+
+/** An MCP server: tools from elsewhere for the bots (secrets and OAuth tokens sealed). */
+export const mcpServers = pgTable(
+  'mcp_servers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    transport: text('transport').$type<McpTransport>().notNull(),
+    url: text('url'),
+    command: text('command'),
+    auth: text('auth').$type<McpAuth>().notNull().default('none'),
+    secretsSealed: text('secrets_sealed'),
+    secretKeys: jsonb('secret_keys').$type<string[]>().notNull().default([]),
+    oauthSealed: text('oauth_sealed'),
+    scope: jsonb('scope').$type<McpScope>().notNull().default({ kind: 'all', ids: [] }),
+    computerId: uuid('computer_id').references(() => computers.id, { onDelete: 'cascade' }),
+    createdByBotId: uuid('created_by_bot_id').references(() => bots.id, { onDelete: 'set null' }),
+    enabled: boolean('enabled').notNull().default(true),
+    status: text('status').$type<McpStatus>().notNull().default('unknown'),
+    statusDetail: text('status_detail'),
+    tools: jsonb('tools').$type<StoredMcpTool[]>().notNull().default([]),
+    toolsAt: timestamp('tools_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('mcp_servers_slug_unique').on(t.slug)],
+);
+
+/** Recent tool calls of each MCP server, for the user to see what bots did with it. */
+export const mcpCalls = pgTable(
+  'mcp_calls',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    serverId: uuid('server_id')
+      .notNull()
+      .references(() => mcpServers.id, { onDelete: 'cascade' }),
+    botId: uuid('bot_id').references(() => bots.id, { onDelete: 'set null' }),
+    tool: text('tool').notNull(),
+    ok: boolean('ok').notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    error: text('error'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('mcp_calls_server_created_idx').on(t.serverId, t.createdAt)],
 );

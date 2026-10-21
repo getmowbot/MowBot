@@ -22,6 +22,7 @@ import { bots, type MessageMeta, messages, owner, routineRuns, teams } from '../
 import type { EventBus } from '../events';
 import { HttpProblem } from '../http/problems';
 import { hubTexts } from '../i18n';
+import type { McpService } from '../mcp/service';
 import type { OrgService } from '../org/service';
 import { TaskService } from '../org/tasks';
 import type { AutomationService } from '../proactivity/automations';
@@ -39,6 +40,7 @@ import { BrowserHub } from './browser';
 import { buildBrowserTools } from './browser-tools';
 import { buildCanvasTools, SHOW_IN_CHAT } from './canvas-tools';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
+import { buildMcpTools } from './mcp-tools';
 import { buildOrgTools } from './org-tools';
 import { buildProactiveTools } from './proactive-tools';
 import { systemPrompt } from './prompt';
@@ -93,6 +95,7 @@ export interface RuntimeDeps {
   /** Tells the user's phones when a bot finished what they asked. */
   push?: PushService;
   automations?: AutomationService;
+  mcp?: McpService;
   finishedPushAfterMs?: number;
   /** Shared with the vault, which reads and writes the computers' Chrome. */
   browser?: BrowserHub;
@@ -1149,6 +1152,9 @@ export class BotRuntime {
           showInChat,
           files: this.deps.files,
         }),
+        ...(this.deps.mcp
+          ? await buildMcpTools({ self: bot, mcp: this.deps.mcp, pendingImages })
+          : {}),
         ...(this.deps.automations
           ? buildAutomationTools({ self: bot, automations: this.deps.automations })
           : {}),

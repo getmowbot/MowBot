@@ -15,6 +15,7 @@ services.computers.startHibernation();
 services.scheduler.setLogger(app.log);
 services.scheduler.start();
 services.automations.start();
+services.mcp.start();
 await services.runtime.recover();
 
 const pendingSetupToken = services.setup.pendingToken;

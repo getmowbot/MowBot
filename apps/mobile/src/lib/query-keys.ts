@@ -33,4 +33,8 @@ export const keys = {
   vaultEvents: (itemId: string) => ['vault-events', itemId] as const,
   /** Sites with cookies in a running computer's Chrome (not fed by events). */
   computerSites: (computerId: string) => ['computer-sites', computerId] as const,
+  /** MCP servers whose tools the bots get (never their secrets). */
+  mcpServers: ['mcp-servers'] as const,
+  /** The latest calls bots made to one MCP server, newest first. */
+  mcpCalls: (serverId: string) => ['mcp-calls', serverId] as const,
 };

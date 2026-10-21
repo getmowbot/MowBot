@@ -11,6 +11,7 @@ import type {
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { api, client } from './auth';
+import { removeMcpServer, setMcpServer } from './mcp';
 import { alertOnThisDevice } from './proactivity';
 import { setVaultItem } from './vault';
 
@@ -87,6 +88,7 @@ export function ServerEvents() {
             'automations',
             'system',
             'vault',
+            'mcp',
           ]) {
             void queryClient.invalidateQueries({ queryKey: [key] });
           }
@@ -169,6 +171,12 @@ export function ServerEvents() {
           queryClient.setQueryData<VaultItem[]>(['vault'], (list) =>
             list?.filter((item) => item.id !== event.itemId),
           );
+          break;
+        case 'mcp.updated':
+          setMcpServer(queryClient, event.server);
+          break;
+        case 'mcp.deleted':
+          removeMcpServer(queryClient, event.serverId);
           break;
         case 'question.updated': {
           const { question } = event;

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { botSchema, messageSchema } from './bots';
 import { canvasSchema } from './canvases';
 import { computerSchema } from './computers';
+import { mcpServerSchema } from './mcp';
 import { questionSchema } from './questions';
 import {
   automationSchema,
@@ -38,6 +39,8 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('routine.deleted'), routineId: z.uuid() }),
   z.object({ type: z.literal('automation.updated'), automation: automationSchema }),
   z.object({ type: z.literal('automation.deleted'), automationId: z.uuid() }),
+  z.object({ type: z.literal('mcp.updated'), server: mcpServerSchema }),
+  z.object({ type: z.literal('mcp.deleted'), serverId: z.uuid() }),
   z.object({ type: z.literal('notification.created'), notification: notificationSchema }),
   /** A bot asked the user something, or the question was answered. */
   z.object({ type: z.literal('question.updated'), question: questionSchema }),

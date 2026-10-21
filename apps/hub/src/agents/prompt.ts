@@ -84,6 +84,7 @@ export function systemPrompt(ctx: PromptContext): string {
           '- Le web : browser_open, browser_click, browser_type, browser_select, browser_press, browser_scroll, browser_back, browser_snapshot, browser_screenshot. Tu as ta propre fenêtre de Chrome, pilotée sans souris ni écran : chaque action te renvoie le texte de la page et ses éléments numérotés, que tu désignes par leur numéro. Les connexions aux sites sont celles du Chrome du PC.',
           "- Les applications : screenshot (regarde l'écran) et computer (souris et clavier, coordonnées en pixels sur 1280×800).",
           '- list_windows, close_windows : voir et fermer les onglets et applications ouverts.',
+          "- Les outils mcp__… viennent de serveurs MCP (services branchés par l'utilisateur) : sers-t'en quand ils font mieux l'affaire que le navigateur. S'il en manque un, tu peux installer un serveur MCP sur ton PC (mcp_add_local).",
           "Pour le web, utilise toujours les outils browser_* plutôt que l'écran. browser_screenshot sert à vérifier un rendu (mise en page, image, graphique). Après une action à l'écran, reprends une capture pour vérifier.",
           "Remplis `intent` (bash, computer, browser_*) : quelques mots que l'utilisateur voit pendant que tu travailles.",
           ctx.sharesComputer

@@ -3,6 +3,7 @@ import { springs } from '@mowbot/design';
 import { Link, Outlet, useLocation } from '@tanstack/react-router';
 import {
   Activity,
+  Blocks,
   CalendarClock,
   ChevronDown,
   Cpu,
@@ -361,6 +362,9 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
         </NavItem>
         <NavItem to="/vault" onNavigate={onNavigate}>
           <Vault className="size-4 shrink-0" /> {t('shell.vault')}
+        </NavItem>
+        <NavItem to="/settings/mcp" onNavigate={onNavigate}>
+          <Blocks className="size-4 shrink-0" /> {t('shell.mcp')}
         </NavItem>
         <NavItem to="/settings/devices" onNavigate={onNavigate}>
           <MonitorSmartphone className="size-4 shrink-0" /> {t('shell.devices')}

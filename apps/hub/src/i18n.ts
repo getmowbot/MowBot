@@ -45,6 +45,15 @@ export interface HubTexts {
   automationDone(name: string, reason: string): string;
   automationDeadline: string;
   automationFinished: string;
+  /** The page the browser lands on after signing in to an MCP server. */
+  mcpSignIn: {
+    lang: Locale;
+    refused: string;
+    incomplete: string;
+    connected(server: string): string;
+    connectedBody: string;
+    failed: string;
+  };
 }
 
 export const HUB_TEXTS: Record<Locale, HubTexts> = {
@@ -88,6 +97,14 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     automationDone: (name, reason) => `**Automatisation « ${name} » terminée** · ${reason}`,
     automationDeadline: 'échéance atteinte',
     automationFinished: 'terminée',
+    mcpSignIn: {
+      lang: 'fr',
+      refused: 'Connexion refusée',
+      incomplete: 'Réponse incomplète.',
+      connected: (server) => `Connecté à ${server}`,
+      connectedBody: 'Tes bots peuvent utiliser ses outils. Tu peux fermer cette page.',
+      failed: 'Connexion impossible',
+    },
   },
   en: {
     task: 'Task',
@@ -128,5 +145,13 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     automationDone: (name, reason) => `**Automation “${name}” finished** · ${reason}`,
     automationDeadline: 'deadline reached',
     automationFinished: 'finished',
+    mcpSignIn: {
+      lang: 'en',
+      refused: 'Sign-in refused',
+      incomplete: 'Incomplete answer.',
+      connected: (server) => `Connected to ${server}`,
+      connectedBody: 'Your bots can use its tools. You can close this page.',
+      failed: 'Could not sign in',
+    },
   },
 };
