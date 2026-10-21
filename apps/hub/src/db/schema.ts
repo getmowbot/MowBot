@@ -5,6 +5,7 @@ import type {
   BotStatus,
   CanvasContent,
   CanvasSize,
+  ChatgptStatus,
   ComputerKind,
   ComputerStatus,
   ConnectorOs,
@@ -215,9 +216,25 @@ export const providerProfiles = pgTable('provider_profiles', {
   defaultModel: text('default_model'),
   apiKeySealed: text('api_key_sealed'),
   headers: jsonb('headers').$type<Record<string, string>>().notNull().default({}),
+  /** `openai-chatgpt`: the OAuth tokens (sealed JSON, see providers/chatgpt.ts). */
+  oauthSealed: text('oauth_sealed'),
+  /** `openai-chatgpt`: who signed in and the state of the session (no secret). */
+  oauthAccount: jsonb('oauth_account').$type<OAuthAccount>(),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export interface OAuthAccount {
+  /** The client OpenAI issued for this registration (`oaiapp_…`). */
+  clientId: string;
+  /** `sub` of the ID token: a new sign-in must be the same account. */
+  subject: string;
+  email: string | null;
+  planType: string | null;
+  status: ChatgptStatus;
+  detail: string | null;
+  signedInAt: string;
+}
 
 export const bots = pgTable(
   'bots',
