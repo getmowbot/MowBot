@@ -151,6 +151,8 @@ export const fr = {
       generic: 'Une erreur est survenue.',
     },
     stopped: 'Interrompu.',
+    stepLimit: 'Étapes max atteintes',
+    continue: 'Continuer',
     greeting: 'Salut, je suis {{name}}.',
     greetingChef: 'Salut, je suis le Chef.',
     chefIntro:

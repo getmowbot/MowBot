@@ -152,13 +152,23 @@ export default function ChatScreen() {
     send.mutate(message, { onError: () => setError(t('errors.messageNotSent')) });
   };
 
-  const renderItem: ListRenderItem<Message> = ({ item }) => {
+  const renderItem: ListRenderItem<Message> = ({ item, index }) => {
     const seen = known.current;
     const fresh = seen !== null && !seen.has(item.id);
     seen?.add(item.id);
     const place = places.get(item.id);
     let content: ReactNode;
-    if (item.role === 'assistant') content = <BotMessage message={item} bot={bot} />;
+    if (item.role === 'assistant')
+      content = (
+        <BotMessage
+          message={item}
+          bot={bot}
+          // Newest first: only the last answer can be resumed.
+          onContinue={
+            index === 0 && !send.isPending ? () => sendMessage({ text: 'Continue' }) : undefined
+          }
+        />
+      );
     else if (place) content = <IncomingMessage message={item} place={place} bots={bots.data} />;
     else content = <UserMessage message={item} workspaceId={bot.workspaceId} />;
     return (

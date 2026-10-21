@@ -46,6 +46,7 @@ export function toMessage(row: MessageRow): Message {
     steered: Boolean(row.meta?.steeredInto),
     mentions: row.meta?.mentions ?? [],
     status: row.status,
+    stepLimit: Boolean(row.meta?.stepLimit),
     errorCode: row.errorCode ?? null,
     error: row.error,
     usage: row.usage ?? null,
