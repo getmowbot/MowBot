@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type {
   Bot,
   BotMove,
+  Canvas,
+  CanvasContent,
   Message,
   MessageKind,
   MessagePart,
@@ -9,13 +11,14 @@ import type {
   Question,
 } from '@mowbot/contract';
 import { type LanguageModel, type ModelMessage, stepCountIs, streamText, type ToolSet } from 'ai';
-import { and, desc, eq, inArray, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { type BotRow, type BotService, toMessage } from '../bots/service';
 import type { AgentClient, ExecResult } from '../computers/agent-client';
 import type { ComputerService, Logger } from '../computers/service';
 import type { Db } from '../db/client';
 import { bots, type MessageMeta, messages, owner, routineRuns, teams } from '../db/schema';
 import type { EventBus } from '../events';
+import { HttpProblem } from '../http/problems';
 import type { OrgService } from '../org/service';
 import { TaskService } from '../org/tasks';
 import type { CanvasService } from '../proactivity/canvases';
@@ -28,7 +31,7 @@ import type { VaultService } from '../vault/service';
 import type { WorkspaceFiles } from '../workspaces/files';
 import { BrowserHub } from './browser';
 import { buildBrowserTools } from './browser-tools';
-import { buildCanvasTools } from './canvas-tools';
+import { buildCanvasTools, SHOW_IN_CHAT } from './canvas-tools';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
 import { buildOrgTools } from './org-tools';
 import { buildProactiveTools } from './proactive-tools';
@@ -49,6 +52,15 @@ const MAX_SENDS_PER_HOUR = 60;
 const ASK_TIMEOUT_MS = 15 * 60_000;
 
 type MessageRow = typeof messages.$inferSelect;
+
+/** A message that came in mid-answer, as the model sees it. */
+function steeredMessages(row: MessageRow): ModelMessage[] {
+  return row.modelMessages.map((message) =>
+    message.role === 'user' && typeof message.content === 'string'
+      ? { ...message, content: `[Arrivé pendant que tu travaillais]\n${message.content}` }
+      : message,
+  );
+}
 
 /** Written by the user (a message, or a task they gave), not by a bot or a routine. */
 const fromOwner = (m: MessageRow) => !m.fromBotId && !m.meta?.fromName && m.kind !== 'routine';
@@ -465,6 +477,105 @@ export class BotRuntime {
     return toMessage(row);
   }
 
+  /** Messages that came in since the answer started and can join it; marks them as taken. */
+  private async steerInto(botId: string, answer: MessageRow): Promise<MessageRow[]> {
+    const rows = await this.deps.db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.botId, botId),
+          eq(messages.role, 'user'),
+          eq(messages.kind, 'chat'),
+          gt(messages.createdAt, answer.createdAt),
+        ),
+      )
+      .orderBy(asc(messages.createdAt));
+    const taken: MessageRow[] = [];
+    for (const row of rows) {
+      if (row.meta?.steeredInto) continue;
+      taken.push(await this.save(row.id, { meta: { ...row.meta, steeredInto: answer.id } }));
+    }
+    return taken;
+  }
+
+  private async unsteer(answerId: string): Promise<void> {
+    const rows = await this.deps.db
+      .select()
+      .from(messages)
+      .where(sql`${messages.meta}->>'steeredInto' = ${answerId}`);
+    for (const row of rows) {
+      const { steeredInto: _, ...meta } = row.meta ?? {};
+      await this.save(row.id, { meta });
+    }
+  }
+
+  /**
+   * A bot stops another one's run. The stopped bot keeps a note of who and why, and goes on
+   * only when someone writes to it.
+   */
+  async stopBy(stopper: BotRow, target: BotRow, reason: string): Promise<boolean> {
+    if (!this.stop(target.id)) return false;
+    const [row] = await this.deps.db
+      .insert(messages)
+      .values({
+        botId: target.id,
+        role: 'user',
+        fromBotId: stopper.id,
+        kind: 'chat',
+        meta: { fromName: stopper.name, silent: true },
+        parts: [{ type: 'text', text: `**${stopper.name} t'a arrêté** · ${reason}` }],
+        modelMessages: [{ role: 'user', content: `[${stopper.name} t'a arrêté : ${reason}]` }],
+        status: 'done',
+      })
+      .returning();
+    if (row) this.publish(row);
+    return true;
+  }
+
+  /** The user pressed a button of a card the bot showed: its reply reaches the bot. */
+  async pressCard(
+    botId: string,
+    messageId: string,
+    part: number,
+    button: number,
+  ): Promise<Message> {
+    const [row] = await this.deps.db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.id, messageId), eq(messages.botId, botId)));
+    const card = row?.parts[part];
+    if (!row || card?.type !== 'canvas' || card.content.kind !== 'card') {
+      throw new HttpProblem(404, 'card_not_found', 'No such card in this message');
+    }
+    const pressed = card.content.buttons[button];
+    if (!pressed) throw new HttpProblem(404, 'button_not_found', 'No such button on this card');
+    if (card.pressed) throw new HttpProblem(409, 'card_answered', 'This card was already answered');
+    const updated = await this.save(row.id, {
+      parts: row.parts.map((p, i) => (i === part ? { ...card, pressed: pressed.label } : p)),
+    });
+    await this.post(
+      botId,
+      `[Bouton « ${pressed.label} » de ta carte « ${card.content.title} »]\n${pressed.reply ?? pressed.label}`,
+      pressed.label,
+    );
+    return toMessage(updated);
+  }
+
+  /** A card on the home page: its button answers the bot that pinned it. */
+  async pressCanvas(canvas: Canvas, button: number): Promise<void> {
+    if (canvas.content.kind !== 'card') {
+      throw new HttpProblem(404, 'card_not_found', 'This canvas is not a card');
+    }
+    const pressed = canvas.content.buttons[button];
+    if (!pressed) throw new HttpProblem(404, 'button_not_found', 'No such button on this card');
+    await this.post(
+      canvas.botId,
+      `[Bouton « ${pressed.label} » de ton canvas « ${canvas.title} »]\n${pressed.reply ?? pressed.label}`,
+      pressed.label,
+    );
+  }
+
   /** Aborts the bot's current run, if any. */
   stop(botId: string): boolean {
     const controller = this.controllers.get(botId);
@@ -597,7 +708,7 @@ export class BotRuntime {
       .limit(HISTORY_MESSAGES);
     const transcript = rows
       .reverse()
-      .filter((row) => row.status !== 'streaming')
+      .filter((row) => row.status !== 'streaming' && !row.meta?.steeredInto)
       .flatMap((row) => row.modelMessages);
     const firstUser = transcript.findIndex((m) => m.role === 'user');
     return firstUser < 0 ? [] : transcript.slice(firstUser);
@@ -723,17 +834,22 @@ export class BotRuntime {
   private async run(botId: string): Promise<void> {
     const { db, events } = this.deps;
     const bot = await this.deps.bots.row(botId);
-    const recent = await db
-      .select()
-      .from(messages)
-      .where(eq(messages.botId, botId))
-      .orderBy(desc(messages.createdAt))
-      .limit(HISTORY_MESSAGES);
+    // Messages that joined an answer while the bot worked are already handled.
+    const recent = (
+      await db
+        .select()
+        .from(messages)
+        .where(eq(messages.botId, botId))
+        .orderBy(desc(messages.createdAt))
+        .limit(HISTORY_MESSAGES)
+    ).filter((m) => !m.meta?.steeredInto);
     // Already answered (messages sent in a burst are handled by a single run).
     if (recent[0]?.role !== 'user') return;
     // What arrived since the bot last spoke: the user resets the bot-to-bot hop count.
     const answered = recent.findIndex((m) => m.role !== 'user');
     const incoming = answered < 0 ? recent : recent.slice(0, answered);
+    // Notes ("stopped by …") are context for later, not something to answer.
+    if (incoming.every((m) => m.meta?.silent)) return;
     const autonomous = !incoming.some(fromOwner);
     const depth = autonomous ? Math.max(0, ...incoming.map((m) => m.meta?.depth ?? 0)) : 0;
     const askIds = incoming.flatMap((m) =>
@@ -811,6 +927,23 @@ export class BotRuntime {
             return agent;
           }
         : null;
+      // Read by the tools when they run: a message steered in can raise the hop count.
+      const orgContext = {
+        self: bot,
+        depth: depth + 1,
+        runtime: this,
+        org: this.deps.org,
+        tasks: this.tasks,
+        bots: this.deps.bots,
+        files: this.deps.files,
+        events,
+        db,
+      };
+      // Cards, pictures… shown in the answer, where the bot is in its reply.
+      const showInChat = async (content: CanvasContent) => {
+        parts.push({ type: 'canvas', content, pressed: null });
+        await this.save(created.id, { parts: structuredClone(parts) });
+      };
       const tools = masked(secrets, {
         ...buildTools({
           botId,
@@ -846,17 +979,7 @@ export class BotRuntime {
               expand,
             })
           : {}),
-        ...(await buildOrgTools({
-          self: bot,
-          depth: depth + 1,
-          runtime: this,
-          org: this.deps.org,
-          tasks: this.tasks,
-          bots: this.deps.bots,
-          files: this.deps.files,
-          events,
-          db,
-        })),
+        ...(await buildOrgTools(orgContext)),
         ...buildProactiveTools({
           self: bot,
           routines: this.deps.routines,
@@ -866,7 +989,7 @@ export class BotRuntime {
           bots: this.deps.bots,
           db,
         }),
-        ...buildCanvasTools({ self: bot, canvases: this.deps.canvases }),
+        ...buildCanvasTools({ self: bot, canvases: this.deps.canvases, showInChat }),
         ...buildVaultTools({ self: bot, vault: this.deps.vault, db, computer }),
       });
       const system = systemPrompt({
@@ -903,6 +1026,29 @@ export class BotRuntime {
         );
       const checkpoint = () => this.save(created.id, { parts: structuredClone(parts) });
 
+      // Messages that arrive while the bot works join its answer at its next step, where they
+      // came in (a step's messages are rebuilt each time, so they are put back every step).
+      const steers: { at: number; messages: ModelMessage[] }[] = [];
+      const withSteers = (responses: ModelMessage[]) => {
+        const out: ModelMessage[] = [];
+        let from = 0;
+        for (const steer of steers) {
+          out.push(...responses.slice(from, steer.at), ...steer.messages);
+          from = steer.at;
+        }
+        return [...out, ...responses.slice(from)];
+      };
+      const takeSteers = async (at: number) => {
+        const rows = await this.steerInto(botId, created);
+        if (rows.length === 0) return;
+        for (const row of rows) {
+          if (row.fromBotId) {
+            orgContext.depth = Math.max(orgContext.depth, (row.meta?.depth ?? 0) + 1);
+          }
+        }
+        steers.push({ at, messages: rows.flatMap(steeredMessages) });
+      };
+
       const streamWith = async (model: LanguageModel) => {
         const result = streamText({
           model,
@@ -911,12 +1057,16 @@ export class BotRuntime {
           tools,
           stopWhen: stepCountIs(MAX_STEPS),
           // Screenshots taken during a step are shown once, at the next step, as images.
-          prepareStep: ({ messages: stepMessages }) => {
-            if (pendingImages.length === 0) return undefined;
+          prepareStep: async ({ messages: stepMessages }) => {
+            const responses = stepMessages.slice(history.length);
+            await takeSteers(responses.length);
             const images = pendingImages.splice(0);
+            if (steers.length === 0 && images.length === 0) return undefined;
+            const turn = [...history, ...withSteers(responses)];
+            if (images.length === 0) return { messages: turn };
             return {
               messages: [
-                ...stepMessages,
+                ...turn,
                 {
                   role: 'user',
                   content: [
@@ -944,6 +1094,8 @@ export class BotRuntime {
               appendText('reasoning', chunk.text);
               break;
             case 'tool-call':
+              // What it shows lands in the answer itself (showInChat), not as a tool call.
+              if (chunk.toolName === SHOW_IN_CHAT) break;
               parts.push({
                 type: 'tool',
                 toolCallId: chunk.toolCallId,
@@ -1000,7 +1152,7 @@ export class BotRuntime {
 
       await this.save(created.id, {
         parts,
-        modelMessages: stripBinary(outcome.transcript) as ModelMessage[],
+        modelMessages: stripBinary(withSteers(outcome.transcript)) as ModelMessage[],
         status: 'done',
         usage: {
           inputTokens: outcome.usage.inputTokens ?? 0,
@@ -1019,6 +1171,8 @@ export class BotRuntime {
       });
     } catch (error) {
       const stopped = controller.signal.aborted;
+      // Messages steered into a failed answer wait for the next one, like any other.
+      await this.unsteer(created.id);
       const text = textOf(parts);
       for (const part of parts)
         if (part.type === 'tool' && part.state === 'running') part.state = 'error';

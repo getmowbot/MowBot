@@ -271,6 +271,10 @@ export interface MessageMeta {
   runId?: string;
   /** On an answer: the bot acted on its own (routine, other bots), not for the user. */
   autonomous?: boolean;
+  /** Arrived while the bot was working and joined that answer (id): already handled. */
+  steeredInto?: string;
+  /** Context only (e.g. "stopped by …"): does not call for an answer. */
+  silent?: boolean;
 }
 
 /** Work assigned to a bot by another bot (or by the user). */

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { canvasContentSchema } from './canvases';
 
 export const botStatusSchema = z.enum([
   'idle',
@@ -111,6 +112,13 @@ export const messagePartSchema = z.discriminatedUnion('type', [
     /** Image produced by the tool (e.g. a screenshot), stored in the workspace. */
     image: z.object({ workspaceId: z.uuid(), path: z.string() }).optional(),
   }),
+  /** What the bot showed in the conversation: a card, pictures, a score… (images: the bot's workspace or the web). */
+  z.object({
+    type: z.literal('canvas'),
+    content: canvasContentSchema,
+    /** Label of the card button the user pressed. */
+    pressed: z.string().nullable(),
+  }),
 ]);
 export type MessagePart = z.infer<typeof messagePartSchema>;
 
@@ -129,6 +137,8 @@ export const messageSchema = z.object({
   kind: messageKindSchema,
   taskId: z.uuid().nullable(),
   parts: z.array(messagePartSchema),
+  /** Arrived while the bot was working, and taken into its ongoing answer. */
+  steered: z.boolean(),
   status: z.enum(['streaming', 'done', 'error', 'stopped']),
   /** Why the answer failed, for clients to word it; `error` keeps the technical detail. */
   errorCode: z.enum(['no_model', 'hub_restart', 'run_failed']).nullable(),
@@ -148,6 +158,13 @@ export type MessageList = z.infer<typeof messageListSchema>;
 export const messageListQuerySchema = z.object({
   before: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+/** The user pressed a button of a card the bot showed in a message. */
+export const messagePressParamsSchema = z.object({ id: z.uuid(), messageId: z.uuid() });
+export const messagePressSchema = z.object({
+  part: z.number().int().min(0).max(500),
+  button: z.number().int().min(0).max(2),
 });
 
 export const sendMessageSchema = z.object({

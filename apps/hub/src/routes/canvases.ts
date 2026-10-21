@@ -2,6 +2,7 @@ import {
   canvasIdParamsSchema,
   canvasListSchema,
   canvasOrderSchema,
+  canvasPressSchema,
   canvasSchema,
   canvasUpdateSchema,
   checklistItemCreateSchema,
@@ -147,5 +148,27 @@ export const canvasRoutes: FastifyPluginAsyncZod = async (app) => {
       canvases.editChecklist(request.params.id, (items) =>
         items.filter((item) => item.id !== request.params.itemId),
       ),
+  );
+
+  app.post(
+    '/canvases/:id/press',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags,
+        operationId: 'pressCanvasCard',
+        description:
+          'Presses a button of a card pinned on the home page: its reply reaches the bot that pinned it.',
+        security: bearerSecurity,
+        params: canvasIdParamsSchema,
+        body: canvasPressSchema,
+        response: { 204: z.null(), ...errorResponses },
+      },
+    },
+    async (request, reply) => {
+      const canvas = toCanvas(await canvases.row(request.params.id));
+      await app.services.runtime.pressCanvas(canvas, request.body.button);
+      return reply.code(204).send(null);
+    },
   );
 };

@@ -43,6 +43,7 @@ export function toMessage(row: MessageRow): Message {
     kind: row.kind,
     taskId: row.meta?.taskId ?? null,
     parts: row.parts,
+    steered: Boolean(row.meta?.steeredInto),
     status: row.status,
     errorCode: row.errorCode ?? null,
     error: row.error,
