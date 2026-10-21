@@ -109,6 +109,46 @@ shell annoncé, dans la racine du projet (ou `cwd`).
   `.gitignore`, supprimés) en une branche `mowbot/<bot>-<date>` du dépôt de l'utilisateur, partie du
   commit de la copie : rien ne change dans son dossier, il relit et fusionne quand il veut.
 
+## Se connecter avec ChatGPT
+
+Le fournisseur **OpenAI (compte ChatGPT)** fait tourner les bots sur le forfait ChatGPT de
+l'utilisateur (Plus, Pro…), sans clé API : c'est le programme « Sign in with ChatGPT » d'OpenAI
+pour les clients open source (developers.openai.com/siwc).
+
+- OpenAI renvoie le navigateur vers une adresse locale (`http://127.0.0.1:<port>/auth/callback`),
+  qui n'atteint que l'ordinateur du navigateur : la connexion se fait dans l'app desktop
+  (Réglages → Modèles → Ajouter → OpenAI (compte ChatGPT) → **Se connecter avec ChatGPT**), même
+  quand le hub est sur un serveur. Dans un navigateur ou sur mobile, la page renvoie vers l'app.
+- La page du hub demande au hub son `ext_agent_host_id` (`GET /api/v1/providers/chatgpt/sign-in`),
+  puis appelle la commande `chatgpt_sign_in` de l'app : écoute sur `127.0.0.1:1455` (un autre port
+  libre s'il est pris), PKCE S256, `state` et `nonce` neufs, navigateur du système sur
+  `https://auth.openai.com/api/accounts/authorize` (`client_id=dynamic_agent_client` et
+  `agent_name_hint=MowBot` la première fois ; ensuite le client émis, `oaiapp_…`, et l'e-mail en
+  `login_hint`). Au retour : `state` vérifié (une autre page reçoit « Lien expiré »), client émis
+  exigé, code échangé sur `/api/accounts/oauth/token` (même `redirect_uri`, même `resource`), scope
+  `chatgpt.tokens.use.direct` et `nonce` du jeton d'identité vérifiés. Cinq minutes pour revenir ;
+  **Annuler** (`chatgpt_sign_in_cancel`) ou une nouvelle connexion arrête l'attente. Le navigateur
+  affiche une courte page de fin.
+- L'app ne garde rien : les jetons passent à la page du hub, qui les envoie une fois au hub
+  (`chatgpt` de `POST /api/v1/providers`, ou de `PATCH` pour se reconnecter) avec la session de
+  l'utilisateur. Le hub vérifie le jeton d'identité (signature avec les clés publiées par OpenAI,
+  émetteur, audience = client émis, expiration, nonce ; même compte pour une reconnexion), chiffre
+  les jetons comme les autres secrets et ne les renvoie jamais : l'API ne montre que l'e-mail, le
+  forfait et l'état (`connected`, `needs_sign_in`, `usage_limited`).
+- **L'hôte, c'est le hub**, qui utilise les jetons (comme la VM de « Self-hosted VMs » dans la doc
+  d'OpenAI) : son `ext_agent_host_id` (`urn:uuid:…`) est créé une fois par installation du hub
+  (table `settings`), quel que soit l'ordinateur qui fait la connexion.
+- Le hub renouvelle seul le jeton d'accès (une heure) cinq minutes avant son expiration et sur un
+  401, un renouvellement à la fois par fournisseur, et enregistre le nouveau jeton de
+  renouvellement en même temps. Si OpenAI refuse le renouvellement, il oublie les jetons (garde le
+  compte et le client) et le fournisseur passe « Déconnecté » : **Se reconnecter** dans l'app
+  desktop. Supprimer le fournisseur révoque son jeton de renouvellement.
+- Les bots passent par l'API Responses avec `store: false` et `stream: true`, sans les paramètres
+  que le forfait refuse. À la limite d'utilisation (`subscription_sharing_usage_limit_exceeded`),
+  le bot passe à son modèle de secours avec un message clair, le fournisseur est laissé de côté
+  cinq minutes et affiche « Limite d'utilisation atteinte » avec un lien vers
+  https://chatgpt.com/settings/usage.
+
 ## Installer et lancer l'app
 
 - **Windows, macOS** : les installeurs (`.exe` / `.msi`, `.dmg`) sont dans les releases GitHub

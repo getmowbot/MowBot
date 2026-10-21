@@ -104,7 +104,7 @@ export async function createServices(
     config.masterKey,
     { idleMinutes: config.computers.idleMinutes },
   );
-  const providers = new ProviderService(db, config.masterKey);
+  const providers = new ProviderService(db, config.masterKey, config.chatgpt);
   const bots = new BotService(db, events);
   const org = new OrgService(db, files, computers, events, config.masterKey);
   const browser = new BrowserHub();

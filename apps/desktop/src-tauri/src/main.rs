@@ -4,6 +4,7 @@
 // No console window in release on Windows.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod chatgpt;
 mod commands;
 mod config;
 mod connector;
@@ -141,12 +142,15 @@ fn main() {
             commands::project_pick,
             commands::project_add,
             commands::project_remove,
+            commands::chatgpt_sign_in,
+            commands::chatgpt_sign_in_cancel,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
             let dir = app.path().app_config_dir()?;
             app.manage(AppState::new(dir, hub_override()));
             app.manage(update::Updates::default());
+            app.manage(chatgpt::Pending::default());
             let args: Vec<String> = std::env::args().collect();
             if let Some(hub) = hub_argument(&args) {
                 if let Err(error) = app.state::<AppState>().set_hub(&hub) {

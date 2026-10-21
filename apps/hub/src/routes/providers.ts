@@ -1,4 +1,6 @@
 import {
+  chatgptSignInQuerySchema,
+  chatgptSignInSchema,
   modelListSchema,
   providerCreateSchema,
   providerIdParamsSchema,
@@ -39,7 +41,7 @@ export const providerRoutes: FastifyPluginAsyncZod = async (app) => {
         tags,
         operationId: 'createProvider',
         description:
-          'Adds an LLM endpoint. The API key is sealed at rest and never returned. The first provider is assigned to the bots without one.',
+          'Adds an LLM endpoint. The API key is sealed at rest and never returned. The first provider is assigned to the bots without one. `openai-chatgpt` takes the tokens of a ChatGPT sign-in instead (`chatgpt`): the hub checks the ID token, seals them, renews them itself and never returns them.',
         security: bearerSecurity,
         body: providerCreateSchema,
         response: { 201: providerSchema, ...errorResponses },
@@ -55,6 +57,23 @@ export const providerRoutes: FastifyPluginAsyncZod = async (app) => {
       });
       return reply.code(201).send(provider);
     },
+  );
+
+  app.get(
+    '/providers/chatgpt/sign-in',
+    {
+      preHandler: requireAuth('admin'),
+      schema: {
+        tags,
+        operationId: 'getChatgptSignIn',
+        description:
+          'What the desktop app needs to start "Sign in with ChatGPT" for this hub: its host id (`ext_agent_host_id`, stable for the install) and, to sign in again to a provider, its issued client and account email. The tokens it gets go to `POST /providers` (or `PATCH /providers/:id`) as `chatgpt`.',
+        security: bearerSecurity,
+        querystring: chatgptSignInQuerySchema,
+        response: { 200: chatgptSignInSchema, ...errorResponses },
+      },
+    },
+    async (request) => providers.chatgptSignIn(request.query.providerId),
   );
 
   app.patch(

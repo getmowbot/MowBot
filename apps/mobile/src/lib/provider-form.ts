@@ -1,4 +1,4 @@
-import type { ProviderKind } from '@mowbot/contract';
+import type { Provider, ProviderKind } from '@mowbot/contract';
 import type { TFunction } from 'i18next';
 
 /** One editable header line: `key` keeps React rows stable while names change. */
@@ -83,14 +83,22 @@ export function isHttpUrl(value: string): boolean {
   return /^https?:\/\/[^\s/?#]+[^\s]*$/i.test(value.trim());
 }
 
-/** Product names stay as they are; only the generic kind is worded (appAdmin.models.kinds). */
+/** Product names stay as they are; only the generic kinds are worded (appAdmin.models.kinds). */
 export const PROVIDER_KINDS = [
   { kind: 'command-code', name: 'Command Code' },
   { kind: 'openai', name: 'OpenAI' },
+  { kind: 'openai-chatgpt', name: null },
   { kind: 'openai-compatible', name: null },
 ] as const satisfies readonly { kind: ProviderKind; name: string | null }[];
 
+/** Signed in from the desktop app ("Sign in with ChatGPT"), not added with a key here. */
+export const isChatgpt = (kind: ProviderKind) => kind === 'openai-chatgpt';
+
+/** Where to get the desktop app, which signs in with ChatGPT. */
+export const DESKTOP_DOWNLOAD_URL = 'https://github.com/getmowbot/MowBot/releases/latest';
+
 export function kindLabel(kind: ProviderKind, t: TFunction): string {
+  if (kind === 'openai-chatgpt') return t('appAdmin.models.kinds.chatgpt');
   return (
     PROVIDER_KINDS.find((option) => option.kind === kind)?.name ??
     t('appAdmin.models.kinds.compatible')
@@ -103,9 +111,29 @@ export function kindHint(kind: ProviderKind, t: TFunction): string {
       return t('appAdmin.models.kinds.commandCodeHint');
     case 'openai':
       return t('appAdmin.models.kinds.openaiHint');
+    case 'openai-chatgpt':
+      return t('appAdmin.models.kinds.chatgptHint');
     case 'openai-compatible':
       return t('appAdmin.models.kinds.compatibleHint');
   }
+}
+
+/** A ChatGPT provider's account, in one line: email, plan, state of the session. */
+export function chatgptSummary(provider: Provider, t: TFunction): string | null {
+  const account = provider.chatgpt;
+  if (!account) return null;
+  const plan = account.planType
+    ? t('appAdmin.models.chatgpt.plan', {
+        plan: account.planType.charAt(0).toUpperCase() + account.planType.slice(1),
+      })
+    : null;
+  const state =
+    account.status === 'needs_sign_in'
+      ? t('appAdmin.models.chatgpt.needsSignIn')
+      : account.status === 'usage_limited'
+        ? t('appAdmin.models.chatgpt.limited')
+        : null;
+  return [account.email, plan, state].filter(Boolean).join(' · ');
 }
 
 export type ProviderFormProblem = 'name' | 'url' | 'urlRequired' | HeaderProblem;

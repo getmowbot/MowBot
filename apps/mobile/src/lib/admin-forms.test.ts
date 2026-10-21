@@ -1,14 +1,19 @@
+import type { Provider } from '@mowbot/contract';
 import type { TFunction } from 'i18next';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { translator } from '../test/fixtures';
 import { checkBudget, checkQuietHours, normalizeTime } from './proactivity-form';
 import {
+  chatgptSummary,
   hasZdr,
   headerRow,
   headerRows,
   headersProblem,
   headersRecord,
+  isChatgpt,
   isHttpUrl,
+  kindHint,
+  kindLabel,
   providerFormProblem,
   sameHeaders,
   toggleZdr,
@@ -94,6 +99,38 @@ describe('provider headers', () => {
     expect(hasZdr(off)).toBe(false);
     expect(headersRecord(off)).toEqual({ 'X-A': '1' });
     expect(hasZdr([headerRow('X-CMD-ZDR', '1')])).toBe(true);
+  });
+
+  it('names the ChatGPT kind and sums up its account', () => {
+    expect(kindLabel('openai-chatgpt', en)).toBe('OpenAI (ChatGPT account)');
+    expect(kindLabel('openai-chatgpt', fr)).toBe('OpenAI (compte ChatGPT)');
+    expect(kindLabel('openai', en)).toBe('OpenAI');
+    expect(kindHint('openai-chatgpt', en)).toContain('ChatGPT plan');
+    expect(isChatgpt('openai-chatgpt')).toBe(true);
+    expect(isChatgpt('openai')).toBe(false);
+    const account = {
+      email: 'joris@example.com',
+      planType: 'plus',
+      status: 'needs_sign_in' as const,
+      detail: 'invalid_grant',
+      signedInAt: '2026-10-21T10:00:00.000Z',
+    };
+    const provider: Provider = {
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'ChatGPT',
+      kind: 'openai-chatgpt',
+      baseUrl: 'https://api.openai.com/v1',
+      defaultModel: 'gpt-6.1-sol',
+      headers: {},
+      hasApiKey: false,
+      chatgpt: account,
+      createdAt: '2026-10-21T10:00:00.000Z',
+    };
+    expect(chatgptSummary(provider, en)).toBe('joris@example.com · Plus plan · Signed out');
+    expect(chatgptSummary({ ...provider, chatgpt: { ...account, status: 'connected' } }, fr)).toBe(
+      'joris@example.com · Forfait Plus',
+    );
+    expect(chatgptSummary({ ...provider, kind: 'openai', chatgpt: null }, en)).toBeNull();
   });
 
   it('reads URLs', () => {

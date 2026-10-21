@@ -6791,7 +6791,8 @@
                             "enum": [
                               "openai-compatible",
                               "command-code",
-                              "openai"
+                              "openai",
+                              "openai-chatgpt"
                             ]
                           },
                           "baseUrl": {
@@ -6815,6 +6816,57 @@
                           "hasApiKey": {
                             "type": "boolean"
                           },
+                          "chatgpt": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "email": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "planType": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "connected",
+                                      "needs_sign_in",
+                                      "usage_limited"
+                                    ]
+                                  },
+                                  "detail": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "signedInAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "email",
+                                  "planType",
+                                  "status",
+                                  "detail",
+                                  "signedInAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -6829,6 +6881,7 @@
                           "defaultModel",
                           "headers",
                           "hasApiKey",
+                          "chatgpt",
                           "createdAt"
                         ],
                         "additionalProperties": false
@@ -6958,7 +7011,7 @@
         "tags": [
           "providers"
         ],
-        "description": "Adds an LLM endpoint. The API key is sealed at rest and never returned. The first provider is assigned to the bots without one.",
+        "description": "Adds an LLM endpoint. The API key is sealed at rest and never returned. The first provider is assigned to the bots without one. `openai-chatgpt` takes the tokens of a ChatGPT sign-in instead (`chatgpt`): the hub checks the ID token, seals them, renews them itself and never returns them.",
         "requestBody": {
           "required": true,
           "content": {
@@ -6976,7 +7029,8 @@
                     "enum": [
                       "openai-compatible",
                       "command-code",
-                      "openai"
+                      "openai",
+                      "openai-chatgpt"
                     ]
                   },
                   "baseUrl": {
@@ -7005,6 +7059,72 @@
                       "maxLength": 2000,
                       "pattern": "^[^\\r\\n]*$"
                     }
+                  },
+                  "chatgpt": {
+                    "type": "object",
+                    "properties": {
+                      "clientId": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "pattern": "^[A-Za-z0-9._:-]+$"
+                      },
+                      "idToken": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      },
+                      "accessToken": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      },
+                      "refreshToken": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      },
+                      "expiresIn": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 31536000
+                      },
+                      "scope": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "nonce": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "earliestRefreshAt": {
+                        "anyOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "string",
+                                "maxLength": 100
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "clientId",
+                      "idToken",
+                      "accessToken",
+                      "refreshToken",
+                      "expiresIn",
+                      "scope",
+                      "nonce"
+                    ]
                   }
                 },
                 "required": [
@@ -7041,7 +7161,8 @@
                       "enum": [
                         "openai-compatible",
                         "command-code",
-                        "openai"
+                        "openai",
+                        "openai-chatgpt"
                       ]
                     },
                     "baseUrl": {
@@ -7065,6 +7186,57 @@
                     "hasApiKey": {
                       "type": "boolean"
                     },
+                    "chatgpt": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "email": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "planType": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "connected",
+                                "needs_sign_in",
+                                "usage_limited"
+                              ]
+                            },
+                            "detail": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "signedInAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "email",
+                            "planType",
+                            "status",
+                            "detail",
+                            "signedInAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -7079,7 +7251,181 @@
                     "defaultModel",
                     "headers",
                     "hasApiKey",
+                    "chatgpt",
                     "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/providers/chatgpt/sign-in": {
+      "get": {
+        "operationId": "getChatgptSignIn",
+        "tags": [
+          "providers"
+        ],
+        "description": "What the desktop app needs to start \"Sign in with ChatGPT\" for this hub: its host id (`ext_agent_host_id`, stable for the install) and, to sign in again to a provider, its issued client and account email. The tokens it gets go to `POST /providers` (or `PATCH /providers/:id`) as `chatgpt`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "query",
+            "name": "providerId",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hostId": {
+                      "type": "string"
+                    },
+                    "agentName": {
+                      "type": "string"
+                    },
+                    "clientId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "loginHint": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "hostId",
+                    "agentName",
+                    "clientId",
+                    "loginHint"
                   ],
                   "additionalProperties": false
                 }
@@ -7248,6 +7594,72 @@
                       "maxLength": 2000,
                       "pattern": "^[^\\r\\n]*$"
                     }
+                  },
+                  "chatgpt": {
+                    "type": "object",
+                    "properties": {
+                      "clientId": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "pattern": "^[A-Za-z0-9._:-]+$"
+                      },
+                      "idToken": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      },
+                      "accessToken": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      },
+                      "refreshToken": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                      },
+                      "expiresIn": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 31536000
+                      },
+                      "scope": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "nonce": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "earliestRefreshAt": {
+                        "anyOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "string",
+                                "maxLength": 100
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "clientId",
+                      "idToken",
+                      "accessToken",
+                      "refreshToken",
+                      "expiresIn",
+                      "scope",
+                      "nonce"
+                    ]
                   }
                 }
               }
@@ -7292,7 +7704,8 @@
                       "enum": [
                         "openai-compatible",
                         "command-code",
-                        "openai"
+                        "openai",
+                        "openai-chatgpt"
                       ]
                     },
                     "baseUrl": {
@@ -7316,6 +7729,57 @@
                     "hasApiKey": {
                       "type": "boolean"
                     },
+                    "chatgpt": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "email": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "planType": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "connected",
+                                "needs_sign_in",
+                                "usage_limited"
+                              ]
+                            },
+                            "detail": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "signedInAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "email",
+                            "planType",
+                            "status",
+                            "detail",
+                            "signedInAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time",
@@ -7330,6 +7794,7 @@
                     "defaultModel",
                     "headers",
                     "hasApiKey",
+                    "chatgpt",
                     "createdAt"
                   ],
                   "additionalProperties": false
@@ -7622,6 +8087,9 @@
                         "type": "object",
                         "properties": {
                           "id": {
+                            "type": "string"
+                          },
+                          "name": {
                             "type": "string"
                           }
                         },

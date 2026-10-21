@@ -498,8 +498,25 @@ export interface paths {
         };
         get: operations["listProviders"];
         put?: never;
-        /** @description Adds an LLM endpoint. The API key is sealed at rest and never returned. The first provider is assigned to the bots without one. */
+        /** @description Adds an LLM endpoint. The API key is sealed at rest and never returned. The first provider is assigned to the bots without one. `openai-chatgpt` takes the tokens of a ChatGPT sign-in instead (`chatgpt`): the hub checks the ID token, seals them, renews them itself and never returns them. */
         post: operations["createProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/providers/chatgpt/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What the desktop app needs to start "Sign in with ChatGPT" for this hub: its host id (`ext_agent_host_id`, stable for the install) and, to sign in again to a provider, its issued client and account email. The tokens it gets go to `POST /providers` (or `PATCH /providers/:id`) as `chatgpt`. */
+        get: operations["getChatgptSignIn"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3885,13 +3902,22 @@ export interface operations {
                             id: string;
                             name: string;
                             /** @enum {string} */
-                            kind: "openai-compatible" | "command-code" | "openai";
+                            kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt";
                             baseUrl: string;
                             defaultModel: string | null;
                             headers: {
                                 [key: string]: string;
                             };
                             hasApiKey: boolean;
+                            chatgpt: {
+                                email: string | null;
+                                planType: string | null;
+                                /** @enum {string} */
+                                status: "connected" | "needs_sign_in" | "usage_limited";
+                                detail: string | null;
+                                /** Format: date-time */
+                                signedInAt: string;
+                            } | null;
                             /** Format: date-time */
                             createdAt: string;
                         }[];
@@ -3950,13 +3976,23 @@ export interface operations {
                 "application/json": {
                     name: string;
                     /** @enum {string} */
-                    kind: "openai-compatible" | "command-code" | "openai";
+                    kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt";
                     /** Format: uri */
                     baseUrl?: string;
                     apiKey?: string;
                     defaultModel?: string;
                     headers?: {
                         [key: string]: string;
+                    };
+                    chatgpt?: {
+                        clientId: string;
+                        idToken: string;
+                        accessToken: string;
+                        refreshToken: string;
+                        expiresIn: number;
+                        scope: string;
+                        nonce: string;
+                        earliestRefreshAt?: (number | string) | null;
                     };
                 };
             };
@@ -3973,15 +4009,89 @@ export interface operations {
                         id: string;
                         name: string;
                         /** @enum {string} */
-                        kind: "openai-compatible" | "command-code" | "openai";
+                        kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt";
                         baseUrl: string;
                         defaultModel: string | null;
                         headers: {
                             [key: string]: string;
                         };
                         hasApiKey: boolean;
+                        chatgpt: {
+                            email: string | null;
+                            planType: string | null;
+                            /** @enum {string} */
+                            status: "connected" | "needs_sign_in" | "usage_limited";
+                            detail: string | null;
+                            /** Format: date-time */
+                            signedInAt: string;
+                        } | null;
                         /** Format: date-time */
                         createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    getChatgptSignIn: {
+        parameters: {
+            query?: {
+                providerId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hostId: string;
+                        agentName: string;
+                        clientId: string | null;
+                        loginHint: string | null;
                     };
                 };
             };
@@ -4103,6 +4213,16 @@ export interface operations {
                     headers?: {
                         [key: string]: string;
                     };
+                    chatgpt?: {
+                        clientId: string;
+                        idToken: string;
+                        accessToken: string;
+                        refreshToken: string;
+                        expiresIn: number;
+                        scope: string;
+                        nonce: string;
+                        earliestRefreshAt?: (number | string) | null;
+                    };
                 };
             };
         };
@@ -4118,13 +4238,22 @@ export interface operations {
                         id: string;
                         name: string;
                         /** @enum {string} */
-                        kind: "openai-compatible" | "command-code" | "openai";
+                        kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt";
                         baseUrl: string;
                         defaultModel: string | null;
                         headers: {
                             [key: string]: string;
                         };
                         hasApiKey: boolean;
+                        chatgpt: {
+                            email: string | null;
+                            planType: string | null;
+                            /** @enum {string} */
+                            status: "connected" | "needs_sign_in" | "usage_limited";
+                            detail: string | null;
+                            /** Format: date-time */
+                            signedInAt: string;
+                        } | null;
                         /** Format: date-time */
                         createdAt: string;
                     };
@@ -4190,6 +4319,7 @@ export interface operations {
                     "application/json": {
                         items: {
                             id: string;
+                            name?: string;
                         }[];
                     };
                 };

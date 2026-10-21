@@ -1,4 +1,4 @@
-import type { Bot, Connector, Project } from '@mowbot/contract';
+import type { Bot, ChatgptCredential, Connector, Project } from '@mowbot/contract';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './auth';
 
@@ -143,7 +143,32 @@ export const desktop = {
   checkUpdate: () => invoke<DesktopUpdate | null>('update_check'),
   /** Installs the newer version; the app restarts on it. */
   installUpdate: () => invoke<void>('update_install'),
+  /**
+   * "Sign in with ChatGPT" in the user's browser (0.2.3+): resolves with the tokens for the hub,
+   * rejects with a `ChatgptSignInError`.
+   */
+  chatgptSignIn: (request: ChatgptSignInRequest) =>
+    invoke<ChatgptCredential>('chatgpt_sign_in', { request }),
+  /** Ends the ChatGPT sign-in waiting for the browser. */
+  cancelChatgptSignIn: () => invoke<void>('chatgpt_sign_in_cancel'),
 };
+
+/** What the desktop app needs to sign in with ChatGPT (from the hub, plus the page's language). */
+export interface ChatgptSignInRequest {
+  hostId: string;
+  agentName: string;
+  clientId: string | null;
+  loginHint: string | null;
+  lang: string;
+}
+
+/** Why the desktop app's ChatGPT sign-in ended without tokens. */
+export interface ChatgptSignInError {
+  code: string;
+  detail: string | null;
+  /** The client OpenAI issued, to retry with it rather than register again. */
+  clientId: string | null;
+}
 
 /** A newer version of the desktop app. */
 export interface DesktopUpdate {

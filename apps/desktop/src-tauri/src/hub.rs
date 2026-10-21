@@ -12,8 +12,9 @@ use crate::state::AppState;
 
 pub const MAIN: &str = "main";
 
-/// Commands the hub's page may call (the same as the first-run page, see capabilities/).
-const COMMAND_PERMISSIONS: [&str; 12] = [
+/// Commands the hub's page may call: the first-run page's (see capabilities/), and signing in
+/// with ChatGPT for the hub's models.
+const COMMAND_PERMISSIONS: [&str; 14] = [
     "allow-hub-url-get",
     "allow-hub-url-set",
     "allow-hub-change",
@@ -26,6 +27,8 @@ const COMMAND_PERMISSIONS: [&str; 12] = [
     "allow-project-pick",
     "allow-project-add",
     "allow-project-remove",
+    "allow-chatgpt-sign-in",
+    "allow-chatgpt-sign-in-cancel",
 ];
 
 /// The window has no frame: the page draws its buttons and moves it (see the web app's
@@ -131,7 +134,7 @@ pub async fn check(hub: &str) -> Result<String, String> {
     Ok(final_hub.unwrap_or_else(|| hub.to_string()))
 }
 
-fn root_cause(error: &dyn std::error::Error) -> String {
+pub(crate) fn root_cause(error: &dyn std::error::Error) -> String {
     let mut cause = error;
     while let Some(source) = cause.source() {
         cause = source;

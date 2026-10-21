@@ -1,5 +1,6 @@
 import {
   type Bot,
+  CHATGPT_USAGE_URL,
   PROVIDER_DEFAULT_URLS,
   type Provider,
   type ProviderKind,
@@ -8,7 +9,11 @@ import { springs } from '@mowbot/design';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Check,
+  Download,
+  ExternalLink,
   KeyRound,
+  LogIn,
+  MessageCircle,
   Plug,
   Plus,
   RefreshCw,
@@ -18,28 +23,41 @@ import {
   X,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BotAvatar } from '../components/bot-avatar';
 import { Button } from '../components/ui/button';
 import { Card, FormError, Input, Label, Select } from '../components/ui/form';
 import { i18n } from '../i18n';
 import { api, problemMessage } from '../lib/auth';
+import {
+  chatgptCredential,
+  chatgptErrorMessage,
+  DESKTOP_DOWNLOAD_URL,
+  issuedClientOf,
+} from '../lib/chatgpt';
 import { Reveal } from '../lib/motion';
+import { desktop, inDesktopApp } from '../lib/projects';
 import { useBots, useProviders } from '../lib/queries';
 import { cn } from '../lib/utils';
 
-/** Product names stay as they are; only the generic kind is worded. */
+/** Product names stay as they are; only the generic kinds are worded. */
 const KINDS = [
   { kind: 'command-code', name: 'Command Code', hint: 'models.kinds.commandCodeHint' },
   { kind: 'openai', name: 'OpenAI', hint: 'models.kinds.openaiHint' },
+  { kind: 'openai-chatgpt', name: null, hint: 'models.kinds.chatgptHint' },
   { kind: 'openai-compatible', name: null, hint: 'models.kinds.compatibleHint' },
 ] as const satisfies readonly { kind: ProviderKind; name: string | null; hint: string }[];
 
 const kindTitle = (option: (typeof KINDS)[number]): string =>
-  option.name ?? i18n.t('models.kinds.compatible');
+  option.name ??
+  (option.kind === 'openai-chatgpt'
+    ? i18n.t('models.kinds.chatgpt')
+    : i18n.t('models.kinds.compatible'));
 
+/** The models of a provider: `id` for the bots, `name` to show when there is one. */
 function useModels(providerId: string | null | undefined) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: ['models', providerId],
     enabled: Boolean(providerId),
@@ -48,10 +66,298 @@ function useModels(providerId: string | null | undefined) {
       const { data, error } = await api.GET('/api/v1/providers/{id}/models', {
         params: { path: { id: providerId as string } },
       });
+      if (error?.type === 'urn:mowbot:problem:chatgpt_sign_in_required') {
+        // The hub just found the ChatGPT session over: the provider says so now.
+        void queryClient.invalidateQueries({ queryKey: ['providers'] });
+      }
       if (error || !data) throw error;
-      return data.items.map((m) => m.id);
+      return data.items;
     },
   });
+}
+
+/** ChatGPT's own button style (white, "Sign in with ChatGPT"). */
+const CHATGPT_BUTTON =
+  'border-white bg-white text-black hover:border-white/90 hover:bg-white/90 hover:text-black';
+
+function ManageUsage({ className }: { className?: string }) {
+  const { t } = useTranslation();
+  return (
+    <a
+      href={CHATGPT_USAGE_URL}
+      target="_blank"
+      rel="noreferrer"
+      className={cn(
+        'inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline',
+        className,
+      )}
+    >
+      {t('models.chatgpt.manageUsage')} <ExternalLink className="size-3" />
+    </a>
+  );
+}
+
+/** Outside the desktop app: where the ChatGPT sign-in happens, and where to get the app. */
+function DesktopOnly({ text }: { text: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-3 rounded-xl border border-border-strong bg-white/[0.02] p-4">
+      <p className="text-[13px] text-muted-foreground">{text}</p>
+      <a
+        href={DESKTOP_DOWNLOAD_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex h-8 items-center gap-2 rounded-lg border border-border-strong px-3 text-xs font-medium transition-colors hover:border-white/20 hover:bg-white/[0.06]"
+      >
+        <Download className="size-3.5" /> {t('models.chatgpt.download')}
+      </a>
+    </div>
+  );
+}
+
+/**
+ * Signing in with ChatGPT in the desktop app (for a new provider, or again for `providerId`):
+ * the browser opens on OpenAI's page, the tokens go straight to the hub.
+ */
+function useChatgptSignIn<T>(
+  save: (credential: Awaited<ReturnType<typeof chatgptCredential>>) => Promise<T>,
+) {
+  const { t } = useTranslation();
+  // A sign-in that failed after OpenAI issued a client retries with it.
+  const issued = useRef<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: async (providerId?: string) =>
+      save(await chatgptCredential(providerId, providerId ? null : issued.current)),
+    onMutate: () => setError(null),
+    onSuccess: () => {
+      issued.current = null;
+    },
+    onError: (caught) => {
+      issued.current = issuedClientOf(caught) ?? issued.current;
+      setError(chatgptErrorMessage(caught, t('models.addFailed')));
+    },
+  });
+  return {
+    start: (providerId?: string) => mutation.mutate(providerId),
+    cancel: () => void desktop.cancelChatgptSignIn().catch(() => {}),
+    pending: mutation.isPending,
+    error,
+  };
+}
+
+/** While the browser is on OpenAI's page: what to do, and a way out. */
+function SignInWaiting({ onCancel }: { onCancel(): void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="shimmer-text text-[13px]">{t('models.chatgpt.waiting')}</span>
+      <Button variant="ghost" size="sm" onClick={onCancel}>
+        {t('common.cancel')}
+      </Button>
+    </div>
+  );
+}
+
+/** Adds an `openai-chatgpt` provider: sign-in in the desktop app, then a word on usage. */
+function AddChatgpt({ onDone }: { onDone(): void }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState<string>(() => i18n.t('models.kinds.chatgpt'));
+  const [welcome, setWelcome] = useState(false);
+  const signIn = useChatgptSignIn(async (credential) => {
+    const { data, error } = await api.POST('/api/v1/providers', {
+      body: { kind: 'openai-chatgpt', name: name.trim() || 'ChatGPT', chatgpt: credential },
+    });
+    if (error || !data) throw error;
+    void queryClient.invalidateQueries({ queryKey: ['providers'] });
+    void queryClient.invalidateQueries({ queryKey: ['bots'] });
+    setWelcome(true);
+    return data;
+  });
+
+  if (welcome) {
+    return (
+      <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/[0.06] p-4">
+        <p className="flex items-center gap-2 font-medium">
+          <MessageCircle className="size-4" /> {t('models.chatgpt.welcomeTitle')}
+        </p>
+        <p className="text-[13px] text-muted-foreground">{t('models.chatgpt.welcomeBody')}</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="sm" onClick={onDone}>
+            {t('models.chatgpt.gotIt')}
+          </Button>
+          <ManageUsage />
+        </div>
+      </div>
+    );
+  }
+
+  if (!inDesktopApp()) {
+    return (
+      <div className="space-y-4">
+        <DesktopOnly text={t('models.chatgpt.desktopOnly')} />
+        <Button type="button" variant="ghost" onClick={onDone}>
+          {t('common.cancel')}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        signIn.start();
+      }}
+    >
+      <div className="space-y-1.5 sm:max-w-xs">
+        <Label htmlFor="chatgpt-name">{t('common.name')}</Label>
+        <Input
+          id="chatgpt-name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          maxLength={60}
+          required
+          disabled={signIn.pending}
+        />
+      </div>
+      <FormError message={signIn.error} />
+      {signIn.pending ? (
+        <SignInWaiting onCancel={signIn.cancel} />
+      ) : (
+        <div className="flex gap-2">
+          <Button type="submit" variant="outline" className={CHATGPT_BUTTON}>
+            <LogIn className="size-4" /> {t('models.chatgpt.signIn')}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onDone}>
+            {t('common.cancel')}
+          </Button>
+        </div>
+      )}
+    </form>
+  );
+}
+
+/** Signs in again to an `openai-chatgpt` provider (same account): its new tokens replace the old. */
+function ChatgptSignInAgain({ provider }: { provider: Provider }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [done, setDone] = useState(false);
+  const signIn = useChatgptSignIn(async (credential) => {
+    const { data, error } = await api.PATCH('/api/v1/providers/{id}', {
+      params: { path: { id: provider.id } },
+      body: { chatgpt: credential },
+    });
+    if (error || !data) throw error;
+    void queryClient.invalidateQueries({ queryKey: ['providers'] });
+    void queryClient.invalidateQueries({ queryKey: ['models', provider.id] });
+    setDone(true);
+    return data;
+  });
+  if (!inDesktopApp()) {
+    return <p className="text-xs text-faint">{t('models.chatgpt.needsSignInDesktop')}</p>;
+  }
+  return (
+    <div className="space-y-2">
+      {signIn.pending ? (
+        <SignInWaiting onCancel={signIn.cancel} />
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            size="sm"
+            variant="outline"
+            className={CHATGPT_BUTTON}
+            onClick={() => {
+              setDone(false);
+              signIn.start(provider.id);
+            }}
+          >
+            <LogIn className="size-3.5" /> {t('models.chatgpt.signInAgain')}
+          </Button>
+          {done && <span className="text-xs text-primary">{t('models.chatgpt.reconnected')}</span>}
+        </div>
+      )}
+      <FormError message={signIn.error} />
+    </div>
+  );
+}
+
+/** The ChatGPT account behind a provider: email, plan, usage link, and what to do when needed. */
+function ChatgptAccount({ provider }: { provider: Provider }) {
+  const { t } = useTranslation();
+  const account = provider.chatgpt;
+  if (!account) return null;
+  if (account.status === 'needs_sign_in') {
+    return (
+      <div className="basis-full space-y-2 rounded-xl border border-destructive/30 bg-destructive/[0.06] p-3">
+        <p className="text-[13px]">{t('models.chatgpt.needsSignInBody')}</p>
+        <ChatgptSignInAgain provider={provider} />
+      </div>
+    );
+  }
+  if (account.status === 'usage_limited') {
+    return (
+      <div className="basis-full space-y-1.5 rounded-xl border border-border-strong bg-white/[0.02] p-3">
+        <p className="text-[13px] font-medium">{t('models.chatgpt.limited')}</p>
+        <p className="text-xs text-muted-foreground">{t('models.chatgpt.limitedBody')}</p>
+        <ManageUsage />
+      </div>
+    );
+  }
+  return null;
+}
+
+/** Settings of an `openai-chatgpt` provider: its name, and signing in again. */
+function EditChatgpt({ provider, onDone }: { provider: Provider; onDone(): void }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: async (form: FormData) => {
+      const { error } = await api.PATCH('/api/v1/providers/{id}', {
+        params: { path: { id: provider.id } },
+        body: { name: String(form.get('name')).trim() },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['providers'] });
+      onDone();
+    },
+    onError: (err) => setError(problemMessage(err, t('models.changesNotSaved'))),
+  });
+  return (
+    <div className="space-y-4 pb-1 pt-2">
+      <form
+        className="space-y-4"
+        onSubmit={(event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault();
+          setError(null);
+          save.mutate(new FormData(event.currentTarget));
+        }}
+      >
+        <div className="space-y-1.5 sm:max-w-xs">
+          <Label htmlFor={`name-${provider.id}`}>{t('common.name')}</Label>
+          <Input id={`name-${provider.id}`} name="name" required defaultValue={provider.name} />
+        </div>
+        <FormError message={error} />
+        <div className="flex gap-2">
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending ? t('common.saving') : t('common.save')}
+          </Button>
+          <Button variant="ghost" onClick={onDone}>
+            {t('common.cancel')}
+          </Button>
+        </div>
+      </form>
+      {/* Signing in again on purpose (e.g. a new session): only the desktop app can. */}
+      {provider.chatgpt?.status !== 'needs_sign_in' && inDesktopApp() && (
+        <ChatgptSignInAgain provider={provider} />
+      )}
+    </div>
+  );
 }
 
 interface HeaderRow {
@@ -240,8 +546,48 @@ function EditProvider({ provider, onDone }: { provider: Provider; onDone(): void
 
 function AddProvider({ onDone }: { onDone(): void }) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const [kind, setKind] = useState<ProviderKind>('command-code');
+  const current = KINDS.find((k) => k.kind === kind);
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {KINDS.map((option) => (
+          <button
+            key={option.kind}
+            type="button"
+            onClick={() => setKind(option.kind)}
+            className={cn(
+              'relative rounded-xl border px-3 py-2.5 text-left text-sm transition-colors duration-200',
+              kind === option.kind
+                ? 'border-primary/50 text-foreground'
+                : 'border-border-strong text-muted-foreground hover:border-white/20',
+            )}
+          >
+            {kind === option.kind && (
+              <motion.span
+                layoutId="provider-kind"
+                transition={springs.soft}
+                className="absolute inset-0 rounded-xl bg-primary/[0.08]"
+              />
+            )}
+            <span className="relative font-medium">{kindTitle(option)}</span>
+          </button>
+        ))}
+      </div>
+      <p className="text-[13px] text-muted-foreground">{current && t(current.hint)}</p>
+      {kind === 'openai-chatgpt' ? (
+        <AddChatgpt onDone={onDone} />
+      ) : (
+        <AddKeyProvider kind={kind} onDone={onDone} />
+      )}
+    </div>
+  );
+}
+
+/** A provider reached with an API key (Command Code, OpenAI, any OpenAI-compatible endpoint). */
+function AddKeyProvider({ kind, onDone }: { kind: ProviderKind; onDone(): void }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [rows, setRows] = useState<HeaderRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const create = useMutation({
@@ -279,31 +625,6 @@ function AddProvider({ onDone }: { onDone(): void }) {
         create.mutate(new FormData(event.currentTarget));
       }}
     >
-      <div className="grid gap-2 sm:grid-cols-3">
-        {KINDS.map((option) => (
-          <button
-            key={option.kind}
-            type="button"
-            onClick={() => setKind(option.kind)}
-            className={cn(
-              'relative rounded-xl border px-3 py-2.5 text-left text-sm transition-colors duration-200',
-              kind === option.kind
-                ? 'border-primary/50 text-foreground'
-                : 'border-border-strong text-muted-foreground hover:border-white/20',
-            )}
-          >
-            {kind === option.kind && (
-              <motion.span
-                layoutId="provider-kind"
-                transition={springs.soft}
-                className="absolute inset-0 rounded-xl bg-primary/[0.08]"
-              />
-            )}
-            <span className="relative font-medium">{kindTitle(option)}</span>
-          </button>
-        ))}
-      </div>
-      <p className="text-[13px] text-muted-foreground">{current && t(current.hint)}</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="name">{t('common.name')}</Label>
@@ -374,17 +695,43 @@ function ProviderRow({ provider }: { provider: Provider }) {
       void queryClient.invalidateQueries({ queryKey: ['bots'] });
     },
   });
+  const account = provider.chatgpt;
   return (
     <div className="flex flex-wrap items-center gap-3 py-3">
       <span className="grid size-9 place-items-center rounded-xl bg-white/[0.05]">
-        <KeyRound className="size-4 text-muted-foreground" />
+        {account ? (
+          <MessageCircle className="size-4 text-muted-foreground" />
+        ) : (
+          <KeyRound className="size-4 text-muted-foreground" />
+        )}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="font-medium">{provider.name}</p>
-        <p className="truncate text-xs text-faint">
-          {provider.baseUrl}
-          {headerCount > 0 && ` · ${t('models.headerCount', { count: headerCount })}`}
-        </p>
+      {/* At least 10rem: on a phone the buttons go to the next line rather than squeeze it. */}
+      <div className="min-w-40 flex-1">
+        <p className={cn('font-medium', account && 'truncate')}>{provider.name}</p>
+        {account ? (
+          <>
+            <p className="truncate text-xs text-faint">
+              {[
+                account.email,
+                account.planType &&
+                  t('models.chatgpt.plan', {
+                    plan: account.planType.charAt(0).toUpperCase() + account.planType.slice(1),
+                  }),
+                account.status === 'needs_sign_in'
+                  ? t('models.chatgpt.needsSignIn')
+                  : t('models.chatgpt.usingPlan'),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+            <ManageUsage />
+          </>
+        ) : (
+          <p className="truncate text-xs text-faint">
+            {provider.baseUrl}
+            {headerCount > 0 && ` · ${t('models.headerCount', { count: headerCount })}`}
+          </p>
+        )}
       </div>
       <span
         className={cn(
@@ -401,7 +748,11 @@ function ProviderRow({ provider }: { provider: Provider }) {
             <Check className="size-3" /> {t('models.modelCount', { count: models.data.length })}
           </>
         ) : models.isError ? (
-          t('models.unreachable')
+          account?.status === 'needs_sign_in' ? (
+            t('models.chatgpt.needsSignIn')
+          ) : (
+            t('models.unreachable')
+          )
         ) : (
           <span className="shimmer-text">{t('models.testing')}</span>
         )}
@@ -433,6 +784,7 @@ function ProviderRow({ provider }: { provider: Provider }) {
       >
         <Trash2 className="size-4" />
       </Button>
+      <ChatgptAccount provider={provider} />
       <AnimatePresence initial={false}>
         {editing && (
           <motion.div
@@ -442,7 +794,11 @@ function ProviderRow({ provider }: { provider: Provider }) {
             transition={springs.soft}
             className="basis-full overflow-hidden"
           >
-            <EditProvider provider={provider} onDone={() => setEditing(false)} />
+            {provider.kind === 'openai-chatgpt' ? (
+              <EditChatgpt provider={provider} onDone={() => setEditing(false)} />
+            ) : (
+              <EditProvider provider={provider} onDone={() => setEditing(false)} />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -490,12 +846,12 @@ function BotModel({ bot, providers }: { bot: Bot; providers: Provider[] }) {
           onChange={(event) => update.mutate({ model: event.target.value || null })}
           aria-label={t('models.modelOf', { name: bot.name })}
         >
-          {!options.includes(modelValue) && (
+          {!options.some((option) => option.id === modelValue) && (
             <option value={modelValue}>{modelValue || t('models.choose')}</option>
           )}
-          {options.map((id) => (
-            <option key={id} value={id}>
-              {id}
+          {options.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.name ?? option.id}
             </option>
           ))}
         </Select>

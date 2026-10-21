@@ -1,6 +1,19 @@
 import path from 'node:path';
 import { z } from 'zod';
 
+/** OpenAI's servers for "Sign in with ChatGPT" (providers/chatgpt.ts). */
+export interface ChatgptOptions {
+  /** The authorization server: ID token keys, token renewal, revocation. */
+  authUrl: string;
+  /** The Responses API the tokens are for. */
+  apiUrl: string;
+}
+
+export const CHATGPT_DEFAULTS: ChatgptOptions = {
+  authUrl: 'https://auth.openai.com',
+  apiUrl: 'https://api.openai.com/v1',
+};
+
 const booleanString = z
   .enum(['true', 'false', '1', '0'])
   .transform((value) => value === 'true' || value === '1');
@@ -85,6 +98,8 @@ export interface Config {
     language: string | undefined;
     ffmpeg: string;
   };
+  /** "Sign in with ChatGPT": OpenAI's servers (tests point them to fakes). */
+  chatgpt: ChatgptOptions;
 }
 
 export function parseMasterKey(value: string): Buffer {
@@ -141,5 +156,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       language: e.MOWBOT_WHISPER_LANGUAGE,
       ffmpeg: e.MOWBOT_FFMPEG,
     },
+    chatgpt: CHATGPT_DEFAULTS,
   };
 }

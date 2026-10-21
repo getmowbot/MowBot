@@ -3,7 +3,9 @@
 
 use tauri::{AppHandle, Manager, State, Url, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_opener::OpenerExt;
 
+use crate::chatgpt;
 use crate::config::{check_new_project, Project};
 use crate::hub;
 use crate::state::{emit_status, AppState, Status};
@@ -134,6 +136,43 @@ pub async fn project_add(app: AppHandle, name: String, path: String) -> Result<P
     state.send(state.projects_message());
     emit_status(&app);
     Ok(project)
+}
+
+/// "Sign in with ChatGPT" for the hub's models: opens OpenAI's page in the user's browser, waits
+/// for it to come back to 127.0.0.1 and returns the tokens, which the page hands to the hub
+/// (nothing is kept here). A new sign-in ends the one waiting.
+#[tauri::command]
+pub async fn chatgpt_sign_in(
+    app: AppHandle,
+    request: chatgpt::SignInRequest,
+) -> Result<chatgpt::Credential, chatgpt::SignInError> {
+    let pending = app.state::<chatgpt::Pending>();
+    let (id, cancel) = pending.start();
+    let browser = app.clone();
+    let result = chatgpt::sign_in(
+        &chatgpt::Config::default(),
+        request,
+        move |url| {
+            browser
+                .opener()
+                .open_url(url, None::<&str>)
+                .map_err(|e| e.to_string())
+        },
+        cancel,
+    )
+    .await;
+    pending.finish(id);
+    // Back from the browser: the page shows the outcome.
+    if result.is_ok() {
+        hub::show_main(&app);
+    }
+    result
+}
+
+/// Ends the ChatGPT sign-in waiting, if any.
+#[tauri::command]
+pub fn chatgpt_sign_in_cancel(pending: State<'_, chatgpt::Pending>) {
+    pending.cancel();
 }
 
 /// Stops sharing a folder.
