@@ -17,6 +17,7 @@ import { ShimmerText } from '../ui/shimmer-text';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 import { MessageCanvas } from './message-canvas';
+import { TakeoverRequest } from './takeover-request';
 import { VaultRequest } from './vault-request';
 
 /** Under a message that reached the bot while it worked: taken into its ongoing answer. */
@@ -222,6 +223,14 @@ export function BotMessage({
                   message={message}
                   part={block.part}
                   index={block.index}
+                />
+              );
+            case 'takeover':
+              return (
+                <TakeoverRequest
+                  key={`takeover-${block.index}`}
+                  part={block.part}
+                  botName={bot.name}
                 />
               );
             default:

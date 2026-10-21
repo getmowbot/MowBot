@@ -93,6 +93,22 @@ describe('activity line', () => {
     expect(blocks[2]?.kind === 'canvas' && blocks[2].part).toBe(card);
   });
 
+  it('keeps a takeover request as its own block', () => {
+    const request = {
+      type: 'takeover_request' as const,
+      computerId: '00000000-0000-4000-8000-000000000001',
+      reason: 'Connecte-toi à BadNet',
+      url: null,
+      status: 'pending' as const,
+    };
+    const blocks = segments([{ type: 'text', text: 'Il me faut ta main.' }, request]);
+    expect(blocks.map((b) => [b.kind, b.index])).toEqual([
+      ['text', 0],
+      ['takeover', 1],
+    ]);
+    expect(blocks[1]?.kind === 'takeover' && blocks[1].part).toBe(request);
+  });
+
   it('keeps a show_in_chat call while it runs, or when it failed', async () => {
     const t = await translator('fr');
     const running = tool('show_in_chat', {}, 'running');

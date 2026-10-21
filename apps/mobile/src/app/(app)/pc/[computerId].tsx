@@ -84,9 +84,15 @@ function RoundButton({
  * working on it. Turn it on, restart or turn it off from here.
  */
 export default function PcScreen() {
-  const { computerId, bot: botParam } = useLocalSearchParams<{
+  const {
+    computerId,
+    bot: botParam,
+    takeover,
+  } = useLocalSearchParams<{
     computerId: string;
     bot?: string;
+    /** Opened from a bot's takeover card: control is taken on arrival. */
+    takeover?: string;
   }>();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -101,7 +107,7 @@ export default function PcScreen() {
   const showOnScreen = useShowBotBrowser();
   const desktop = useRef<DesktopHandle>(null);
   // The screen, or a bot's id for its window. Opened from a chat: that bot's window first.
-  const [shown, setShown] = useState(botParam || SCREEN);
+  const [shown, setShown] = useState(takeover ? SCREEN : botParam || SCREEN);
   // Once opened, the screen stays connected while a bot's window is shown: switching back is
   // instant, and closing it would hand control back to the bots.
   const [screenOpened, setScreenOpened] = useState(false);
@@ -160,6 +166,14 @@ export default function PcScreen() {
   const run = (kind: ComputerAction) => action.mutate(kind, { onError: failed });
   const pending = (...kinds: ComputerAction[]) =>
     action.isPending && kinds.includes(action.variables as ComputerAction);
+
+  // From a takeover card: control is taken once, as soon as the PC is known to be up.
+  const tookOver = useRef(false);
+  useEffect(() => {
+    if (!takeover || tookOver.current || !running || !me.data) return;
+    tookOver.current = true;
+    if (!inControl) run('takeover');
+  });
 
   const openMenu = () => {
     if (!pc) return;

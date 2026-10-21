@@ -205,6 +205,16 @@ export const en: Catalog = {
       failed: 'Nothing was saved.',
     },
   },
+  takeoverCard: {
+    title: '{{name}} needs you on its PC',
+    take: 'Take control',
+    release: 'Give back control',
+    showScreen: 'Show the screen',
+    inControl: 'You have control. Give it back when you’re done: {{name}} will pick up.',
+    otherDevice: 'Another of your devices has control of this PC.',
+    returned: 'Control given back',
+    failed: 'Couldn’t take control.',
+  },
   botMenu: {
     options: '{{name}} options',
     settings: 'Settings',

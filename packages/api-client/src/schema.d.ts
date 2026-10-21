@@ -4704,6 +4704,15 @@ export interface operations {
                                 itemId: string | null;
                                 /** @enum {string} */
                                 status: "pending" | "saved" | "declined";
+                            } | {
+                                /** @enum {string} */
+                                type: "takeover_request";
+                                /** Format: uuid */
+                                computerId: string;
+                                reason: string;
+                                url: string | null;
+                                /** @enum {string} */
+                                status: "pending" | "taken" | "returned";
                             })[];
                             steered: boolean;
                             mentions: ({
@@ -4944,6 +4953,15 @@ export interface operations {
                             itemId: string | null;
                             /** @enum {string} */
                             status: "pending" | "saved" | "declined";
+                        } | {
+                            /** @enum {string} */
+                            type: "takeover_request";
+                            /** Format: uuid */
+                            computerId: string;
+                            reason: string;
+                            url: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "taken" | "returned";
                         })[];
                         steered: boolean;
                         mentions: ({
@@ -5227,6 +5245,15 @@ export interface operations {
                             itemId: string | null;
                             /** @enum {string} */
                             status: "pending" | "saved" | "declined";
+                        } | {
+                            /** @enum {string} */
+                            type: "takeover_request";
+                            /** Format: uuid */
+                            computerId: string;
+                            reason: string;
+                            url: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "taken" | "returned";
                         })[];
                         steered: boolean;
                         mentions: ({
@@ -5458,6 +5485,15 @@ export interface operations {
                             itemId: string | null;
                             /** @enum {string} */
                             status: "pending" | "saved" | "declined";
+                        } | {
+                            /** @enum {string} */
+                            type: "takeover_request";
+                            /** Format: uuid */
+                            computerId: string;
+                            reason: string;
+                            url: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "taken" | "returned";
                         })[];
                         steered: boolean;
                         mentions: ({
@@ -6265,6 +6301,15 @@ export interface operations {
                                 itemId: string | null;
                                 /** @enum {string} */
                                 status: "pending" | "saved" | "declined";
+                            } | {
+                                /** @enum {string} */
+                                type: "takeover_request";
+                                /** Format: uuid */
+                                computerId: string;
+                                reason: string;
+                                url: string | null;
+                                /** @enum {string} */
+                                status: "pending" | "taken" | "returned";
                             })[];
                             steered: boolean;
                             mentions: ({
