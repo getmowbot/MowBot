@@ -1,11 +1,21 @@
 name: Desktop app
 
 # Builds the installers of the desktop app (Windows .exe/.msi, macOS .dmg, Linux AppImage/.deb)
-# into a draft GitHub release. Push a tag `desktop-v0.1.0`, or run it by hand.
+# and publishes them as the GitHub release `desktop-v<version>` (version from tauri.conf.json):
+# on every merge into main that changes the app, on a `desktop-v*` tag, or by hand. A new version
+# number makes a new release; the same one replaces its installers.
 on:
   push:
+    branches: [main]
+    paths:
+      - 'apps/desktop/**'
+      - '.github/workflows/desktop.yml'
     tags: ['desktop-v*']
   workflow_dispatch:
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -49,10 +59,10 @@ jobs:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
           args: ${{ matrix.args }}
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'desktop-v__VERSION__' }}
+          tagName: desktop-v__VERSION__
           releaseName: MowBot desktop __VERSION__
           releaseBody: |
             Installe l'app, puis indique l'adresse de ton hub au premier lancement (celle de l'interface web).
             Linux en une commande : voir docs/DESKTOP.md.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false

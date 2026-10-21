@@ -71,8 +71,11 @@ shell annoncé, dans la racine du projet (ou `cwd`).
 
 ## Installer et lancer l'app
 
-- **Windows, macOS** : les installeurs (`.exe` / `.msi`, `.dmg`) sont fabriqués par le workflow
-  « Desktop app » (tag `desktop-v0.1.0`, ou lancement à la main) dans une release brouillon GitHub.
+- **Windows, macOS** : les installeurs (`.exe` / `.msi`, `.dmg`) sont dans les releases GitHub
+  `desktop-v<version>`. Le workflow « Desktop app » les fabrique et les publie à chaque fusion dans
+  main qui touche l'app (ou sur un tag `desktop-v*`, ou à la main). Changer `version` dans
+  `apps/desktop/src-tauri/tauri.conf.json` crée une nouvelle release ; sinon ses installeurs sont
+  remplacés.
 - **Linux**, en une commande (AppImage dans `~/.local/bin`, entrée dans les applications) :
 
   ```bash
