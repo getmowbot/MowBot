@@ -1,5 +1,6 @@
 import { fr as appAdmin } from './areas/appAdmin';
 import { fr as board } from './areas/board';
+import { fr as chatInput } from './areas/chatInput';
 import { fr as filesView } from './areas/filesView';
 import { fr as mcp } from './areas/mcp';
 import { fr as orgAdmin } from './areas/orgAdmin';
@@ -293,5 +294,6 @@ export const fr = {
   filesView,
   vault,
   mcp,
+  chatInput,
   push,
 } as const;

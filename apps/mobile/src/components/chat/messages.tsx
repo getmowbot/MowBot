@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { segments } from '../../lib/activity';
 import { moodOf } from '../../lib/bot-mood';
+import { mentionSegments } from '../../lib/chat-input';
 import { messageText } from '../../lib/message-cache';
 import { colors } from '../../theme';
 import { ActivityLine } from '../activity-line';
@@ -25,14 +26,48 @@ function Steered({ message }: { message: Message }) {
   );
 }
 
-export function UserMessage({ message }: { message: Message }) {
+/** The user's text, each `@label` it pointed at stressed; a file mention opens the file. */
+function MentionedText({ message, workspaceId }: { message: Message; workspaceId: string | null }) {
+  // A hub from before mentions sends none.
+  const segments = mentionSegments(messageText(message), message.mentions ?? []);
+  let offset = 0;
+  return (
+    <T style={styles.userText} selectable>
+      {segments.map(({ text, mention }) => {
+        const key = offset;
+        offset += text.length;
+        if (!mention) return text;
+        const open =
+          mention.kind === 'file' && workspaceId
+            ? () =>
+                router.push({
+                  pathname: '/files/[workspaceId]/view',
+                  params: { workspaceId, path: mention.path },
+                })
+            : undefined;
+        return (
+          <T key={key} style={[styles.userText, styles.mention]} onPress={open}>
+            {text}
+          </T>
+        );
+      })}
+    </T>
+  );
+}
+
+export function UserMessage({
+  message,
+  workspaceId = null,
+}: {
+  message: Message;
+  /** The bot's workspace, where its file mentions are. */
+  workspaceId?: string | null;
+}) {
   return (
     <View style={styles.sent}>
       <View style={styles.right}>
         <View style={[styles.bubble, styles.userBubble]}>
-          <T style={styles.userText} selectable>
-            {messageText(message)}
-          </T>
+          <MentionedText message={message} workspaceId={workspaceId} />
         </View>
       </View>
       <Steered message={message} />
@@ -158,6 +193,8 @@ const styles = StyleSheet.create({
   },
   userBubble: { backgroundColor: colors.accent },
   userText: { color: colors.accentInk },
+  // Ink on the light bubble: bolder, on a faint tint.
+  mention: { fontWeight: '600', backgroundColor: 'rgba(7, 8, 10, 0.08)' },
   incomingBubble: {
     borderWidth: 1,
     borderColor: colors.borderStrong,

@@ -25,6 +25,8 @@ export const keys = {
   pushPermission: ['push-permission'] as const,
   /** A folder of a workspace (`path` '' = its root). */
   files: (workspaceId: string, path = '') => ['files', workspaceId, path] as const,
+  /** Files of a workspace whose path contains `query` ('' = the latest changed), for @. */
+  fileSearch: (workspaceId: string, query: string) => ['file-search', workspaceId, query] as const,
   /** What a bot's own Chrome window shows (live view). */
   botBrowser: (botId: string) => ['bot-browser', botId] as const,
   /** The vault's entries (never their values). */
