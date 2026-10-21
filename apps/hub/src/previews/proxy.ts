@@ -52,8 +52,11 @@ const HOP_BY_HOP = new Set([
   'upgrade',
 ]);
 
-/** Request headers the dev server never gets: what the hub's proxy (Caddy) added. */
-const DROPPED_REQUEST = new Set(['forwarded', 'x-real-ip', 'via']);
+/**
+ * Request headers the dev server never gets: what the hub's proxy (Caddy) added, and `Expect`
+ * (this server already answered the 100 Continue; the body is streamed right away).
+ */
+const DROPPED_REQUEST = new Set(['forwarded', 'x-real-ip', 'via', 'expect']);
 
 /**
  * Response headers a preview may not send: they act on the whole host (every port), i.e. on
