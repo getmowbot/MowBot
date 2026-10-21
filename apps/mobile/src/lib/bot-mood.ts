@@ -1,7 +1,8 @@
 import type { Bot, Message } from '@mowbot/contract';
+import type { CharacterMood } from '@mowbot/design';
 import type { TFunction } from 'i18next';
 
-export type BotMood = 'idle' | 'thinking' | 'working' | 'waiting' | 'sleeping' | 'error';
+export type BotMood = CharacterMood;
 
 /** Expression of a bot's character from its status and what it is doing right now. */
 export function moodOf(bot: Pick<Bot, 'status'>, live?: Message | null): BotMood {

@@ -228,10 +228,15 @@ export function BotAvatar({
     moodRef.current = mood;
   }, [mood]);
 
+  // The hop and the shake answer a change: a list of bots already in error stays still.
+  const shownBefore = useRef<Expression | null>(null);
   useEffect(() => {
+    const changed = shownBefore.current !== null && shownBefore.current !== expression;
+    shownBefore.current = expression;
     animate(openLeft, face.open[0], springs.soft);
     animate(openRight, face.open[1], springs.soft);
     animate(lean, face.head, springs.drift);
+    if (!changed) return;
     if (expression === 'happy' && !reduced) {
       // A little hop of joy.
       animate(hop, [0, -7, 0], { duration: 0.45, ease: 'easeOut' });
