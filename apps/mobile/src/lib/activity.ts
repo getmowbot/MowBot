@@ -1,5 +1,6 @@
 import type { MessagePart, TaskStatus } from '@mowbot/contract';
 import type { TFunction } from 'i18next';
+import { shortSummary } from './incoming';
 
 export type ToolPart = Extract<MessagePart, { type: 'tool' }>;
 export type ReasoningPart = Extract<MessagePart, { type: 'reasoning' }>;
@@ -46,6 +47,43 @@ export const SHOW_IN_CHAT = 'show_in_chat';
 const str = (value: unknown) => (typeof value === 'string' ? value : '');
 
 const workspacePath = (value: unknown) => str(value).replace(/^\/workspace\/?/, '') || 'workspace';
+
+/** `Écrit à Nova · La playlist est prête`: the gist the bot gave (or the first sentence). */
+function withGist(who: string, input: Input, text: unknown): string {
+  const gist = str(input.summary).trim() || shortSummary(str(text));
+  return gist ? `${who} · ${gist}` : who;
+}
+
+/** A message or a question to another bot: opens large rather than unfolding. */
+export const isTalk = (part: ToolPart) =>
+  part.toolName === 'send_message' || part.toolName === 'ask_bot';
+
+/** The hub's words before a question's answer, in the tool's output. */
+const ANSWER_PREFIX = /^Réponse de [^\n]*:\n/;
+
+/**
+ * What a talk step holds: who it went to, what was said, and what came back (a question's
+ * answer, or why it failed).
+ */
+export function talkOf(part: ToolPart): {
+  to: string;
+  asks: boolean;
+  text: string;
+  answer: { text: string; fromBot: boolean } | null;
+} {
+  const i = (part.input ?? {}) as Input;
+  const asks = part.toolName === 'ask_bot';
+  const output = part.state === 'running' ? '' : (part.output ?? '');
+  return {
+    to: str(i.to).trim(),
+    asks,
+    text: str(asks ? i.question : i.text),
+    answer:
+      output && (asks || part.state === 'error')
+        ? { text: output.replace(ANSWER_PREFIX, ''), fromBot: ANSWER_PREFIX.test(output) }
+        : null,
+  };
+}
 
 const SEARCH_HOST =
   /(^|\.)(google\.[a-z.]+|duckduckgo\.com|bing\.com|qwant\.com|search\.brave\.com)$/;
@@ -205,12 +243,12 @@ const TOOLS: Record<string, ToolMeta> = {
   },
   send_message: {
     icon: () => 'send',
-    title: (i, t) => t('activity.tool.sendMessage', { to: str(i.to) }),
+    title: (i, t) => withGist(t('activity.tool.sendMessage', { to: str(i.to) }), i, i.text),
     kind: () => 'message',
   },
   ask_bot: {
     icon: () => 'question',
-    title: (i, t) => t('activity.tool.askBot', { to: str(i.to) }),
+    title: (i, t) => withGist(t('activity.tool.askBot', { to: str(i.to) }), i, i.question),
     kind: () => 'question',
   },
   assign_task: {

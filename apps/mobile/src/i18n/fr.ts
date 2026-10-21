@@ -124,6 +124,19 @@ export const fr = {
     incoming_one: 'Message de',
     incoming_other: 'Messages de',
     and: 'et',
+    /** A message between bots, on one line then opened large. */
+    talk: {
+      from: {
+        chat: 'Message de {{name}}',
+        ask: 'Question de {{name}}',
+        task: 'Tâche de {{name}}',
+        routine: 'Message de {{name}}',
+      },
+      to: { chat: 'Message à {{name}}', ask: 'Question à {{name}}' },
+      answerFrom: 'Réponse de {{name}}',
+      outcome: 'Suite',
+      openChat: 'Ouvrir la conversation avec {{name}}',
+    },
     kind: {
       chat: 'message',
       ask: 'question',

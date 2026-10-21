@@ -24,6 +24,7 @@ export function message(overrides: Partial<Message> = {}): Message {
     role: 'assistant',
     fromBotId: null,
     fromName: null,
+    summary: null,
     kind: 'chat',
     taskId: null,
     parts: [],

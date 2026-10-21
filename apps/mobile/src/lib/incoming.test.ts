@@ -1,21 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { bot, message } from '../test/fixtures';
-import { chipBots, incomingPlaces, nameSegments, runSummary, withSender } from './incoming';
+import {
+  chipBots,
+  incomingPlaces,
+  nameSegments,
+  runSummary,
+  shortSummary,
+  summaryOf,
+} from './incoming';
 
 const fromBot = (id: string, name: string, kind: 'chat' | 'ask' | 'task' = 'chat') =>
   message({ role: 'user', fromBotId: id, fromName: name, kind });
 
 describe('incoming runs', () => {
-  it('gives a run of bot messages one line, on its first message', () => {
+  it('keeps bot messages together, up to the next answer', () => {
     const a = fromBot('b-1', 'Nova', 'task');
     const b = fromBot('b-2', 'Iris');
     const answer = message();
     const c = fromBot('b-1', 'Nova');
     const places = incomingPlaces([a, b, answer, c]);
-    expect(places.get(a.id)).toEqual({ run: [a, b], mixed: true });
-    expect(places.get(b.id)).toEqual({ run: null, mixed: true });
+    expect(places.get(a.id)).toEqual({ run: [a, b] });
+    expect(places.get(b.id)).toEqual({ run: null });
     expect(places.has(answer.id)).toBe(false);
-    expect(places.get(c.id)).toEqual({ run: [c], mixed: false });
+    expect(places.get(c.id)).toEqual({ run: [c] });
   });
 
   it('keeps the user’s and the hub’s messages with their own', () => {
@@ -26,7 +33,7 @@ describe('incoming runs', () => {
     const places = incomingPlaces([typed, task, routine, other]);
     expect(places.has(typed.id)).toBe(false);
     expect(places.get(task.id)?.run).toEqual([task]);
-    expect(places.get(routine.id)).toEqual({ run: [routine, other], mixed: false });
+    expect(places.get(routine.id)).toEqual({ run: [routine, other] });
   });
 
   it('names each sender once, the hub aside, and the kinds that are not plain messages', () => {
@@ -79,9 +86,34 @@ describe('bot names in a text', () => {
       { id: null, name: 'Ancien', avatarSeed: 'Ancien' },
     ]);
   });
+});
 
-  it('opens a message with its sender, above a list', () => {
-    expect(withSender('Nova', 'Voici les fils.')).toBe('@Nova Voici les fils.');
-    expect(withSender('Nova', '- un\n- deux')).toBe('@Nova\n\n- un\n- deux');
+describe('a bot message in a few words', () => {
+  const text = (value: string) => [{ type: 'text' as const, text: value }];
+
+  it('keeps the summary its sender wrote', () => {
+    const written = message({ role: 'user', summary: ' La playlist est prête ', parts: text('…') });
+    expect(summaryOf(written)).toBe('La playlist est prête');
+  });
+
+  it('takes the first sentence, markdown aside', () => {
+    expect(shortSummary('## Bilan\n**3 offres** trouvées. Détails dans [le fichier](x.md).')).toBe(
+      'Bilan 3 offres trouvées.',
+    );
+    expect(summaryOf(message({ role: 'user', parts: text('Pas de point final') }))).toBe(
+      'Pas de point final',
+    );
+  });
+
+  it('goes past a greeting', () => {
+    expect(shortSummary('Salut Hans ! Peux-tu lancer la playlist ? Merci.')).toBe(
+      'Salut Hans ! Peux-tu lancer la playlist ?',
+    );
+  });
+
+  it('cuts a long sentence', () => {
+    const summary = shortSummary(`${'mot '.repeat(60)}fin.`);
+    expect(summary.length).toBe(140);
+    expect(summary.endsWith('…')).toBe(true);
   });
 });
