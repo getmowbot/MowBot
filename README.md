@@ -1,178 +1,186 @@
+<div align="center">
+
 # MowBot
 
-Des équipes de bots IA self-hosted. Chaque équipe partage un vrai PC Linux (bureau, navigateur, `sudo`) et un workspace de fichiers ; un bot **Chef** crée les équipes, distribue les missions et coordonne. Les bots sont proactifs, se parlent, se partagent leurs accès et utilisent des serveurs MCP.
+**Self-hosted teams of AI bots that share real computers.**
 
-- Spécification : [docs/SPEC.md](docs/SPEC.md)
-- Roadmap : [docs/ROADMAP.md](docs/ROADMAP.md)
+[![CI](https://github.com/jorisleva/MowBot/actions/workflows/ci.yml/badge.svg)](https://github.com/jorisleva/MowBot/actions/workflows/ci.yml)
+[![Desktop app](https://img.shields.io/github/v/release/jorisleva/MowBot?label=desktop%20app)](https://github.com/jorisleva/MowBot/releases/latest)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 
-> **État : P6, et l'app desktop.**
-> - L'app desktop (Tauri) : les équipes travaillent sur les projets de ton ordinateur, comme un assistant de code, même si le hub est sur un serveur. Tu partages un dossier, les bots y lisent, modifient, cherchent et lancent des commandes (avec ton accord, ou librement en mode auto). Ils peuvent aussi copier le projet sur leur PC pour l'installer et le tester, puis te rapporter leurs changements en branche git. Voir [docs/DESKTOP.md](docs/DESKTOP.md).
-> - Dans le chat, `@` cite un bot, une équipe ou un fichier du workspace (le bot reçoit qui c'est, ou le contenu du fichier), `/` lance une commande : `/stop`, `/clear`, `/pc`, `/files`, `/mcp`…
-> - Les bots utilisent des serveurs MCP : distants (URL, clé ou connexion OAuth depuis l'app) ou locaux, lancés sur le PC d'un bot. Tu choisis qui y a droit (tous, des équipes, des bots) ; un bot peut aussi s'installer lui-même un serveur sur son PC.
-> - Les bots confient au hub de petits scripts qui tournent tout seuls sur leur PC (score en direct, surveillance de prix) : la carte se met à jour, tu es prévenu, sans réveiller l'IA. Notifications push sur iPhone (fin de travail, besoin de toi).
-> - Dans la conversation, les bots montrent plutôt que décrire : cartes (produit, lieu, itinéraire, avec des boutons qui ouvrent la page sur ton téléphone ou leur répondent), images, chiffres. Ils te demandent un mot de passe par un formulaire masqué qui va droit au coffre. Un message envoyé pendant qu'ils travaillent est pris en compte tout de suite, et un bot peut en arrêter un autre.
-> - Le coffre : quand tu te connectes à un site sur le PC d'un bot, la session est gardée et les bots des autres PC s'en servent ; identifiants et clés s'utilisent sans jamais être montrés aux modèles.
-> - Les bots agissent d'eux-mêmes : routines (cron, intervalle, webhook), réveils périodiques, notifications et bilan du soir, budgets et pause globale.
-> - Ils épinglent leurs résultats sur la page d'accueil (score, liste de courses, chiffres…) et te posent leurs questions avec des réponses en boutons.
-> - Chaque bot navigue dans sa propre fenêtre de Chrome, sans prendre l'écran, et tu la vois en direct.
-> - Les équipes de bots se parlent, se confient des tâches et s'échangent des fichiers, sur des PC Linux partagés.
-> - L'API est sécurisée ; l'interface est en français et en anglais.
->
-> Prochaine étape : la mémoire des bots (P7).
+[Français](docs/README.fr.md) · [Specification](docs/SPEC.md) · [Roadmap](docs/ROADMAP.md) · [Desktop app](docs/DESKTOP.md)
 
-## Structure
+</div>
 
-```
-apps/hub              API Fastify : auth, appareils, équipes, ordinateurs (Docker), fichiers, événements
-apps/agent            mow-agent, le démon de chaque ordinateur (bureau, entrées, shell)
-apps/desktop          App desktop (Tauri) : l'interface du hub et le connecteur Rust des projets locaux
-apps/web              App web (Vite + React + TanStack)
-packages/contract     Schémas zod partagés (source de vérité des types de l'API)
-packages/api-client   Client TypeScript généré depuis l'OpenAPI (web, futures apps mobile/desktop)
-packages/design       Tokens (noir et blanc) et génome des personnages, partagés avec les futures apps
-workstation/          Image Docker des ordinateurs (Ubuntu, XFCE, VNC, Chrome, mow-agent)
-deploy/               docker-compose de production, Caddy
-docs/                 Spécification et roadmap
-```
+MowBot runs on your own server. You talk to a **Chef** bot; it builds **teams of bots**, gives
+them missions and coordinates them. Each team shares a **real Linux PC** (desktop, Chrome,
+`sudo`) and a workspace of files you can browse. Bots work at the same time, talk to each other,
+act on their own, share their logins safely, use MCP servers, and can work on the projects of
+**your own computer** through the desktop app. You choose the models: an API key, a subscription,
+or a local model.
 
-## Développement local
+## What it does
 
-Prérequis : Node 24+, pnpm 11. Pas besoin de Docker : la base tourne en local avec PGlite.
+**Teams and computers**
+- Several teams, each with its PC (a Docker workstation: XFCE, VNC, Chrome, `sudo`) and its
+  workspace; solo bots get their own PC. Bots share the PC without getting in each other's way:
+  each has its own Chrome window, its shell sessions, file locks and a queue for the screen.
+- Watch any PC live and take control from the app; bots ask you when they need a login, a 2FA
+  code or a captcha.
 
-```bash
-pnpm install
-```
+**Conversations**
+- Streaming answers with the bot's actions folded in. Messages sent while a bot works are taken
+  into account at its next step; a bot can stop another one.
+- Bots show rather than describe: cards with images and buttons, galleries, files, scores,
+  checklists, routes. `@` points at a bot, a team or a file; `/` runs a command (`/stop`,
+  `/clear`, `/pc`, `/files`…).
+- Characters with moods: each bot is a little creature that thinks, reads, waits, sleeps and
+  beams when it is done.
 
-```bash
-cp .env.example .env
-```
+**On their own**
+- Routines (cron, interval, webhook), periodic check-ins, an evening summary, budgets and a
+  global pause.
+- Automations: small scripts the hub runs on a bot's PC without waking the model (live scores,
+  price watching), updating a card and notifying you.
+- Push notifications on your phone when a bot is done or needs you.
 
-Renseigne `MOWBOT_MASTER_KEY` dans `.env` (32 octets en base64) :
+**Vault**
+- Envelope-encrypted logins, secrets and website sessions. A session opened on one PC can be used
+  on another; values reach websites and commands through placeholders and are never shown to
+  the models. Bots ask you for a password with a masked form that goes straight to the vault.
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-```
+**Tools and your projects**
+- MCP servers: remote (with OAuth) or local, run on a bot's PC; a bot can install one itself.
+- The **desktop app** shares folders of your computer as projects, even when the hub is on a
+  remote server. Bots read, edit, search and run commands there (commands with your approval,
+  or freely in auto mode), or copy the project to their PC to install and test it and bring
+  their changes back as a **git branch** of your repository.
 
-```bash
-pnpm dev
-```
+**Apps**
+- Web, desktop (Windows, macOS, Linux; updates itself) and mobile (iOS, Android), in English and
+  French. Every client is a peer of the secured REST API (OpenAPI 3.1).
 
-- Web : http://localhost:5173 (proxifie `/api` vers le hub)
-- Hub : http://localhost:8787/api/v1/health — OpenAPI sur `/api/v1/openapi.json`
+## Install the server
 
-Au premier lancement, le hub affiche dans ses logs le **jeton de configuration** à saisir sur la page de setup (ou utilise `MOWBOT_SETUP_TOKEN` s'il est défini).
-
-### Ordinateurs en local
-
-Le compte, l'API et les fichiers marchent sans Docker. Pour allumer le PC d'une équipe, il faut Docker (Docker Desktop sous Windows/macOS) et l'image des ordinateurs, à construire une fois depuis la racine du dépôt :
-
-```bash
-docker build -f workstation/Dockerfile -t mowbot/workstation:local .
-```
-
-Le hub publie l'agent de chaque ordinateur sur `127.0.0.1` et monte le workspace de l'équipe (`apps/hub/.data/workspaces/<id>`) sur `/workspace`. Après une reconstruction de l'image, chaque PC est recréé à son prochain démarrage ; son dossier `/home/bot` est conservé.
-
-### Réveiller le Chef
-
-Dans l'app, **Modèles → Ajouter** : Command Code (clé de ton abonnement), OpenAI (clé API) ou n'importe quel fournisseur compatible OpenAI (OpenRouter, Ollama…). Le premier fournisseur ajouté est donné au Chef ; le modèle se choisit par bot. Pour les captures d'écran, prends un modèle qui accepte les images.
-
-### Depuis le réseau local
-
-`pnpm dev` écoute sur toutes les interfaces : depuis un téléphone ou un autre PC du LAN, ouvre `http://<ip-de-cette-machine>:5173` (Vite affiche les adresses au démarrage). Sous Windows, autorise Node.js dans le pare-feu si une fenêtre le demande.
-
-### App mobile (Expo Go)
-
-L'app iOS / Android (`apps/mobile`, Expo SDK 57) se lance dans **Expo Go** :
-
-```bash
-pnpm --filter @mowbot/mobile start
-```
-
-Scanne le QR code avec Expo Go (même réseau local), puis connecte-toi avec l'adresse du hub (`http://<ip-de-cette-machine>:8787`) et ton mot de passe. Sous Windows, autorise Node.js dans le pare-feu (Metro écoute sur le port 8081).
-
-L'app fait tout ce que fait le site :
-- l'accueil : canvas, questions des bots, notifications, pause ;
-- les conversations : options du bot dans ⋯ ;
-- le PC de chaque bot : écran en direct, prise de contrôle avec clavier, fenêtre de chaque bot ;
-- la gestion des équipes et des bots ;
-- les modèles, les routines et la proactivité ;
-- les appareils ;
-- les fichiers.
-
-L'écran du PC charge noVNC depuis un CDN : le téléphone a besoin d'un accès à internet.
-
-### Personnages des bots
-
-Chaque bot a son personnage, tiré de sa graine (`packages/design`) : couleur, forme, yeux, rythme de clignement. En dev, la galerie `/dev/avatars` montre les variantes et les humeurs.
-
-### Commandes
-
-| Commande | Rôle |
-|---|---|
-| `pnpm dev` | Hub + web en mode watch |
-| `pnpm lint` / `pnpm format` | Biome (vérification / correction) |
-| `pnpm typecheck` | TypeScript sur tous les packages |
-| `pnpm test` | Tests (Vitest, base PGlite en mémoire) |
-| `pnpm build` | Bundle du hub + build du web |
-| `pnpm openapi` | Régénère `openapi.json` et le client TS après un changement d'API |
-| `pnpm --filter @mowbot/hub db:generate` | Génère une migration après un changement de `schema.ts` |
-
-## Production
-
-Sur un serveur Linux (Ubuntu, Debian, Fedora…), une seule commande installe tout, et la même met à jour :
-
-```bash
-git clone git@github.com:jorisleva/MowBot.git && sudo MowBot/install.sh
-```
-
-Le dépôt est privé : le serveur clone avec une clé SSH ajoutée à ton compte GitHub. Une fois le dépôt public, ceci suffira :
+On a Linux server (Ubuntu, Debian, Fedora…), one command installs everything, and the same
+command updates it:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jorisleva/MowBot/main/install.sh | sudo bash
 ```
 
-Le script :
-- installe Docker s'il manque (script officiel `get.docker.com`) ;
-- demande l'adresse : un nom de domaine public, servi en HTTPS avec un certificat automatique, ou rien pour le réseau local en HTTP ;
-- écrit `deploy/.env` avec des clés générées ;
-- construit les images (le hub, le web, le PC des bots), puis démarre. La première fois prend 10 à 20 minutes ;
-- affiche l'adresse et le jeton de configuration pour créer ton compte.
+The script installs Docker if needed, asks for the address (a public domain served over HTTPS
+with an automatic certificate, or nothing for your local network over HTTP), writes
+`deploy/.env` with generated keys, builds the images (hub, web, the bots' PC) and starts
+everything. The first run takes 10 to 20 minutes. It ends with the address and the **setup
+token** to create your account.
 
-Il installe aussi la commande `mowbot` :
+Non-interactive options: `--domain mowbot.example.com`, `--lan`, `--port 8080`, `--yes`,
+`--dir /opt/mowbot`.
 
-| Commande | Rôle |
+It also installs the `mowbot` command:
+
+| Command | What it does |
 |---|---|
-| `sudo mowbot update` | Récupère le code, reconstruit les images et redémarre. Tes réglages et tes données restent. |
-| `sudo mowbot status` | État des services et adresse |
-| `sudo mowbot logs [hub]` | Journaux en direct |
-| `sudo mowbot stop` / `start` / `restart` | Arrêter (PC des bots compris), relancer |
+| `sudo mowbot update` | Pulls the code, rebuilds the images and restarts. Settings and data stay. |
+| `sudo mowbot status` | Services and address |
+| `sudo mowbot logs [hub]` | Live logs |
+| `sudo mowbot stop` / `start` / `restart` | Stop (the bots' PCs included), start again |
 
-Relancer `install.sh` fait la même chose que `mowbot update`. Les PC des bots passent à la nouvelle image à leur prochain démarrage.
+> **Back up `deploy/.env`.** Its `MOWBOT_MASTER_KEY` encrypts the vault: without it, secrets
+> cannot be read.
 
-Options sans question : `--domain mowbot.example.com`, `--lan`, `--port 8080` (port HTTP en réseau local), `--yes`. Pour un autre emplacement que `/opt/mowbot` avec la version `curl` : `--dir`.
+Then open the address, create your account with the setup token, and add a model in
+**Models**.
 
-**Sauvegarde `deploy/.env`** : sa clé `MOWBOT_MASTER_KEY` chiffre les secrets ; sans elle, ils sont illisibles.
+## Models
 
-### À la main
+| Provider | How |
+|---|---|
+| OpenAI | API key |
+| Command Code | your subscription key |
+| Any OpenAI-compatible API | OpenRouter, Ollama, vLLM, xAI, DeepSeek… (base URL + key) |
 
-Avec Docker déjà installé :
+Each bot has its model, fallback models and a lighter model for check-ins. Pick a model that
+accepts images for screenshots.
 
-```bash
-cp deploy/.env.example deploy/.env
-```
+## Desktop app
 
-Remplis `deploy/.env` (domaine, mot de passe Postgres, clé maître), puis construis les images (y compris celle des ordinateurs) et démarre :
-
-```bash
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile build build
-```
-
-```bash
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
-```
-
-Caddy sert le web et l'API en HTTPS (certificat automatique pour un domaine public). Pour le réseau local, mets l'IP ou le nom LAN du serveur dans `MOWBOT_DOMAIN` (voir `deploy/.env.example` : HTTPS avec l'autorité interne de Caddy, ou HTTP simple). Récupère le jeton de configuration avec :
+Download it from the [latest release](https://github.com/jorisleva/MowBot/releases/latest):
+`.exe` / `.msi` for Windows, `.dmg` for macOS, AppImage / `.deb` for Linux. On Linux, one
+command installs it and points it at your hub:
 
 ```bash
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env logs hub
+curl -fsSL https://raw.githubusercontent.com/jorisleva/MowBot/main/apps/desktop/install-linux.sh | sh -s -- --hub https://mowbot.example.com
 ```
+
+On first launch it asks for your hub's address (the web interface's). In **Settings →
+Projects**, link the computer, then share a folder. The app keeps running in the tray so bots
+can reach your projects, and it updates itself when a new version is out. See
+[docs/DESKTOP.md](docs/DESKTOP.md) for the protocol and the security model.
+
+## Mobile app
+
+The iOS / Android app (`apps/mobile`, Expo SDK 57) runs in **Expo Go** for now:
+
+```bash
+pnpm --filter @mowbot/mobile start
+```
+
+Scan the QR code with Expo Go, then sign in with your hub's address and password.
+
+## Development
+
+Requirements: Node 24+ and pnpm 11. No Docker needed for the account, the API and files (the
+database runs locally with PGlite); the bots' PCs need Docker and the workstation image.
+
+```bash
+pnpm install
+cp .env.example .env
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # MOWBOT_MASTER_KEY in .env
+pnpm dev
+```
+
+- Web: http://localhost:5173 (proxies `/api` to the hub)
+- Hub: http://localhost:8787/api/v1/health, OpenAPI at `/api/v1/openapi.json`
+- On first start the hub prints the setup token in its logs.
+- Bots' PCs: `docker build -f workstation/Dockerfile -t mowbot/workstation:local .`
+
+| Command | |
+|---|---|
+| `pnpm dev` | Hub and web in watch mode |
+| `pnpm lint` / `pnpm format` | Biome |
+| `pnpm typecheck` | TypeScript in every package |
+| `pnpm test` | Vitest (in-memory PGlite) |
+| `pnpm build` | Hub bundle and web build |
+| `pnpm openapi` | Regenerates the OpenAPI document and the TypeScript client |
+| `pnpm --filter @mowbot/hub db:generate` | New migration after a `schema.ts` change |
+| `pnpm --filter @mowbot/desktop start` | Desktop app in development (Rust toolchain needed) |
+
+```
+apps/hub              Fastify API: auth, teams, computers (Docker), agents, vault, MCP, projects
+apps/agent            mow-agent, the daemon inside each bot PC (screen, input, shell, browser)
+apps/web              Web app (Vite, React, TanStack)
+apps/mobile           iOS / Android app (Expo)
+apps/desktop          Desktop app (Tauri): the web app plus the Rust connector for local projects
+packages/contract     Shared zod schemas, the source of truth of the API
+packages/api-client   TypeScript client generated from the OpenAPI document
+packages/design       Design tokens and the bots' characters (shared by every app)
+workstation/          Docker image of the bots' PCs
+deploy/               Production docker-compose and Caddy
+```
+
+## Security model
+
+- The API is the only door: devices get short access tokens and rotating refresh tokens, with
+  scopes; the web app keeps its refresh token in an httpOnly cookie.
+- A team's PC is a shared trust zone: its bots see each other's files and sessions. Give a bot
+  sensitive work on a dedicated PC, or in an isolated team.
+- Model API keys never enter the bots' PCs; vault values never reach the models.
+- The desktop app only works inside the folders you shared, checks every path, and asks before
+  running a command unless you allow it.
+
+## License
+
+MowBot is free software under the [GNU Affero General Public License v3.0](LICENSE).
+Copyright © 2026 Joris Levasseur.
