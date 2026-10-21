@@ -1,14 +1,17 @@
 import type { Bot, Message } from '@mowbot/contract';
 import { router } from 'expo-router';
+import { Fragment, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, type TextStyle, View } from 'react-native';
 import { segments } from '../../lib/activity';
 import { moodOf } from '../../lib/bot-mood';
 import { mentionSegments } from '../../lib/chat-input';
+import { chipBots, type IncomingPlace, runSummary, senderOf, withSender } from '../../lib/incoming';
 import { messageText } from '../../lib/message-cache';
 import { colors } from '../../theme';
 import { ActivityLine } from '../activity-line';
 import { BotAvatar } from '../bot-avatar';
+import { BotChip } from '../bot-chip';
 import { Markdown } from '../markdown';
 import { ShimmerText } from '../ui/shimmer-text';
 import { T } from '../ui/text';
@@ -17,11 +20,11 @@ import { TakeoverRequest } from './takeover-request';
 import { VaultRequest } from './vault-request';
 
 /** Under a message that reached the bot while it worked: taken into its ongoing answer. */
-function Steered({ message }: { message: Message }) {
+function Steered({ message, style }: { message: Message; style?: TextStyle }) {
   const { t } = useTranslation();
   if (!message.steered) return null;
   return (
-    <T variant="caption" tone="faint" style={styles.steered}>
+    <T variant="caption" tone="faint" style={[styles.steered, style]}>
       {t('chat.steered')}
     </T>
   );
@@ -76,35 +79,75 @@ export function UserMessage({
   );
 }
 
-/** What another bot (or the user, for a task) gave this bot: a quieter, outlined bubble. */
-export function IncomingMessage({ message, from }: { message: Message; from: Bot | undefined }) {
+/** Above a run of incoming messages, quietly: who sent them, and what they are. */
+function IncomingLine({ run, bots }: { run: Message[]; bots: Bot[] | undefined }) {
   const { t } = useTranslation();
-  const name = from?.name ?? message.fromName ?? t('common.you');
+  const { senders, kinds } = runSummary(run);
+  const what = kinds.map((kind) => t(`chat.kind.${kind}`)).join(', ');
+  if (senders.length === 0) {
+    return (
+      <T variant="caption" tone="faint" style={styles.line}>
+        {what.charAt(0).toUpperCase() + what.slice(1)}
+      </T>
+    );
+  }
   return (
-    <View style={styles.sent}>
-      <View style={styles.right}>
-        <View style={[styles.bubble, styles.incomingBubble]}>
-          <View style={styles.sender}>
-            {(from || message.fromName) && (
-              <BotAvatar seed={from?.avatarSeed ?? name} size={16} still />
+    <T variant="caption" tone="faint" style={styles.line}>
+      {t('chat.incoming', { count: run.length })}{' '}
+      {senders.map((sender, i) => {
+        const key = sender.kind === 'bot' ? (sender.id ?? sender.name) : sender.kind;
+        const bot = sender.kind === 'bot' ? bots?.find((b) => b.id === sender.id) : undefined;
+        return (
+          <Fragment key={key}>
+            {i > 0 && (i === senders.length - 1 ? ` ${t('chat.and')} ` : ', ')}
+            {sender.kind === 'bot' ? (
+              <BotChip
+                plain
+                bot={bot ?? { id: null, name: sender.name, avatarSeed: sender.name }}
+              />
+            ) : (
+              <T variant="caption" tone="muted" style={styles.you}>
+                {t('common.you')}
+              </T>
             )}
-            <T
-              variant="caption"
-              tone="muted"
-              numberOfLines={1}
-              onPress={
-                from
-                  ? () => router.push({ pathname: '/chat/[botId]', params: { botId: from.id } })
-                  : undefined
-              }
-            >
-              {t('chat.from', { name, kind: t(`chat.kind.${message.kind}`) })}
-            </T>
-          </View>
-          <Markdown text={messageText(message)} style={styles.incomingText} />
-        </View>
+          </Fragment>
+        );
+      })}
+      {what ? ` · ${what}` : null}
+    </T>
+  );
+}
+
+/**
+ * What another bot, the user (a task) or a routine gave this bot: a soft bubble under a quiet
+ * line naming its senders, the bots its text names shown as chips.
+ */
+export function IncomingMessage({
+  message,
+  place,
+  bots,
+}: {
+  message: Message;
+  place: IncomingPlace;
+  bots: Bot[] | undefined;
+}) {
+  const chips = useMemo(() => chipBots(bots, message), [bots, message]);
+  const sender = senderOf(message);
+  const from = sender.kind === 'bot' ? chips.find((b) => b.id === sender.id) : undefined;
+  const text = messageText(message);
+  // Several senders above: each message opens with its own.
+  const name = sender.kind === 'bot' ? (from?.name ?? sender.name) : null;
+  return (
+    <View style={styles.incoming}>
+      {place.run && <IncomingLine run={place.run} bots={bots} />}
+      <View style={styles.incomingBubble}>
+        <Markdown
+          text={place.mixed && name ? withSender(name, text) : text}
+          bots={chips}
+          style={styles.incomingText}
+        />
       </View>
-      <Steered message={message} />
+      <Steered message={message} style={styles.centered} />
     </View>
   );
 }
@@ -204,14 +247,19 @@ const styles = StyleSheet.create({
   userText: { color: colors.accentInk },
   // Ink on the light bubble: bolder, on a faint tint.
   mention: { fontWeight: '600', backgroundColor: 'rgba(7, 8, 10, 0.08)' },
+  incoming: { alignItems: 'center', gap: 6 },
+  line: { textAlign: 'center', lineHeight: 20, paddingHorizontal: 12 },
+  you: { fontWeight: '600' },
   incomingBubble: {
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    gap: 6,
+    maxWidth: '92%',
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
   },
-  incomingText: { fontSize: 14.5, lineHeight: 21 },
-  sender: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  incomingText: { fontSize: 14, lineHeight: 21, color: 'rgba(238, 241, 246, 0.88)' },
+  centered: { textAlign: 'center' },
   bot: { flexDirection: 'row', gap: 12 },
   botBody: { flex: 1, minWidth: 0, gap: 10, paddingTop: 3 },
   thinking: { fontSize: 15, lineHeight: 23 },
