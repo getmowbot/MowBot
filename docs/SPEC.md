@@ -248,7 +248,7 @@ Limites par défaut : 20 bots, 10 équipes, profondeur hiérarchique 3. Une équ
   2. Un bot sur l'ordinateur Y a besoin du compte → `vault_find("google")` → `vault_use(id)` → politique (défaut : **automatique entre bots**) → le Hub injecte les cookies dans le Chrome de Y. **Les valeurs ne passent jamais par le contexte LLM ni par les logs.**
   3. Échec (session liée à l'appareil) → repli : `ask_bot(bot de X, …)` (délégation) ou prise de contrôle sur Y.
 - Rafraîchissement : une routine re-capture la session quand les cookies tournent.
-- Politique par item : `auto | ask_owner_bot | ask_user`. Défaut `auto` (même équipe et entre équipes) sauf équipe ou item **cloisonné** ; items sensibles (banque…) en `ask_user`. Accès limités aux domaines nécessaires. Audit complet.
+- Politique par item : `auto | ask` (`ask` : l'utilisateur autorise chaque bot une fois, par une question Autoriser / Refuser). Défaut `auto` (même équipe et entre équipes) sauf session d'une équipe **cloisonnée** ; items sensibles (banque…) en `ask`. Historique complet par item. Plus tard : `ask_owner_bot`, accès limités aux domaines nécessaires.
 - Secrets dans les commandes : placeholders résolus à l'exécution, valeurs masquées dans les sorties d'outils.
 - Exclus du partage : tokens d'abonnement LLM (conditions des providers).
 

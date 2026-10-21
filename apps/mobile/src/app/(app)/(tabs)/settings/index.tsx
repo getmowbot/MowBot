@@ -13,6 +13,7 @@ import {
   Server,
   Smartphone,
   UserRound,
+  Vault,
 } from 'lucide-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +34,7 @@ import { alertError, confirm } from '../../../../lib/options-menu';
 import { urlLabel } from '../../../../lib/provider-form';
 import { useMe, useProviders } from '../../../../lib/queries';
 import { deviceName, signOut, useSession } from '../../../../lib/session';
+import { useVault } from '../../../../lib/vault-queries';
 import { colors } from '../../../../theme';
 
 export default function SettingsScreen() {
@@ -44,6 +46,7 @@ export default function SettingsScreen() {
   const routines = useRoutines();
   const system = useSystem();
   const devices = useDevices();
+  const vault = useVault();
   const updateMe = useUpdateMe();
   const [language, setLanguage] = useState<LanguagePreference>(storedPreference);
 
@@ -67,6 +70,7 @@ export default function SettingsScreen() {
   const providerCount = providers.data?.length;
   const activeRoutines = routines.data?.filter((r) => r.enabled).length;
   const activeDevices = devices.data?.filter((d) => !d.revokedAt).length;
+  const vaultCount = vault.data?.length;
   const phoneLanguage = t(`languages.${resolveLanguage('system', deviceLanguage())}`);
 
   return (
@@ -78,6 +82,7 @@ export default function SettingsScreen() {
           routines.refetch(),
           system.refetch(),
           devices.refetch(),
+          vault.refetch(),
         ])
       }
     >
@@ -94,6 +99,18 @@ export default function SettingsScreen() {
                   : t('appAdmin.settings.providers', { count: providerCount })
             }
             onPress={() => router.push('/models')}
+          />
+          <ListRow
+            icon={Vault}
+            label={t('vault.title')}
+            value={
+              vaultCount === undefined
+                ? undefined
+                : vaultCount === 0
+                  ? t('vault.empty')
+                  : t('vault.count', { count: vaultCount })
+            }
+            onPress={() => router.push('/vault')}
           />
           <ListRow
             icon={CalendarClock}

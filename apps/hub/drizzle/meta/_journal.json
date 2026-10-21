@@ -71,6 +71,13 @@
       "when": 1792535744229,
       "tag": "0009_canvas_collapsed",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792568033750,
+      "tag": "0010_vault",
+      "breakpoints": true
     }
   ]
 }

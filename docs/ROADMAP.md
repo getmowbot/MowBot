@@ -103,6 +103,17 @@
 - [x] Interface web en français et en anglais (langue du compte) ; aperçu des fichiers Markdown mis en forme
 - [ ] Web Push et notifications sur mobile (P8)
 
+## État de P5
+
+- [x] Coffre chiffré en enveloppe : une clé par entrée, elle-même scellée par la clé maître ; les valeurs ne sortent jamais du hub (ni vers l'app, ni vers un modèle)
+- [x] Sessions de sites (cookies + localStorage des pages ouvertes) : capturées depuis le Chrome d'un PC par un bot (`vault_save_session`), par l'utilisateur (choix du PC et du site) ou automatiquement en fin de prise de main (sites visités dont les cookies de connexion ont changé) ; chargées dans le Chrome d'un autre PC (`vault_use_session`), rafraîchies depuis le PC d'origine s'il est allumé
+- [x] Identifiants (nom, mot de passe, graine 2FA) et secrets : saisis dans des champs masqués ou rangés par un bot (`vault_save_secret`) ; utilisés par placeholders `{{vault:ref.champ}}` dans `bash`, `browser_type` et `computer` (type), remplis au moment de l'action ; code 2FA calculé (RFC 6238)
+- [x] Masquage : toute valeur du coffre est remplacée par « [secret masqué] » dans les sorties d'outils (y compris le texte des pages) ; les champs mot de passe ne sont jamais lus dans les aperçus de page
+- [x] Politiques : `auto` (défaut) ou `ask` (question à l'utilisateur, Autoriser / Refuser, retenue par bot, révocable) ; une équipe cloisonnée garde ses sessions
+- [x] Historique par entrée (captures, usages, demandes, décisions) ; le prompt de chaque bot liste le coffre
+- [x] Pages Coffre (web et app) ; vider l'onglet Activité et les notifications
+- [ ] Politique « demander au bot propriétaire », entrées de type fichier, vérification de santé des sessions (plus tard)
+
 ## Risques
 
 1. **Conditions des providers** : l'abonnement ChatGPT n'est utilisable que via le programme open-source officiel (MowBot doit être open source) ; Claude Pro/Max uniquement via le CLI Claude Code officiel non modifié. Les limites des abonnements supposent un « usage individuel ordinaire » → une proactivité massive consomme vite les quotas.

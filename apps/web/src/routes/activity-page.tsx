@@ -1,7 +1,7 @@
 import type { Bot, FeedItem, Task } from '@mowbot/contract';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ArrowRight, ListPlus } from 'lucide-react';
+import { ArrowRight, Eraser, ListPlus } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -180,12 +180,27 @@ function NewTaskForm({ bots, onDone }: { bots: Bot[]; onDone(): void }) {
 /** What the bots do together: their tasks, and what they write to each other. */
 export function ActivityPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const bots = useBots();
   const tasks = useTasks();
   const feed = useFeed();
   const [creating, setCreating] = useState(false);
   const byId = new Map((bots.data ?? []).map((b) => [b.id, b]));
   const exchanges = [...(feed.data ?? [])].reverse();
+  const clearable =
+    exchanges.length > 0 ||
+    (tasks.data ?? []).some((task) => task.status === 'done' || task.status === 'cancelled');
+  const clear = useMutation({
+    mutationFn: async () => {
+      const { error } = await api.POST('/api/v1/activity/clear');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      void queryClient.invalidateQueries({ queryKey: ['feed'] });
+    },
+    onError: (err) => alert(problemMessage(err, t('activityPage.notCleared'))),
+  });
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -194,6 +209,13 @@ export function ActivityPage() {
           <h1 className="text-2xl font-semibold tracking-tight">{t('activityPage.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('activityPage.subtitle')}</p>
         </div>
+        <Button
+          variant="ghost"
+          onClick={() => confirm(t('activityPage.confirmClear')) && clear.mutate()}
+          disabled={!clearable || clear.isPending}
+        >
+          <Eraser className="size-4" /> {t('activityPage.clear')}
+        </Button>
         <Button onClick={() => setCreating(true)}>
           <ListPlus className="size-4" /> {t('activityPage.newTask')}
         </Button>

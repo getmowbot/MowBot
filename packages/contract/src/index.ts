@@ -11,3 +11,4 @@ export * from './questions';
 export * from './routines';
 export * from './tasks';
 export * from './teams';
+export * from './vault';

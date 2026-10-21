@@ -6,6 +6,7 @@ import { questionSchema } from './questions';
 import { notificationSchema, routineSchema, systemSettingsSchema } from './routines';
 import { taskSchema } from './tasks';
 import { teamSchema } from './teams';
+import { vaultItemSchema } from './vault';
 
 /** Messages pushed by the hub on `/api/v1/events`. */
 export const serverEventSchema = z.discriminatedUnion('type', [
@@ -34,6 +35,13 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   /** A bot asked the user something, or the question was answered. */
   z.object({ type: z.literal('question.updated'), question: questionSchema }),
   z.object({ type: z.literal('system.updated'), settings: systemSettingsSchema }),
+  /** The user emptied the notifications. */
+  z.object({ type: z.literal('notifications.cleared') }),
+  /** The user cleared the activity tab: finished tasks are gone, the feed starts over. */
+  z.object({ type: z.literal('activity.cleared') }),
+  /** A vault entry was saved, refreshed, used or changed (never with its values). */
+  z.object({ type: z.literal('vault.updated'), item: vaultItemSchema }),
+  z.object({ type: z.literal('vault.deleted'), itemId: z.uuid() }),
   /** The bot's conversation was cleared. */
   z.object({ type: z.literal('messages.cleared'), botId: z.uuid() }),
   /** A message appeared or reached a checkpoint (tool call/result, end of run). */

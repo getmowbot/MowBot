@@ -39,6 +39,8 @@ export interface ToolContext {
   computer: (() => Promise<AgentClient>) | null;
   /** Screenshots (base64 PNG) to show the model at its next step. */
   pendingImages: string[];
+  /** Fills in `{{vault:…}}` placeholders (commands, typed text). */
+  expand(text: string): Promise<string>;
 }
 
 const MAX_TOOL_TEXT = 16_000;
@@ -132,7 +134,7 @@ export function buildTools(ctx: ToolContext): ToolSet {
 
   tools.bash = tool({
     description:
-      'Exécute une commande bash sur ton PC Linux (utilisateur bot, sudo sans mot de passe, dossier courant /workspace). Pour un programme graphique ou long, lance-le en arrière-plan avec `&` ou `nohup`.',
+      'Exécute une commande bash sur ton PC Linux (utilisateur bot, sudo sans mot de passe, dossier courant /workspace). Pour un programme graphique ou long, lance-le en arrière-plan avec `&` ou `nohup`. Les {{vault:ref.champ}} sont remplacés par les valeurs du coffre au lancement.',
     inputSchema: z.object({
       intent: intentSchema,
       command: z.string().min(1),
@@ -141,9 +143,12 @@ export function buildTools(ctx: ToolContext): ToolSet {
     execute: async ({ command, timeout_seconds }) => {
       const agent = await computer();
       // Tagged so pc_status can tell which bot started which process.
-      const result = await agent.exec(`export MOWBOT_BOT=${ctx.botId}\n${command}`, {
-        timeoutMs: timeout_seconds * 1000,
-      });
+      const result = await agent.exec(
+        `export MOWBOT_BOT=${ctx.botId}\n${await ctx.expand(command)}`,
+        {
+          timeoutMs: timeout_seconds * 1000,
+        },
+      );
       if (workspaceId) events.publish({ type: 'workspace.changed', workspaceId, paths: [''] });
       return result;
     },
@@ -235,7 +240,7 @@ export function buildTools(ctx: ToolContext): ToolSet {
           break;
         case 'type':
           if (!input.text) throw new Error('type demande text');
-          await agent.input({ action: 'type', text: input.text });
+          await agent.input({ action: 'type', text: await ctx.expand(input.text) });
           break;
         case 'key':
           if (!input.keys) throw new Error('key demande keys');

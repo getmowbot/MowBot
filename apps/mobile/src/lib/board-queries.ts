@@ -167,6 +167,16 @@ export function useMarkNotificationsRead() {
   });
 }
 
+/** Deletes every notification (on all devices: the hub tells them). */
+export function useClearNotifications() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => done(api().DELETE('/api/v1/notifications')),
+    onSuccess: () =>
+      client.setQueryData<NotificationList>(keys.notifications, { items: [], unread: 0 }),
+  });
+}
+
 // ---------------------------------------------------------------------------------------------
 // System (global pause)
 

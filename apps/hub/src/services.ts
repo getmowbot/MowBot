@@ -1,5 +1,6 @@
 import type { LanguageModel } from 'ai';
 import { eq } from 'drizzle-orm';
+import { BrowserHub } from './agents/browser';
 import { BotRuntime } from './agents/runtime';
 import { SessionService } from './auth/sessions';
 import { SetupGate } from './auth/setup';
@@ -21,6 +22,7 @@ import { QuestionService } from './proactivity/questions';
 import { RoutineService } from './proactivity/routines';
 import { Scheduler } from './proactivity/scheduler';
 import { ProviderService } from './providers/service';
+import { VaultService } from './vault/service';
 import { WorkspaceFiles } from './workspaces/files';
 
 /** Everything route handlers need, built once at startup (and per test). */
@@ -45,6 +47,7 @@ export interface Services {
   scheduler: Scheduler;
   canvases: CanvasService;
   questions: QuestionService;
+  vault: VaultService;
   /** Main team, its PC, the Chef and its daily summary (at startup and right after setup). */
   bootstrap(): Promise<void>;
 }
@@ -87,6 +90,16 @@ export async function createServices(
   const providers = new ProviderService(db, config.masterKey);
   const bots = new BotService(db, events);
   const org = new OrgService(db, files, computers, events, config.masterKey);
+  const browser = new BrowserHub();
+  const vault = new VaultService({
+    db,
+    events,
+    masterKey: config.masterKey,
+    computers,
+    browser,
+    questions,
+    notifications,
+  });
   const runtime = new BotRuntime({
     db,
     events,
@@ -100,6 +113,8 @@ export async function createServices(
     system,
     canvases,
     questions,
+    vault,
+    browser,
     modelFor: overrides.modelFor,
     askTimeoutMs: overrides.askTimeoutMs,
   });
@@ -124,6 +139,7 @@ export async function createServices(
     scheduler: new Scheduler({ db, routines, runtime, system, notifications }),
     canvases,
     questions,
+    vault,
     bootstrap,
   };
 }

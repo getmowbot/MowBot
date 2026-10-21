@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 // DOM types for snapshotInPage, which runs in the bot's page.
 import type { BotBrowser } from '@mowbot/contract';
-import { type Browser, chromium, type Page } from 'playwright-core';
+import { type Browser, type BrowserContext, chromium, type Page } from 'playwright-core';
 import type { AgentClient } from '../computers/agent-client';
 import { chromeReadyScript, rememberTab } from './desktop';
 
@@ -54,6 +54,8 @@ function snapshotInPage(limits: { text: number; elements: number }): Snapshot {
     node.setAttribute('data-mowbot-ref', String(ref));
     const tag = node.tagName.toLowerCase();
     const input = node as HTMLInputElement;
+    // A typed password never reaches the model, even as a field's label.
+    const value = input.type === 'password' ? '' : input.value;
     const kind =
       node.getAttribute('role') ??
       (tag === 'a'
@@ -67,7 +69,7 @@ function snapshotInPage(limits: { text: number; elements: number }): Snapshot {
               : tag);
     const name = (
       node.getAttribute('aria-label') ??
-      (node.innerText || input.value || node.getAttribute('placeholder') || node.title || '')
+      (node.innerText || value || node.getAttribute('placeholder') || node.title || '')
     )
       .replace(/\s+/g, ' ')
       .trim()
@@ -130,6 +132,13 @@ export class BrowserHub {
     for (const [botId, entry] of this.pages) {
       if (entry.computerId === computerId) this.pages.delete(botId);
     }
+  }
+
+  /** The computer's Chrome profile (cookies, storage, every tab), for the vault. */
+  async context(computerId: string, agent: AgentClient): Promise<BrowserContext> {
+    const context = (await this.connect(computerId, agent)).contexts()[0];
+    if (!context) throw new Error('Chrome has no browsing context');
+    return context;
   }
 
   /** The bot's current page, if it has one open. */

@@ -1,7 +1,7 @@
 import type { Task, TaskStatus, TaskUpdate } from '@mowbot/contract';
-import { and, desc, eq, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, type SQL } from 'drizzle-orm';
 import type { Db } from '../db/client';
-import { bots, tasks } from '../db/schema';
+import { bots, settings, tasks } from '../db/schema';
 import type { EventBus } from '../events';
 import { HttpProblem, notFound } from '../http/problems';
 import { HUB_TEXTS, ownerLocale } from '../i18n';
@@ -41,6 +41,8 @@ export type TaskNotifier = (input: {
   /** Bot-to-bot hops behind this notice (loop guard). */
   depth: number;
 }) => Promise<void>;
+
+const ACTIVITY_KEY = 'activity';
 
 /** Tasks bots give each other (or the user gives them), with their status and result. */
 export class TaskService {
@@ -159,5 +161,26 @@ export class TaskService {
       }
     }
     return toTask(row);
+  }
+
+  /** Where the activity feed starts since the user last cleared it (null: never cleared). */
+  async feedStart(): Promise<Date | null> {
+    const [row] = await this.db.select().from(settings).where(eq(settings.key, ACTIVITY_KEY));
+    const clearedAt = (row?.value as { clearedAt?: string } | undefined)?.clearedAt;
+    return clearedAt ? new Date(clearedAt) : null;
+  }
+
+  /**
+   * The user clears the activity tab: finished tasks go away, the feed starts over. Messages
+   * between bots stay in their conversations (they are the bots' memory).
+   */
+  async clearActivity(now = new Date()): Promise<void> {
+    await this.db.delete(tasks).where(inArray(tasks.status, ['done', 'cancelled']));
+    const value = { clearedAt: now.toISOString() };
+    await this.db
+      .insert(settings)
+      .values({ key: ACTIVITY_KEY, value })
+      .onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: now } });
+    this.events.publish({ type: 'activity.cleared' });
   }
 }

@@ -8,6 +8,7 @@ import { BotAvatar } from '../components/bot-avatar';
 import { Button } from '../components/ui/button';
 import { Dialog } from '../components/ui/dialog';
 import { FormError, Input, Label, Select, Textarea } from '../components/ui/form';
+import { Switch } from '../components/ui/switch';
 import { api, apiBaseUrl, problemMessage } from '../lib/auth';
 import { Reveal } from '../lib/motion';
 import { useRoutineRuns, useRoutines } from '../lib/proactivity';
@@ -41,38 +42,6 @@ function useTriggerLabel() {
         return t('routines.trigger.webhook');
     }
   };
-}
-
-function Switch({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange(): void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={onChange}
-      className={cn(
-        'relative h-5 w-9 shrink-0 rounded-full border transition-colors duration-200',
-        checked ? 'border-primary bg-primary' : 'border-border-strong bg-white/[0.04]',
-      )}
-    >
-      <motion.span
-        layout
-        className={cn(
-          'absolute top-0.5 size-3.5 rounded-full',
-          checked ? 'right-0.5 bg-primary-foreground' : 'left-0.5 bg-white/50',
-        )}
-      />
-    </button>
-  );
 }
 
 function Runs({ routineId }: { routineId: string }) {

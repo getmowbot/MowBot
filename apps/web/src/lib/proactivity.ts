@@ -34,6 +34,18 @@ export function useMarkNotificationsRead() {
   });
 }
 
+/** Deletes every notification. */
+export function useClearNotifications() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await api.DELETE('/api/v1/notifications');
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.setQueryData(['notifications'], { items: [], unread: 0 }),
+  });
+}
+
 export function useSystem() {
   return useQuery({
     queryKey: ['system'],

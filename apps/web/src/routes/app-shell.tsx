@@ -17,6 +17,7 @@ import {
   Pause,
   Plus,
   Users,
+  Vault,
   X,
 } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
@@ -357,6 +358,9 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
         </NavItem>
         <NavItem to="/settings/proactivity" onNavigate={onNavigate}>
           <Gauge className="size-4 shrink-0" /> {t('shell.proactivity')}
+        </NavItem>
+        <NavItem to="/vault" onNavigate={onNavigate}>
+          <Vault className="size-4 shrink-0" /> {t('shell.vault')}
         </NavItem>
         <NavItem to="/settings/devices" onNavigate={onNavigate}>
           <MonitorSmartphone className="size-4 shrink-0" /> {t('shell.devices')}

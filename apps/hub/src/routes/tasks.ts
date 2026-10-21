@@ -8,8 +8,9 @@ import {
   taskSchema,
   taskUpdateSchema,
 } from '@mowbot/contract';
-import { and, desc, isNotNull, lt } from 'drizzle-orm';
+import { and, desc, gt, isNotNull, lt } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 import { toMessage } from '../bots/service';
 import { messages } from '../db/schema';
 import { bearerSecurity, requireAuth } from '../http/auth-hook';
@@ -75,6 +76,25 @@ export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request) => tasks.update(request.params.id, request.body, null),
   );
 
+  app.post(
+    '/activity/clear',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags: ['tasks'],
+        operationId: 'clearActivity',
+        description:
+          'Empties the activity tab: deletes finished and cancelled tasks, and starts the feed over (the messages stay in the bots’ conversations).',
+        security: bearerSecurity,
+        response: { 204: z.null(), ...errorResponses },
+      },
+    },
+    async (_request, reply) => {
+      await tasks.clearActivity();
+      return reply.code(204).send(null);
+    },
+  );
+
   app.get(
     '/feed',
     {
@@ -94,11 +114,16 @@ export const taskRoutes: FastifyPluginAsyncZod = async (app) => {
       if (cursor && Number.isNaN(cursor.getTime())) {
         throw new HttpProblem(400, 'invalid_cursor', 'Bad cursor');
       }
+      const start = await tasks.feedStart();
       const rows = await db
         .select()
         .from(messages)
         .where(
-          and(isNotNull(messages.fromBotId), cursor ? lt(messages.createdAt, cursor) : undefined),
+          and(
+            isNotNull(messages.fromBotId),
+            cursor ? lt(messages.createdAt, cursor) : undefined,
+            start ? gt(messages.createdAt, start) : undefined,
+          ),
         )
         .orderBy(desc(messages.createdAt))
         .limit(limit + 1);

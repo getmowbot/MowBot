@@ -23,6 +23,7 @@ import { OrgPage } from './routes/org-page';
 import { ProactivityPage } from './routes/proactivity-page';
 import { RoutinesPage } from './routes/routines-page';
 import { TeamPage } from './routes/team-page';
+import { VaultPage } from './routes/vault-page';
 
 const PUBLIC_PATHS = ['/setup', '/login'];
 
@@ -88,6 +89,11 @@ const devicesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/settings/devices',
   component: DevicesPage,
+});
+const vaultRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/vault',
+  component: VaultPage,
 });
 
 const routinesRoute = createRoute({
@@ -157,6 +163,7 @@ export const router = createRouter({
       botRoute,
       modelsRoute,
       devicesRoute,
+      vaultRoute,
       routinesRoute,
       proactivityRoute,
       orgRoute,

@@ -17,6 +17,8 @@ export interface BrowserToolContext {
   computer(): Promise<AgentClient>;
   /** Screenshots (base64) shown to the model at its next step. */
   pendingImages: string[];
+  /** Fills in `{{vault:…}}` placeholders in typed text. */
+  expand(text: string): Promise<string>;
 }
 
 const intentSchema = z
@@ -82,7 +84,7 @@ export function buildBrowserTools(ctx: BrowserToolContext): ToolSet {
 
   tools.browser_type = tool({
     description:
-      "Remplit un champ de ta page (le texte remplace ce qu'il contenait). submit: true appuie ensuite sur Entrée.",
+      "Remplit un champ de ta page (le texte remplace ce qu'il contenait). submit: true appuie ensuite sur Entrée. Pour un mot de passe ou un code du coffre, écris son placeholder {{vault:ref.password}} : la valeur est tapée sans passer par toi.",
     inputSchema: z.object({
       intent: intentSchema,
       ref: refSchema,
@@ -92,7 +94,7 @@ export function buildBrowserTools(ctx: BrowserToolContext): ToolSet {
     execute: async ({ ref, text, submit }) =>
       act(ref, async (current) => {
         const field = ctx.browser.element(current, ref);
-        await field.fill(text, { timeout: 10_000 });
+        await field.fill(await ctx.expand(text), { timeout: 10_000 });
         if (submit) await field.press('Enter');
       }),
   });
