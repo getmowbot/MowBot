@@ -1,7 +1,7 @@
 import type { Bot, Computer, McpServer, Team } from '@mowbot/contract';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Check, LogIn, Pencil, RefreshCw, Trash2, X } from 'lucide-react-native';
+import { ArrowRightLeft, Check, LogIn, Pencil, RefreshCw, Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
@@ -26,6 +26,7 @@ import {
   callHint,
   installedText,
   isAuthorization,
+  isLegacy,
   liveScope,
   removeSecretBody,
   type ScopeNames,
@@ -44,6 +45,7 @@ import {
   useDeleteMcpServer,
   useMcpCalls,
   useMcpServer,
+  useMoveMcpServer,
   useRefreshMcpServer,
   useStartMcpOAuth,
   useUpdateMcpServer,
@@ -166,10 +168,27 @@ interface Names extends ScopeNames {
   computers: Computer[] | undefined;
 }
 
-/** Remote or local, its address or command, how it signs in, its tools' prefix, who added it. */
+/**
+ * Remote or local (and where it runs), its address or command, how it signs in, its tools'
+ * prefix, who added it; a server a bot installed on its own PC can move to the MCP computer.
+ */
 function Info({ server, names }: { server: McpServer; names: Names }) {
   const { t } = useTranslation();
+  const move = useMoveMcpServer();
   const installed = installedText(server, names, t);
+  const legacy = isLegacy(server);
+
+  const askMove = async () => {
+    const ok = await confirm(
+      t('mcp.move.confirm', { name: server.name }),
+      t('mcp.move.confirmHint'),
+      {
+        label: t('mcp.move.action'),
+      },
+    );
+    if (!ok) return;
+    move.mutate(server.id, { onError: (err) => alertError(mcpError(err, t('mcp.move.notMoved'))) });
+  };
   return (
     <Section title={t('mcp.info.title')}>
       <ListCard inset={ROW_INSET}>
@@ -180,7 +199,17 @@ function Info({ server, names }: { server: McpServer; names: Names }) {
             <ListRow label={t('mcp.info.auth')} value={t(`mcp.auth.${authChoice(server)}`)} />
           </>
         ) : (
-          <ListRow label={t('mcp.info.command')} hint={server.command ?? '—'} />
+          <>
+            <ListRow label={t('mcp.info.command')} hint={server.command ?? '—'} />
+            <ListRow
+              label={t('mcp.info.where')}
+              value={
+                server.computerId
+                  ? computerName(server.computerId, names.computers, t)
+                  : t('mcp.info.mcpPc')
+              }
+            />
+          </>
         )}
         <ListRow
           label={t('mcp.info.prefix')}
@@ -188,6 +217,18 @@ function Info({ server, names }: { server: McpServer; names: Names }) {
         />
       </ListCard>
       {installed ? <Caption>{installed}</Caption> : null}
+      {legacy ? (
+        <>
+          <Button
+            label={t('mcp.move.action')}
+            icon={ArrowRightLeft}
+            variant="secondary"
+            onPress={() => void askMove()}
+            loading={move.isPending}
+          />
+          <Caption>{t('mcp.move.hint')}</Caption>
+        </>
+      ) : null}
     </Section>
   );
 }

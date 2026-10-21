@@ -90,6 +90,7 @@ export function ServerEvents() {
             'system',
             'vault',
             'mcp',
+            'mcp-computer',
             'projects',
             'connectors',
           ]) {
@@ -180,6 +181,9 @@ export function ServerEvents() {
           break;
         case 'mcp.deleted':
           removeMcpServer(queryClient, event.serverId);
+          break;
+        case 'mcp.computer':
+          queryClient.setQueryData(['mcp-computer'], event.computer);
           break;
         case 'project.updated':
           setProject(queryClient, event.project);

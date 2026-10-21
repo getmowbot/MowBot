@@ -1,5 +1,6 @@
 import type {
   McpAuth,
+  McpComputer,
   McpServer,
   McpServerUpdate,
   McpStatus,
@@ -9,6 +10,7 @@ import type {
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  ArrowRightLeft,
   Check,
   ChevronDown,
   CircleAlert,
@@ -19,6 +21,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Server,
   SquareTerminal,
   Trash2,
   X,
@@ -44,12 +47,14 @@ import { api, problemMessage } from '../lib/auth';
 import {
   bearer,
   isTokenHeader,
+  moveMcpServer,
   openBlankTab,
   removeMcpServer,
   setMcpServer,
   startMcpOAuth,
   TOKEN_HEADER,
   useMcpCalls,
+  useMcpComputer,
   useMcpServers,
 } from '../lib/mcp';
 import { Reveal, reveal, stagger } from '../lib/motion';
@@ -122,13 +127,15 @@ function duration(ms: number): string {
   }).format(seconds ? ms / 1_000 : ms);
 }
 
-/** "Installé par Iris sur PC Ventes" for a server a bot set up on its own computer. */
+/**
+ * Where a server runs and who added it: "Sur le PC MCP · Ajouté par Chef", or "Installé par Iris
+ * sur PC Ventes" for a server a bot set up on its own computer (legacy).
+ */
 function useOriginLabel(server: McpServer): string | null {
   const { t } = useTranslation();
   const bots = useBots();
   const computers = useComputers();
   const { createdByBotId, computerId } = server;
-  if (!createdByBotId && !computerId) return null;
   const bot =
     createdByBotId &&
     (bots.data?.find((b) => b.id === createdByBotId)?.name ??
@@ -138,8 +145,79 @@ function useOriginLabel(server: McpServer): string | null {
     (computers.data?.find((c) => c.id === computerId)?.name ??
       (computers.data ? t('mcp.deletedPc') : '…'));
   if (bot && pc) return t('mcp.installedBy', { bot, pc });
-  if (bot) return t('mcp.addedBy', { bot });
-  return t('mcp.onPc', { pc: pc || '' });
+  if (pc) return t('mcp.onPc', { pc });
+  const where = server.transport === 'stdio' ? t('mcp.onMcpPc') : null;
+  const added = bot ? t('mcp.addedBy', { bot }) : null;
+  return [where, added].filter(Boolean).join(' · ') || null;
+}
+
+const COMPUTER_DOT: Record<McpComputer['status'], string> = {
+  stopped: 'bg-white/25',
+  starting: 'bg-warning animate-pulse',
+  running: 'bg-primary',
+  stopping: 'bg-white/25 animate-pulse',
+  error: 'bg-destructive',
+};
+
+/** The MCP computer, where local servers run: its state, and turning it on or to sleep. */
+function McpComputerBar() {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const computer = useMcpComputer();
+  const power = useMutation({
+    mutationFn: async (action: 'start' | 'stop') => {
+      const { data, error } =
+        action === 'start'
+          ? await api.POST('/api/v1/mcp/computer/start')
+          : await api.POST('/api/v1/mcp/computer/stop');
+      if (error || !data) throw error;
+      return data;
+    },
+    onSuccess: (state) => queryClient.setQueryData(['mcp-computer'], state),
+  });
+  const state = computer.data;
+  if (!state) return null;
+  const moving = state.status === 'starting' || state.status === 'stopping';
+  return (
+    <Reveal delay={0.05} className="glass flex items-center gap-3 rounded-2xl px-4 py-3">
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/[0.05]">
+        <Server className="size-4 text-muted-foreground" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="flex flex-wrap items-center gap-x-2 text-sm">
+          <span className="font-medium">{t('mcp.computer.name')}</span>
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className={cn('size-1.5 rounded-full', COMPUTER_DOT[state.status])} />
+            {t(`mcp.computer.status.${state.status}`)}
+          </span>
+        </p>
+        {state.status === 'error' && state.statusDetail ? (
+          <p
+            title={state.statusDetail}
+            className="line-clamp-2 break-all font-mono text-[11px] text-destructive/90"
+          >
+            {state.statusDetail}
+          </p>
+        ) : (
+          <p className="text-xs text-faint">{t('mcp.computer.hint')}</p>
+        )}
+        {power.error && (
+          <p role="alert" className="text-xs text-destructive">
+            {problemMessage(power.error, t('common.actionFailed'))}
+          </p>
+        )}
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="shrink-0"
+        disabled={moving || power.isPending}
+        onClick={() => power.mutate(state.status === 'running' ? 'stop' : 'start')}
+      >
+        {state.status === 'running' ? t('mcp.computer.stop') : t('mcp.computer.start')}
+      </Button>
+    </Reveal>
+  );
 }
 
 interface SecretRow {
@@ -762,7 +840,12 @@ function ServerCard({ server, onEdit }: { server: McpServer; onEdit(): void }) {
     },
     onSuccess: () => removeMcpServer(queryClient, server.id),
   });
-  const error = update.error ?? connect.error ?? remove.error;
+  const move = useMutation({
+    mutationFn: () => moveMcpServer(server.id),
+    onSuccess: (moved) => setMcpServer(queryClient, moved),
+  });
+  const legacy = server.transport === 'stdio' && server.computerId !== null;
+  const error = update.error ?? connect.error ?? remove.error ?? move.error;
 
   const connecting =
     refresh.isPending ||
@@ -816,6 +899,20 @@ function ServerCard({ server, onEdit }: { server: McpServer; onEdit(): void }) {
             >
               {server.statusDetail}
             </p>
+          )}
+          {legacy && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => confirm(t('mcp.confirmMove', { name })) && move.mutate()}
+                disabled={move.isPending}
+              >
+                <ArrowRightLeft className="size-3.5" />
+                {move.isPending ? t('mcp.moving') : t('mcp.move')}
+              </Button>
+              <span className="text-xs text-warning">{t('mcp.legacy')}</span>
+            </div>
           )}
           {needsSignIn && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-2">
@@ -966,6 +1063,7 @@ export function McpPage() {
   const [template, setTemplate] = useState<Template | undefined>();
   const [editId, setEditId] = useState<string | null>(null);
   const list = servers.data ?? [];
+  const local = list.some((server) => server.transport === 'stdio');
   const editing = list.find((server) => server.id === editId);
   const EditingIcon = editing ? TRANSPORT_ICON[editing.transport] : null;
   const add = (from?: Template) => {
@@ -988,6 +1086,7 @@ export function McpPage() {
       {servers.isPending && <p className="text-sm text-muted-foreground">{t('common.loading')}</p>}
       {servers.isError && <p className="text-sm text-destructive">{t('mcp.loadFailed')}</p>}
       {servers.isSuccess && list.length === 0 && <EmptyMcp onPick={add} />}
+      {local && <McpComputerBar />}
 
       {list.length > 0 && (
         <motion.ul initial="hidden" animate="shown" variants={stagger} className="space-y-3">

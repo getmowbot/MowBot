@@ -154,22 +154,33 @@ interface RowNames extends ScopeNames {
   computers: readonly Named[] | undefined;
 }
 
-/** "Installé par Nova sur PC de Nova": a server a bot added for its own computer. */
+/**
+ * Where it runs and who added it: "Sur le PC MCP · Ajouté par Chef", or "Installé par Nova sur
+ * PC de Nova" for a server a bot installed on its own computer (legacy).
+ */
 export function installedText(
-  server: Pick<McpServer, 'createdByBotId' | 'computerId'>,
+  server: Pick<McpServer, 'transport' | 'createdByBotId' | 'computerId'>,
   names: RowNames,
   t: TFunction,
 ): string | null {
   const { createdByBotId, computerId } = server;
-  if (!createdByBotId && !computerId) return null;
   const bot = createdByBotId
     ? (names.bots?.find((b) => b.id === createdByBotId)?.name ?? t('common.deletedBot'))
     : null;
-  const pc = computerId ? computerName(computerId, names.computers, t) : null;
-  if (bot && pc) return t('mcp.installed.byOn', { bot, pc });
-  if (bot) return t('mcp.installed.by', { bot });
-  return t('mcp.installed.on', { pc });
+  if (computerId) {
+    const pc = computerName(computerId, names.computers, t);
+    return bot ? t('mcp.installed.byOn', { bot, pc }) : t('mcp.installed.on', { pc });
+  }
+  const parts = [
+    server.transport === 'stdio' ? t('mcp.installed.mcpPc') : null,
+    bot ? t('mcp.installed.by', { bot }) : null,
+  ];
+  return parts.filter(Boolean).join(' · ') || null;
 }
+
+/** Installed by a bot on its own PC before the MCP computer: it can be moved there. */
+export const isLegacy = (server: Pick<McpServer, 'transport' | 'computerId'>): boolean =>
+  server.transport === 'stdio' && server.computerId !== null;
 
 /** Under a row's name: "Connecté · Distant · 12 outils", then who gets them (and on which PC). */
 export function serverHint(server: McpServer, names: RowNames, t: TFunction): string {
@@ -184,7 +195,9 @@ export function serverHint(server: McpServer, names: RowNames, t: TFunction): st
     scopeSummary(server.scope, names, t),
     server.computerId
       ? t('mcp.installed.only', { pc: computerName(server.computerId, names.computers, t) })
-      : null,
+      : server.transport === 'stdio'
+        ? t('mcp.installed.onMcpPc')
+        : null,
   ]
     .filter(Boolean)
     .join(' · ');

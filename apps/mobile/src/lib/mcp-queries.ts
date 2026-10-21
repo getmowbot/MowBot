@@ -10,7 +10,7 @@ const WORDED = [
   'mcp_url_required',
   'mcp_command_required',
   'mcp_not_oauth',
-  'mcp_no_computer',
+  'mcp_not_legacy',
   'mcp_needs_auth',
   'mcp_unreachable',
   'mcp_oauth_state',
@@ -109,7 +109,17 @@ export function useDeleteMcpServer() {
   });
 }
 
-/** Connects again and lists the tools (a local server starts on a bot's PC: it may take a while). */
+/** Puts a server a bot installed on its own PC on the MCP computer (its tools are read again). */
+export function useMoveMcpServer() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      data(api().POST('/api/v1/mcp/servers/{id}/move', { params: { path: { id } } })),
+    onSuccess: (server) => putServer(client, server),
+  });
+}
+
+/** Connects again and lists the tools (a local server starts on the MCP computer: it may take a while). */
 export function useRefreshMcpServer() {
   const client = useQueryClient();
   return useMutation({

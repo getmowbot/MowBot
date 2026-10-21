@@ -16,8 +16,8 @@ export const fr = {
     remote:
       'Distant : l’adresse que donne le service (GitHub, Notion, ton agenda…), avec un jeton ou une connexion OAuth.',
     local:
-      'Local : une commande lancée sur les PC de tes bots, par exemple npx -y @modelcontextprotocol/server-filesystem.',
-    bots: 'Tes bots peuvent aussi en installer eux-mêmes sur leur PC.',
+      'Local : une commande lancée sur le PC MCP, un ordinateur à part, par exemple npx -y @modelcontextprotocol/server-filesystem.',
+    bots: 'Le Chef peut aussi en ajouter et les installer pour tes bots : demande-lui.',
   },
   transports: {
     http: 'Distant',
@@ -36,7 +36,7 @@ export const fr = {
     error: 'Le serveur n’a pas répondu.',
     needsAuth: 'Connecte-toi au service pour que tes bots utilisent ses outils.',
     pending: 'Connexion et liste de ses outils…',
-    pendingLocal: 'Démarrage sur le PC d’un bot et liste de ses outils…',
+    pendingLocal: 'Démarrage sur le PC MCP et liste de ses outils…',
     disabled: 'Ses outils ne sont plus proposés à tes bots.',
   },
   actions: {
@@ -59,12 +59,24 @@ export const fr = {
     auth: 'Authentification',
     prefix: 'Pour tes bots',
     prefixHint: 'Ses outils s’appellent {{prefix}}<outil>.',
+    where: 'Tourne sur',
+    mcpPc: 'Le PC MCP',
   },
   installed: {
-    by: 'Installé par {{bot}}',
+    by: 'Ajouté par {{bot}}',
     on: 'Installé sur {{pc}}',
     byOn: 'Installé par {{bot}} sur {{pc}}',
     only: 'sur {{pc}} seulement',
+    mcpPc: 'Sur le PC MCP',
+    onMcpPc: 'sur le PC MCP',
+  },
+  move: {
+    action: 'Déplacer sur le PC MCP',
+    hint: 'Ancien : il tourne sur le PC d’un bot, pour les bots de ce PC seulement.',
+    confirm: 'Déplacer « {{name}} » sur le PC MCP ?',
+    confirmHint:
+      'Les bots qui l’avaient le gardent. S’il a été installé à la main (pipx, pip…), demande d’abord au Chef de l’installer sur le PC MCP.',
+    notMoved: 'Le serveur n’a pas été déplacé.',
   },
   auth: {
     none: 'Aucune',
@@ -85,7 +97,8 @@ export const fr = {
     bots: 'Certains bots',
     noTeams: 'Aucune équipe pour l’instant.',
     noBots: 'Aucun bot pour l’instant.',
-    localNote: 'Un serveur local ne sert qu’aux bots qui ont un PC.',
+    localNote:
+      'Il tourne sur le PC MCP : tous les bots concernés s’en servent, qu’ils aient un PC ou non.',
     computerNote: 'Installé sur {{pc}} : seuls les bots de ce PC s’en servent.',
     notSaved: 'Bots concernés non enregistrés.',
     summary: {
@@ -147,7 +160,7 @@ export const fr = {
     remoteIntro:
       'Un serveur sur Internet : son adresse est donnée par le service (elle finit souvent par /mcp). Ton hub s’y connecte pour tes bots.',
     localIntro:
-      'Un programme lancé sur les PC de tes bots (npx, uvx, docker…), avec leurs fichiers et leur réseau.',
+      'Un programme lancé sur le PC MCP, un ordinateur à part qui démarre au besoin (npx, uvx…).',
     name: 'Nom',
     namePlaceholder: 'ex. GitHub',
     url: 'Adresse',
@@ -164,7 +177,7 @@ export const fr = {
     command: 'Commande',
     commandPlaceholder: 'npx -y @modelcontextprotocol/server-github',
     localNote:
-      'Elle tourne sur les PC de tes bots, pas sur ton hub : le programme doit pouvoir s’y lancer (Node, Python…).',
+      'Elle tourne sur le PC MCP (Node 24, Python 3, uv), ni sur ton hub ni sur les PC des bots. Un programme à installer d’abord : demande au Chef.',
     extraHeaders: 'En-têtes supplémentaires',
     secretsLater: 'Les autres secrets se gèrent depuis la page du serveur.',
     create: 'Ajouter le serveur',
@@ -189,8 +202,7 @@ export const fr = {
     mcp_url_required: 'Un serveur distant a besoin de son adresse.',
     mcp_command_required: 'Un serveur local a besoin de sa commande.',
     mcp_not_oauth: 'Ce serveur ne se connecte pas par OAuth.',
-    mcp_no_computer:
-      'Aucun bot concerné n’a de PC pour le lancer : ajoute un bot qui en a un aux bots concernés.',
+    mcp_not_legacy: 'Ce serveur tourne déjà sur le PC MCP.',
     mcp_needs_auth: 'Connecte-toi d’abord à ce serveur.',
     mcp_unreachable: 'Le serveur ne répond pas.',
     mcp_oauth_state: 'Connexion expirée : recommence.',
@@ -214,8 +226,8 @@ export const en: Widen<typeof fr> = {
     remote:
       'Remote: the address a service gives you (GitHub, Notion, your calendar…), with a token or an OAuth sign-in.',
     local:
-      'Local: a command run on your bots’ PCs, for example npx -y @modelcontextprotocol/server-filesystem.',
-    bots: 'Your bots can also install some themselves on their PC.',
+      'Local: a command run on the MCP computer, a separate machine, for example npx -y @modelcontextprotocol/server-filesystem.',
+    bots: 'The Chef can also add some and install them for your bots: ask it.',
   },
   transports: {
     http: 'Remote',
@@ -234,7 +246,7 @@ export const en: Widen<typeof fr> = {
     error: 'The server didn’t answer.',
     needsAuth: 'Sign in to the service so your bots can use its tools.',
     pending: 'Connecting and listing its tools…',
-    pendingLocal: 'Starting on a bot’s PC and listing its tools…',
+    pendingLocal: 'Starting on the MCP computer and listing its tools…',
     disabled: 'Its tools are no longer offered to your bots.',
   },
   actions: {
@@ -256,12 +268,24 @@ export const en: Widen<typeof fr> = {
     auth: 'Authentication',
     prefix: 'For your bots',
     prefixHint: 'Its tools are named {{prefix}}<tool>.',
+    where: 'Runs on',
+    mcpPc: 'The MCP computer',
   },
   installed: {
-    by: 'Installed by {{bot}}',
+    by: 'Added by {{bot}}',
     on: 'Installed on {{pc}}',
     byOn: 'Installed by {{bot}} on {{pc}}',
     only: 'on {{pc}} only',
+    mcpPc: 'On the MCP computer',
+    onMcpPc: 'on the MCP computer',
+  },
+  move: {
+    action: 'Move to the MCP computer',
+    hint: 'Legacy: it runs on a bot’s PC, for that PC’s bots only.',
+    confirm: 'Move “{{name}}” to the MCP computer?',
+    confirmHint:
+      'The bots that had it keep it. If it was installed by hand (pipx, pip…), ask the Chef to install it on the MCP computer first.',
+    notMoved: 'The server wasn’t moved.',
   },
   auth: {
     none: 'None',
@@ -282,7 +306,7 @@ export const en: Widen<typeof fr> = {
     bots: 'Some bots',
     noTeams: 'No teams yet.',
     noBots: 'No bots yet.',
-    localNote: 'A local server only serves bots that have a PC.',
+    localNote: 'It runs on the MCP computer: every bot concerned uses it, with a PC or not.',
     computerNote: 'Installed on {{pc}}: only that PC’s bots use it.',
     notSaved: 'Bots not saved.',
     summary: {
@@ -344,7 +368,7 @@ export const en: Widen<typeof fr> = {
     remoteIntro:
       'A server on the Internet: the service gives you its address (it often ends in /mcp). Your hub connects to it for your bots.',
     localIntro:
-      'A program run on your bots’ PCs (npx, uvx, docker…), with their files and their network.',
+      'A program run on the MCP computer, a separate machine that starts when needed (npx, uvx…).',
     name: 'Name',
     namePlaceholder: 'e.g. GitHub',
     url: 'Address',
@@ -360,7 +384,7 @@ export const en: Widen<typeof fr> = {
     command: 'Command',
     commandPlaceholder: 'npx -y @modelcontextprotocol/server-github',
     localNote:
-      'It runs on your bots’ PCs, not on your hub: the program must be able to start there (Node, Python…).',
+      'It runs on the MCP computer (Node 24, Python 3, uv), neither on your hub nor on the bots’ PCs. A program to install first: ask the Chef.',
     extraHeaders: 'Extra headers',
     secretsLater: 'Other secrets are managed from the server’s page.',
     create: 'Add the server',
@@ -385,7 +409,7 @@ export const en: Widen<typeof fr> = {
     mcp_url_required: 'A remote server needs its address.',
     mcp_command_required: 'A local server needs its command.',
     mcp_not_oauth: 'This server doesn’t sign in with OAuth.',
-    mcp_no_computer: 'None of its bots has a PC to run it on: add a bot that has one to its bots.',
+    mcp_not_legacy: 'This server already runs on the MCP computer.',
     mcp_needs_auth: 'Sign in to this server first.',
     mcp_unreachable: 'The server doesn’t answer.',
     mcp_oauth_state: 'The sign-in expired: start again.',
