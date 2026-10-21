@@ -7,6 +7,8 @@ export type ReasoningPart = Extract<MessagePart, { type: 'reasoning' }>;
 export type CanvasPart = Extract<MessagePart, { type: 'canvas' }>;
 /** A login or a secret the bot asks for: a form answered straight into the vault. */
 export type VaultRequestPart = Extract<MessagePart, { type: 'vault_request' }>;
+/** The bot needs the user to take control of its PC: a card with a button to do it. */
+export type TakeoverRequestPart = Extract<MessagePart, { type: 'takeover_request' }>;
 /** What a bot does between two things it says: tool calls and reasoning. */
 export type ActivityPart = ToolPart | ReasoningPart;
 
@@ -319,7 +321,8 @@ export type Segment =
   | { kind: 'text'; text: string; index: number }
   | { kind: 'activity'; parts: ActivityPart[]; index: number }
   | { kind: 'canvas'; part: CanvasPart; index: number }
-  | { kind: 'vault'; part: VaultRequestPart; index: number };
+  | { kind: 'vault'; part: VaultRequestPart; index: number }
+  | { kind: 'takeover'; part: TakeoverRequestPart; index: number };
 
 /**
  * Text stays as is; the tool calls and reasoning between two texts become one activity; what
@@ -340,6 +343,10 @@ export function segments(parts: MessagePart[]): Segment[] {
     }
     if (part.type === 'vault_request') {
       out.push({ kind: 'vault', part, index });
+      return;
+    }
+    if (part.type === 'takeover_request') {
+      out.push({ kind: 'takeover', part, index });
       return;
     }
     if (part.type === 'tool' && part.toolName === SHOW_IN_CHAT && part.state === 'done') return;

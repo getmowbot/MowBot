@@ -155,6 +155,20 @@ export const messagePartSchema = z.discriminatedUnion('type', [
     itemId: z.uuid().nullable(),
     status: z.enum(['pending', 'saved', 'declined']),
   }),
+  /**
+   * The bot needs the user at the keyboard of its computer (a sign-in, a 2FA code, a captcha):
+   * a card to take control from the conversation. Handing control back wakes the bot up.
+   */
+  z.object({
+    type: z.literal('takeover_request'),
+    computerId: z.uuid(),
+    /** What the user has to do, in a sentence. */
+    reason: z.string(),
+    /** The page the bot put on the screen for it, if any. */
+    url: z.string().nullable(),
+    /** `taken`: the user has control; `returned`: they handed it back. */
+    status: z.enum(['pending', 'taken', 'returned']),
+  }),
 ]);
 export type MessagePart = z.infer<typeof messagePartSchema>;
 

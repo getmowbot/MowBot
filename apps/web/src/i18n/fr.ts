@@ -199,6 +199,17 @@ export const fr = {
       failed: 'Rien n’a été rangé.',
     },
   },
+  /** A bot asks the user to take control of its PC, from the conversation. */
+  takeoverCard: {
+    title: '{{name}} a besoin de toi sur son PC',
+    take: 'Prendre le contrôle',
+    release: 'Rendre la main',
+    showScreen: 'Voir l’écran',
+    inControl: 'Tu as la main. Rends-la quand tu as fini : {{name}} reprendra.',
+    otherDevice: 'Un autre de tes appareils a la main sur ce PC.',
+    returned: 'Main rendue',
+    failed: 'Impossible de prendre le contrôle.',
+  },
   botMenu: {
     options: 'Options de {{name}}',
     settings: 'Réglages',
