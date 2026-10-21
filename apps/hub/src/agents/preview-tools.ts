@@ -44,9 +44,19 @@ const toolError = (error: unknown): never => {
   throw error;
 };
 
-/** "18:42" in the hub's time zone. */
-const timeOf = (date: Date, timeZone: string, locale: string) =>
-  date.toLocaleTimeString(locale, { timeZone, hour: '2-digit', minute: '2-digit' });
+/**
+ * "18:42" in the hub's time zone, "jeu. 18:42" when it is not today: a preview shared at
+ * 18:42 ends at 18:42 tomorrow, which must not read as now.
+ */
+export function timeOf(date: Date, timeZone: string, locale: string, now = new Date()): string {
+  const day = (d: Date) => d.toLocaleDateString('en-CA', { timeZone });
+  return date.toLocaleString(locale, {
+    timeZone,
+    ...(day(date) === day(now) ? {} : { weekday: 'short' }),
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 /** One line per running preview of the PC, for the bot's prompt (no link: share_preview gives it). */
 export function previewLines(rows: PreviewRow[], timeZone: string): string[] {

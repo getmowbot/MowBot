@@ -4,6 +4,7 @@ import type { Bot, Message, Preview, ServerEvent, Team } from '@mowbot/contract'
 import type { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
+import { timeOf } from '../src/agents/preview-tools';
 import type { HttpProblem } from '../src/http/problems';
 import { TOKEN_PARAM } from '../src/previews/proxy';
 import { bearer, createTestApp, PASSWORD, setupOwner } from './helpers';
@@ -499,6 +500,14 @@ describe('previews: bots', () => {
     // The model got the link, and knows of the preview at its next turn.
     expect(JSON.stringify(model.doStreamCalls[1]?.prompt)).toContain(url);
     expect(JSON.stringify(model.doStreamCalls[0]?.prompt)).toContain('share_preview');
+  });
+
+  it('says the day of an end that is not today', () => {
+    const now = new Date('2026-10-22T10:00:00Z');
+    expect(timeOf(new Date('2026-10-22T16:42:00Z'), 'Europe/Paris', 'fr-FR', now)).toBe('18:42');
+    expect(timeOf(new Date('2026-10-23T10:00:00Z'), 'Europe/Paris', 'fr-FR', now)).toMatch(
+      /^ven\.? 12:00$/,
+    );
   });
 
   it('a bot stops its preview', async () => {
