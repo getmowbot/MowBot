@@ -4,6 +4,8 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine as _;
 use serde_json::{json, Value};
 
 use super::paths::{io_error, normalized, relative, resolve, shown, stays_inside};
@@ -189,11 +191,19 @@ pub fn write(root: &Path, args: &Value) -> Result<Value, String> {
     if file.is_dir() {
         return Err(format!("C'est un dossier, pas un fichier : {rel}"));
     }
+    // Binary files (pictures…) come in base64.
+    let bytes = if bool_arg(args, "base64")?.unwrap_or(false) {
+        BASE64
+            .decode(content)
+            .map_err(|_| format!("Contenu base64 invalide pour {rel}"))?
+    } else {
+        content.as_bytes().to_vec()
+    };
     if let Some(parent) = file.parent() {
         fs::create_dir_all(parent).map_err(|e| io_error(rel, &e))?;
     }
-    fs::write(&file, content.as_bytes()).map_err(|e| io_error(rel, &e))?;
-    Ok(json!({ "size": content.len() }))
+    fs::write(&file, &bytes).map_err(|e| io_error(rel, &e))?;
+    Ok(json!({ "size": bytes.len() }))
 }
 
 pub fn edit(root: &Path, args: &Value) -> Result<Value, String> {
@@ -380,6 +390,19 @@ mod tests {
         );
         write(&root, &json!({ "path": "README.md", "content": "" })).unwrap();
         assert_eq!(fs::read_to_string(root.join("README.md")).unwrap(), "");
+        let png = [0x89, b'P', b'N', b'G', 0, 1, 2];
+        let data = write(
+            &root,
+            &json!({ "path": "public/logo.png", "content": BASE64.encode(png), "base64": true }),
+        )
+        .unwrap();
+        assert_eq!(data["size"], 7);
+        assert_eq!(fs::read(root.join("public/logo.png")).unwrap(), png);
+        assert!(write(
+            &root,
+            &json!({ "path": "bad.png", "content": "%%%", "base64": true })
+        )
+        .is_err());
         assert!(write(&root, &json!({ "path": "src", "content": "x" })).is_err());
         assert!(write(&root, &json!({ "path": "", "content": "x" })).is_err());
         assert!(write(&root, &json!({ "path": "../x.txt", "content": "x" })).is_err());
