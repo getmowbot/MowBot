@@ -222,13 +222,16 @@ function AskChef({ chef }: { chef: Bot }) {
     const value = text.trim();
     if (!value || send.isPending) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    send.mutate(value, {
-      onSuccess: () => {
-        setText('');
-        router.push(`/chat/${chef.id}`);
+    send.mutate(
+      { text: value },
+      {
+        onSuccess: () => {
+          setText('');
+          router.push(`/chat/${chef.id}`);
+        },
+        onError: () => alertError(t('errors.messageNotSent')),
       },
-      onError: () => alertError(t('errors.messageNotSent')),
-    });
+    );
   };
 
   return (

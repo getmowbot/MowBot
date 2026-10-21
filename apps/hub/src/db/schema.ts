@@ -15,6 +15,7 @@ import type {
   McpTransport,
   Message,
   MessageKind,
+  MessageMention,
   MessagePart,
   ModelRef,
   NotificationPriority,
@@ -286,6 +287,8 @@ export interface MessageMeta {
   steeredInto?: string;
   /** Context only (e.g. "stopped by …"): does not call for an answer. */
   silent?: boolean;
+  /** What the user pointed at with @ in the message. */
+  mentions?: MessageMention[];
 }
 
 /** Work assigned to a bot by another bot (or by the user). */

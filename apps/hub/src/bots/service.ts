@@ -44,6 +44,7 @@ export function toMessage(row: MessageRow): Message {
     taskId: row.meta?.taskId ?? null,
     parts: row.parts,
     steered: Boolean(row.meta?.steeredInto),
+    mentions: row.meta?.mentions ?? [],
     status: row.status,
     errorCode: row.errorCode ?? null,
     error: row.error,

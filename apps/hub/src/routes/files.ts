@@ -3,6 +3,8 @@ import {
   downloadTicketRequestSchema,
   fileEntrySchema,
   fileListSchema,
+  fileSearchQuerySchema,
+  fileSearchResultSchema,
   mkdirRequestSchema,
   moveRequestSchema,
   pathQuerySchema,
@@ -55,6 +57,27 @@ export const fileRoutes: FastifyPluginAsyncZod = async (app) => {
     async (request) => {
       await assertWorkspace(request.params.id);
       return files.list(request.params.id, request.query.path);
+    },
+  );
+
+  app.get(
+    '/workspaces/:id/files/search',
+    {
+      preHandler: requireAuth('files:read'),
+      schema: {
+        tags,
+        operationId: 'searchFiles',
+        description:
+          'Files and folders whose path contains `q` (names starting with it first); without `q`, the files changed last.',
+        security: bearerSecurity,
+        params: workspaceIdParamsSchema,
+        querystring: fileSearchQuerySchema,
+        response: { 200: fileSearchResultSchema, ...errorResponses },
+      },
+    },
+    async (request) => {
+      await assertWorkspace(request.params.id);
+      return { items: await files.search(request.params.id, request.query.q, request.query.limit) };
     },
   );
 

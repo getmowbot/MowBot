@@ -31,6 +31,7 @@ import { revealOffset } from '../../../lib/chat-scroll';
 import { isIncoming, liveMessage } from '../../../lib/message-cache';
 import {
   botsById,
+  type Outgoing,
   useBots,
   useConversation,
   useProviders,
@@ -137,9 +138,9 @@ export default function ChatScreen() {
     setTimeout(() => shown.remove(), 1500);
   };
 
-  const sendText = (text: string) => {
+  const sendMessage = (message: Outgoing) => {
     setError(null);
-    send.mutate(text, { onError: () => setError(t('errors.messageNotSent')) });
+    send.mutate(message, { onError: () => setError(t('errors.messageNotSent')) });
   };
 
   const renderItem: ListRenderItem<Message> = ({ item }) => {
@@ -155,7 +156,7 @@ export default function ChatScreen() {
           from={item.fromBotId ? byId.get(item.fromBotId) : undefined}
         />
       );
-    else content = <UserMessage message={item} />;
+    else content = <UserMessage message={item} workspaceId={bot.workspaceId} />;
     return (
       <Animated.View entering={fresh ? reveal() : undefined}>
         <KeepInViewContext value={keepInView}>{content}</KeepInViewContext>
@@ -193,7 +194,7 @@ export default function ChatScreen() {
         ListEmptyComponent={
           conversation.isSuccess ? (
             <View style={styles.empty}>
-              <ChatEmptyState bot={bot} onPick={sendText} />
+              <ChatEmptyState bot={bot} onPick={(text) => sendMessage({ text })} />
             </View>
           ) : (
             <View style={styles.empty}>
@@ -236,7 +237,7 @@ export default function ChatScreen() {
             </T>
           )}
           <ChatQuestions botId={bot.id} />
-          <Composer bot={bot} onSend={sendText} />
+          <Composer bot={bot} onSend={sendMessage} />
         </View>
       </KeyboardStickyView>
     </View>

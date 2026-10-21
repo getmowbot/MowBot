@@ -148,7 +148,7 @@ export const en: Catalog = {
     greetingChef: 'Hi, I’m the Chef.',
     chefIntro:
       'Tell me what you want to get done: I work on the team’s PC, put together teams of bots and drop the results in your files.',
-    placeholder: 'Message {{name}}…',
+    placeholder: 'Message {{name}}… @ to mention, / for a command',
     stop: 'Stop',
     send: 'Send',
     closePc: 'Close PC',
@@ -162,6 +162,24 @@ export const en: Catalog = {
     noModel: 'Connect a model (Command Code, OpenAI or compatible) to wake {{name}} up.',
     connectModel: 'Connect a model',
     steered: 'Taken into account mid-answer',
+    commands: {
+      stop: 'Stop what it is doing',
+      clear: 'Start the conversation over',
+      pc: 'Show or hide the PC',
+      files: 'Open the files',
+      settings: 'Bot settings',
+      rename: 'Rename',
+      move: 'Move to another team',
+      mcp: 'Tools (MCP)',
+      vault: 'Vault',
+      routines: 'Routines',
+    },
+    mentions: {
+      sections: { commands: 'Commands', bots: 'Bots', teams: 'Teams', files: 'Files' },
+      team: 'team',
+      file: 'file',
+      folder: 'folder',
+    },
     vault: {
       totp: '2FA code (seed or otpauth:// link)',
       note: 'Sent straight to your hub’s vault: neither the conversation nor the AI sees what you type.',

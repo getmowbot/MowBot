@@ -195,7 +195,9 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) =>
-      reply.code(202).send(await runtime.send(request.params.id, request.body.text)),
+      reply
+        .code(202)
+        .send(await runtime.send(request.params.id, request.body.text, request.body.mentions)),
   );
 
   app.post(

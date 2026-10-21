@@ -3,7 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { Directory, File, Paths, UploadType } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FILE_HEAD_BYTES, rangeTotal } from './board';
 import {
   contentUrl,
@@ -46,6 +46,42 @@ export function useFolder(workspaceId: string, path: string, { poll = false } = 
 export function useFileEntry(workspaceId: string, path: string, { poll = false } = {}) {
   const folder = useFolder(workspaceId, parentOf(path), { poll });
   return { ...folder, entry: folder.data?.find((entry) => entry.path === path) };
+}
+
+const SEARCH_DELAY_MS = 150;
+
+/**
+ * Files and folders of a workspace whose path contains `query` (the latest changed for ''),
+ * asked of the hub once typing pauses; the previous results stay meanwhile. Null: no search.
+ */
+export function useFileSearch(
+  workspaceId: string | null | undefined,
+  query: string | null,
+  limit: number,
+) {
+  const typed = query === null ? null : query.trim();
+  const [settled, setSettled] = useState(typed);
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(typed), SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [typed]);
+  const search = useQuery({
+    queryKey: keys.fileSearch(workspaceId ?? '', settled ?? ''),
+    enabled: Boolean(workspaceId) && settled !== null,
+    placeholderData: keepPreviousData,
+    queryFn: async () =>
+      (
+        await data(
+          api().GET('/api/v1/workspaces/{id}/files/search', {
+            params: { path: { id: workspaceId as string }, query: { q: settled ?? '', limit } },
+          }),
+        )
+      ).items,
+  });
+  // Waiting for typing to pause counts: the answer for what is typed is not there yet.
+  const searching =
+    Boolean(workspaceId) && typed !== null && (typed !== settled || search.isFetching);
+  return { ...search, searching };
 }
 
 /** Who the files belong to: a team, or a solo bot. */

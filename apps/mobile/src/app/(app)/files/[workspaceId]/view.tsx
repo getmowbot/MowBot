@@ -1,6 +1,6 @@
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { Code, Ellipsis, FileText } from 'lucide-react-native';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { BusyBanner } from '../../../../components/files/file-row';
@@ -35,6 +35,11 @@ export default function FilePreviewScreen() {
   const file = useFileEntry(workspaceId, path, { poll: focused });
   const entry = file.entry;
   const [source, setSource] = useState(false);
+  // A folder (an @ mention can point at one): its listing instead.
+  const folder = entry?.type === 'directory';
+  useEffect(() => {
+    if (folder) router.replace({ pathname: '/files/[workspaceId]', params: { workspaceId, path } });
+  }, [folder, workspaceId, path]);
   const actions = useFileActions({
     workspaceId,
     dir: parentOf(path),

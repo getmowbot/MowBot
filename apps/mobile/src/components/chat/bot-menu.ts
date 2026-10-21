@@ -15,8 +15,8 @@ import { alertError, confirm, type MenuOption, openOptions } from '../../lib/opt
 import { keys } from '../../lib/queries';
 import { api } from '../../lib/session';
 
-/** The ⋯ menu of a conversation: everything the user can do with this bot. */
-export function useBotMenu(bot: Bot | undefined): () => void {
+/** Starts a conversation over once the user confirms (the ⋯ menu, `/clear`). */
+export function useClearConversation(): (bot: Bot) => void {
   const { t } = useTranslation();
   const client = useQueryClient();
   const clear = useMutation({
@@ -30,6 +30,18 @@ export function useBotMenu(bot: Bot | undefined): () => void {
       client.setQueryData(keys.messages(botId), { items: [], nextCursor: null }),
     onError: () => alertError(t('common.actionFailed')),
   });
+  return (bot) =>
+    void confirm(t('chat.menuClear'), t('chat.clearConfirm', { name: bot.name }), {
+      label: t('chat.menuClear'),
+      destructive: true,
+    }).then((ok) => ok && clear.mutate(bot.id));
+}
+
+/** The ⋯ menu of a conversation: everything the user can do with this bot. */
+export function useBotMenu(bot: Bot | undefined): () => void {
+  const { t } = useTranslation();
+  const client = useQueryClient();
+  const clear = useClearConversation();
   const remove = useMutation({
     mutationFn: async (botId: string) => {
       const { error } = await api().DELETE('/api/v1/bots/{id}', {
@@ -84,11 +96,7 @@ export function useBotMenu(bot: Bot | undefined): () => void {
       label: t('chat.menuClear'),
       icon: Eraser,
       destructive: true,
-      onPress: () =>
-        void confirm(t('chat.menuClear'), t('chat.clearConfirm', { name: bot.name }), {
-          label: t('chat.menuClear'),
-          destructive: true,
-        }).then((ok) => ok && clear.mutate(bot.id)),
+      onPress: () => clear(bot),
     });
     if (!bot.isChef) {
       options.push({

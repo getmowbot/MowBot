@@ -1,4 +1,4 @@
-import type { Bot, Message, Task } from '@mowbot/contract';
+import type { Bot, Mention, Message, Task } from '@mowbot/contract';
 import {
   QueryClient,
   useInfiniteQuery,
@@ -152,14 +152,20 @@ export function useLiveMessage(botId: string) {
   }).data;
 }
 
+/** A message to send: its text, and what it points at with @ (bots, teams, files). */
+export interface Outgoing {
+  text: string;
+  mentions?: Mention[];
+}
+
 export function useSendMessage(botId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (text: string) =>
+    mutationFn: ({ text, mentions }: Outgoing) =>
       data(
         api().POST('/api/v1/bots/{id}/messages', {
           params: { path: { id: botId } },
-          body: { text },
+          body: mentions?.length ? { text, mentions } : { text },
         }),
       ),
     onSuccess: (message) => {
