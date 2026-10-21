@@ -230,13 +230,10 @@ pub fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     };
     let nav = app.clone();
     let popup = app.clone();
-    WebviewWindowBuilder::new(app, MAIN, target)
+    let builder = WebviewWindowBuilder::new(app, MAIN, target)
         .title("MowBot")
         .inner_size(1280.0, 840.0)
         .min_inner_size(420.0, 560.0)
-        // No system title bar: the interface has its own buttons (shadow and round corners kept).
-        .decorations(false)
-        .shadow(true)
         .background_color(tauri::window::Color(6, 7, 10, 255))
         .on_navigation(move |url| allow_navigation(&nav, url))
         .on_new_window(move |url, _features| {
@@ -249,8 +246,17 @@ pub fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
                 let _ = popup.opener().open_url(url.as_str(), None::<&str>);
             }
             tauri::webview::NewWindowResponse::Deny
-        })
-        .build()
+        });
+    // macOS keeps its own traffic lights, over the interface. Elsewhere the window has no system
+    // title bar and the interface draws its buttons (shadow and round corners kept).
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .traffic_light_position(tauri::LogicalPosition::new(18.0, 22.0));
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.decorations(false).shadow(true);
+    builder.build()
 }
 
 /// Shows the main window (recreated if it was closed) and brings it to the front.

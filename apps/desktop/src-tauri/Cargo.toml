@@ -1,6 +1,6 @@
 [package]
 name = "mowbot-desktop"
-version = "0.2.1"
+version = "0.2.2"
 description = "MowBot desktop app: the hub's interface and the connector to local projects"
 edition = "2021"
 publish = false

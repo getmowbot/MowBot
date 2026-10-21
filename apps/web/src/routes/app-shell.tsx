@@ -273,7 +273,8 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
   const paused = useSystem().data?.paused ?? false;
 
   return (
-    <nav className="flex h-full flex-col gap-5 p-3">
+    // On macOS the traffic lights sit at the top left: the sidebar starts below them.
+    <nav className="flex h-full flex-col gap-5 p-3 [.desktop-mac_&]:pt-11">
       <Link to="/" onClick={onNavigate} className="flex items-center gap-2.5 px-2 pt-1.5">
         <img src="/favicon.svg" alt="" className="size-7" />
         <span className="text-[17px] font-semibold tracking-tight">MowBot</span>
@@ -454,7 +455,7 @@ export function AppShell() {
         </AnimatePresence>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 md:hidden">
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 md:hidden [.desktop-mac_&]:pl-20">
             <Button
               variant="ghost"
               size="icon"
@@ -471,7 +472,7 @@ export function AppShell() {
               fullBleed
                 ? 'overflow-hidden'
                 : // In the desktop app the window's buttons sit in the top corner.
-                  'overflow-y-auto p-4 md:p-8 [.desktop-app_&]:md:pt-12',
+                  'overflow-y-auto p-4 md:p-8 [.desktop-frameless_&]:md:pt-12',
             )}
           >
             <motion.div
