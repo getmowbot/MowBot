@@ -4,17 +4,9 @@ import { Code, Download, FileText, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { client } from '../lib/auth';
+import { AUDIO, IMAGE, MARKDOWN, PDF, TEXT, VIDEO } from '../lib/files';
 import { MarkdownDocument } from './markdown-document';
 import { Button } from './ui/button';
-
-const MARKDOWN = /\.(md|markdown)$/i;
-
-const TEXT =
-  /\.(txt|md|markdown|csv|tsv|log|json|jsonl|ya?ml|toml|ini|env|xml|html?|css|js|mjs|cjs|ts|tsx|jsx|py|rb|go|rs|java|c|h|cpp|sh|bash|sql|conf)$/i;
-const IMAGE = /\.(png|jpe?g|gif|webp|avif|svg)$/i;
-const AUDIO = /\.(mp3|wav|ogg)$/i;
-const VIDEO = /\.(mp4|webm)$/i;
-const PDF = /\.pdf$/i;
 
 const LIMITS = {
   text: 2 * 1024 ** 2,

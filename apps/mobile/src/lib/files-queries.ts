@@ -4,6 +4,7 @@ import type { DocumentPickerAsset } from 'expo-document-picker';
 import { Directory, File, Paths, UploadType } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useMemo } from 'react';
+import { FILE_HEAD_BYTES, rangeTotal } from './board';
 import {
   contentUrl,
   downloadUrl,
@@ -112,6 +113,44 @@ export function useFileText(workspaceId: string, entry: FileEntry | undefined, e
       if (error !== undefined) throw error;
       // An empty file comes back without a body.
       return { text: typeof text === 'string' ? text : '', truncated };
+    },
+  });
+}
+
+/**
+ * The beginning of a file a bot presented (its card's preview): one small Range request, never
+ * the whole file. `version` changes when the card does. `cut`: the file goes on past it.
+ */
+export function useFileHead(
+  workspaceId: string | null,
+  path: string,
+  version: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ['file-head', workspaceId, path, version],
+    enabled: Boolean(workspaceId) && enabled,
+    // Chat rows remount as they scroll: no refetch for each.
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    queryFn: async () => {
+      const {
+        data: text,
+        error,
+        response,
+      } = await api().GET('/api/v1/workspaces/{id}/files/content', {
+        params: { path: { id: workspaceId as string }, query: { path } },
+        parseAs: 'text',
+        headers: { range: `bytes=0-${FILE_HEAD_BYTES - 1}` },
+      });
+      // Emptied since: no range to give.
+      if (response.status === 416) return { text: '', cut: false };
+      if (error !== undefined) throw error;
+      const total = rangeTotal(response.headers.get('content-range'));
+      return {
+        text: typeof text === 'string' ? text : '',
+        cut: response.status === 206 && total !== null && total > FILE_HEAD_BYTES,
+      };
     },
   });
 }

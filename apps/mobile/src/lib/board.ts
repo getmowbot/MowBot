@@ -8,11 +8,12 @@ import type {
   Question,
 } from '@mowbot/contract';
 import type { TFunction } from 'i18next';
+import { normalizePath, previewKind } from './files';
 
 /**
  * Pure logic of the canvases (on Home and inside conversations) and of the notifications (no
  * React, no native modules): greeting, canvases order and layout, card buttons and pictures,
- * checklist and notification cache changes, the sandboxed page of `html` canvases.
+ * file previews, checklist and notification cache changes, the sandboxed page of `html` canvases.
  */
 
 export type DayPeriod = 'morning' | 'afternoon' | 'evening';
@@ -116,7 +117,7 @@ export function scoreText(content: Extract<CanvasContent, { kind: 'score' }>): s
 
 /**
  * The one line a folded card keeps: the score, the first figure, a card's title (and subtitle),
- * how many pictures a gallery has; null for the others.
+ * how many pictures a gallery has, a file's name; null for the others.
  */
 export function foldedSummary(content: CanvasContent, t: TFunction): string | null {
   switch (content.kind) {
@@ -128,6 +129,8 @@ export function foldedSummary(content: CanvasContent, t: TFunction): string | nu
       return content.subtitle ? `${content.title} · ${content.subtitle}` : content.title;
     case 'gallery':
       return t('board.canvas.images', { count: content.images.length });
+    case 'file':
+      return content.name;
     default:
       return null;
   }
@@ -224,6 +227,107 @@ export function galleryThumbSize(count: number, width: number): number {
   if (count <= 1) return width;
   if (count === 2) return Math.floor((width - GALLERY_GAP) / 2);
   return Math.floor(Math.min(160, Math.max(112, (width - GALLERY_GAP * 2) / 2.4)));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Files
+
+type FileCanvas = Extract<CanvasContent, { kind: 'file' }>;
+
+/** What a file card loads of a text for its preview: its beginning, in one Range request. */
+export const FILE_HEAD_BYTES = 8 * 1024;
+/** Lines of text a file card shows (Markdown gets a few more: blank lines separate blocks). */
+export const FILE_TEXT_LINES = 12;
+export const FILE_MARKDOWN_LINES = 16;
+/** Height of a file card's preview: a picture is contained in it, text fades out past it. */
+export const FILE_PREVIEW_HEIGHT = 260;
+/** Pictures above this are not loaded in a card (the viewer still shows them). */
+const FILE_IMAGE_BYTES = 10 * 1024 ** 2;
+
+/** What a file card shows inline: a picture, the first lines of a text, or nothing. */
+export type FilePreview = 'image' | 'markdown' | 'text' | null;
+
+export function filePreview(content: FileCanvas): FilePreview {
+  if (content.type === 'directory') return null;
+  const kind = previewKind(content.name, content.size);
+  if (kind === 'image') return content.size <= FILE_IMAGE_BYTES ? 'image' : null;
+  // An empty text has nothing to show.
+  if (kind === 'markdown' || kind === 'text') return content.size > 0 ? kind : null;
+  return null;
+}
+
+/**
+ * Height of a picture in a file card `width` wide: its own proportions (4:3 until it has
+ * loaded), capped; a tall picture is contained in the frame.
+ */
+export function fileImageHeight(width: number, ratio: number | null): number {
+  if (width <= 0) return 0;
+  const proportion = ratio && ratio > 0 ? ratio : 4 / 3;
+  return Math.round(Math.min(FILE_PREVIEW_HEIGHT, width / proportion));
+}
+
+/** `rapport.md` → `MD`; null without one (`Makefile`, `.env`). */
+export function fileExtension(name: string): string | null {
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0 || dot === name.length - 1) return null;
+  const ext = name.slice(dot + 1);
+  return ext.length <= 6 ? ext.toUpperCase() : null;
+}
+
+/** `bytes 0-8191/52310` → 52310 (null when the hub did not say). */
+export function rangeTotal(header: string | null | undefined): number | null {
+  const match = /\/(\d+)\s*$/.exec(header ?? '');
+  return match ? Number(match[1]) : null;
+}
+
+const BYTE_ORDER_MARK = 0xfeff;
+/** What a decoder puts in place of a character cut in half. */
+const REPLACEMENT_CHARACTER = String.fromCharCode(0xfffd);
+
+/**
+ * The first lines of a text, for a card. `cut`: the text is only the file's beginning, so its
+ * last line may stop mid-way (or mid-character) and is dropped. Blank lines at the end are
+ * trimmed; `more` says something is left out. Markdown loses its front matter.
+ */
+export function textExcerpt(
+  text: string,
+  options: { lines: number; cut?: boolean; markdown?: boolean },
+): { text: string; more: boolean } {
+  const { lines: max, cut = false, markdown = false } = options;
+  let body = text.replace(/\r\n?/g, '\n');
+  if (body.charCodeAt(0) === BYTE_ORDER_MARK) body = body.slice(1);
+  if (markdown) body = body.replace(/^---\n[\s\S]*?\n---(?:\n|$)/, '');
+  let lines = body.split('\n');
+  if (cut && lines.length > 1) lines = lines.slice(0, -1);
+  const trimEnd = () => {
+    while (lines.length > 0 && !lines[lines.length - 1]?.trim()) lines.pop();
+  };
+  trimEnd();
+  let more = cut;
+  if (lines.length > max) {
+    lines = lines.slice(0, max);
+    more = true;
+    trimEnd();
+  }
+  let excerpt = lines.join('\n');
+  // A single line cut mid-character ends in replacement characters.
+  while (excerpt.endsWith(REPLACEMENT_CHARACTER)) excerpt = excerpt.slice(0, -1);
+  return { text: excerpt, more };
+}
+
+/** Where a file card leads: the file's viewer, or the files browser at that folder. */
+export function fileCanvasRoute(
+  workspaceId: string,
+  content: Pick<FileCanvas, 'path' | 'type'>,
+): {
+  pathname: '/files/[workspaceId]' | '/files/[workspaceId]/view';
+  params: Record<string, string>;
+} {
+  const path = normalizePath(content.path);
+  return {
+    pathname: content.type === 'directory' ? '/files/[workspaceId]' : '/files/[workspaceId]/view',
+    params: { workspaceId, path },
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

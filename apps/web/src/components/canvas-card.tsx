@@ -214,6 +214,7 @@ function foldedSummary(content: CanvasContent): string | null {
   if (content.kind === 'gallery') {
     return i18n.t('canvas.images', { count: content.images.length });
   }
+  if (content.kind === 'file') return content.name;
   return null;
 }
 

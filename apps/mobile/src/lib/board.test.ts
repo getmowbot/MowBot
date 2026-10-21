@@ -11,7 +11,12 @@ import {
   dayGroup,
   dayPeriod,
   editChecklist,
+  FILE_PREVIEW_HEIGHT,
   FRAME_HEIGHT,
+  fileCanvasRoute,
+  fileExtension,
+  fileImageHeight,
+  filePreview,
   firstName,
   foldedSummary,
   frameMayLoad,
@@ -25,10 +30,12 @@ import {
   moveCanvas,
   NOTE_FOLD_HEIGHT,
   questionsOfBot,
+  rangeTotal,
   replaceCanvas,
   scoreText,
   shownCanvases,
   statsColumns,
+  textExcerpt,
   unreadCount,
   workingBots,
   workspaceFileUrl,
@@ -56,6 +63,19 @@ function canvas(id: string, overrides: Partial<Canvas> = {}): Canvas {
     collapsed: false,
     updatedAt: '2026-10-20T10:00:00.000Z',
     createdAt: '2026-10-20T10:00:00.000Z',
+    ...overrides,
+  };
+}
+
+type FileCanvas = Extract<CanvasContent, { kind: 'file' }>;
+
+function file(path: string, overrides: Partial<FileCanvas> = {}): FileCanvas {
+  return {
+    kind: 'file',
+    path,
+    name: path.split('/').filter(Boolean).at(-1) ?? path,
+    type: 'file',
+    size: 1200,
     ...overrides,
   };
 }
@@ -210,6 +230,92 @@ describe('canvases', () => {
     expect(foldedSummary(pictures(3), fr)).toBe('3 images');
     expect(foldedSummary(pictures(1), fr)).toBe('1 image');
     expect(foldedSummary(pictures(2), en)).toBe('2 images');
+  });
+
+  it('keeps a file’s name when folded', () => {
+    expect(foldedSummary(file('outputs/rapport.md'), fr)).toBe('rapport.md');
+    expect(foldedSummary(file('outputs', { type: 'directory' }), en)).toBe('outputs');
+  });
+});
+
+describe('file canvases', () => {
+  it('previews pictures and texts, not the rest', () => {
+    expect(filePreview(file('a/photo.JPG', { size: 2_000_000 }))).toBe('image');
+    expect(filePreview(file('a/huge.png', { size: 40 * 1024 ** 2 }))).toBeNull();
+    expect(filePreview(file('rapport.md'))).toBe('markdown');
+    expect(filePreview(file('data.csv'))).toBe('text');
+    expect(filePreview(file('config.json'))).toBe('text');
+    expect(filePreview(file('server.log', { size: 900 * 1024 ** 2 }))).toBe('text');
+    expect(filePreview(file('empty.txt', { size: 0 }))).toBeNull();
+    expect(filePreview(file('doc.pdf'))).toBeNull();
+    expect(filePreview(file('table.xlsx'))).toBeNull();
+    expect(filePreview(file('notes.md', { type: 'directory' }))).toBeNull();
+  });
+
+  it('sizes a picture to its proportions, within the frame', () => {
+    expect(fileImageHeight(320, 16 / 9)).toBe(180);
+    // Not loaded yet: 4:3.
+    expect(fileImageHeight(320, null)).toBe(240);
+    // Tall pictures stop at the frame's height.
+    expect(fileImageHeight(320, 9 / 16)).toBe(FILE_PREVIEW_HEIGHT);
+    expect(fileImageHeight(0, 1)).toBe(0);
+  });
+
+  it('names the extension', () => {
+    expect(fileExtension('rapport.md')).toBe('MD');
+    expect(fileExtension('archive.tar.gz')).toBe('GZ');
+    expect(fileExtension('Makefile')).toBeNull();
+    expect(fileExtension('.env')).toBeNull();
+    expect(fileExtension('trailing.')).toBeNull();
+    expect(fileExtension('weird.averylongext')).toBeNull();
+  });
+
+  it('reads the size of a file from a partial answer', () => {
+    expect(rangeTotal('bytes 0-8191/52310')).toBe(52310);
+    expect(rangeTotal('bytes */0')).toBe(0);
+    expect(rangeTotal(null)).toBeNull();
+    expect(rangeTotal('bytes 0-10/*')).toBeNull();
+  });
+
+  it('keeps the first lines of a text', () => {
+    const text = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join('\n');
+    expect(textExcerpt(text, { lines: 3 })).toEqual({ text: 'line 1\nline 2\nline 3', more: true });
+    expect(textExcerpt('a\r\nb\r\n\r\n', { lines: 2 })).toEqual({ text: 'a\nb', more: false });
+    expect(textExcerpt('a\nb\n', { lines: 12 })).toEqual({ text: 'a\nb', more: false });
+    // The last line of a cut text may stop mid-way: left out.
+    expect(textExcerpt('a\nb\nhalf a li', { lines: 12, cut: true })).toEqual({
+      text: 'a\nb',
+      more: true,
+    });
+    // A text cut within its only line keeps it, without the broken character.
+    const broken = String.fromCharCode(0xfffd);
+    expect(textExcerpt(`{"a":1,"b":"${broken}`, { lines: 12, cut: true })).toEqual({
+      text: '{"a":1,"b":"',
+      more: true,
+    });
+    expect(textExcerpt('a\n\n\nb\nc', { lines: 3 })).toEqual({ text: 'a', more: true });
+    // A byte order mark is not text.
+    expect(textExcerpt(`${String.fromCharCode(0xfeff)}a`, { lines: 3 }).text).toBe('a');
+  });
+
+  it('drops the front matter of Markdown', () => {
+    const doc = '---\ntitle: Rapport\ndate: 2026-10-21\n---\n# Rapport\n\nTexte.';
+    expect(textExcerpt(doc, { lines: 12, markdown: true }).text).toBe('# Rapport\n\nTexte.');
+    expect(textExcerpt(doc, { lines: 12 }).text).toContain('title: Rapport');
+    expect(textExcerpt('---\n\nA rule above.', { lines: 12, markdown: true }).text).toBe(
+      '---\n\nA rule above.',
+    );
+  });
+
+  it('leads to the viewer, or the folder', () => {
+    expect(fileCanvasRoute('ws-1', file('/outputs/rapport.md'))).toEqual({
+      pathname: '/files/[workspaceId]/view',
+      params: { workspaceId: 'ws-1', path: 'outputs/rapport.md' },
+    });
+    expect(fileCanvasRoute('ws-1', file('outputs/q3/', { type: 'directory' }))).toEqual({
+      pathname: '/files/[workspaceId]',
+      params: { workspaceId: 'ws-1', path: 'outputs/q3' },
+    });
   });
 });
 

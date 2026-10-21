@@ -1,7 +1,30 @@
 import type { CanvasContent, CanvasSize, CardButton } from '@mowbot/contract';
-import { ArrowUpRight, Check, ChevronLeft, ChevronRight, ImageOff, Plus, X } from 'lucide-react';
-import { type FormEvent, useEffect, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
+import {
+  ArrowUpRight,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileArchive,
+  FileCode,
+  File as FileIcon,
+  FileImage,
+  FileMusic,
+  FilePlay,
+  FileSpreadsheet,
+  FileText,
+  Folder,
+  ImageOff,
+  type LucideIcon,
+  Plus,
+  X,
+} from 'lucide-react';
+import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { client, problemMessage } from '../lib/auth';
+import { downloadWorkspacePath, formatSize, IMAGE, MARKDOWN, PDF, TEXT } from '../lib/files';
 import { cn } from '../lib/utils';
 import { Markdown } from './markdown';
 import { WorkspaceImage } from './markdown-document';
@@ -502,7 +525,276 @@ function Gallery({
   );
 }
 
+type FileContent = Extract<CanvasContent, { kind: 'file' }>;
+
+const PICTURE = /\.(png|jpe?g|gif|webp|avif|svg|heic|bmp|tiff?|ico)$/i;
+const SHEET = /\.(csv|tsv|xlsx?|xlsm|ods|numbers)$/i;
+const ARCHIVE = /\.(zip|tar|gz|tgz|bz2|xz|7z|rar)$/i;
+const SOUND = /\.(mp3|wav|ogg|oga|m4a|aac|flac|opus)$/i;
+const MOVIE = /\.(mp4|webm|mov|mkv|avi|m4v)$/i;
+const CODE =
+  /\.(json|jsonl|ya?ml|toml|ini|env|xml|html?|css|js|mjs|cjs|ts|tsx|jsx|py|rb|go|rs|java|c|h|cpp|sh|bash|sql|conf)$/i;
+
+/** How a file is told apart at a glance: an icon, a tint (the first that matches). */
+const FILE_LOOKS: [RegExp, LucideIcon, string][] = [
+  [PICTURE, FileImage, 'text-violet-300'],
+  [PDF, FileText, 'text-rose-300'],
+  [SHEET, FileSpreadsheet, 'text-emerald-300'],
+  [ARCHIVE, FileArchive, 'text-amber-200'],
+  [SOUND, FileMusic, 'text-pink-300'],
+  [MOVIE, FilePlay, 'text-sky-300'],
+  [CODE, FileCode, 'text-cyan-200'],
+  [TEXT, FileText, 'text-foreground/80'],
+];
+
+function fileLook(content: FileContent): { icon: LucideIcon; tone: string } {
+  if (content.type === 'directory') return { icon: Folder, tone: 'text-primary' };
+  const look = FILE_LOOKS.find(([pattern]) => pattern.test(content.name));
+  return look
+    ? { icon: look[1], tone: look[2] }
+    : { icon: FileIcon, tone: 'text-muted-foreground' };
+}
+
+/** Bigger pictures are not worth loading for a glance. */
+const PEEK_IMAGE_MAX = 10 * 1024 ** 2;
+/** Read of a text file for its first lines (the files page reads the rest when opened). */
+const PEEK_BYTES = 4096;
+const PEEK_LINES = 15;
+/** The glance is text: a document's pictures would load from elsewhere, or not at all. */
+const MARKDOWN_IMAGE = /!\[[^\]]*\]\([^)]*\)/g;
+
+type Peek = 'image' | 'markdown' | 'text' | null;
+
+function peekOf(content: FileContent): Peek {
+  if (content.type === 'directory' || content.size === 0) return null;
+  if (IMAGE.test(content.name)) return content.size <= PEEK_IMAGE_MAX ? 'image' : null;
+  if (MARKDOWN.test(content.name)) return 'markdown';
+  if (TEXT.test(content.name)) return 'text';
+  return null;
+}
+
+/** The first lines of a file read in part: a line cut short is left out. */
+function firstLines(text: string, partial: boolean): { text: string; more: boolean } {
+  const lines = text.split(/\r?\n/);
+  if (partial && lines.length > 1) lines.pop();
+  while (lines.length > 0 && !lines.at(-1)?.trim()) lines.pop();
+  return {
+    text: lines
+      .slice(0, PEEK_LINES)
+      .join('\n')
+      .replace(/\uFFFD+$/, ''),
+    more: partial || lines.length > PEEK_LINES,
+  };
+}
+
+function ImagePeek({
+  content,
+  workspaceId,
+  version,
+  onOpen,
+}: {
+  content: FileContent;
+  workspaceId: string;
+  version?: string;
+  onOpen(): void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={t('canvas.openFile', { name: content.name })}
+      className="group grid w-full place-items-center overflow-hidden rounded-xl border border-border bg-black/25 outline-none transition-colors duration-200 hover:border-border-strong focus-visible:ring-2 focus-visible:ring-ring/60"
+    >
+      <WorkspaceImage
+        workspaceId={workspaceId}
+        path={content.path}
+        alt={content.name}
+        version={version}
+        className="max-h-[280px] max-w-full object-contain transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+        placeholderClassName="h-40 aspect-auto rounded-none"
+        fallback={
+          <span className="grid h-24 w-full place-items-center text-faint">
+            <ImageOff className="size-5" />
+          </span>
+        }
+      />
+    </button>
+  );
+}
+
+/** The first lines of a text file: laid out for Markdown, as they are for the rest. */
+function TextPeek({
+  content,
+  workspaceId,
+  version,
+  markdown,
+  onOpen,
+}: {
+  content: FileContent;
+  workspaceId: string;
+  version?: string;
+  markdown: boolean;
+  onOpen(): void;
+}) {
+  const { t } = useTranslation();
+  const box = useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = useState(false);
+  const head = useQuery({
+    queryKey: ['file-head', workspaceId, content.path, content.size, version],
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+    queryFn: async () => {
+      const response = await client.fetch(
+        `/api/v1/workspaces/${workspaceId}/files/content?path=${encodeURIComponent(content.path)}`,
+        { headers: { range: `bytes=0-${PEEK_BYTES - 1}` } },
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const bytes = await response.arrayBuffer();
+      return firstLines(new TextDecoder().decode(bytes), bytes.byteLength >= PEEK_BYTES);
+    },
+  });
+  const text = head.data?.text;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure whenever the text changes
+  useLayoutEffect(() => {
+    const element = box.current;
+    if (element) setOverflows(element.scrollHeight > element.clientHeight + 1);
+  }, [text]);
+  // Gone, unreadable or blank: the card says enough.
+  if (head.isError || (text !== undefined && !text.trim())) return null;
+  return (
+    <div className="group relative">
+      <div className="rounded-xl border border-border bg-black/25 px-3.5 py-3 transition-colors duration-200 group-hover:border-border-strong">
+        {text === undefined ? (
+          <div className="space-y-2 py-0.5">
+            {['w-3/4', 'w-full', 'w-5/6', 'w-2/3'].map((width) => (
+              <span
+                key={width}
+                className={cn('block h-2.5 animate-pulse rounded-full bg-white/[0.06]', width)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div
+            ref={box}
+            inert
+            className={cn(
+              'overflow-hidden',
+              markdown && 'max-h-52',
+              (head.data?.more || overflows) &&
+                '[mask-image:linear-gradient(to_bottom,black_60%,transparent)]',
+            )}
+          >
+            {markdown ? (
+              <Markdown text={text.replace(MARKDOWN_IMAGE, '')} className="text-[13px]" />
+            ) : (
+              <pre className="whitespace-pre font-mono text-[11.5px] leading-[1.6] text-foreground/80">
+                {text}
+              </pre>
+            )}
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={t('canvas.openFile', { name: content.name })}
+        className="absolute inset-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      />
+    </div>
+  );
+}
+
+/** A file or folder of the bot's workspace: what it is, a first look, to open or download. */
+function WorkspaceFile({
+  content,
+  workspaceId,
+  version,
+}: {
+  content: FileContent;
+  workspaceId: string | null;
+  version?: string;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const folder = content.type === 'directory';
+  const { icon: Icon, tone } = fileLook(content);
+  const peek = peekOf(content);
+  const extension = /\.([a-z0-9]{1,8})$/i.exec(content.name)?.[1]?.toUpperCase();
+  const download = useMutation({
+    mutationFn: async () => downloadWorkspacePath(workspaceId as string, content.path),
+  });
+  /** The files page: at the folder, or at the file's folder with the file in the preview. */
+  const open = () => {
+    if (!workspaceId) return;
+    const slash = content.path.lastIndexOf('/');
+    const parent = slash > 0 ? { path: content.path.slice(0, slash) } : {};
+    void navigate({
+      to: '/workspaces/$workspaceId/files',
+      params: { workspaceId },
+      search: folder ? { path: content.path } : { ...parent, open: content.path },
+    });
+  };
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span
+          className={cn(
+            'grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.06]',
+            tone,
+          )}
+        >
+          <Icon className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium leading-snug" title={content.path}>
+            {content.name}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">
+            {folder
+              ? t('files.folder')
+              : [formatSize(content.size), extension].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+      </div>
+      {content.caption && <p className="px-0.5 text-sm text-foreground/85">{content.caption}</p>}
+      {workspaceId && peek === 'image' && (
+        <ImagePeek content={content} workspaceId={workspaceId} version={version} onOpen={open} />
+      )}
+      {workspaceId && (peek === 'markdown' || peek === 'text') && (
+        <TextPeek
+          content={content}
+          workspaceId={workspaceId}
+          version={version}
+          markdown={peek === 'markdown'}
+          onOpen={open}
+        />
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={open} disabled={!workspaceId}>
+          {t('canvas.open')}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => download.mutate()}
+          disabled={!workspaceId || download.isPending}
+        >
+          <Download className="size-3.5" />
+          {t('preview.download')}
+        </Button>
+      </div>
+      {download.isError && (
+        <p role="alert" className="text-xs text-destructive">
+          {problemMessage(download.error, t('common.actionFailed'))}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** A canvas's content, without the home page's card around it. */
+
 export function CanvasBody({
   content,
   title = '',
@@ -552,5 +844,7 @@ export function CanvasBody({
       return <Card content={content} workspaceId={workspaceId} version={version} press={press} />;
     case 'gallery':
       return <Gallery content={content} workspaceId={workspaceId} version={version} />;
+    case 'file':
+      return <WorkspaceFile content={content} workspaceId={workspaceId} version={version} />;
   }
 }

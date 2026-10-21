@@ -563,6 +563,8 @@ export const fr = {
     enlarge: 'Agrandir l’image',
     previous: 'Image précédente',
     next: 'Image suivante',
+    open: 'Ouvrir',
+    openFile: 'Ouvrir « {{name}} »',
   },
   routines: {
     title: 'Routines',

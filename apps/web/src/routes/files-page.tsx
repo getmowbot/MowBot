@@ -11,36 +11,18 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { type DragEvent, useRef, useState } from 'react';
+import { type DragEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FilePreview } from '../components/file-preview';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/form';
 import { i18n } from '../i18n';
-import { api, apiBaseUrl, client, problemMessage } from '../lib/auth';
+import { api, client, problemMessage } from '../lib/auth';
+import { downloadWorkspacePath, formatSize } from '../lib/files';
 import { useBots, useTeams } from '../lib/queries';
 import { cn, formatDate } from '../lib/utils';
 
 const label = (name: string) => (name === TRASH_FOLDER ? i18n.t('files.trash') : name);
-
-const UNITS = ['kb', 'mb', 'gb', 'tb'] as const;
-
-/** `1,5 Mo` / `1.5 MB` */
-const formatSize = (bytes: number) => {
-  if (bytes < 1024) return `${bytes} ${i18n.t('files.units.b')}`;
-  let value = bytes / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < UNITS.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  const digits = value < 10 ? 1 : 0;
-  const number = new Intl.NumberFormat(i18n.language, {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(value);
-  return `${number} ${i18n.t(`files.units.${UNITS[unit] ?? 'tb'}`)}`;
-};
 
 const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
@@ -48,7 +30,7 @@ export function FilesPage() {
   const { t } = useTranslation();
   // A team's files (/teams/:id/files) or any workspace (/workspaces/:id/files), e.g. a solo bot's.
   const route = useParams({ strict: false }) as { teamId?: string; workspaceId?: string };
-  const search = useSearch({ strict: false }) as { path?: string };
+  const search = useSearch({ strict: false }) as { path?: string; open?: string };
   const dir = search.path ?? '';
   const teams = useTeams();
   const bots = useBots();
@@ -106,6 +88,18 @@ export function FilesPage() {
     setPreview(entry);
   };
 
+  /** A file a bot showed in a conversation (`?open=`) opens in the preview. */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per file asked, `openPath` changes every render
+  useEffect(() => {
+    if (search.open && workspaceId) void openPath(search.open);
+  }, [search.open, workspaceId]);
+
+  /** Closing forgets the file asked (a reload shows the folder). */
+  const closePreview = () => {
+    setPreview(null);
+    if (search.open) void navigate({ to: '.', search: dir ? { path: dir } : {}, replace: true });
+  };
+
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
       const form = new FormData();
@@ -155,18 +149,8 @@ export function FilesPage() {
     onError,
   });
 
-  /** Single-use link: the browser downloads it natively (no auth header needed). */
-  const download = async (path: string) => {
-    const { data, error } = await api.POST('/api/v1/workspaces/{id}/files/download-ticket', {
-      params: { path: { id: workspaceId as string } },
-      body: { path },
-    });
-    if (error || !data) return onError(error);
-    const link = document.createElement('a');
-    link.href = `${apiBaseUrl}/api/v1/downloads/${encodeURIComponent(data.ticket)}`;
-    link.rel = 'noopener';
-    link.click();
-  };
+  const download = (path: string) =>
+    downloadWorkspacePath(workspaceId as string, path).catch(onError);
 
   const inTrash = dir === TRASH_FOLDER || dir.startsWith(`${TRASH_FOLDER}/`);
   const crumbs = dir ? dir.split('/') : [];
@@ -349,7 +333,7 @@ export function FilesPage() {
           key={preview.path}
           workspaceId={workspaceId}
           entry={preview}
-          onClose={() => setPreview(null)}
+          onClose={closePreview}
           onDownload={(entry) => void download(entry.path)}
           onOpenPath={(path) => void openPath(path)}
         />

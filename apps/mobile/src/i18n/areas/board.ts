@@ -77,6 +77,12 @@ export const fr = {
     picture: 'Image {{index}} sur {{count}}',
     images_one: '{{count}} image',
     images_other: '{{count}} images',
+    file: {
+      folder: 'Dossier',
+      open: 'Ouvrir',
+      opensFile: 'Ouvre le fichier',
+      opensFolder: 'Ouvre le dossier dans Fichiers',
+    },
   },
   notifications: {
     title: 'Notifications',
@@ -174,6 +180,12 @@ export const en: Widen<typeof fr> = {
     picture: 'Picture {{index}} of {{count}}',
     images_one: '{{count}} image',
     images_other: '{{count}} images',
+    file: {
+      folder: 'Folder',
+      open: 'Open',
+      opensFile: 'Opens the file',
+      opensFolder: 'Opens the folder in Files',
+    },
   },
   notifications: {
     title: 'Notifications',
