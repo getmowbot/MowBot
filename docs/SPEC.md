@@ -213,7 +213,7 @@ Principes :
 
 | Groupe | Outils |
 |---|---|
-| Organisation | `list_teams`, `create_team(name, mission, lead?)` (Chef), `update_team`, `list_bots(team?)`, `create_bot(…, team: id \| null, computer: team \| new)` (Chef, leads pour leur équipe, bots `can_spawn`), `update_bot`, `move_bot(team)`, `retire_bot` |
+| Organisation | `list_teams`, `create_team(name, mission, lead?)` (Chef), `update_team`, `list_bots(team?)`, `create_bot(…, team: id \| null, computer: team \| new)` (Chef, leads pour leur équipe, bots `can_spawn`), `update_bot`, `move_bot(team)`, `retire_bot`, `set_focus(text)` (ce sur quoi il travaille, affiché à côté de son nom) |
 | Communication | `send_message` (tout bot de l'annuaire, sauf équipe cloisonnée), `ask_bot` (synchrone, timeout), `reply`, `post_channel` (canal de son équipe), `assign_task`, `update_task`, `list_tasks`, `share_file(path, to)` |
 | Utilisateur | `notify_user(priority: digest \| normal \| urgent)`, `ask_user(question, options)`, `request_user_takeover(reason)` |
 | Proactivité | `create_routine`, `list_routines`, `update_routine`, `delete_routine`, `set_heartbeat` |
