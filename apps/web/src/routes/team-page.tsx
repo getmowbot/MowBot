@@ -20,7 +20,7 @@ import { useOrgDialogs } from '../components/org-dialogs';
 import { Button } from '../components/ui/button';
 import { Card, FormError, Input, Label, Select, Textarea } from '../components/ui/form';
 import { api, problemMessage } from '../lib/auth';
-import { moodOf, statusLabel } from '../lib/bot-mood';
+import { isBusy, moodOf, statusLabel } from '../lib/bot-mood';
 import { Reveal, reveal, stagger } from '../lib/motion';
 import { useBots, useComputers, useTeam } from '../lib/queries';
 import { cn } from '../lib/utils';
@@ -29,6 +29,7 @@ function MemberCard({ bot, lead }: { bot: Bot; lead: boolean }) {
   const { t } = useTranslation();
   const dialogs = useOrgDialogs();
   const mood = moodOf(bot);
+  const status = statusLabel(bot);
   return (
     <motion.div variants={reveal} className="glass flex items-center gap-3 rounded-2xl p-3">
       <Link
@@ -47,14 +48,14 @@ function MemberCard({ bot, lead }: { bot: Bot; lead: boolean }) {
               />
             )}
           </span>
-          <span className="block truncate text-xs text-muted-foreground">{bot.role}</span>
+          <span title={bot.role} className="block truncate text-xs text-muted-foreground">
+            {bot.role}
+          </span>
           <span
-            className={cn(
-              'block truncate text-xs',
-              mood === 'idle' ? 'text-faint' : 'shimmer-text',
-            )}
+            title={status}
+            className={cn('block truncate text-xs', isBusy(bot) ? 'shimmer-text' : 'text-faint')}
           >
-            {statusLabel(bot, mood)}
+            {status}
           </span>
         </span>
       </Link>

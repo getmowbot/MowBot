@@ -104,11 +104,17 @@ export function ServerEvents() {
         case 'workspace.changed':
           void queryClient.invalidateQueries({ queryKey: ['files', event.workspaceId] });
           break;
-        case 'bot.updated':
+        case 'bot.updated': {
+          const before = queryClient
+            .getQueryData<Bot[]>(['bots'])
+            ?.find((b) => b.id === event.bot.id);
           updateBot(queryClient, event.bot);
-          // A new bot may come with a new PC.
-          void queryClient.invalidateQueries({ queryKey: ['computers'] });
+          // A new bot may come with a new PC (what it is doing changes often: not for that).
+          if (before?.computerId !== event.bot.computerId) {
+            void queryClient.invalidateQueries({ queryKey: ['computers'] });
+          }
           break;
+        }
         case 'bot.deleted':
           queryClient.setQueryData<Bot[]>(['bots'], (list) =>
             list?.filter((b) => b.id !== event.botId),

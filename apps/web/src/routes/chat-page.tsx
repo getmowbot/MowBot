@@ -45,7 +45,7 @@ import { Button } from '../components/ui/button';
 import { VaultRequestCard } from '../components/vault-request-card';
 import { i18n } from '../i18n';
 import { api, client, problemMessage } from '../lib/auth';
-import { moodOf, statusLabel } from '../lib/bot-mood';
+import { isBusy, moodOf, statusLabel } from '../lib/bot-mood';
 import { mentionSegments } from '../lib/chat-input';
 import {
   chipBots,
@@ -70,6 +70,7 @@ import {
   useMe,
   useMessages,
   useProviders,
+  useTeams,
 } from '../lib/queries';
 import { cn } from '../lib/utils';
 import { type Recording, recordingName } from '../lib/voice';
@@ -658,6 +659,7 @@ export function ChatPage() {
   // Oldest first, like the conversation.
   const asked = (questions.data ?? []).filter((q) => q.botId === bot?.id).reverse();
   const providers = useProviders();
+  const teams = useTeams();
   const queryClient = useQueryClient();
   const scroller = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -806,6 +808,10 @@ export function ChatPage() {
   const live = items.at(-1)?.status === 'streaming' ? items.at(-1) : undefined;
   const mood = moodOf(bot, live);
   const noModel = providers.isSuccess && (providers.data.length === 0 || !bot.model);
+  // What it is doing · its role · its team (the model is in its settings).
+  const status = statusLabel(bot, live);
+  const team = teams.data?.find((candidate) => candidate.id === bot.teamId);
+  const about = [bot.role, team?.name].filter(Boolean).join(' · ');
 
   return (
     <div className="flex h-full min-h-0">
@@ -825,12 +831,16 @@ export function ChatPage() {
               </p>
             )}
             <p
-              className={cn(
-                'truncate text-[13px] text-muted-foreground',
-                mood !== 'idle' && 'shimmer-text',
-              )}
+              title={`${status} · ${about}`}
+              className="flex min-w-0 text-[13px] text-muted-foreground"
             >
-              {bot.model ? `${statusLabel(bot, mood)} · ${bot.model}` : statusLabel(bot, mood)}
+              <span className={cn('max-w-[65%] shrink-0 truncate', isBusy(bot) && 'shimmer-text')}>
+                {status}
+              </span>
+              <span className="min-w-0 truncate">
+                <span className="px-1.5 text-faint">·</span>
+                {about}
+              </span>
             </p>
           </div>
           {bot.computerId && (
