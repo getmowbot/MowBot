@@ -4169,6 +4169,15 @@ export interface operations {
                                     }[];
                                 } | {
                                     /** @enum {string} */
+                                    kind: "file";
+                                    path: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "file" | "directory";
+                                    size: number;
+                                    caption?: string;
+                                } | {
+                                    /** @enum {string} */
                                     kind: "gallery";
                                     images: {
                                         src: string;
@@ -4364,6 +4373,15 @@ export interface operations {
                                     url?: string;
                                     reply?: string;
                                 }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "file";
+                                path: string;
+                                name: string;
+                                /** @enum {string} */
+                                type: "file" | "directory";
+                                size: number;
+                                caption?: string;
                             } | {
                                 /** @enum {string} */
                                 kind: "gallery";
@@ -4621,6 +4639,15 @@ export interface operations {
                                 }[];
                             } | {
                                 /** @enum {string} */
+                                kind: "file";
+                                path: string;
+                                name: string;
+                                /** @enum {string} */
+                                type: "file" | "directory";
+                                size: number;
+                                caption?: string;
+                            } | {
+                                /** @enum {string} */
                                 kind: "gallery";
                                 images: {
                                     src: string;
@@ -4822,6 +4849,15 @@ export interface operations {
                                     url?: string;
                                     reply?: string;
                                 }[];
+                            } | {
+                                /** @enum {string} */
+                                kind: "file";
+                                path: string;
+                                name: string;
+                                /** @enum {string} */
+                                type: "file" | "directory";
+                                size: number;
+                                caption?: string;
                             } | {
                                 /** @enum {string} */
                                 kind: "gallery";
@@ -5601,6 +5637,15 @@ export interface operations {
                                         url?: string;
                                         reply?: string;
                                     }[];
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "file";
+                                    path: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "file" | "directory";
+                                    size: number;
+                                    caption?: string;
                                 } | {
                                     /** @enum {string} */
                                     kind: "gallery";
@@ -7534,6 +7579,15 @@ export interface operations {
                                 }[];
                             } | {
                                 /** @enum {string} */
+                                kind: "file";
+                                path: string;
+                                name: string;
+                                /** @enum {string} */
+                                type: "file" | "directory";
+                                size: number;
+                                caption?: string;
+                            } | {
+                                /** @enum {string} */
                                 kind: "gallery";
                                 images: {
                                     src: string;
@@ -7742,6 +7796,15 @@ export interface operations {
                                 url?: string;
                                 reply?: string;
                             }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "file";
+                            path: string;
+                            name: string;
+                            /** @enum {string} */
+                            type: "file" | "directory";
+                            size: number;
+                            caption?: string;
                         } | {
                             /** @enum {string} */
                             kind: "gallery";
@@ -7954,6 +8017,15 @@ export interface operations {
                             }[];
                         } | {
                             /** @enum {string} */
+                            kind: "file";
+                            path: string;
+                            name: string;
+                            /** @enum {string} */
+                            type: "file" | "directory";
+                            size: number;
+                            caption?: string;
+                        } | {
+                            /** @enum {string} */
                             kind: "gallery";
                             images: {
                                 src: string;
@@ -8095,6 +8167,15 @@ export interface operations {
                                 url?: string;
                                 reply?: string;
                             }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "file";
+                            path: string;
+                            name: string;
+                            /** @enum {string} */
+                            type: "file" | "directory";
+                            size: number;
+                            caption?: string;
                         } | {
                             /** @enum {string} */
                             kind: "gallery";
@@ -8245,6 +8326,15 @@ export interface operations {
                                 url?: string;
                                 reply?: string;
                             }[];
+                        } | {
+                            /** @enum {string} */
+                            kind: "file";
+                            path: string;
+                            name: string;
+                            /** @enum {string} */
+                            type: "file" | "directory";
+                            size: number;
+                            caption?: string;
                         } | {
                             /** @enum {string} */
                             kind: "gallery";

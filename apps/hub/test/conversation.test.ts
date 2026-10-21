@@ -273,3 +273,48 @@ describe('asking for a login in the conversation', () => {
     expect(again.status).toBe(409);
   });
 });
+
+describe('presenting a file in the conversation', () => {
+  it('shows the file with its name and size, and refuses paths outside the workspace', async () => {
+    const model = scripted([
+      toolTurn('write_file', {
+        path: '/workspace/outputs/rapport.md',
+        content: '# Rapport\n\nTout va bien.\n',
+      }),
+      toolTurn(
+        'show_in_chat',
+        {
+          content: {
+            kind: 'file',
+            path: '/workspace/outputs/rapport.md',
+            caption: 'Le rapport de la semaine',
+          },
+        },
+        'call-2',
+      ),
+      toolTurn('show_in_chat', { content: { kind: 'file', path: '/etc/passwd' } }, 'call-3'),
+      textTurn('Voici le rapport.'),
+    ]);
+    const { inject, chef, transcript, services } = await start(() => model);
+    await inject('POST', `/api/v1/bots/${chef.id}/messages`, { text: 'Fais le rapport' });
+    await services.runtime.settle();
+
+    const answer = (await transcript()).find((m) => m.role === 'assistant') as Message;
+    const shown = answer.parts.filter((p) => p.type === 'canvas');
+    expect(shown).toEqual([
+      {
+        type: 'canvas',
+        content: {
+          kind: 'file',
+          path: 'outputs/rapport.md',
+          name: 'rapport.md',
+          type: 'file',
+          size: 25,
+          caption: 'Le rapport de la semaine',
+        },
+        pressed: null,
+      },
+    ]);
+    expect(promptOf(model, 3)).toContain('Seuls les fichiers de /workspace');
+  });
+});

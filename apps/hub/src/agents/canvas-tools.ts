@@ -4,6 +4,8 @@ import { z } from 'zod';
 import type { BotRow } from '../bots/service';
 import { HttpProblem } from '../http/problems';
 import { type CanvasService, newItemId } from '../proactivity/canvases';
+import type { WorkspaceFiles } from '../workspaces/files';
+import { workspacePath } from './tools';
 
 const imagePath = z
   .string()
@@ -111,6 +113,20 @@ const contentSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 
+/** In the conversation, a bot can also present one of its files (checked and sized by the hub). */
+const chatContentSchema = z.discriminatedUnion('kind', [
+  ...contentSchema.options,
+  z.object({
+    kind: z.literal('file'),
+    path: z
+      .string()
+      .min(1)
+      .max(500)
+      .describe('Fichier ou dossier de /workspace, ex. /workspace/outputs/rapport.pdf'),
+    caption: z.string().max(300).optional().describe('Ce que c’est, en quelques mots'),
+  }),
+]);
+
 /** `/workspace/a/b.png` → `a/b.png`. */
 const workspaceRelative = (value: string | undefined) =>
   value?.replace(/^\/?workspace\/?/, '').replace(/^\/+/, '') || undefined;
@@ -186,18 +202,33 @@ export function buildCanvasTools(ctx: {
   canvases: CanvasService;
   /** Puts the content in the bot's current answer. */
   showInChat?: (content: CanvasContent) => Promise<void>;
+  /** To present the bot's files. */
+  files?: WorkspaceFiles;
 }): ToolSet {
-  const { self, canvases, showInChat } = ctx;
+  const { self, canvases, showInChat, files } = ctx;
   const tools: ToolSet = {};
 
   if (showInChat) {
     tools[SHOW_IN_CHAT] = tool({
       description:
-        "Montre quelque chose dans la conversation, là où tu en es de ta réponse, puis continue ton texte en dessous : une carte (card : image, titre, quelques mots, jusqu'à 3 boutons qui ouvrent une page sur le téléphone ou l'ordinateur de l'utilisateur, ou qui te répondent d'un clic), des images (gallery), un score, des chiffres, une note… Pour un produit, un lieu, un itinéraire (lien Google Maps), un article, une photo : c'est plus rapide à lire qu'un paragraphe. Images : un fichier de /workspace ou une adresse https.",
-      inputSchema: z.object({ content: contentSchema }),
+        "Montre quelque chose dans la conversation, là où tu en es de ta réponse, puis continue ton texte en dessous : une carte (card : image, titre, quelques mots, jusqu'à 3 boutons qui ouvrent une page sur le téléphone ou l'ordinateur de l'utilisateur, ou qui te répondent d'un clic), des images (gallery), un fichier ou un dossier de ton /workspace (file : aperçu, ouvrir, télécharger), un score, des chiffres, une note… Pour un produit, un lieu, un itinéraire (lien Google Maps), un article, une photo : c'est plus rapide à lire qu'un paragraphe. Images : un fichier de /workspace ou une adresse https.",
+      inputSchema: z.object({ content: chatContentSchema }),
       execute: async ({ content }) => {
-        await showInChat(toContent(content, undefined));
-        return 'Affiché dans la conversation.';
+        if (content.kind !== 'file') {
+          await showInChat(toContent(content, undefined));
+          return 'Affiché dans la conversation.';
+        }
+        if (!self.workspaceId || !files) throw new Error("Tu n'as pas de fichiers à montrer.");
+        const entry = await files.stat(self.workspaceId, workspacePath(content.path));
+        await showInChat({
+          kind: 'file',
+          path: entry.path,
+          name: entry.name,
+          type: entry.type,
+          size: entry.size,
+          caption: content.caption,
+        });
+        return `${entry.type === 'directory' ? 'Dossier' : 'Fichier'} présenté dans la conversation (aperçu, ouvrir, télécharger).`;
       },
     });
   }

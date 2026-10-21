@@ -93,6 +93,17 @@ export const canvasContentSchema = z.discriminatedUnion('kind', [
     url: webLinkSchema.optional(),
     buttons: z.array(cardButtonSchema).max(3).default([]),
   }),
+  /** A file or folder of the bot's workspace, presented with a preview, to open or download. */
+  z.object({
+    kind: z.literal('file'),
+    /** Path in the bot's workspace. */
+    path: workspacePath,
+    name: z.string().trim().min(1).max(255),
+    type: z.enum(['file', 'directory']),
+    size: z.number().int().nonnegative(),
+    /** A few words about it. */
+    caption: z.string().trim().max(300).optional(),
+  }),
   /** Pictures side by side (a photo, products to compare, screenshots). */
   z.object({
     kind: z.literal('gallery'),

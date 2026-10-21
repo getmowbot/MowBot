@@ -9195,6 +9195,51 @@
                                             "kind": {
                                               "type": "string",
                                               "enum": [
+                                                "file"
+                                              ]
+                                            },
+                                            "path": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 500
+                                            },
+                                            "name": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 255
+                                            },
+                                            "type": {
+                                              "type": "string",
+                                              "enum": [
+                                                "file",
+                                                "directory"
+                                              ]
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": 0,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "caption": {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "path",
+                                            "name",
+                                            "type",
+                                            "size"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": [
                                                 "gallery"
                                               ]
                                             },
@@ -10047,6 +10092,51 @@
                                       "kind",
                                       "title",
                                       "buttons"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "file"
+                                        ]
+                                      },
+                                      "path": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 500
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 255
+                                      },
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "file",
+                                          "directory"
+                                        ]
+                                      },
+                                      "size": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "caption": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "path",
+                                      "name",
+                                      "type",
+                                      "size"
                                     ],
                                     "additionalProperties": false
                                   },
@@ -11058,6 +11148,51 @@
                                       "kind": {
                                         "type": "string",
                                         "enum": [
+                                          "file"
+                                        ]
+                                      },
+                                      "path": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 500
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 255
+                                      },
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "file",
+                                          "directory"
+                                        ]
+                                      },
+                                      "size": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "caption": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "path",
+                                      "name",
+                                      "type",
+                                      "size"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
                                           "gallery"
                                         ]
                                       },
@@ -11932,6 +12067,51 @@
                                       "kind",
                                       "title",
                                       "buttons"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "file"
+                                        ]
+                                      },
+                                      "path": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 500
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 255
+                                      },
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "file",
+                                          "directory"
+                                        ]
+                                      },
+                                      "size": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "caption": {
+                                        "type": "string",
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "path",
+                                      "name",
+                                      "type",
+                                      "size"
                                     ],
                                     "additionalProperties": false
                                   },
@@ -14505,6 +14685,51 @@
                                             "kind",
                                             "title",
                                             "buttons"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": [
+                                                "file"
+                                              ]
+                                            },
+                                            "path": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 500
+                                            },
+                                            "name": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 255
+                                            },
+                                            "type": {
+                                              "type": "string",
+                                              "enum": [
+                                                "file",
+                                                "directory"
+                                              ]
+                                            },
+                                            "size": {
+                                              "type": "integer",
+                                              "minimum": 0,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "caption": {
+                                              "type": "string",
+                                              "maxLength": 300
+                                            }
+                                          },
+                                          "required": [
+                                            "kind",
+                                            "path",
+                                            "name",
+                                            "type",
+                                            "size"
                                           ],
                                           "additionalProperties": false
                                         },
@@ -20926,6 +21151,51 @@
                                   "kind": {
                                     "type": "string",
                                     "enum": [
+                                      "file"
+                                    ]
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 255
+                                  },
+                                  "type": {
+                                    "type": "string",
+                                    "enum": [
+                                      "file",
+                                      "directory"
+                                    ]
+                                  },
+                                  "size": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "caption": {
+                                    "type": "string",
+                                    "maxLength": 300
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "path",
+                                  "name",
+                                  "type",
+                                  "size"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
                                       "gallery"
                                     ]
                                   },
@@ -21498,6 +21768,51 @@
                             "kind",
                             "title",
                             "buttons"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "file"
+                              ]
+                            },
+                            "path": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 255
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "file",
+                                "directory"
+                              ]
+                            },
+                            "size": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "caption": {
+                              "type": "string",
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "path",
+                            "name",
+                            "type",
+                            "size"
                           ],
                           "additionalProperties": false
                         },
@@ -22360,6 +22675,51 @@
                             "kind": {
                               "type": "string",
                               "enum": [
+                                "file"
+                              ]
+                            },
+                            "path": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 255
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "file",
+                                "directory"
+                              ]
+                            },
+                            "size": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "caption": {
+                              "type": "string",
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "path",
+                            "name",
+                            "type",
+                            "size"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
                                 "gallery"
                               ]
                             },
@@ -22937,6 +23297,51 @@
                             "kind": {
                               "type": "string",
                               "enum": [
+                                "file"
+                              ]
+                            },
+                            "path": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 255
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "file",
+                                "directory"
+                              ]
+                            },
+                            "size": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "caption": {
+                              "type": "string",
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "path",
+                            "name",
+                            "type",
+                            "size"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
                                 "gallery"
                               ]
                             },
@@ -23483,6 +23888,51 @@
                             "kind",
                             "title",
                             "buttons"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "file"
+                              ]
+                            },
+                            "path": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 255
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "file",
+                                "directory"
+                              ]
+                            },
+                            "size": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "caption": {
+                              "type": "string",
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "path",
+                            "name",
+                            "type",
+                            "size"
                           ],
                           "additionalProperties": false
                         },
