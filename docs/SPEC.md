@@ -195,6 +195,23 @@ Principes :
 - Partage entre équipes : `share_file(path, to: bot|team)` → copie dans `inbox/` du workspace cible + notification.
 - Plus tard : snapshots / versions.
 
+### 5.6 Aperçus web
+
+Montrer à l'utilisateur une page en cours (un serveur de dev sur le PC d'un bot), sur son téléphone ou son ordinateur, en LAN comme depuis internet, sans tunnel public.
+
+- **Un port par aperçu**, sur l'adresse du hub : `MOWBOT_PREVIEW_PORTS` (`8800-8819`). Même hôte, donc même certificat (Caddy sert `domaine:8800` avec celui du domaine ; HTTP simple en LAN) ; les chemins absolus et les WebSockets marchent, ce qu'un proxy en sous-chemin casserait.
+- **Joindre le serveur de dev** : `mow-agent` relaie une connexion TCP brute vers le loopback du PC (`GET /tcp?port=N`, upgrade `mowbot-tcp`, authentifié, IPv4 puis IPv6). Le hub y parle HTTP, upgrades WebSocket comprises, en se présentant comme `localhost:N` (`Host`, `Origin`, `Referer` réécrits) : le serveur peut n'écouter que sur localhost, et ses contrôles d'hôte passent. Ports refusés : l'agent, VNC, Chrome DevTools, X11.
+- **Accès** : le lien porte un secret (`?mowbot_preview=…`, 24 octets aléatoires, scellé en base). La première visite le remplace par un cookie `httpOnly`, `SameSite=Lax` (`Secure` en HTTPS) propre au port (`mowbot_preview_<port>`), puis redirige sans le secret. Sans cookie valable : une page « aperçu privé », rien n'atteint le serveur du bot.
+- **Durée** : jusqu'à `stop_preview` ou l'arrêt depuis l'app, l'arrêt ou la mise en veille du PC, et 24 h au plus (partager à nouveau le même port garde le lien et relance le délai). Un redémarrage du hub ressert les aperçus des PC encore allumés.
+- **Cookies partagés entre ports** (le navigateur les range par hôte, pas par port) :
+  - vers le serveur du bot : jamais les cookies du hub (`mowbot_*`, avec ou sans préfixe `__Host-`/`__Secure-`), ni ceux des autres aperçus ;
+  - depuis lui : les `Set-Cookie` de noms `mowbot_*` (même sans nom) sont supprimés, l'attribut `Domain` est retiré (cookie limité à l'hôte), `Clear-Site-Data` (qui viderait les cookies du hub), `Strict-Transport-Security` et `Alt-Svc` sont supprimés, les redirections vers `localhost:N` repointent sur l'aperçu ;
+  - le JavaScript d'un aperçu peut encore poser un cookie `mowbot_refresh` au chemin plus précis (il ne peut pas écraser le vrai, `httpOnly`) : `/auth/refresh` essaie toutes les valeurs reçues ;
+  - les ports d'aperçu ne sont jamais des origines CORS, et l'app web refuse d'être affichée dans un cadre (`X-Frame-Options`, `frame-ancestors`), le cookie de session `SameSite` n'empêchant rien entre ports d'un même site.
+- **Adresse des liens** : `MOWBOT_PUBLIC_URL`, sinon celle de la dernière requête authentifiée des apps (jamais d'une requête anonyme : un `Host` forgé détournerait le secret). L'API, elle, construit les liens sur l'adresse de chaque requête.
+- **Outils** : `share_preview(port, title?, path?)` (vérifie que le port écoute, affiche une carte Ouvrir dans la conversation), `stop_preview(port)` ; les aperçus en cours figurent dans le prompt du bot.
+- **Apps** : la page du PC (web, mobile) liste ses aperçus : ouvrir, copier le lien, arrêter. `GET /previews?computerId=`, `DELETE /previews/:id`, événement `previews.changed`.
+
 ---
 
 ## 6. Runtime agent
@@ -218,7 +235,7 @@ Principes :
 | Utilisateur | `notify_user(priority: digest \| normal \| urgent)`, `ask_user(question, options)`, `request_user_takeover(reason)` |
 | Proactivité | `create_routine`, `list_routines`, `update_routine`, `delete_routine`, `set_heartbeat` |
 | Mémoire | `remember(scope: private \| team)`, `recall(query)`, `kb_search` (base de connaissances = `/workspace/kb/`) |
-| Ordinateur | `bash`, `read_file`, `write_file`, `edit_file`, `screenshot`, `computer(action…, display)`, `open_display`, `pc_status`, `file_lock` / `file_unlock`, `install_package`, `reserve_port` ; navigateur via `@playwright/mcp` limité aux fenêtres du bot |
+| Ordinateur | `bash`, `read_file`, `write_file`, `edit_file`, `screenshot`, `computer(action…, display)`, `open_display`, `pc_status`, `file_lock` / `file_unlock`, `install_package`, `reserve_port` ; navigateur via `@playwright/mcp` limité aux fenêtres du bot ; `share_preview(port, title?, path?)`, `stop_preview(port)` (§ 5.6) |
 | Coffre | `vault_find(service \| domain)`, `vault_use(item_id)`, `vault_capture_session(service, account_label)`, `vault_store_secret`, placeholders `{{vault:item.field}}` |
 | MCP | `mcp__<server>__<tool>`, `mcp_search_tools` (chargement à la demande), `mcp_call` ; pour le Chef `mcp_list`, `mcp_add`, `mcp_update`, `mcp_remove`, `mcp_setup` |
 
@@ -292,6 +309,7 @@ Limites par défaut : 20 bots, 10 équipes, profondeur hiérarchique 3. Une équ
 | `devices` | liste, révocation |
 | `teams` | CRUD, lead, politiques |
 | `computers` | `start` / `stop` / `restart`, `desktop/ticket`, `takeover`, `status` |
+| `previews` | liste (par PC, liens pour l'adresse de la requête), arrêt |
 | `bots` | CRUD, `pause` / `resume`, équipe, ordinateur, `screencast/ticket` |
 | `workspaces/:id/files` | list, stat, content (Range), upload (multipart + reprenable), mkdir, move, delete → corbeille, restore, `archive` (zip), search |
 | `threads`, `messages` | historique, envoi |
@@ -326,7 +344,8 @@ Limites par défaut : 20 bots, 10 équipes, profondeur hiérarchique 3. Une équ
 
 ### 13.2 Durcissement
 
-- CORS strict (liste blanche), rate limiting (renforcé sur `auth`), en-têtes de sécurité, audit des événements d'authentification.
+- CORS strict (liste blanche, jamais un port d'aperçu), rate limiting (renforcé sur `auth`), en-têtes de sécurité, audit des événements d'authentification.
+- Aperçus web sur l'hôte du hub : cookies cloisonnés par le proxy, app non affichable dans un cadre (§ 5.6).
 - TLS via Caddy ; option Tailscale pour un accès privé.
 - Ordinateurs : pas de `--privileged`, pas de socket Docker, Sysbox, réseau interne, token `mow-agent` par ordinateur, socket-proxy Docker restreint pour le Hub.
 - PC d'équipe = zone de confiance commune à l'équipe ; les équipes sont isolées entre elles (PC et workspace distincts). Bots sensibles → PC dédié ou équipe cloisonnée (signalé dans l'UI).

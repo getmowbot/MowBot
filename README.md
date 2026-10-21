@@ -27,6 +27,9 @@ or a local model.
   each has its own Chrome window, its shell sessions, file locks and a queue for the screen.
 - Watch any PC live and take control from the app; bots ask you when they need a login, a 2FA
   code or a captcha.
+- **Web previews**: a bot building a site runs its dev server on its PC and shares it; you get a
+  private link that opens on your phone or computer, on the LAN or from the internet, hot reload
+  included, without a public tunnel.
 
 **Conversations**
 - Streaming answers with the bot's actions folded in. Messages sent while a bot works are taken
@@ -93,6 +96,26 @@ It also installs the `mowbot` command:
 > **Back up `deploy/.env`.** Its `MOWBOT_MASTER_KEY` encrypts the vault: without it, secrets
 > cannot be read.
 
+**Ports to open** in the firewall: 80 and 443 (TCP, and UDP 443 for HTTP/3), plus the range of
+the bots' web previews, `MOWBOT_PREVIEW_PORTS` (`8800-8819` by default; the installer picks the
+next free block of 20 if those are taken). Each preview is served on one of these ports of the
+same address, with the same certificate.
+
+### Web previews
+
+When a bot builds a website or a web app, it starts the dev server on its PC (Vite, Next,
+Astro…, listening on localhost is enough) and calls `share_preview`. A card with an **Open**
+button shows up in the conversation, and the PC's page lists its previews (open, copy the link,
+stop). The hub serves the page on a port of its own address and reaches the dev server through
+the PC's `mow-agent`; WebSockets (hot reload) go through too.
+
+- The link carries a secret: opening it on any device (your phone's browser, a colleague's
+  computer) sets a cookie for that preview and removes the secret from the address.
+- A preview ends when it is stopped, when the bot's PC turns off or goes to sleep, and after 24
+  hours (sharing it again restarts the clock and keeps the link).
+- `MOWBOT_PUBLIC_URL` (optional) sets the address of the links bots give; by default it is the
+  address your apps last reached the hub at.
+
 Then open the address, create your account with the setup token, and add a model in
 **Models**.
 
@@ -155,6 +178,8 @@ pnpm dev
 - Web: http://localhost:5173 (proxies `/api` to the hub)
 - Hub: http://localhost:8787/api/v1/health, OpenAPI at `/api/v1/openapi.json`
 - On first start the hub prints the setup token in its logs.
+- Bots' web previews: the hub itself listens on `MOWBOT_PREVIEW_PORTS` (`8800-8819`), e.g.
+  `http://localhost:8800`, or this machine's LAN IP from a phone.
 - Bots' PCs: `docker build -f workstation/Dockerfile -t mowbot/workstation:local .`
 - MCP computer (local MCP servers): `docker build -f workstation/mcp.Dockerfile -t mowbot/mcp:local .`
 
@@ -191,6 +216,10 @@ deploy/               Production docker-compose and Caddy
 - Model API keys never enter the bots' PCs; vault values never reach the models.
 - The desktop app only works inside the folders you shared, checks every path, and asks before
   running a command unless you allow it.
+- Web previews run a bot's page on the hub's own host (other ports), and browsers share cookies
+  across ports: the hub never passes its cookies to a preview, never lets one set or clear them,
+  never accepts a preview port as a CORS origin, and the app refuses to be framed. Treat a
+  preview link like the page itself: whoever has it can open it until the preview ends.
 
 ## License
 
