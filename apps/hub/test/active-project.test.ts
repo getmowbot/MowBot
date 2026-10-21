@@ -197,6 +197,96 @@ describe('the project a bot works in', () => {
     expect((await inject<Bot>('GET', `/api/v1/bots/${chef.id}`)).body.projectId).toBeNull();
   });
 
+  it('goes with the tasks a bot gives, and is named in its messages', async () => {
+    const chefModel = scripted([
+      toolTurn('assign_task', { to: 'Nova', title: 'Refaire l’accueil' }, 'call-1'),
+      toolTurn('send_message', { to: 'Nova', text: 'Garde le logo.' }, 'call-2'),
+      textTurn('Confié à Nova.'),
+      toolTurn('assign_task', { to: 'Iris', title: 'Relire' }, 'call-3'),
+      textTurn('Iris ne peut pas.'),
+    ]);
+    const novaModel = scripted([textTurn('Je m’y mets.')]);
+    const irisModel = scripted([textTurn('Ok.')]);
+    const models: Record<string, ReturnType<typeof scripted>> = {
+      Chef: chefModel,
+      Nova: novaModel,
+      Iris: irisModel,
+    };
+    t = await createTestApp({}, undefined, (bot) => models[bot.name] ?? null);
+    const { app, services } = t;
+    const auth = bearer((await setupOwner(app)).accessToken);
+    const inject = async <T>(
+      method: 'GET' | 'POST' | 'PATCH' | 'PUT',
+      url: string,
+      payload?: unknown,
+    ) => {
+      const res = await app.inject({ method, url, headers: auth, payload: payload as object });
+      return { status: res.statusCode, body: (res.body ? res.json() : null) as T };
+    };
+    const chef = (await inject<{ items: Bot[] }>('GET', '/api/v1/bots')).body.items[0] as Bot;
+    const nova = (
+      await inject<Bot>('POST', '/api/v1/bots', {
+        name: 'Nova',
+        role: 'Développeuse',
+        teamId: chef.teamId,
+      })
+    ).body;
+    const iris = (
+      await inject<Bot>('POST', '/api/v1/bots', {
+        name: 'Iris',
+        role: 'Relectrice',
+        teamId: chef.teamId,
+      })
+    ).body;
+
+    const site = await mkdtemp(path.join(tmpdir(), 'mowbot-site-'));
+    folders = [site];
+    await writeFile(path.join(site, 'index.html'), '<h1>Accueil</h1>\n');
+    const created = await inject<ConnectorCreated>('POST', '/api/v1/connectors', { name: 'PC' });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = app.server.address() as { port: number };
+    connector = await FakeConnector.connect(
+      `ws://127.0.0.1:${port}/api/v1/connectors/ws`,
+      created.body.token,
+      [{ key: 'k-site', name: 'Site', path: '/home/joris/site' }],
+      { 'k-site': site },
+    );
+    let projects: Project[] = [];
+    await until(async () => {
+      projects = (await inject<{ items: Project[] }>('GET', '/api/v1/projects')).body.items;
+      return projects[0]?.online === true;
+    });
+    const siteId = projects[0]?.id as string;
+    await inject('PUT', `/api/v1/bots/${chef.id}/project`, { projectId: siteId });
+
+    // The Chef works on Site: the task to Nova is in Site, which becomes Nova's project.
+    await inject('POST', `/api/v1/bots/${chef.id}/messages`, { text: 'Fais refaire l’accueil' });
+    await services.runtime.settle();
+    const conversation = async (botId: string) =>
+      (await inject<{ items: Message[] }>('GET', `/api/v1/bots/${botId}/messages`)).body.items;
+    const given = tools((await conversation(chef.id)).at(-1));
+    expect(given.map((p) => p.state)).toEqual(['done', 'done']);
+    expect(String(given[0]?.output)).toContain('dans le projet Site (son projet actif)');
+    expect((await inject<Bot>('GET', `/api/v1/bots/${nova.id}`)).body.projectId).toBe(siteId);
+    const received = await conversation(nova.id);
+    expect(textOf(received.find((m) => m.kind === 'task'))).toContain('Projet : Site');
+    expect(promptOf(novaModel, 0)).toContain('Projet actif : Site');
+    // The message may join Nova's first answer or start another one.
+    const novaPrompts = novaModel.doStreamCalls.map((_, i) => promptOf(novaModel, i)).join('\n');
+    expect(novaPrompts).toContain('équipe Équipe principale), qui travaille sur le projet Site.');
+
+    // Iris may not use Site: the task is refused, with what to do.
+    await inject('PATCH', `/api/v1/projects/${siteId}`, {
+      scope: { kind: 'bots', ids: [chef.id, nova.id] },
+    });
+    await inject('POST', `/api/v1/bots/${chef.id}/messages`, { text: 'Fais relire par Iris' });
+    await services.runtime.settle();
+    const refused = tools((await conversation(chef.id)).at(-1));
+    expect(refused[0]?.state).toBe('error');
+    expect(String(refused[0]?.output)).toContain("Iris n'a pas accès au projet Site");
+    expect((await inject<Bot>('GET', `/api/v1/bots/${iris.id}`)).body.projectId).toBeNull();
+  });
+
   it('tells the bot when the computer of its project is offline', async () => {
     const model = scripted([textTurn('Ok.')]);
     t = await createTestApp({}, undefined, () => model);

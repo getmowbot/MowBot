@@ -10,6 +10,8 @@ import WebSocket from 'ws';
 export class FakeConnector {
   /** The commit the shared folder is at (null: not a git repository). */
   static head: string | null = 'abc1234def5678';
+  /** The app version it says it is (some ops depend on it). */
+  static version = '0.0.0-test';
   readonly socket: WebSocket;
   readonly requests: { op: string; args: Record<string, unknown> }[] = [];
 
@@ -51,7 +53,7 @@ export class FakeConnector {
     socket.send(
       JSON.stringify({
         t: 'hello',
-        version: '0.0.0-test',
+        version: FakeConnector.version,
         hostname: 'PC-de-test',
         os: 'linux',
         shell: 'bash',
@@ -99,8 +101,11 @@ async function run(root: string, op: string, args: Record<string, unknown>): Pro
     case 'write': {
       const file = at(args.path);
       await mkdir(path.dirname(file), { recursive: true });
-      await writeFile(file, String(args.content));
-      return { size: Buffer.byteLength(String(args.content)) };
+      const content = args.base64
+        ? Buffer.from(String(args.content), 'base64')
+        : Buffer.from(String(args.content));
+      await writeFile(file, content);
+      return { size: content.length };
     }
     case 'edit': {
       const file = at(args.path);

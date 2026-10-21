@@ -212,7 +212,7 @@ export async function pullProject(ctx: Ctx, project: ProjectRow, sub = ''): Prom
       : '',
     manifest.head
       ? `Dépôt git (commit ${manifest.head.slice(0, 8)}) : rapporte tes changements avec local_push, ils arriveront dans une branche.`
-      : 'Pas de dépôt git : rapporte tes changements avec local_write ou local_edit.',
+      : 'Pas de dépôt git : local_push écrira tes changements directement dans son dossier.',
   ]
     .filter(Boolean)
     .join('\n');
@@ -220,7 +220,7 @@ export async function pullProject(ctx: Ctx, project: ProjectRow, sub = ''): Prom
 
 /**
  * Brings the copy's changes back as a branch of the user's repository, started from the commit
- * the copy came from: the user's folder is not touched.
+ * the copy came from: the user's folder is not touched. Not a repository: written into it.
  */
 export async function pushProject(ctx: Ctx, project: ProjectRow, message: string): Promise<string> {
   const { bot, files, connectors } = ctx;
@@ -231,13 +231,9 @@ export async function pushProject(ctx: Ctx, project: ProjectRow, message: string
   if (!state || state.projectId !== project.id) {
     throw new Error(`Aucune copie de « ${project.name} » : fais d'abord local_pull.`);
   }
-  if (!state.head) {
-    throw new Error(
-      `« ${project.name} » n'est pas un dépôt git : rapporte tes changements avec local_write ou local_edit.`,
-    );
-  }
   const root = (await files.stat(workspaceId, dir)).abs;
   const copy = await walkCopy(root);
+  if (!state.head) return writeBack(ctx, project, { workspaceId, dir, state, copy });
   const changed: { path: string; data: string }[] = [];
   let added = 0;
   let modified = 0;
@@ -281,4 +277,123 @@ export async function pushProject(ctx: Ctx, project: ProjectRow, message: string
     `Branche ${result.branch} créée dans « ${project.name} » (commit ${result.commit.slice(0, 8)}, partie de ${state.head.slice(0, 8)}) : ${modified} modifié${modified > 1 ? 's' : ''}, ${added} ajouté${added > 1 ? 's' : ''}, ${deletes.length} supprimé${deletes.length > 1 ? 's' : ''}.`,
     "Son dossier n'a pas bougé : dis-lui qu'il peut relire la branche et la fusionner (git diff, git merge).",
   ].join('\n');
+}
+
+/** The desktop app writes binary files (sent in base64) from this version on. */
+const BINARY_WRITES_FROM = [0, 2, 4];
+
+function atLeast(version: string | null | undefined, wanted: number[]): boolean {
+  const parts = (version ?? '').split(/[.-]/).map((n) => Number.parseInt(n, 10));
+  for (let i = 0; i < wanted.length; i++) {
+    const have = parts[i] ?? 0;
+    if (Number.isNaN(have)) return false;
+    if (have !== wanted[i]) return have > (wanted[i] as number);
+  }
+  return true;
+}
+
+const utf8 = new TextDecoder('utf-8', { fatal: true });
+
+/** The file as text, or null when it is binary. */
+function asText(content: Buffer): string | null {
+  if (content.subarray(0, 8000).includes(0)) return null;
+  try {
+    return utf8.decode(content);
+  } catch {
+    return null;
+  }
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
+
+/**
+ * A folder that is not a git repository: the copy's changes are written straight into it. A
+ * file the user changed (or created) since the copy is left as it is and reported; files gone
+ * from the copy are not deleted on their side.
+ */
+async function writeBack(
+  ctx: Ctx,
+  project: ProjectRow,
+  {
+    workspaceId,
+    dir,
+    state,
+    copy,
+  }: {
+    workspaceId: string;
+    dir: string;
+    state: SyncState;
+    copy: Map<string, string>;
+  },
+): Promise<string> {
+  const { files, connectors } = ctx;
+  const manifest = await connectors.request<Manifest>(project, 'manifest', {}, 180_000);
+  const theirs = new Map(manifest.files.map((file) => [file.path, file.hash]));
+  const machine = (await connectors.connectorsOf([project])).get(project.connectorId);
+  const binaries = atLeast(machine?.version, BINARY_WRITES_FROM);
+
+  const conflicts: string[] = [];
+  const skipped: string[] = [];
+  let added = 0;
+  let modified = 0;
+  let bytes = 0;
+  for (const [rel, abs] of copy) {
+    const content = await readFile(abs);
+    const hash = sha256(content);
+    const before = state.files[rel];
+    if (before === hash) continue;
+    const there = theirs.get(rel);
+    if (there === hash) {
+      state.files[rel] = hash;
+      continue;
+    }
+    // Changed on the user's side since the copy: their version stays.
+    if (there !== undefined && there !== before) {
+      conflicts.push(rel);
+      continue;
+    }
+    const text = asText(content);
+    if (text === null && !binaries) {
+      skipped.push(rel);
+      continue;
+    }
+    bytes += content.length;
+    if (bytes > PUSH_BYTES) {
+      throw new Error(
+        `Trop de changements d'un coup (plus de ${mb(PUSH_BYTES)}) : vérifie que des fichiers générés ne sont pas pris (.gitignore).`,
+      );
+    }
+    await connectors.request(
+      project,
+      'write',
+      text === null
+        ? { path: rel, content: content.toString('base64'), base64: true }
+        : { path: rel, content: text },
+      60_000,
+    );
+    state.files[rel] = hash;
+    if (there === undefined) added += 1;
+    else modified += 1;
+  }
+  const gone = Object.keys(state.files).filter((rel) => !copy.has(rel) && theirs.has(rel));
+  state.at = new Date().toISOString();
+  await files.writeFile(workspaceId, `${dir}/${STATE_FILE}`, JSON.stringify(state, null, 1));
+
+  if (added + modified === 0 && conflicts.length + skipped.length + gone.length === 0) {
+    return 'Aucun changement à rapporter.';
+  }
+  return [
+    `Écrit dans le dossier de l'utilisateur (« ${project.name} », pas un dépôt git) : ${plural(modified, 'modifié')}, ${plural(added, 'ajouté')}.`,
+    conflicts.length
+      ? `Laissés tels quels, l'utilisateur les a changés depuis ta copie : ${conflicts.slice(0, 20).join(', ')}. Refais local_pull, reporte tes changements dessus, puis local_push.`
+      : '',
+    skipped.length
+      ? `Pas copiés, fichiers binaires (son app MowBot desktop doit être mise à jour) : ${skipped.slice(0, 20).join(', ')}.`
+      : '',
+    gone.length
+      ? `Supprimés dans ta copie mais pas chez lui (local_push ne supprime rien) : ${gone.slice(0, 20).join(', ')}.`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }

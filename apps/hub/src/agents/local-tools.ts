@@ -273,14 +273,14 @@ export function buildLocalTools(ctx: {
 
     local_push: tool({
       description:
-        "Rapporte les changements faits dans ta copie (/workspace/projects/<projet>) sur l'ordinateur de l'utilisateur, en une branche git mowbot/… de son dépôt : son dossier n'est pas touché, il relit et fusionne quand il veut. Fichiers modifiés, ajoutés (hors .gitignore) et supprimés.",
+        "Rapporte les changements faits dans ta copie (/workspace/projects/<projet>) sur l'ordinateur de l'utilisateur. Dépôt git : une branche mowbot/… (fichiers modifiés, ajoutés hors .gitignore, supprimés), son dossier n'est pas touché, il relit et fusionne quand il veut. Pas de dépôt git : les fichiers modifiés et ajoutés sont écrits directement dans son dossier (sauf ceux qu'il a changés entre-temps ; rien n'est supprimé).",
       inputSchema: z.object({
         project: projectSchema,
         message: z
           .string()
           .min(1)
           .max(2000)
-          .describe('Message du commit : ce que tu as changé et pourquoi'),
+          .describe('Message du commit (dépôt git) : ce que tu as changé et pourquoi'),
       }),
       execute: async ({ project, message }) =>
         pushProject({ bot, files: ctx.files, connectors }, await resolve(project), message),

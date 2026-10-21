@@ -1,6 +1,6 @@
 {
   "name": "@mowbot/desktop",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "description": "MowBot desktop app (Tauri): the hub's interface plus the connector to local projects.",
   "scripts": {

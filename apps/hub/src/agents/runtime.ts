@@ -358,11 +358,18 @@ export class BotRuntime {
       return `[De la part de ${account?.name ?? "l'utilisateur"}]`;
     }
     const who = await this.describe(from);
-    if (kind === 'ask') {
-      return `[Question de ${who}. Ta réponse finale lui est transmise telle quelle : réponds-lui directement, sans send_message.]`;
-    }
     if (kind === 'task') return `[De ${who}]`;
-    return `[Message de ${who}. Pour lui répondre, utilise send_message ; ne réponds pas si ce n'est pas utile.]`;
+    // What it says is about the project it works in.
+    const { projectId } = await this.deps.bots.row(from.id).catch(() => from);
+    const project =
+      projectId && this.deps.connectors
+        ? await this.deps.connectors.project(projectId).catch(() => null)
+        : null;
+    const on = project ? `, qui travaille sur le projet ${project.name}` : '';
+    if (kind === 'ask') {
+      return `[Question de ${who}${on}. Ta réponse finale lui est transmise telle quelle : réponds-lui directement, sans send_message.]`;
+    }
+    return `[Message de ${who}${on}. Pour lui répondre, utilise send_message ; ne réponds pas si ce n'est pas utile.]`;
   }
 
   /** `Nova (Rédactrice, équipe Marketing)` */
@@ -1495,6 +1502,7 @@ export class BotRuntime {
         files: this.deps.files,
         events,
         db,
+        connectors: this.deps.connectors,
       };
       // Cards, pictures, vault forms… shown in the answer, where the bot is in its reply.
       const showPart = async (part: MessagePart) => {
