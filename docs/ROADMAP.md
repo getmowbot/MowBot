@@ -114,6 +114,16 @@
 - [x] Pages Coffre (web et app) ; vider l'onglet Activité et les notifications
 - [ ] Politique « demander au bot propriétaire », entrées de type fichier, vérification de santé des sessions (plus tard)
 
+## État de P6
+
+- [x] Serveurs MCP distants (Streamable HTTP, repli SSE) avec en-têtes secrets scellés ou connexion OAuth 2.1 (enregistrement dynamique, PKCE, jetons gardés chiffrés et rafraîchis par le hub)
+- [x] Serveurs MCP locaux (stdio) lancés sur le PC d'un bot : mow-agent relaie le processus par WebSocket (`/stdio`), le PC démarre au besoin ; les secrets arrivent en variables d'environnement
+- [x] Portée : tous les bots, des équipes ou des bots choisis ; un bot installe lui-même un serveur sur son PC (`mcp_add_local`, `mcp_remove_local`), réservé aux bots de ce PC
+- [x] Outils exposés `mcp__<serveur>__<outil>` (jusqu'à 40), au-delà `mcp_search_tools` + `mcp_call` ; images des résultats montrées au modèle ; valeurs du coffre masquées
+- [x] Journal des appels par serveur (200 derniers), état (ok, erreur, connexion requise), connexions fermées après inactivité
+- [x] Pages MCP (web et app) : ajout, connexion OAuth, outils, portée, activation, journal
+- [ ] Annotations `destructiveHint` reliées aux approbations, notifications MCP comme déclencheurs de routine (plus tard)
+
 ## Risques
 
 1. **Conditions des providers** : l'abonnement ChatGPT n'est utilisable que via le programme open-source officiel (MowBot doit être open source) ; Claude Pro/Max uniquement via le CLI Claude Code officiel non modifié. Les limites des abonnements supposent un « usage individuel ordinaire » → une proactivité massive consomme vite les quotas.

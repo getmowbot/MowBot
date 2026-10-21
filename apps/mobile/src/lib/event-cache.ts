@@ -3,6 +3,7 @@ import type {
   Bot,
   Canvas,
   Computer,
+  McpServer,
   Message,
   Question,
   ServerEvent,
@@ -58,6 +59,8 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         'devices',
         'vault',
         'vault-events',
+        'mcp-servers',
+        'mcp-calls',
       ]) {
         void client.invalidateQueries({ queryKey: [key] });
       }
@@ -105,6 +108,17 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         list?.filter((item) => item.id !== event.itemId),
       );
       client.removeQueries({ queryKey: keys.vaultEvents(event.itemId) });
+      break;
+    case 'mcp.updated':
+      client.setQueryData<McpServer[]>(keys.mcpServers, (list) => upsert(list, event.server));
+      // Its status changes as bots call it (a failure, a sign-in to renew): new lines likely.
+      void client.invalidateQueries({ queryKey: keys.mcpCalls(event.server.id) });
+      break;
+    case 'mcp.deleted':
+      client.setQueryData<McpServer[]>(keys.mcpServers, (list) =>
+        list?.filter((server) => server.id !== event.serverId),
+      );
+      client.removeQueries({ queryKey: keys.mcpCalls(event.serverId) });
       break;
     case 'question.updated': {
       const { question } = event;

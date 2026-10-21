@@ -5,7 +5,8 @@ Des équipes de bots IA self-hosted. Chaque équipe partage un vrai PC Linux (bu
 - Spécification : [docs/SPEC.md](docs/SPEC.md)
 - Roadmap : [docs/ROADMAP.md](docs/ROADMAP.md)
 
-> **État : P5.**
+> **État : P6.**
+> - Les bots utilisent des serveurs MCP : distants (URL, clé ou connexion OAuth depuis l'app) ou locaux, lancés sur le PC d'un bot. Tu choisis qui y a droit (tous, des équipes, des bots) ; un bot peut aussi s'installer lui-même un serveur sur son PC.
 > - Les bots confient au hub de petits scripts qui tournent tout seuls sur leur PC (score en direct, surveillance de prix) : la carte se met à jour, tu es prévenu, sans réveiller l'IA. Notifications push sur iPhone (fin de travail, besoin de toi).
 > - Dans la conversation, les bots montrent plutôt que décrire : cartes (produit, lieu, itinéraire, avec des boutons qui ouvrent la page sur ton téléphone ou leur répondent), images, chiffres. Ils te demandent un mot de passe par un formulaire masqué qui va droit au coffre. Un message envoyé pendant qu'ils travaillent est pris en compte tout de suite, et un bot peut en arrêter un autre.
 > - Le coffre : quand tu te connectes à un site sur le PC d'un bot, la session est gardée et les bots des autres PC s'en servent ; identifiants et clés s'utilisent sans jamais être montrés aux modèles.
@@ -15,7 +16,7 @@ Des équipes de bots IA self-hosted. Chaque équipe partage un vrai PC Linux (bu
 > - Les équipes de bots se parlent, se confient des tâches et s'échangent des fichiers, sur des PC Linux partagés.
 > - L'API est sécurisée ; l'interface est en français et en anglais.
 >
-> Prochaine étape : les serveurs MCP (P6).
+> Prochaine étape : l'app desktop (Tauri), pour que les équipes travaillent sur les projets de ton ordinateur.
 
 ## Structure
 

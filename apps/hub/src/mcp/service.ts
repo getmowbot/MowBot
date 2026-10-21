@@ -468,6 +468,7 @@ export class McpService {
     } catch (error) {
       await this.disconnect(id);
       const needsAuth = error instanceof UnauthorizedError;
+      if (!needsAuth) this.log.warn({ err: error, serverId: id }, 'MCP server unreachable');
       await this.setStatus(
         id,
         needsAuth ? 'needs_auth' : 'error',

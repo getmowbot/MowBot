@@ -12,6 +12,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { bearerSecurity, requireAuth } from '../http/auth-hook';
 import { errorResponses } from '../http/problems';
+import { hubTexts } from '../i18n';
 import { toMcpServer } from '../mcp/service';
 
 const tags = ['mcp'];
@@ -19,8 +20,8 @@ const tags = ['mcp'];
 const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** The page the browser lands on after signing in to an MCP server. */
-const landing = (title: string, text: string) =>
-  `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MowBot</title><style>body{font-family:system-ui,sans-serif;background:#06070a;color:#f3f4f6;display:grid;place-items:center;min-height:100vh;margin:0}main{max-width:28rem;padding:2rem;text-align:center}h1{font-size:1.25rem}p{color:#9ca3af}</style></head><body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(text)}</p></main></body></html>`;
+const landing = (lang: string, title: string, text: string) =>
+  `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MowBot</title><style>body{font-family:system-ui,sans-serif;background:#06070a;color:#f3f4f6;display:grid;place-items:center;min-height:100vh;margin:0}main{max-width:28rem;padding:2rem;text-align:center}h1{font-size:1.25rem}p{color:#9ca3af}</style></head><body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(text)}</p></main></body></html>`;
 
 /** MCP servers: tools from elsewhere for the bots (remote, or run on the bots' computers). */
 export const mcpRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -156,19 +157,17 @@ export const mcpRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request, reply) => {
       const { code, state, error, error_description } = request.query;
+      const texts = (await hubTexts(app.services.db)).mcpSignIn;
       reply.type('text/html; charset=utf-8');
       if (error || !code || !state) {
-        return landing('Connexion refusée', error_description ?? error ?? 'Réponse incomplète.');
+        return landing(texts.lang, texts.refused, error_description ?? error ?? texts.incomplete);
       }
       try {
         const row = await mcp.oauthFinish(state, code);
-        return landing(
-          `Connecté à ${row.name}`,
-          'Tes bots peuvent utiliser ses outils. Tu peux fermer cette page.',
-        );
+        return landing(texts.lang, texts.connected(row.name), texts.connectedBody);
       } catch (caught) {
         reply.code(400);
-        return landing('Connexion impossible', (caught as Error).message);
+        return landing(texts.lang, texts.failed, (caught as Error).message);
       }
     },
   );

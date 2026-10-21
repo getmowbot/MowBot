@@ -45,6 +45,14 @@ const WORDED_PROBLEMS = [
   'invalid_site',
   'request_answered',
   'empty_answer',
+  'mcp_url_required',
+  'mcp_command_required',
+  'mcp_unreachable',
+  'mcp_needs_auth',
+  'mcp_no_computer',
+  'mcp_not_oauth',
+  'mcp_oauth_state',
+  'mcp_oauth_failed',
 ] as const;
 type WordedProblem = (typeof WORDED_PROBLEMS)[number];
 

@@ -1,6 +1,7 @@
 import { en as appAdmin } from './areas/appAdmin';
 import { en as board } from './areas/board';
 import { en as filesView } from './areas/filesView';
+import { en as mcp } from './areas/mcp';
 import { en as orgAdmin } from './areas/orgAdmin';
 import { en as pcView } from './areas/pcView';
 import { en as push } from './areas/push';
@@ -290,5 +291,6 @@ export const en: Catalog = {
   appAdmin,
   filesView,
   vault,
+  mcp,
   push,
 };

@@ -65,7 +65,10 @@ const secretsSchema = z.record(z.string().min(1).max(100), z.string().max(10_000
 export const mcpServerCreateSchema = z.object({
   name: z.string().trim().min(1).max(60),
   transport: mcpTransportSchema,
-  url: z.url({ protocol: /^https?$/ }).max(2_000).optional(),
+  url: z
+    .url({ protocol: /^https?$/ })
+    .max(2_000)
+    .optional(),
   command: z.string().trim().min(1).max(2_000).optional(),
   auth: mcpAuthSchema.default('none'),
   /** Headers (http, e.g. Authorization) or environment variables (stdio), write-only. */
@@ -76,7 +79,10 @@ export type McpServerCreate = z.infer<typeof mcpServerCreateSchema>;
 
 export const mcpServerUpdateSchema = z.object({
   name: z.string().trim().min(1).max(60).optional(),
-  url: z.url({ protocol: /^https?$/ }).max(2_000).optional(),
+  url: z
+    .url({ protocol: /^https?$/ })
+    .max(2_000)
+    .optional(),
   command: z.string().trim().min(1).max(2_000).optional(),
   auth: mcpAuthSchema.optional(),
   /** Replaces the given keys; null removes one. */
