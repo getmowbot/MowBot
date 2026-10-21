@@ -80,6 +80,7 @@ export class QuestionService {
       priority: 'normal',
       title: `${bot.name} te pose une question`,
       body: question,
+      push: 'needs_you',
     });
     return created;
   }

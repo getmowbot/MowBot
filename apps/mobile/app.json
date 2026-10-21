@@ -34,6 +34,13 @@
     ],
     "experiments": {
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "14e207d9-cafe-466d-a73f-138e4505ce73"
+      }
+    },
+    "owner": "jorislevasseur01"
   }
 }

@@ -5,6 +5,7 @@ import type {
   Provider,
   ProviderCreate,
   ProviderUpdate,
+  PushPrefs,
   Routine,
   RoutineCreate,
   RoutineUpdate,
@@ -61,6 +62,16 @@ export function useUpdateMe() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (body: MeUpdate) => data(api().PATCH('/api/v1/me', { body })),
+    onSuccess: (me) => client.setQueryData<Me>(keys.me, me),
+  });
+}
+
+/** What this phone is told about (lib/push.ts turns its notifications on and off). */
+export function useUpdatePushPrefs() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (prefs: Partial<PushPrefs>) =>
+      data(api().PUT('/api/v1/me/push', { body: { prefs } })),
     onSuccess: (me) => client.setQueryData<Me>(keys.me, me),
   });
 }

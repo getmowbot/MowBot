@@ -110,7 +110,7 @@ export async function createTestApp(
   overrides: Partial<Config> = {},
   runtime = new FakeRuntime(),
   modelFor?: ServiceOverrides['modelFor'],
-  extra: Pick<ServiceOverrides, 'askTimeoutMs'> = {},
+  extra: Pick<ServiceOverrides, 'askTimeoutMs' | 'pushFetch' | 'finishedPushAfterMs'> = {},
 ): Promise<TestApp & { runtime: FakeRuntime; workspacesDir: string }> {
   const workspacesDir = await mkdtemp(path.join(tmpdir(), 'mowbot-ws-'));
   const config: Config = {

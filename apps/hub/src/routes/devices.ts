@@ -1,11 +1,13 @@
 import {
+  DEFAULT_PUSH_PREFS,
   type Device,
   deviceIdParamsSchema,
   deviceListSchema,
+  devicePushSchema,
   meSchema,
   meUpdateSchema,
 } from '@mowbot/contract';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { recordAudit } from '../audit';
@@ -23,6 +25,10 @@ const toDevice = (row: DeviceRow, currentDeviceId: string): Device => ({
   lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
   revokedAt: row.revokedAt?.toISOString() ?? null,
   current: row.id === currentDeviceId,
+  push: {
+    enabled: Boolean(row.pushToken),
+    prefs: { ...DEFAULT_PUSH_PREFS, ...row.pushPrefs },
+  },
 });
 
 export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -81,6 +87,43 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
         updatedAt: new Date(),
       });
       return loadMe(authOf(request).deviceId);
+    },
+  );
+
+  app.put(
+    '/me/push',
+    {
+      preHandler: requireAuth('read'),
+      schema: {
+        tags: ['account'],
+        operationId: 'updateMyPush',
+        description:
+          "This device's push notifications: its Expo push token (null turns them off) and what it wants to hear about.",
+        security: bearerSecurity,
+        body: devicePushSchema,
+        response: { 200: meSchema, ...errorResponses },
+      },
+    },
+    async (request) => {
+      const { deviceId } = authOf(request);
+      const [row] = await db.select().from(devices).where(eq(devices.id, deviceId));
+      if (!row) throw notFound('Device not found');
+      const { token, prefs } = request.body;
+      // One phone, one device: an older session of it (signed out offline…) stops getting pushes.
+      if (token) {
+        await db
+          .update(devices)
+          .set({ pushToken: null })
+          .where(and(eq(devices.pushToken, token), ne(devices.id, deviceId)));
+      }
+      await db
+        .update(devices)
+        .set({
+          ...(token !== undefined ? { pushToken: token } : {}),
+          ...(prefs ? { pushPrefs: { ...DEFAULT_PUSH_PREFS, ...row.pushPrefs, ...prefs } } : {}),
+        })
+        .where(eq(devices.id, deviceId));
+      return loadMe(deviceId);
     },
   );
 

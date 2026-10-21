@@ -120,6 +120,23 @@ export interface paths {
         patch: operations["updateMe"];
         trace?: never;
     };
+    "/api/v1/me/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description This device's push notifications: its Expo push token (null turns them off) and what it wants to hear about. */
+        put: operations["updateMyPush"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/devices": {
         parameters: {
             query?: never;
@@ -1506,6 +1523,15 @@ export interface operations {
                             lastSeenAt: string | null;
                             revokedAt: string | null;
                             current: boolean;
+                            push: {
+                                enabled: boolean;
+                                prefs: {
+                                    finished: boolean;
+                                    needsYou: boolean;
+                                    notifications: boolean;
+                                    hideContent: boolean;
+                                };
+                            };
                         };
                     };
                 };
@@ -1595,6 +1621,117 @@ export interface operations {
                             lastSeenAt: string | null;
                             revokedAt: string | null;
                             current: boolean;
+                            push: {
+                                enabled: boolean;
+                                prefs: {
+                                    finished: boolean;
+                                    needsYou: boolean;
+                                    notifications: boolean;
+                                    hideContent: boolean;
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    updateMyPush: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token?: string | null;
+                    prefs?: {
+                        finished?: boolean;
+                        needsYou?: boolean;
+                        notifications?: boolean;
+                        hideContent?: boolean;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        owner: {
+                            /** Format: uuid */
+                            id: string;
+                            displayName: string;
+                            /** @enum {string} */
+                            locale: "fr" | "en";
+                            /** Format: date-time */
+                            createdAt: string;
+                        };
+                        device: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            /** @enum {string} */
+                            kind: "web" | "ios" | "android" | "desktop" | "cli";
+                            scopes: ("read" | "chat" | "files:read" | "files:write" | "control" | "admin")[];
+                            /** Format: date-time */
+                            createdAt: string;
+                            lastSeenAt: string | null;
+                            revokedAt: string | null;
+                            current: boolean;
+                            push: {
+                                enabled: boolean;
+                                prefs: {
+                                    finished: boolean;
+                                    needsYou: boolean;
+                                    notifications: boolean;
+                                    hideContent: boolean;
+                                };
+                            };
                         };
                     };
                 };
@@ -1667,6 +1804,15 @@ export interface operations {
                             lastSeenAt: string | null;
                             revokedAt: string | null;
                             current: boolean;
+                            push: {
+                                enabled: boolean;
+                                prefs: {
+                                    finished: boolean;
+                                    needsYou: boolean;
+                                    notifications: boolean;
+                                    hideContent: boolean;
+                                };
+                            };
                         }[];
                     };
                 };

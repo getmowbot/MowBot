@@ -3,6 +3,7 @@ import { en as board } from './areas/board';
 import { en as filesView } from './areas/filesView';
 import { en as orgAdmin } from './areas/orgAdmin';
 import { en as pcView } from './areas/pcView';
+import { en as push } from './areas/push';
 import { en as vault } from './areas/vault';
 import type { Catalog } from './catalog';
 
@@ -289,4 +290,5 @@ export const en: Catalog = {
   appAdmin,
   filesView,
   vault,
+  push,
 };

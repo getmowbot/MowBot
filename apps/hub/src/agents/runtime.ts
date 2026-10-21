@@ -28,6 +28,7 @@ import type { NotificationService, SystemService } from '../proactivity/notifica
 import type { QuestionService } from '../proactivity/questions';
 import { IDLE_ANSWER, MAX_FAILURES, type RoutineService } from '../proactivity/routines';
 import type { ProviderService } from '../providers/service';
+import type { PushService } from '../push/service';
 import type { SecretScope } from '../vault/secrets';
 import type { VaultService } from '../vault/service';
 import type { WorkspaceFiles } from '../workspaces/files';
@@ -44,6 +45,8 @@ import { buildVaultTools, VAULT_REQUEST } from './vault-tools';
 
 const HISTORY_MESSAGES = 40;
 const MAX_STEPS = 30;
+/** An answer that took this long reaches the phone: the user has probably moved on. */
+const FINISHED_PUSH_AFTER_MS = 15_000;
 const UI_OUTPUT_CHARS = 4_000;
 /** After this long without work, what a bot left open on its computer gets closed. */
 const TIDY_AFTER_MS = 10 * 60_000;
@@ -84,6 +87,9 @@ export interface RuntimeDeps {
   canvases: CanvasService;
   questions: QuestionService;
   vault: VaultService;
+  /** Tells the user's phones when a bot finished what they asked. */
+  push?: PushService;
+  finishedPushAfterMs?: number;
   /** Shared with the vault, which reads and writes the computers' Chrome. */
   browser?: BrowserHub;
   /** Tests inject scripted models (several: a fallback chain). */
@@ -480,6 +486,33 @@ export class BotRuntime {
     this.publish(row);
     this.schedule(botId);
     return toMessage(row);
+  }
+
+  /**
+   * A long answer to the user reaches their phone, unless the bot ended by asking them
+   * something (that question makes its own notification).
+   */
+  private pushFinished(
+    bot: BotRow,
+    answer: MessageRow,
+    parts: MessagePart[],
+    autonomous: boolean,
+    text: string,
+    error: string | null,
+  ): void {
+    const after = this.deps.finishedPushAfterMs ?? FINISHED_PUSH_AFTER_MS;
+    if (autonomous || Date.now() - answer.createdAt.getTime() < after) return;
+    const asked = parts.some(
+      (p) => (p.type === 'tool' && p.toolName === 'ask_user') || p.type === 'vault_request',
+    );
+    if (asked) return;
+    this.deps.push?.notify({
+      kind: 'finished',
+      botId: bot.id,
+      botName: bot.name,
+      title: error ? `${bot.name} n'a pas pu finir` : `${bot.name} a fini`,
+      body: error ?? text,
+    });
   }
 
   /** Messages that came in since the answer started and can join it; marks them as taken. */
@@ -1266,6 +1299,7 @@ export class BotRuntime {
       });
       await this.deps.bots.update(botId, { status: 'idle', statusDetail: null });
       const answer = textOf(parts);
+      this.pushFinished(bot, created, parts, autonomous, answer, null);
       await this.settleAsks(askIds, bot, answer || '(pas de réponse écrite)');
       await this.settleRoutines(routineRunIds, bot, {
         ok: true,
@@ -1293,7 +1327,10 @@ export class BotRuntime {
         status: stopped ? 'idle' : 'error',
         statusDetail: stopped ? null : errorMessage(error),
       });
-      if (!stopped) this.log.warn({ err: error, botId }, 'Bot run failed');
+      if (!stopped) {
+        this.log.warn({ err: error, botId }, 'Bot run failed');
+        this.pushFinished(bot, created, parts, autonomous, '', errorMessage(error));
+      }
       await this.settleAsks(
         askIds,
         bot,
