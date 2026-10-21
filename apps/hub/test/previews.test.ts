@@ -1,12 +1,13 @@
 import http from 'node:http';
 import type net from 'node:net';
-import type { Preview, ServerEvent, Team } from '@mowbot/contract';
+import type { Bot, Message, Preview, ServerEvent, Team } from '@mowbot/contract';
 import type { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 import type { HttpProblem } from '../src/http/problems';
 import { TOKEN_PARAM } from '../src/previews/proxy';
 import { bearer, createTestApp, PASSWORD, setupOwner } from './helpers';
+import { scripted, textTurn, toolTurn } from './models';
 
 /** A range of our own for each run (test files run in parallel). */
 const FIRST = 21_000 + Math.floor(Math.random() * 2_000) * 10;
@@ -454,6 +455,67 @@ describe('previews: sharing, stopping, expiry', () => {
     await t.services.previews.start();
     const page = await request(row.publicPort, '/', { cookie: cookieOf(row.publicPort, secret) });
     expect(page.status).toBe(200);
+  });
+});
+
+describe('previews: bots', () => {
+  it('a bot shares its dev server: a card with the link in the conversation', async () => {
+    model = scripted([
+      toolTurn('share_preview', { port: devPort, title: 'Boulangerie', path: '/menu' }),
+      textTurn('Voilà le site.'),
+    ]);
+    const chef = (
+      await t.app.inject({ method: 'GET', url: '/api/v1/bots', headers: bearer(token) })
+    ).json().items[0] as Bot;
+    await t.app.inject({
+      method: 'POST',
+      url: `/api/v1/bots/${chef.id}/messages`,
+      headers: bearer(token),
+      payload: { text: 'Montre-moi le site' },
+    });
+    await t.services.runtime.settle();
+
+    const [preview] = await t.services.previews.list(computerId);
+    expect(preview).toMatchObject({ port: devPort, title: 'Boulangerie', botId: chef.id });
+    const secret = t.services.previews.tokenOf(preview as never);
+    // The app's requests said where the hub is (here: inject's localhost).
+    const url = `http://localhost:${preview?.publicPort}/menu?${TOKEN_PARAM}=${secret}`;
+
+    const messages = (
+      await t.app.inject({
+        method: 'GET',
+        url: `/api/v1/bots/${chef.id}/messages`,
+        headers: bearer(token),
+      })
+    ).json().items as Message[];
+    const answer = messages.at(-1);
+    const card = answer?.parts.find((part) => part.type === 'canvas');
+    expect(card).toMatchObject({
+      type: 'canvas',
+      content: { kind: 'card', title: 'Boulangerie', url, buttons: [{ label: 'Ouvrir', url }] },
+    });
+    // Drawn as the card only, not as a tool call.
+    expect(answer?.parts.some((part) => part.type === 'tool')).toBe(false);
+    // The model got the link, and knows of the preview at its next turn.
+    expect(JSON.stringify(model.doStreamCalls[1]?.prompt)).toContain(url);
+    expect(JSON.stringify(model.doStreamCalls[0]?.prompt)).toContain('share_preview');
+  });
+
+  it('a bot stops its preview', async () => {
+    await share();
+    model = scripted([toolTurn('stop_preview', { port: devPort }), textTurn('Arrêté.')]);
+    const chef = (
+      await t.app.inject({ method: 'GET', url: '/api/v1/bots', headers: bearer(token) })
+    ).json().items[0] as Bot;
+    await t.app.inject({
+      method: 'POST',
+      url: `/api/v1/bots/${chef.id}/messages`,
+      headers: bearer(token),
+      payload: { text: 'Arrête l’aperçu' },
+    });
+    await t.services.runtime.settle();
+    expect(await t.services.previews.list()).toEqual([]);
+    expect(JSON.stringify(model.doStreamCalls[0]?.prompt)).toContain(`port ${devPort} « Site »`);
   });
 });
 

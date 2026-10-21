@@ -158,6 +158,7 @@ export async function createServices(
     automations,
     mcp,
     connectors,
+    previews,
     voice: {
       transcriber:
         overrides.transcriber ??
