@@ -4,6 +4,7 @@ import type {
   Device,
   Me,
   MeUpdate,
+  PasswordChange,
   Provider,
   ProviderCreate,
   ProviderUpdate,
@@ -67,6 +68,20 @@ export function useUpdateMe() {
   return useMutation({
     mutationFn: (body: MeUpdate) => data(api().PATCH('/api/v1/me', { body })),
     onSuccess: (me) => client.setQueryData<Me>(keys.me, me),
+  });
+}
+
+/**
+ * Changes the hub password. This device stays signed in; with `signOutOthers` the others are
+ * revoked, hence the devices list to refetch.
+ */
+export function useChangePassword() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: PasswordChange) => noContent(api().POST('/api/v1/me/password', { body })),
+    onSuccess: (_, body) => {
+      if (body.signOutOthers) void client.invalidateQueries({ queryKey: keys.devices });
+    },
   });
 }
 

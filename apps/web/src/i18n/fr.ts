@@ -42,6 +42,7 @@ export const fr = {
     changeFailed: 'La langue n’a pas pu être changée.',
   },
   problems: {
+    wrong_password: 'Mot de passe actuel incorrect.',
     invalid_credentials: 'Mot de passe incorrect.',
     invalid_setup_token: 'Jeton de configuration invalide.',
     already_set_up: 'Cette instance est déjà configurée.',
@@ -108,6 +109,7 @@ export const fr = {
     vault: 'Coffre',
     mcp: 'Outils (MCP)',
     projects: 'Projets',
+    profile: 'Profil',
     devices: 'Appareils',
     expand: 'Déplier {{name}}',
     collapse: 'Replier {{name}}',
@@ -856,6 +858,25 @@ export const fr = {
     saveSession: 'Enregistrer la session',
     refreshSession: 'Rafraîchir la session',
     sessionNotSaved: 'Session non enregistrée.',
+  },
+  profile: {
+    subtitle:
+      'Ton nom, le mot de passe du hub et, dans l’app desktop, le hub auquel elle se connecte.',
+    name: 'Ton nom',
+    nameFailed: 'Nom non enregistré.',
+    password: 'Mot de passe du hub',
+    passwordSubtitle: 'Celui qui ouvre MowBot sur tous tes appareils.',
+    currentPassword: 'Mot de passe actuel',
+    newPassword: 'Nouveau mot de passe',
+    confirmPassword: 'Confirme le nouveau',
+    signOutOthers: 'Déconnecter mes autres appareils',
+    signOutOthersHint:
+      'Ils se reconnecteront avec le nouveau mot de passe ; celui-ci reste connecté.',
+    changePassword: 'Changer le mot de passe',
+    passwordChanged: 'Mot de passe changé.',
+    passwordFailed: 'Mot de passe non changé.',
+    hub: 'Hub',
+    changeHub: 'Changer de hub',
   },
   projects: {
     subtitle:

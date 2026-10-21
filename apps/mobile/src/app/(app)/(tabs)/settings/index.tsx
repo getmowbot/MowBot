@@ -8,6 +8,7 @@ import {
   FolderCode,
   Gauge,
   Info,
+  LockKeyhole,
   LogOut,
   MonitorSmartphone,
   Package,
@@ -189,6 +190,11 @@ export default function SettingsScreen() {
             label={t('settings.owner')}
             value={me.data?.owner.displayName ?? '…'}
             onPress={() => router.push('/account')}
+          />
+          <ListRow
+            icon={LockKeyhole}
+            label={t('appAdmin.password.title')}
+            onPress={() => router.push('/password')}
           />
           <ListRow
             icon={Smartphone}

@@ -374,10 +374,17 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
           <MonitorSmartphone className="size-4 shrink-0" /> {t('shell.devices')}
         </NavItem>
         <div className="mt-2 flex items-center gap-2 border-t border-border px-2.5 pt-3">
-          <span className="grid size-7 place-items-center rounded-full bg-white/[0.07] text-xs font-semibold">
-            {me.data?.owner.displayName.slice(0, 1).toUpperCase() ?? '·'}
-          </span>
-          <span className="flex-1 truncate text-sm">{me.data?.owner.displayName ?? '…'}</span>
+          <Link
+            to="/settings/profile"
+            onClick={onNavigate}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1 transition-colors duration-150 hover:text-foreground"
+            aria-label={t('shell.profile')}
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/[0.07] text-xs font-semibold">
+              {me.data?.owner.displayName.slice(0, 1).toUpperCase() ?? '·'}
+            </span>
+            <span className="flex-1 truncate text-sm">{me.data?.owner.displayName ?? '…'}</span>
+          </Link>
           <LanguageMenu />
           <Button
             variant="ghost"

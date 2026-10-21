@@ -53,6 +53,7 @@ export const en: Catalog = {
   },
   errors: {
     invalid_credentials: 'Wrong password.',
+    wrong_password: 'The current password is wrong.',
     rate_limited: 'Too many attempts. Try again in a minute.',
     validation_failed: 'Some fields are invalid.',
     generic: 'Something went wrong.',

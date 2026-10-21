@@ -22,6 +22,7 @@ import { McpPage } from './routes/mcp-page';
 import { ModelsPage } from './routes/models-page';
 import { OrgPage } from './routes/org-page';
 import { ProactivityPage } from './routes/proactivity-page';
+import { ProfilePage } from './routes/profile-page';
 import { ProjectsPage } from './routes/projects-page';
 import { RoutinesPage } from './routes/routines-page';
 import { TeamPage } from './routes/team-page';
@@ -102,6 +103,11 @@ const mcpRoute = createRoute({
   path: '/settings/mcp',
   component: McpPage,
 });
+const profileRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/settings/profile',
+  component: ProfilePage,
+});
 const projectsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/settings/projects',
@@ -181,6 +187,7 @@ export const router = createRouter({
       vaultRoute,
       mcpRoute,
       projectsRoute,
+      profileRoute,
       routinesRoute,
       proactivityRoute,
       orgRoute,

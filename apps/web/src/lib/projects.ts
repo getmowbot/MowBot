@@ -95,6 +95,8 @@ export const desktop = {
   pickFolder: () => invoke<string | null>('project_pick'),
   share: (name: string, path: string) => invoke<SharedFolder>('project_add', { name, path }),
   unshare: (key: string) => invoke<void>('project_remove', { key }),
+  /** Shows the app's page to type another hub's address. */
+  changeHub: () => invoke<void>('hub_change'),
 };
 
 /** The connector of this computer, followed while the page is open. */

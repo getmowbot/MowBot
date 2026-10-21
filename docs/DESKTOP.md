@@ -69,16 +69,36 @@ shell annoncé, dans la racine du projet (ou `cwd`).
   arrivera en message ; « Autoriser » vaut pour cette commande une fois, « Tout autoriser dans ce
   projet » passe le projet en `auto`.
 
-## Lancer l'app
+## Installer et lancer l'app
+
+- **Windows, macOS** : les installeurs (`.exe` / `.msi`, `.dmg`) sont fabriqués par le workflow
+  « Desktop app » (tag `desktop-v0.1.0`, ou lancement à la main) dans une release brouillon GitHub.
+- **Linux**, en une commande (AppImage dans `~/.local/bin`, entrée dans les applications) :
+
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/jorisleva/MowBot/main/apps/desktop/install-linux.sh | sh -s -- --hub https://mowbot.example.com
+  ```
+
+  Tant que le dépôt est privé, il faut un `GITHUB_TOKEN` qui peut le lire (dans l'environnement).
+
+**L'adresse du hub** (celle de l'interface web, par exemple `http://localhost:5173` ou
+`https://mowbot.example.com`) est demandée au premier lancement ; ensuite **Profil → Changer de
+hub**, ou l'icône de la barre des tâches → Changer de hub. `mowbot-desktop --hub <adresse>`
+l'enregistre directement (c'est ce que fait la commande Linux) ; `MOWBOT_HUB_URL` l'impose sans
+l'enregistrer (développement).
+
+Puis, dans Réglages → Projets : **Relier ce PC**, et **Partager un dossier**.
+
+La fenêtre n'a pas de barre de titre système : l'interface affiche ses boutons (réduire, agrandir,
+fermer) et le haut de la fenêtre la déplace (double-clic : agrandir). La fermer la garde dans la
+barre des tâches, où le connecteur continue de servir les bots.
+
+En développement :
 
 ```bash
-pnpm --filter @mowbot/desktop start    # en développement (tauri dev)
-pnpm --filter @mowbot/desktop bundle   # installeur (tauri build)
+pnpm --filter @mowbot/desktop start    # tauri dev
+pnpm --filter @mowbot/desktop bundle   # installeur de cette machine (tauri build)
 ```
-
-Au premier lancement, l'app demande l'adresse du hub (celle de l'interface web, par exemple
-`http://localhost:5173` ou `https://mowbot.example.com`). Dans Réglages → Projets : **Relier ce PC**,
-puis **Partager un dossier**. `MOWBOT_HUB_URL` impose une adresse (pratique en développement).
 
 ## Plus tard
 
