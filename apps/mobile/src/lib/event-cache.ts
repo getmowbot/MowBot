@@ -6,9 +6,12 @@ import type {
   Question,
   ServerEvent,
   SystemSettings,
+  Task,
   Team,
+  VaultItem,
 } from '@mowbot/contract';
 import type { QueryClient } from '@tanstack/react-query';
+import type { NotificationList } from './board';
 import { appendDelta, type Conversation, upsertMessage } from './message-cache';
 import { keys } from './query-keys';
 
@@ -51,6 +54,8 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         'system',
         'providers',
         'devices',
+        'vault',
+        'vault-events',
       ]) {
         void client.invalidateQueries({ queryKey: [key] });
       }
@@ -74,6 +79,30 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
       break;
     case 'notification.created':
       void client.invalidateQueries({ queryKey: keys.notifications });
+      break;
+    case 'notifications.cleared':
+      client.setQueryData<NotificationList>(keys.notifications, (current) =>
+        current ? { items: [], unread: 0 } : current,
+      );
+      break;
+    case 'activity.cleared':
+      // Finished tasks are gone at once; the feed starts over.
+      client.setQueryData<Task[]>(keys.tasks, (list) =>
+        list?.filter((task) => task.status !== 'done' && task.status !== 'cancelled'),
+      );
+      void client.invalidateQueries({ queryKey: keys.tasks });
+      void client.invalidateQueries({ queryKey: keys.feed });
+      break;
+    case 'vault.updated':
+      client.setQueryData<VaultItem[]>(keys.vault, (list) => upsert(list, event.item));
+      // Saved, used, granted…: one more line in its history.
+      void client.invalidateQueries({ queryKey: keys.vaultEvents(event.item.id) });
+      break;
+    case 'vault.deleted':
+      client.setQueryData<VaultItem[]>(keys.vault, (list) =>
+        list?.filter((item) => item.id !== event.itemId),
+      );
+      client.removeQueries({ queryKey: keys.vaultEvents(event.itemId) });
       break;
     case 'question.updated': {
       const { question } = event;

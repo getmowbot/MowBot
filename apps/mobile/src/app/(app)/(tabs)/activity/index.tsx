@@ -1,6 +1,6 @@
 import type { Bot, FeedItem, Task, TaskStatus } from '@mowbot/contract';
 import { router, Stack } from 'expo-router';
-import { ArrowRight, Plus } from 'lucide-react-native';
+import { ArrowRight, Eraser, Plus } from 'lucide-react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
@@ -17,9 +17,16 @@ import { T } from '../../../../components/ui/text';
 import { Touchable } from '../../../../components/ui/touchable';
 import { markdownToPlain } from '../../../../lib/markdown';
 import { messageText } from '../../../../lib/message-cache';
-import { alertError } from '../../../../lib/options-menu';
+import { alertError, confirm } from '../../../../lib/options-menu';
 import { isIOS } from '../../../../lib/platform';
-import { botsById, useBots, useCancelTask, useFeed, useTasks } from '../../../../lib/queries';
+import {
+  botsById,
+  useBots,
+  useCancelTask,
+  useClearActivity,
+  useFeed,
+  useTasks,
+} from '../../../../lib/queries';
 import { timeAgo } from '../../../../lib/time';
 import { colors } from '../../../../theme';
 
@@ -215,19 +222,39 @@ export default function ActivityScreen() {
   const bots = useBots();
   const tasks = useTasks();
   const feed = useFeed();
+  const clear = useClearActivity();
   const byId = botsById(bots.data);
+  const headerSize = isIOS ? 36 : 40;
+
+  // Finished tasks and the bots' exchanges go; ongoing tasks and conversations stay.
+  const askClear = async () => {
+    const ok = await confirm(t('tasks.clearConfirm'), t('tasks.clearHint'), {
+      label: t('tasks.clearAction'),
+      destructive: true,
+    });
+    if (!ok) return;
+    clear.mutate(undefined, { onError: () => alertError(t('common.actionFailed')) });
+  };
 
   return (
     <TabScroll onRefresh={() => Promise.all([bots.refetch(), tasks.refetch(), feed.refetch()])}>
       <Stack.Screen
         options={{
           headerRight: () => (
-            <IconButton
-              icon={Plus}
-              label={t('orgAdmin.task.title')}
-              onPress={() => router.push('/task/new')}
-              size={isIOS ? 36 : 40}
-            />
+            <View style={styles.headerActions}>
+              <IconButton
+                icon={Eraser}
+                label={t('tasks.clear')}
+                onPress={() => void askClear()}
+                size={headerSize}
+              />
+              <IconButton
+                icon={Plus}
+                label={t('orgAdmin.task.title')}
+                onPress={() => router.push('/task/new')}
+                size={headerSize}
+              />
+            </View>
           ),
         }}
       />
@@ -260,6 +287,7 @@ export default function ActivityScreen() {
 
 const styles = StyleSheet.create({
   head: { gap: 14 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   indent: { paddingHorizontal: 4 },
   list: { gap: 10 },
   card: { padding: 6, gap: 4 },

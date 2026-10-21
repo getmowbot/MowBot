@@ -1,4 +1,4 @@
-import type { Bot, Message, MessagePart } from '@mowbot/contract';
+import type { Bot, Message, MessagePart, VaultEvent, VaultItem } from '@mowbot/contract';
 import i18next, { type TFunction } from 'i18next';
 import { en } from '../i18n/en';
 import { fr } from '../i18n/fr';
@@ -54,6 +54,43 @@ export function bot(overrides: Partial<Bot> = {}): Bot {
     statusDetail: null,
     avatarSeed: 'nova',
     createdAt: new Date(0).toISOString(),
+    ...overrides,
+  };
+}
+
+export function vaultItem(overrides: Partial<VaultItem> = {}): VaultItem {
+  const id = uuid();
+  return {
+    id,
+    ref: id.slice(0, 8),
+    kind: 'login',
+    service: 'Google',
+    account: null,
+    sites: [],
+    notes: null,
+    policy: 'auto',
+    fields: ['username', 'password'],
+    computerId: null,
+    createdByBotId: null,
+    session: null,
+    grantedBotIds: [],
+    capturedAt: null,
+    lastUsedAt: null,
+    createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    updatedAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    ...overrides,
+  };
+}
+
+export function vaultEvent(overrides: Partial<VaultEvent> = {}): VaultEvent {
+  return {
+    id: uuid(),
+    itemId: 'item-1',
+    action: 'used',
+    botId: null,
+    computerId: null,
+    detail: null,
+    createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
     ...overrides,
   };
 }

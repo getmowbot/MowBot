@@ -23,4 +23,10 @@ export const keys = {
   files: (workspaceId: string, path = '') => ['files', workspaceId, path] as const,
   /** What a bot's own Chrome window shows (live view). */
   botBrowser: (botId: string) => ['bot-browser', botId] as const,
+  /** The vault's entries (never their values). */
+  vault: ['vault'] as const,
+  /** One vault entry's history, newest first. */
+  vaultEvents: (itemId: string) => ['vault-events', itemId] as const,
+  /** Sites with cookies in a running computer's Chrome (not fed by events). */
+  computerSites: (computerId: string) => ['computer-sites', computerId] as const,
 };

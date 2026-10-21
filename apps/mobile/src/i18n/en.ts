@@ -3,6 +3,7 @@ import { en as board } from './areas/board';
 import { en as filesView } from './areas/filesView';
 import { en as orgAdmin } from './areas/orgAdmin';
 import { en as pcView } from './areas/pcView';
+import { en as vault } from './areas/vault';
 import type { Catalog } from './catalog';
 
 export const en: Catalog = {
@@ -211,6 +212,11 @@ export const en: Catalog = {
     feedEmpty: 'Nothing yet. When your bots talk to each other, you’ll see it all here.',
     feedTo: '{{from}} to {{to}}',
     loadMore: 'Load more',
+    clear: 'Clear activity',
+    clearConfirm: 'Clear the activity?',
+    clearHint:
+      'Finished and cancelled tasks are deleted and the exchanges start over. Ongoing tasks stay, and your bots keep their conversations.',
+    clearAction: 'Clear',
   },
   org: {
     intro: 'Your teams and their bots. The Chef can create more for you: just ask.',
@@ -268,4 +274,5 @@ export const en: Catalog = {
   orgAdmin,
   appAdmin,
   filesView,
+  vault,
 };

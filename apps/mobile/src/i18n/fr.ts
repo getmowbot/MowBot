@@ -3,6 +3,7 @@ import { fr as board } from './areas/board';
 import { fr as filesView } from './areas/filesView';
 import { fr as orgAdmin } from './areas/orgAdmin';
 import { fr as pcView } from './areas/pcView';
+import { fr as vault } from './areas/vault';
 
 /** French catalog: the reference. Every other language must provide exactly these keys. */
 export const fr = {
@@ -212,6 +213,11 @@ export const fr = {
     feedEmpty: 'Rien pour l’instant. Quand tes bots se parleront, tu verras tout ici.',
     feedTo: '{{from}} à {{to}}',
     loadMore: 'Charger plus',
+    clear: 'Vider l’activité',
+    clearConfirm: 'Vider l’activité ?',
+    clearHint:
+      'Les tâches terminées et annulées sont supprimées et les échanges repartent de zéro. Les tâches en cours restent, et tes bots gardent leurs conversations.',
+    clearAction: 'Vider',
   },
   org: {
     intro: 'Tes équipes et leurs bots. Le Chef peut en créer pour toi : demande-le-lui.',
@@ -269,4 +275,5 @@ export const fr = {
   orgAdmin,
   appAdmin,
   filesView,
+  vault,
 } as const;

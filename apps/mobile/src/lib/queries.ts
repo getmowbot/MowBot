@@ -188,6 +188,27 @@ export function useCancelTask() {
   });
 }
 
+/**
+ * Empties the Activity tab: finished and cancelled tasks are deleted and the feed starts over
+ * (ongoing tasks stay; bots keep their conversations).
+ */
+export function useClearActivity() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await api().POST('/api/v1/activity/clear');
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => {
+      client.setQueryData<Task[]>(keys.tasks, (list) =>
+        list?.filter((task) => task.status !== 'done' && task.status !== 'cancelled'),
+      );
+      void client.invalidateQueries({ queryKey: keys.tasks });
+      void client.invalidateQueries({ queryKey: keys.feed });
+    },
+  });
+}
+
 export function botsById(bots: Bot[] | undefined): Map<string, Bot> {
   return new Map((bots ?? []).map((bot) => [bot.id, bot]));
 }

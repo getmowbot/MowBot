@@ -1,3 +1,4 @@
+import { Eraser } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -5,40 +6,69 @@ import { NOTIFICATION_INSET, NotificationRow } from '../../components/board/noti
 import { ListCard } from '../../components/list-card';
 import { Screen } from '../../components/screen';
 import { Section } from '../../components/tab-scroll';
-import { Button } from '../../components/ui/button';
+import { Button, IconButton } from '../../components/ui/button';
 import { T } from '../../components/ui/text';
 import { Touchable } from '../../components/ui/touchable';
 import { groupByDay } from '../../lib/board';
-import { useMarkNotificationsRead, useNotifications } from '../../lib/board-queries';
+import {
+  useClearNotifications,
+  useMarkNotificationsRead,
+  useNotifications,
+} from '../../lib/board-queries';
+import { alertError, confirm } from '../../lib/options-menu';
 import { botsById, useBots } from '../../lib/queries';
 import { colors } from '../../theme';
 
-/** Every notification (the latest 100), by day; tapping an unread one marks it read. */
+/**
+ * Every notification (the latest 100), by day; tapping an unread one marks it read. The header
+ * reads them all, or clears them all.
+ */
 export default function NotificationsScreen() {
   const { t } = useTranslation();
   const notifications = useNotifications();
   const bots = useBots();
   const read = useMarkNotificationsRead();
+  const clear = useClearNotifications();
   const byId = botsById(bots.data);
   const items = notifications.data?.items ?? [];
   const unread = notifications.data?.unread ?? 0;
   const anyUnread = items.some((n) => !n.readAt);
 
-  const readAll = anyUnread
-    ? () => (
-        <Touchable
-          accessibilityRole="button"
-          accessibilityLabel={t('board.notifications.markAllRead')}
-          onPress={() => read.mutate(undefined)}
-          hitSlop={10}
-          style={styles.headerButton}
-        >
-          <T variant="callout" style={styles.headerText}>
-            {t('board.notifications.readAll')}
-          </T>
-        </Touchable>
-      )
-    : undefined;
+  const askClear = async () => {
+    const ok = await confirm(
+      t('board.notifications.clearConfirm'),
+      t('board.notifications.clearHint'),
+      { label: t('board.notifications.clearAction'), destructive: true },
+    );
+    if (!ok) return;
+    clear.mutate(undefined, { onError: () => alertError(t('common.actionFailed')) });
+  };
+
+  const headerRight =
+    items.length > 0
+      ? () => (
+          <View style={styles.headerActions}>
+            {anyUnread && (
+              <Touchable
+                accessibilityRole="button"
+                accessibilityLabel={t('board.notifications.markAllRead')}
+                onPress={() => read.mutate(undefined)}
+                hitSlop={10}
+                style={styles.headerButton}
+              >
+                <T variant="callout" style={styles.headerText}>
+                  {t('board.notifications.readAll')}
+                </T>
+              </Touchable>
+            )}
+            <IconButton
+              icon={Eraser}
+              label={t('board.notifications.clearAll')}
+              onPress={() => void askClear()}
+            />
+          </View>
+        )
+      : undefined;
 
   let body: ReactNode;
   if (notifications.isPending) {
@@ -89,7 +119,7 @@ export default function NotificationsScreen() {
   return (
     <Screen
       title={t('board.notifications.title')}
-      headerRight={readAll}
+      headerRight={headerRight}
       onRefresh={() => notifications.refetch()}
     >
       {body}
@@ -102,6 +132,7 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', gap: 16, marginTop: 32 },
   none: { textAlign: 'center', marginTop: 32 },
   indent: { paddingHorizontal: 4, marginBottom: -12 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerButton: { paddingHorizontal: 4 },
   headerText: { fontWeight: '600', color: colors.text },
 });
