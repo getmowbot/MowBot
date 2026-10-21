@@ -203,6 +203,7 @@ export const fr = {
       stop: 'Arrêter ce qu’il fait',
       clear: 'Recommencer la conversation',
       project: 'Choisir le projet de travail',
+      model: 'Changer de modèle',
       pc: 'Afficher ou masquer le PC',
       files: 'Ouvrir les fichiers',
       settings: 'Réglages du bot',
@@ -234,6 +235,19 @@ export const fr = {
         '{{computer}} est hors ligne : le bot n’accède pas au projet tant que l’app desktop n’y est pas ouverte.',
       manage: 'Gérer les projets',
       failed: 'Le projet n’a pas pu être changé.',
+    },
+    /** `/model`: the models of the providers, to pick the bot's. */
+    model: {
+      current: 'Modèle actuel',
+      loading: 'Chargement des modèles…',
+      unreachable: 'liste indisponible',
+      more_one: '{{count}} autre : précise ta recherche',
+      more_other: '{{count}} autres : précise ta recherche',
+      none: 'Aucun modèle ne correspond à « {{query}} ».',
+      noModels: 'Tes fournisseurs ne proposent aucun modèle.',
+      noProvider: 'Aucun fournisseur de modèles : ajoute-en un dans Réglages → Modèles.',
+      set: '{{name}} utilise maintenant {{model}}.',
+      failed: 'Le modèle n’a pas pu être changé.',
     },
     vault: {
       totp: 'Code 2FA (graine ou lien otpauth://)',

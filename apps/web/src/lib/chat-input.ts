@@ -10,14 +10,23 @@ export const matches = (query: string, ...fields: string[]) =>
 /** A mention picked in the composer: what it points at, and the text written after the @. */
 export type Picked = Mention & { label: string };
 
-/** What the user is typing: a command (`/sto`), or a mention at the cursor (`@No`). */
+/**
+ * What the user is typing: a command (`/sto`), a model to pick (`/model gpt`), or a mention at
+ * the cursor (`@No`).
+ */
 export type Trigger =
   | { kind: 'command'; query: string }
+  | { kind: 'model'; query: string }
   | { kind: 'mention'; query: string; start: number; end: number };
+
+/** `/model `, then words to narrow the models down. */
+const MODEL_COMMAND = /^\/model\s+([^\n]*)$/i;
 
 /** `labels`: the mentions already picked, which do not open the list again. */
 export function triggerAt(text: string, caret: number, labels: string[] = []): Trigger | null {
   if (/^\/\S*$/.test(text)) return { kind: 'command', query: text.slice(1) };
+  const model = MODEL_COMMAND.exec(text);
+  if (model) return { kind: 'model', query: model[1] ?? '' };
   const before = text.slice(0, caret);
   const at = before.lastIndexOf('@');
   if (at === -1 || (at > 0 && !/\s/.test(before[at - 1] ?? ''))) return null;

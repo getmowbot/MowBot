@@ -6,6 +6,8 @@ import {
   ArrowRightLeft,
   ArrowUp,
   Blocks,
+  Check,
+  Cpu,
   Eraser,
   File,
   Folder,
@@ -46,8 +48,9 @@ import {
   triggerAt,
 } from '../lib/chat-input';
 import { formatSize, IMAGE } from '../lib/files';
+import { type ModelChoice, modelGroups } from '../lib/models';
 import { projectsFor, useProjects } from '../lib/projects';
-import { useBots, useTeams } from '../lib/queries';
+import { useBots, useListings, useProviders, useTeams } from '../lib/queries';
 import { cn } from '../lib/utils';
 import {
   canRecord,
@@ -69,6 +72,7 @@ type CommandName =
   | 'stop'
   | 'clear'
   | 'project'
+  | 'model'
   | 'pc'
   | 'files'
   | 'settings'
@@ -88,7 +92,12 @@ interface ChatCommand {
 /** The commands of a conversation, for what this bot has (a PC, a workspace…). */
 function useChatCommands(
   bot: Bot,
-  actions: { togglePc(): void; rename(): void; pickProject: (() => void) | null },
+  actions: {
+    togglePc(): void;
+    rename(): void;
+    pickProject: (() => void) | null;
+    pickModel(): void;
+  },
 ): ChatCommand[] {
   const navigate = useNavigate();
   const dialogs = useOrgDialogs();
@@ -103,6 +112,7 @@ function useChatCommands(
     { name: 'stop', icon: Square, run: () => stop.mutate() },
     { name: 'clear', icon: Eraser, run: clear },
     actions.pickProject ? { name: 'project', icon: FolderGit2, run: actions.pickProject } : null,
+    { name: 'model', icon: Cpu, run: actions.pickModel },
     bot.computerId ? { name: 'pc', icon: Monitor, run: actions.togglePc } : null,
     workspaceId
       ? {
@@ -122,6 +132,9 @@ function useChatCommands(
   return commands.filter((command) => command !== null);
 }
 
+/** What `/model` becomes once picked: the models show, the words typed after narrow them. */
+const MODEL_PREFIX = '/model ';
+
 /** `value`, once it has stayed the same for `ms`. */
 function useSettled<T>(value: T, ms: number): T {
   const [settled, setSettled] = useState(value);
@@ -134,6 +147,7 @@ function useSettled<T>(value: T, ms: number): T {
 
 type Option =
   | { key: string; section: 'commands'; command: ChatCommand }
+  | { key: string; section: 'models'; model: ModelChoice }
   | {
       key: string;
       section: 'bots' | 'teams' | 'projects' | 'files';
@@ -267,6 +281,12 @@ export function ChatComposer({
     togglePc: onTogglePc,
     rename: onRename,
     pickProject: projects.length > 0 ? () => setProjectMenu(true) : null,
+    // The models show in the list over the field; what follows `/model ` narrows them down.
+    pickModel: () => {
+      setText(MODEL_PREFIX);
+      setDismissed(null);
+      moveCaret(MODEL_PREFIX.length);
+    },
   });
   const [text, setText] = useState('');
   const [caret, setCaret] = useState(0);
@@ -275,6 +295,8 @@ export function ChatComposer({
   const [dismissed, setDismissed] = useState<string | null>(null);
   const [attached, setAttached] = useState<PendingFile[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  // What a command just did ("Nova now uses …"), for a few seconds.
+  const [done, setDone] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [recorder, setRecorder] = useState<VoiceRecorder | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -295,8 +317,38 @@ export function ChatComposer({
     caret,
     picked.map((p) => p.label),
   );
-  const triggerKey = trigger && (trigger.kind === 'command' ? 'command' : `@${trigger.start}`);
+  const triggerKey = trigger && (trigger.kind === 'mention' ? `@${trigger.start}` : trigger.kind);
   const mentionQuery = trigger?.kind === 'mention' ? trigger.query : null;
+  const providers = useProviders();
+  const listings = useListings(providers.data ?? [], trigger?.kind === 'model');
+  const models =
+    trigger?.kind === 'model'
+      ? modelGroups(providers.data ?? [], listings, bot, trigger.query)
+      : [];
+  const queryClient = useQueryClient();
+  const setModel = useMutation({
+    mutationFn: async (choice: ModelChoice) => {
+      const { error } = await api.PATCH('/api/v1/bots/{id}', {
+        params: { path: { id: bot.id } },
+        body: { providerId: choice.providerId, model: choice.id },
+      });
+      if (error) throw error;
+    },
+    onMutate: () => {
+      setNotice(null);
+      setDone(null);
+    },
+    onSuccess: (_, choice) => {
+      setDone(t('chat.model.set', { name: bot.name, model: choice.name ?? choice.id }));
+      void queryClient.invalidateQueries({ queryKey: ['bots'] });
+    },
+    onError: () => setNotice(t('chat.model.failed')),
+  });
+  useEffect(() => {
+    if (!done) return;
+    const timer = setTimeout(() => setDone(null), 4000);
+    return () => clearTimeout(timer);
+  }, [done]);
   const fileQuery = useSettled(mentionQuery, 150);
   const files = useQuery({
     queryKey: ['file-search', bot.workspaceId, fileQuery],
@@ -316,7 +368,11 @@ export function ChatComposer({
   });
 
   const options = optionsFor(trigger);
-  const open = trigger !== null && triggerKey !== dismissed && options.length > 0;
+  // `/model` stays open with nothing to pick yet: it says why (loading, no match…).
+  const open =
+    trigger !== null &&
+    triggerKey !== dismissed &&
+    (options.length > 0 || trigger.kind === 'model');
 
   function optionsFor(at: Trigger | null): Option[] {
     if (!at) return [];
@@ -324,6 +380,17 @@ export function ChatComposer({
       return commands
         .filter((command) => matches(at.query, command.name, t(`chat.commands.${command.name}`)))
         .map((command) => ({ key: `/${command.name}`, section: 'commands', command }));
+    }
+    if (at.kind === 'model') {
+      return models.flatMap((group) =>
+        group.models.map(
+          (model): Option => ({
+            key: `model:${model.providerId}:${model.id}`,
+            section: 'models',
+            model,
+          }),
+        ),
+      );
     }
     const q = at.query;
     const out: Option[] = [
@@ -404,6 +471,12 @@ export function ChatComposer({
       setText('');
       setPicked([]);
       option.command.run();
+      return;
+    }
+    if (option.section === 'models') {
+      setText('');
+      setPicked([]);
+      if (!option.model.current) setModel.mutate(option.model);
       return;
     }
     if (trigger?.kind !== 'mention') return;
@@ -497,6 +570,15 @@ export function ChatComposer({
     const value = text.trim();
     const sending = attached;
     if (!value && sending.length === 0) return;
+    // `/model gpt` picks the model that matches best, never goes to the bot.
+    if (trigger?.kind === 'model' && sending.length === 0) {
+      const best = options.find((option) => option.section === 'models');
+      if (best) choose(best);
+      else if (trigger.query.trim() && !models.some((group) => group.state === 'loading')) {
+        setNotice(t('chat.model.none', { query: trigger.query.trim() }));
+      }
+      return;
+    }
     // `/projet` is how a French speaker types `/project`.
     const typed = value.toLowerCase() === '/projet' ? '/project' : value;
     const command = sending.length === 0 && commands.find((c) => `/${c.name}` === typed);
@@ -585,7 +667,7 @@ export function ChatComposer({
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (open) {
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && options.length > 0) {
         event.preventDefault();
         const step = event.key === 'ArrowDown' ? 1 : -1;
         setActive((i) => (i + step + options.length) % options.length);
@@ -610,6 +692,41 @@ export function ChatComposer({
 
   const follow = (el: HTMLTextAreaElement) => setCaret(el.selectionStart ?? el.value.length);
 
+  // The list over the field: the mentions by kind, or `/model`'s models by provider.
+  const sections =
+    trigger?.kind === 'model'
+      ? models.map((group) => ({
+          key: group.provider.id,
+          title: group.provider.name,
+          note: group.state === 'unreachable' ? t('chat.model.unreachable') : null,
+          rows: options.filter(
+            (o) => o.section === 'models' && o.model.providerId === group.provider.id,
+          ),
+          footer:
+            group.state === 'loading' && group.models.length === 0
+              ? t('chat.model.loading')
+              : group.more > 0
+                ? t('chat.model.more', { count: group.more })
+                : null,
+        }))
+      : SECTIONS.map((section) => ({
+          key: section,
+          title: t(`chat.mentions.sections.${section}`),
+          note: null,
+          rows: options.filter((o) => o.section === section),
+          footer: null,
+        })).filter((section) => section.rows.length > 0);
+  const empty =
+    trigger?.kind !== 'model' || models.length > 0
+      ? null
+      : providers.isPending
+        ? t('chat.model.loading')
+        : (providers.data ?? []).length === 0
+          ? t('chat.model.noProvider')
+          : trigger.query.trim()
+            ? t('chat.model.none', { query: trigger.query.trim() })
+            : t('chat.model.noModels');
+
   return (
     <div className="relative">
       <AnimatePresence>
@@ -624,69 +741,104 @@ export function ChatComposer({
             style={{ background: 'var(--card)' }}
             className="glass absolute inset-x-0 bottom-full z-30 mb-2 max-h-80 overflow-y-auto rounded-2xl p-1"
           >
-            {SECTIONS.map((section) => {
-              const rows = options.filter((o) => o.section === section);
-              if (rows.length === 0) return null;
-              return (
-                <div key={section} className="py-0.5">
-                  <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-medium uppercase tracking-wide text-faint">
-                    {t(`chat.mentions.sections.${section}`)}
-                  </p>
-                  {rows.map((option) => {
-                    const index = options.indexOf(option);
-                    return (
-                      <button
-                        key={option.key}
-                        type="button"
-                        role="option"
-                        aria-selected={index === active}
-                        onMouseEnter={() => setActive(index)}
-                        // Keeps the focus (and the cursor) in the text field.
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => choose(option)}
-                        className={cn(
-                          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-100',
-                          index === active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]',
-                        )}
-                      >
-                        {option.section === 'commands' ? (
-                          <>
-                            <option.command.icon className="size-4 shrink-0 text-muted-foreground" />
-                            <span className="font-mono text-[13px]">/{option.command.name}</span>
-                            <span className="min-w-0 truncate text-muted-foreground">
-                              {t(`chat.commands.${option.command.name}`)}
+            {sections.map((section) => (
+              <div key={section.key} className="py-0.5">
+                <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-medium uppercase tracking-wide text-faint">
+                  {section.title}
+                  {section.note && (
+                    <span className="normal-case tracking-normal"> · {section.note}</span>
+                  )}
+                </p>
+                {section.rows.map((option) => {
+                  const index = options.indexOf(option);
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      role="option"
+                      aria-selected={index === active}
+                      onMouseEnter={() => setActive(index)}
+                      // Keeps the focus (and the cursor) in the text field.
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => choose(option)}
+                      title={option.section === 'models' ? option.model.id : undefined}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-100',
+                        index === active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]',
+                      )}
+                    >
+                      {option.section === 'commands' ? (
+                        <>
+                          <option.command.icon className="size-4 shrink-0 text-muted-foreground" />
+                          <span className="font-mono text-[13px]">/{option.command.name}</span>
+                          <span className="min-w-0 truncate text-muted-foreground">
+                            {t(`chat.commands.${option.command.name}`)}
+                          </span>
+                        </>
+                      ) : option.section === 'models' ? (
+                        <>
+                          <span className="grid size-[22px] shrink-0 place-items-center text-muted-foreground">
+                            {option.model.current ? (
+                              <Check
+                                className="size-4 text-primary"
+                                aria-label={t('chat.model.current')}
+                              />
+                            ) : (
+                              <Cpu className="size-4" />
+                            )}
+                          </span>
+                          <span
+                            className={cn(
+                              'min-w-0 truncate',
+                              !option.model.name && 'font-mono text-[13px]',
+                            )}
+                          >
+                            {option.model.name ?? option.model.id}
+                          </span>
+                          {option.model.name && (
+                            <span className="ml-auto min-w-0 max-w-[45%] shrink-0 truncate font-mono text-xs text-faint">
+                              {option.model.id}
                             </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="grid size-[22px] shrink-0 place-items-center text-muted-foreground">
-                              {option.icon}
-                            </span>
-                            <span
-                              className={cn(
-                                'min-w-0 truncate',
-                                option.section === 'files' && 'font-mono text-[13px]',
-                              )}
-                            >
-                              {option.picked.label}
-                            </span>
-                            <span className="ml-auto shrink-0 truncate text-xs text-faint">
-                              {option.hint}
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <span className="grid size-[22px] shrink-0 place-items-center text-muted-foreground">
+                            {option.icon}
+                          </span>
+                          <span
+                            className={cn(
+                              'min-w-0 truncate',
+                              option.section === 'files' && 'font-mono text-[13px]',
+                            )}
+                          >
+                            {option.picked.label}
+                          </span>
+                          <span className="ml-auto shrink-0 truncate text-xs text-faint">
+                            {option.hint}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+                {section.footer && (
+                  <p className="px-2.5 py-1.5 text-xs text-faint">{section.footer}</p>
+                )}
+              </div>
+            ))}
+            {empty && <p className="px-2.5 py-2 text-sm text-muted-foreground">{empty}</p>}
           </motion.div>
         )}
       </AnimatePresence>
       {notice && (
         <p role="alert" className="mb-2 px-1 text-sm text-destructive">
           {notice}
+        </p>
+      )}
+      {done && !notice && (
+        <p role="status" className="mb-2 px-1 text-sm text-muted-foreground">
+          {done}
         </p>
       )}
       <div className="mb-1.5 flex px-1 empty:hidden">
