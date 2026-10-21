@@ -3,13 +3,16 @@ import type {
   Canvas,
   CanvasContent,
   CanvasSize,
+  CardButton,
   Notification,
   Question,
 } from '@mowbot/contract';
+import type { TFunction } from 'i18next';
 
 /**
- * Pure logic of the Home tab (no React, no native modules): greeting, canvases order and
- * layout, checklist and notification cache changes, the sandboxed page of `html` canvases.
+ * Pure logic of the canvases (on Home and inside conversations) and of the notifications (no
+ * React, no native modules): greeting, canvases order and layout, card buttons and pictures,
+ * checklist and notification cache changes, the sandboxed page of `html` canvases.
  */
 
 export type DayPeriod = 'morning' | 'afternoon' | 'evening';
@@ -111,15 +114,23 @@ export function scoreText(content: Extract<CanvasContent, { kind: 'score' }>): s
     : '–';
 }
 
-/** The one line a folded card keeps: the score, or the first figure; null for the others. */
-export function foldedSummary(content: CanvasContent): string | null {
-  if (content.kind === 'score') {
-    return `${content.home.name} ${scoreText(content)} ${content.away.name}`;
+/**
+ * The one line a folded card keeps: the score, the first figure, a card's title (and subtitle),
+ * how many pictures a gallery has; null for the others.
+ */
+export function foldedSummary(content: CanvasContent, t: TFunction): string | null {
+  switch (content.kind) {
+    case 'score':
+      return `${content.home.name} ${scoreText(content)} ${content.away.name}`;
+    case 'stats':
+      return content.items[0] ? `${content.items[0].label} : ${content.items[0].value}` : null;
+    case 'card':
+      return content.subtitle ? `${content.title} · ${content.subtitle}` : content.title;
+    case 'gallery':
+      return t('board.canvas.images', { count: content.images.length });
+    default:
+      return null;
   }
-  if (content.kind === 'stats' && content.items[0]) {
-    return `${content.items[0].label} : ${content.items[0].value}`;
-  }
-  return null;
 }
 
 /**
@@ -149,6 +160,73 @@ export function workspaceFileUrl(base: string, workspaceId: string, path: string
 }
 
 // ---------------------------------------------------------------------------------------------
+// Cards and galleries
+
+/** Width / height of a card's picture (cropped to fill). */
+export const CARD_IMAGE_RATIO = 16 / 9;
+/** Width / height of a gallery's only picture. */
+export const SINGLE_IMAGE_RATIO = 4 / 3;
+/** Between a gallery's thumbnails. */
+export const GALLERY_GAP = 10;
+
+/** A picture from the web (loaded as is) rather than a file of the bot's workspace. */
+export function isWebImage(src: string): boolean {
+  return /^https?:\/\//i.test(src.trim());
+}
+
+/** Only web pages open from a card: never a scheme that would start another app silently. */
+export function isWebLink(url: string): boolean {
+  return /^https?:\/\//i.test(url.trim());
+}
+
+/**
+ * What a card's button does: open its page on this device, answer the bot, or both. A button
+ * without a page always answers (its label then is the answer).
+ */
+export function cardButtonAction(button: CardButton): { open: string | null; answer: boolean } {
+  const open = button.url && isWebLink(button.url) ? button.url : null;
+  return { open, answer: Boolean(button.reply) || !open };
+}
+
+export interface CardButtonState {
+  /** Drawn as the key action: the first button, or the one chosen once the card is answered. */
+  primary: boolean;
+  /** The one the user pressed (a card in a message is answered once). */
+  chosen: boolean;
+  /** Would answer the bot again: off once the card is answered (link-only buttons still open). */
+  locked: boolean;
+}
+
+/**
+ * How a card's button shows. `pressed`: the label pressed in a message (null: not yet), or
+ * undefined for a card on Home, which can be answered again and again.
+ */
+export function cardButtonState(
+  button: CardButton,
+  index: number,
+  pressed: string | null | undefined,
+): CardButtonState {
+  const answered = typeof pressed === 'string';
+  const chosen = answered && pressed === button.label;
+  return {
+    primary: answered ? chosen : index === 0,
+    chosen,
+    locked: answered && cardButtonAction(button).answer,
+  };
+}
+
+/**
+ * Side of a gallery's square thumbnails in a row `width` wide: two side by side, more with the
+ * next one peeking out (the row scrolls). A single picture takes the whole width.
+ */
+export function galleryThumbSize(count: number, width: number): number {
+  if (width <= 0) return 0;
+  if (count <= 1) return width;
+  if (count === 2) return Math.floor((width - GALLERY_GAP) / 2);
+  return Math.floor(Math.min(160, Math.max(112, (width - GALLERY_GAP * 2) / 2.4)));
+}
+
+// ---------------------------------------------------------------------------------------------
 // Questions
 
 /** A bot's open questions, oldest first (the order it asked them in). */
@@ -164,6 +242,12 @@ export function questionsOfBot(list: readonly Question[] | undefined, botId: str
 export interface NotificationList {
   items: Notification[];
   unread: number;
+}
+
+/** A tab bar badge: nothing at zero, then the count, capped. */
+export function badgeText(count: number): string | undefined {
+  if (count <= 0) return undefined;
+  return count > 99 ? '99+' : String(count);
 }
 
 /** Unread count as the hub gives it: digest-level notifications wait for the evening summary. */

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   type ListRenderItem,
   type ScrollViewProps,
   StyleSheet,
@@ -17,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatHeader } from '../../../components/chat/chat-header';
 import { Composer } from '../../../components/chat/composer';
 import { ChatEmptyState } from '../../../components/chat/empty-state';
+import { KeepInViewContext, type Measurable } from '../../../components/chat/keep-in-view';
 import { BotMessage, IncomingMessage, UserMessage } from '../../../components/chat/messages';
 import { ChatQuestions } from '../../../components/questions';
 import { reveal } from '../../../components/reveal';
@@ -25,6 +27,7 @@ import { EdgeFade } from '../../../components/ui/edge-fade';
 import { Surface } from '../../../components/ui/surface';
 import { T } from '../../../components/ui/text';
 import { moodOf } from '../../../lib/bot-mood';
+import { revealOffset } from '../../../lib/chat-scroll';
 import { isIncoming, liveMessage } from '../../../lib/message-cache';
 import {
   botsById,
@@ -40,6 +43,8 @@ const DOCK_GAP = 8;
 const KEYBOARD_GAP = 12;
 /** Between the last message and the message field. */
 const LAST_MESSAGE_GAP = 28;
+/** Room kept around a field typed into (below the header, above the message bar). */
+const FIELD_MARGIN = 12;
 
 function Separator() {
   return <View style={styles.separator} />;
@@ -60,6 +65,9 @@ export default function ChatScreen() {
   const [error, setError] = useState<string | null>(null);
   // Messages already there when the chat opened appear at once; new ones settle in.
   const known = useRef<Set<string> | null>(null);
+  const list = useRef<FlatList<Message>>(null);
+  const dock = useRef<View>(null);
+  const scrollY = useRef(0);
 
   const items = conversation.data?.items;
   useEffect(() => {
@@ -103,6 +111,32 @@ export default function ChatScreen() {
   const mood = moodOf(bot, live);
   const noModel = providers.isSuccess && (providers.data.length === 0 || !bot.model);
 
+  // A field inside a message (a vault form): once the keyboard is up, scroll it into view.
+  const keepInView = (field: Measurable) => {
+    const reveal = () =>
+      dock.current?.measureInWindow((_x, dockTop) =>
+        field.measureInWindow((_fx, top, _width, height) => {
+          const delta = revealOffset(
+            { top, bottom: top + height },
+            { top: headerHeight + FIELD_MARGIN, bottom: dockTop - FIELD_MARGIN },
+          );
+          if (delta !== 0) {
+            list.current?.scrollToOffset({ offset: scrollY.current + delta, animated: true });
+          }
+        }),
+      );
+    if (Keyboard.isVisible()) {
+      reveal();
+      return;
+    }
+    const shown = Keyboard.addListener('keyboardDidShow', () => {
+      shown.remove();
+      reveal();
+    });
+    // No software keyboard after all (a hardware one): nothing moved, nothing to do.
+    setTimeout(() => shown.remove(), 1500);
+  };
+
   const sendText = (text: string) => {
     setError(null);
     send.mutate(text, { onError: () => setError(t('errors.messageNotSent')) });
@@ -122,14 +156,23 @@ export default function ChatScreen() {
         />
       );
     else content = <UserMessage message={item} />;
-    return <Animated.View entering={fresh ? reveal() : undefined}>{content}</Animated.View>;
+    return (
+      <Animated.View entering={fresh ? reveal() : undefined}>
+        <KeepInViewContext value={keepInView}>{content}</KeepInViewContext>
+      </Animated.View>
+    );
   };
 
   return (
     <View style={styles.root}>
       <FlatList
+        ref={list}
         data={data}
         inverted
+        onScroll={(event) => {
+          scrollY.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
         keyExtractor={(message) => message.id}
         renderItem={renderItem}
         renderScrollComponent={renderScroll}
@@ -175,6 +218,7 @@ export default function ChatScreen() {
       <KeyboardStickyView offset={{ closed: 0, opened: keyboardOffset }} style={styles.dock}>
         <EdgeFade edge="bottom" style={styles.dockFade} />
         <View
+          ref={dock}
           onLayout={(event) => setDockHeight(event.nativeEvent.layout.height)}
           style={[styles.dockInner, { paddingBottom: insets.bottom + DOCK_GAP }]}
         >

@@ -1,15 +1,18 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useTranslation } from 'react-i18next';
+import { badgeText } from '../../../lib/board';
+import { useNotifications } from '../../../lib/board-queries';
 import { isAndroid } from '../../../lib/platform';
 import { colors } from '../../../theme';
 
 /**
  * System tab bar: Liquid Glass on iOS 26 (blur on older iOS), Material 3 navigation bar on
  * Android, with every color pinned so dynamic color never tints it: a white active pill with
- * black ink, yin/yang.
+ * black ink, yin/yang. Activity carries the unread notifications' count (kept live by events).
  */
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const unread = badgeText(useNotifications().data?.unread ?? 0);
   return (
     <NativeTabs
       tintColor={colors.accentStrong}
@@ -44,6 +47,7 @@ export default function TabsLayout() {
       <NativeTabs.Trigger name="activity" contentStyle={{ backgroundColor: colors.background }}>
         <NativeTabs.Trigger.Label>{t('tabs.activity')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="checklist" md="checklist" />
+        <NativeTabs.Trigger.Badge hidden={!unread}>{unread}</NativeTabs.Trigger.Badge>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings" contentStyle={{ backgroundColor: colors.background }}>
         <NativeTabs.Trigger.Label>{t('tabs.settings')}</NativeTabs.Trigger.Label>

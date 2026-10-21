@@ -20,6 +20,19 @@ interface Props {
   fallback?: ReactNode;
 }
 
+/** In place of a picture that cannot be shown: an icon and its name. */
+export function MissingImage({ alt, style }: { alt: string; style?: StyleProp<ImageStyle> }) {
+  const { t } = useTranslation();
+  return (
+    <View style={[styles.missing, style]}>
+      <ImageOff size={16} color={colors.textFaint} />
+      <T variant="caption" tone="faint" numberOfLines={1}>
+        {alt || t('board.canvas.imageMissing')}
+      </T>
+    </View>
+  );
+}
+
 /**
  * A picture from a bot's workspace, loaded with the device's bearer token (like the web's
  * WorkspaceImage). If the token expired meanwhile, one typed call refreshes it and the image
@@ -34,7 +47,6 @@ export function WorkspaceImage({
   style,
   fallback,
 }: Props) {
-  const { t } = useTranslation();
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
   const base = hubUrl();
@@ -51,18 +63,7 @@ export function WorkspaceImage({
       .finally(() => setAttempt(1));
   };
 
-  if (!base || failed) {
-    return (
-      fallback ?? (
-        <View style={[styles.missing, style]}>
-          <ImageOff size={16} color={colors.textFaint} />
-          <T variant="caption" tone="faint" numberOfLines={1}>
-            {alt || t('board.canvas.imageMissing')}
-          </T>
-        </View>
-      )
-    );
-  }
+  if (!base || failed) return fallback ?? <MissingImage alt={alt} style={style} />;
 
   return (
     <Image

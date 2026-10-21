@@ -1,8 +1,12 @@
 import type { Canvas, CanvasContent, Notification, Question } from '@mowbot/contract';
-import { describe, expect, it } from 'vitest';
-import { bot } from '../test/fixtures';
+import type { TFunction } from 'i18next';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { bot, translator } from '../test/fixtures';
 import {
   applyOrder,
+  badgeText,
+  cardButtonAction,
+  cardButtonState,
   checklistProgress,
   dayGroup,
   dayPeriod,
@@ -11,9 +15,12 @@ import {
   firstName,
   foldedSummary,
   frameMayLoad,
+  galleryThumbSize,
   groupByDay,
   htmlCanvasPage,
   IMAGE_HEIGHT,
+  isWebImage,
+  isWebLink,
   markRead,
   moveCanvas,
   NOTE_FOLD_HEIGHT,
@@ -28,6 +35,13 @@ import {
 } from './board';
 
 const at = (iso: string) => new Date(iso);
+
+let fr: TFunction;
+let en: TFunction;
+beforeAll(async () => {
+  fr = await translator('fr');
+  en = await translator('en');
+});
 
 function canvas(id: string, overrides: Partial<Canvas> = {}): Canvas {
   return {
@@ -171,11 +185,93 @@ describe('canvases', () => {
     expect(scoreText(score)).toBe('2 – 0');
     expect(scoreText({ ...score, awayScore: null })).toBe('–');
     // Folded, a card keeps one line: the score, the first figure, or nothing.
-    expect(foldedSummary(score)).toBe('PSG 2 – 0 OM');
-    expect(foldedSummary({ kind: 'stats', items: [{ label: 'Articles', value: '42' }] })).toBe(
+    expect(foldedSummary(score, fr)).toBe('PSG 2 – 0 OM');
+    expect(foldedSummary({ kind: 'stats', items: [{ label: 'Articles', value: '42' }] }, fr)).toBe(
       'Articles : 42',
     );
-    expect(foldedSummary({ kind: 'note', markdown: 'x' })).toBeNull();
+    expect(foldedSummary({ kind: 'note', markdown: 'x' }, fr)).toBeNull();
+  });
+
+  it('keeps a card’s title, or a gallery’s count, when folded', () => {
+    expect(foldedSummary({ kind: 'card', title: 'Kiprun KS900', buttons: [] }, fr)).toBe(
+      'Kiprun KS900',
+    );
+    expect(
+      foldedSummary(
+        { kind: 'card', title: 'Kiprun', subtitle: '129 € · Decathlon', buttons: [] },
+        fr,
+      ),
+    ).toBe('Kiprun · 129 € · Decathlon');
+    const pictures = (count: number) =>
+      ({
+        kind: 'gallery',
+        images: Array.from({ length: count }, (_, i) => ({ src: `${i}.png` })),
+      }) as const;
+    expect(foldedSummary(pictures(3), fr)).toBe('3 images');
+    expect(foldedSummary(pictures(1), fr)).toBe('1 image');
+    expect(foldedSummary(pictures(2), en)).toBe('2 images');
+  });
+});
+
+describe('cards and galleries', () => {
+  it('tells web pictures from workspace files', () => {
+    expect(isWebImage('https://example.com/shoe.jpg')).toBe(true);
+    expect(isWebImage('HTTP://example.com/a.png')).toBe(true);
+    expect(isWebImage('outputs/shoe.jpg')).toBe(false);
+    expect(isWebImage('data:image/png;base64,xx')).toBe(false);
+  });
+
+  it('only opens web pages', () => {
+    expect(isWebLink('https://maps.google.com/?q=Paris')).toBe(true);
+    expect(isWebLink('javascript:alert(1)')).toBe(false);
+    expect(isWebLink('tel:0600000000')).toBe(false);
+  });
+
+  it('opens the page, answers the bot, or both', () => {
+    const url = 'https://shop.example/kiprun';
+    expect(cardButtonAction({ label: 'Voir', url })).toEqual({ open: url, answer: false });
+    expect(cardButtonAction({ label: 'Acheter', url, reply: 'Je le prends' })).toEqual({
+      open: url,
+      answer: true,
+    });
+    expect(cardButtonAction({ label: 'Autre chose' })).toEqual({ open: null, answer: true });
+    expect(cardButtonAction({ label: 'Bizarre', url: 'ftp://x' })).toEqual({
+      open: null,
+      answer: true,
+    });
+  });
+
+  it('shows the first button as the key one, then the choice', () => {
+    const see = { label: 'Voir', url: 'https://example.com' };
+    const yes = { label: 'Oui', reply: 'Vas-y' };
+    const no = { label: 'Non' };
+    // On Home (never answered once and for all) and in a message not yet answered.
+    for (const pressed of [undefined, null]) {
+      expect(cardButtonState(yes, 0, pressed)).toEqual({
+        primary: true,
+        chosen: false,
+        locked: false,
+      });
+      expect(cardButtonState(no, 1, pressed).primary).toBe(false);
+    }
+    // Answered: the choice stands out, the other answers are off, pages still open.
+    expect(cardButtonState(yes, 0, 'Non')).toEqual({ primary: false, chosen: false, locked: true });
+    expect(cardButtonState(no, 1, 'Non')).toEqual({ primary: true, chosen: true, locked: true });
+    expect(cardButtonState(see, 2, 'Non')).toEqual({
+      primary: false,
+      chosen: false,
+      locked: false,
+    });
+  });
+
+  it('sizes gallery thumbnails to the row', () => {
+    expect(galleryThumbSize(1, 320)).toBe(320);
+    expect(galleryThumbSize(2, 320)).toBe(155);
+    // Three or more: the next one peeks out, within bounds.
+    expect(galleryThumbSize(3, 320)).toBe(125);
+    expect(galleryThumbSize(6, 200)).toBe(112);
+    expect(galleryThumbSize(6, 800)).toBe(160);
+    expect(galleryThumbSize(3, 0)).toBe(0);
   });
 });
 
@@ -254,6 +350,13 @@ describe('notifications', () => {
 
   it('counts unread like the hub (digests left out)', () => {
     expect(unreadCount(items)).toBe(2);
+  });
+
+  it('badges the tab with the unread count', () => {
+    expect(badgeText(0)).toBeUndefined();
+    expect(badgeText(3)).toBe('3');
+    expect(badgeText(99)).toBe('99');
+    expect(badgeText(250)).toBe('99+');
   });
 
   it('marks some or all read', () => {

@@ -11,15 +11,31 @@ import { BotAvatar } from '../bot-avatar';
 import { Markdown } from '../markdown';
 import { ShimmerText } from '../ui/shimmer-text';
 import { T } from '../ui/text';
+import { MessageCanvas } from './message-canvas';
+import { VaultRequest } from './vault-request';
+
+/** Under a message that reached the bot while it worked: taken into its ongoing answer. */
+function Steered({ message }: { message: Message }) {
+  const { t } = useTranslation();
+  if (!message.steered) return null;
+  return (
+    <T variant="caption" tone="faint" style={styles.steered}>
+      {t('chat.steered')}
+    </T>
+  );
+}
 
 export function UserMessage({ message }: { message: Message }) {
   return (
-    <View style={styles.right}>
-      <View style={[styles.bubble, styles.userBubble]}>
-        <T style={styles.userText} selectable>
-          {messageText(message)}
-        </T>
+    <View style={styles.sent}>
+      <View style={styles.right}>
+        <View style={[styles.bubble, styles.userBubble]}>
+          <T style={styles.userText} selectable>
+            {messageText(message)}
+          </T>
+        </View>
       </View>
+      <Steered message={message} />
     </View>
   );
 }
@@ -29,27 +45,30 @@ export function IncomingMessage({ message, from }: { message: Message; from: Bot
   const { t } = useTranslation();
   const name = from?.name ?? message.fromName ?? t('common.you');
   return (
-    <View style={styles.right}>
-      <View style={[styles.bubble, styles.incomingBubble]}>
-        <View style={styles.sender}>
-          {(from || message.fromName) && (
-            <BotAvatar seed={from?.avatarSeed ?? name} size={16} still />
-          )}
-          <T
-            variant="caption"
-            tone="muted"
-            numberOfLines={1}
-            onPress={
-              from
-                ? () => router.push({ pathname: '/chat/[botId]', params: { botId: from.id } })
-                : undefined
-            }
-          >
-            {t('chat.from', { name, kind: t(`chat.kind.${message.kind}`) })}
-          </T>
+    <View style={styles.sent}>
+      <View style={styles.right}>
+        <View style={[styles.bubble, styles.incomingBubble]}>
+          <View style={styles.sender}>
+            {(from || message.fromName) && (
+              <BotAvatar seed={from?.avatarSeed ?? name} size={16} still />
+            )}
+            <T
+              variant="caption"
+              tone="muted"
+              numberOfLines={1}
+              onPress={
+                from
+                  ? () => router.push({ pathname: '/chat/[botId]', params: { botId: from.id } })
+                  : undefined
+              }
+            >
+              {t('chat.from', { name, kind: t(`chat.kind.${message.kind}`) })}
+            </T>
+          </View>
+          <Markdown text={messageText(message)} style={styles.incomingText} />
         </View>
-        <Markdown text={messageText(message)} style={styles.incomingText} />
       </View>
+      <Steered message={message} />
     </View>
   );
 }
@@ -70,15 +89,39 @@ export function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
         )}
         {blocks.map((block, i) => {
           const last = i === blocks.length - 1;
-          return block.kind === 'activity' ? (
-            <ActivityLine
-              key={`activity-${block.index}`}
-              parts={block.parts}
-              live={streaming && last}
-            />
-          ) : (
-            <Markdown key={`text-${block.index}`} text={block.text} caret={streaming && last} />
-          );
+          switch (block.kind) {
+            case 'activity':
+              return (
+                <ActivityLine
+                  key={`activity-${block.index}`}
+                  parts={block.parts}
+                  live={streaming && last}
+                />
+              );
+            case 'canvas':
+              return (
+                <MessageCanvas
+                  key={`canvas-${block.index}`}
+                  message={message}
+                  bot={bot}
+                  part={block.part}
+                  index={block.index}
+                />
+              );
+            case 'vault':
+              return (
+                <VaultRequest
+                  key={`vault-${block.index}`}
+                  message={message}
+                  part={block.part}
+                  index={block.index}
+                />
+              );
+            default:
+              return (
+                <Markdown key={`text-${block.index}`} text={block.text} caret={streaming && last} />
+              );
+          }
         })}
         {message.status === 'error' && (
           <View style={styles.error}>
@@ -102,7 +145,9 @@ export function BotMessage({ message, bot }: { message: Message; bot: Bot }) {
 }
 
 const styles = StyleSheet.create({
+  sent: { gap: 5 },
   right: { flexDirection: 'row', justifyContent: 'flex-end' },
+  steered: { textAlign: 'right', paddingHorizontal: 6 },
   bubble: {
     maxWidth: '85%',
     borderRadius: 20,

@@ -61,6 +61,30 @@ export function mergeLatest(
   return { items: [...older, ...latest.items], nextCursor: previous.nextCursor };
 }
 
+/**
+ * A card's button pressed in a message: the card shows the choice at once (before the hub
+ * confirms). Anything but an unanswered card is left as it is.
+ */
+export function markPressed(
+  conversation: Conversation,
+  messageId: string,
+  partIndex: number,
+  label: string,
+): Conversation {
+  let changed = false;
+  const items = conversation.items.map((message) => {
+    const part = message.id === messageId ? message.parts[partIndex] : undefined;
+    if (part?.type !== 'canvas' || part.content.kind !== 'card' || part.pressed !== null) {
+      return message;
+    }
+    changed = true;
+    const parts = message.parts.slice();
+    parts[partIndex] = { ...part, pressed: label };
+    return { ...message, parts };
+  });
+  return changed ? { ...conversation, items } : conversation;
+}
+
 /** The bot's answer being written right now, if any. */
 export function liveMessage(conversation: Conversation | undefined): Message | undefined {
   const last = conversation?.items.at(-1);

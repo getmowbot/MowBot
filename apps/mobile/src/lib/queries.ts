@@ -7,7 +7,13 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useState } from 'react';
-import { type Conversation, mergeLatest, prependOlder } from './message-cache';
+import {
+  type Conversation,
+  markPressed,
+  mergeLatest,
+  prependOlder,
+  upsertMessage,
+} from './message-cache';
 import { keys } from './query-keys';
 import { api } from './session';
 
@@ -163,6 +169,43 @@ export function useSendMessage(botId: string) {
           : current,
       );
     },
+  });
+}
+
+/**
+ * A card's button pressed in a message: its answer reaches the bot as the user's message (once
+ * per card). The choice shows at once; the hub's version replaces it, or a refetch when it
+ * disagrees (answered meanwhile on another device: `card_answered`).
+ */
+export function usePressCard(botId: string) {
+  const client = useQueryClient();
+  const key = keys.messages(botId);
+  return useMutation({
+    mutationFn: ({
+      messageId,
+      part,
+      button,
+    }: {
+      messageId: string;
+      part: number;
+      button: number;
+      label: string;
+    }) =>
+      data(
+        api().POST('/api/v1/bots/{id}/messages/{messageId}/press', {
+          params: { path: { id: botId, messageId } },
+          body: { part, button },
+        }),
+      ),
+    onMutate: ({ messageId, part, label }) =>
+      client.setQueryData<Conversation>(key, (current) =>
+        current ? markPressed(current, messageId, part, label) : current,
+      ),
+    onSuccess: (message) =>
+      client.setQueryData<Conversation>(key, (current) =>
+        current ? upsertMessage(current, message) : current,
+      ),
+    onError: () => void client.invalidateQueries({ queryKey: key }),
   });
 }
 

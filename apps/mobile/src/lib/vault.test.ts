@@ -24,8 +24,12 @@ import {
   parseSites,
   placeholder,
   placeholders,
+  REQUEST_INPUTS,
   removableFields,
   removeFieldBody,
+  requestFields,
+  requestProblem,
+  requestValues,
   serviceName,
   sessionContents,
   siteHint,
@@ -295,5 +299,44 @@ describe('vault, activity and notification events', () => {
     client.setQueryData<Task[]>(keys.tasks, [task('doing'), task('done'), task('cancelled')]);
     applyServerEvent(client, { type: 'activity.cleared' });
     expect(client.getQueryData<Task[]>(keys.tasks)?.map((t) => t.status)).toEqual(['doing']);
+  });
+});
+
+describe('a bot’s vault request', () => {
+  it('shows the requested fields in the usual order', () => {
+    expect(requestFields({ fields: ['totp', 'username', 'password'] })).toEqual([
+      'username',
+      'password',
+      'totp',
+    ]);
+    expect(requestFields({ fields: ['value'] })).toEqual(['value']);
+  });
+
+  it('sends only what was asked for and typed', () => {
+    const values = { username: ' joris ', password: ' p w ', totp: '', value: 'stray' };
+    expect(requestValues(['username', 'password', 'totp'], values)).toEqual({
+      username: 'joris',
+      // Passwords keep their spaces.
+      password: ' p w ',
+    });
+    expect(requestValues(['value'], { ...EMPTY_VALUES, value: '  sk-123 ' })).toEqual({
+      value: 'sk-123',
+    });
+    expect(requestValues(['username', 'password'], { ...EMPTY_VALUES, username: '  ' })).toBeNull();
+  });
+
+  it('masks secrets and never autofills a key', () => {
+    expect(REQUEST_INPUTS.username.secure).toBe(false);
+    expect(REQUEST_INPUTS.password.secure).toBe(true);
+    expect(REQUEST_INPUTS.totp.textContentType).toBe('oneTimeCode');
+    expect(REQUEST_INPUTS.value).toMatchObject({ secure: true, autoComplete: 'off' });
+  });
+
+  it('words what failed', () => {
+    const problem = (code: string) => ({ type: `urn:mowbot:problem:${code}`, status: 400 });
+    expect(requestProblem(problem('invalid_totp'))).toBe('invalid_totp');
+    expect(requestProblem(problem('empty_answer'))).toBe('empty_answer');
+    expect(requestProblem(problem('request_answered'))).toBe('answered');
+    expect(requestProblem(new Error('offline'))).toBe('failed');
   });
 });

@@ -3,6 +3,10 @@ import type { TFunction } from 'i18next';
 
 export type ToolPart = Extract<MessagePart, { type: 'tool' }>;
 export type ReasoningPart = Extract<MessagePart, { type: 'reasoning' }>;
+/** A card, pictures, a score… the bot shows inside its answer. */
+export type CanvasPart = Extract<MessagePart, { type: 'canvas' }>;
+/** A login or a secret the bot asks for: a form answered straight into the vault. */
+export type VaultRequestPart = Extract<MessagePart, { type: 'vault_request' }>;
 /** What a bot does between two things it says: tool calls and reasoning. */
 export type ActivityPart = ToolPart | ReasoningPart;
 
@@ -33,6 +37,9 @@ export type ActivityIcon =
   | 'check';
 
 type Input = Record<string, unknown>;
+
+/** The tool a bot shows things in the conversation with: once done, what it showed says it all. */
+export const SHOW_IN_CHAT = 'show_in_chat';
 
 const str = (value: unknown) => (typeof value === 'string' ? value : '');
 
@@ -239,6 +246,11 @@ const TOOLS: Record<string, ToolMeta> = {
     title: (i, t) => t('activity.tool.updateBot', { name: str(i.bot) }),
     kind: () => null,
   },
+  [SHOW_IN_CHAT]: {
+    icon: () => 'window',
+    title: (_, t) => t('activity.tool.showInChat'),
+    kind: () => null,
+  },
 };
 
 const FALLBACK: ToolMeta = { icon: () => 'tool', title: () => '', kind: () => null };
@@ -305,9 +317,16 @@ export function activitySteps(parts: ActivityPart[]): ActivityPart[] {
 
 export type Segment =
   | { kind: 'text'; text: string; index: number }
-  | { kind: 'activity'; parts: ActivityPart[]; index: number };
+  | { kind: 'activity'; parts: ActivityPart[]; index: number }
+  | { kind: 'canvas'; part: CanvasPart; index: number }
+  | { kind: 'vault'; part: VaultRequestPart; index: number };
 
-/** Text stays as is; the tool calls and reasoning between two texts become one activity. */
+/**
+ * Text stays as is; the tool calls and reasoning between two texts become one activity; what
+ * the bot shows (a card, pictures…) and the forms it asks with stand where they came, its
+ * finished show_in_chat call left out. `index` is the part's position in the message (a
+ * card's buttons and a form answer by it).
+ */
 export function segments(parts: MessagePart[]): Segment[] {
   const out: Segment[] = [];
   parts.forEach((part, index) => {
@@ -315,6 +334,15 @@ export function segments(parts: MessagePart[]): Segment[] {
       if (part.text.trim()) out.push({ kind: 'text', text: part.text, index });
       return;
     }
+    if (part.type === 'canvas') {
+      out.push({ kind: 'canvas', part, index });
+      return;
+    }
+    if (part.type === 'vault_request') {
+      out.push({ kind: 'vault', part, index });
+      return;
+    }
+    if (part.type === 'tool' && part.toolName === SHOW_IN_CHAT && part.state === 'done') return;
     const tail = out.at(-1);
     if (tail?.kind === 'activity') tail.parts.push(part);
     else out.push({ kind: 'activity', parts: [part], index });

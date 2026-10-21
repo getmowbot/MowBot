@@ -1,4 +1,4 @@
-import type { Canvas, CanvasContent, CanvasSize } from '@mowbot/contract';
+import type { CanvasContent, CanvasSize } from '@mowbot/contract';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Check, Plus, X } from 'lucide-react-native';
@@ -23,6 +23,8 @@ import { Markdown } from '../markdown';
 import { IconButton } from '../ui/button';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
+import { CardBody } from './card-body';
+import { GalleryBody } from './gallery-body';
 import { WorkspaceImage } from './workspace-image';
 
 type Content<K extends CanvasContent['kind']> = Extract<CanvasContent, { kind: K }>;
@@ -34,18 +36,22 @@ const CARD_BACKGROUND = isAndroid ? colors.surfaceContainer : colors.surface;
 // Note: Markdown, with an optional picture; folded past a height that grows with the size.
 
 export function NoteBody({
-  canvas,
   content,
   workspaceId,
+  size,
+  version,
+  title,
 }: {
-  canvas: Canvas;
   content: Content<'note'>;
   workspaceId: string | null;
+  size: CanvasSize;
+  version: string;
+  title: string;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [height, setHeight] = useState(0);
-  const fold = NOTE_FOLD_HEIGHT[canvas.size];
+  const fold = NOTE_FOLD_HEIGHT[size];
   // A few lines of slack: folding away a single line is pointless.
   const folds = height > fold + 40;
   const folded = folds && !open;
@@ -53,12 +59,12 @@ export function NoteBody({
     <View style={styles.note}>
       {content.image && workspaceId ? (
         <WorkspaceImage
-          key={`${content.image}:${canvas.updatedAt}`}
+          key={`${content.image}:${version}`}
           workspaceId={workspaceId}
           path={content.image}
-          alt={canvas.title}
-          version={canvas.updatedAt}
-          style={[styles.noteImage, { height: IMAGE_HEIGHT[canvas.size] }]}
+          alt={title}
+          version={version}
+          style={[styles.noteImage, { height: IMAGE_HEIGHT[size] }]}
         />
       ) : null}
       {content.markdown.trim() ? (
@@ -129,24 +135,19 @@ function Logo({
 }
 
 export function ScoreBody({
-  canvas,
   content,
   workspaceId,
+  version,
 }: {
-  canvas: Canvas;
   content: Content<'score'>;
   workspaceId: string | null;
+  version: string;
 }) {
   const team = (side: 'home' | 'away') => {
     const value = content[side];
     return (
       <View style={styles.team}>
-        <Logo
-          workspaceId={workspaceId}
-          path={value.logo}
-          name={value.name}
-          version={canvas.updatedAt}
-        />
+        <Logo workspaceId={workspaceId} path={value.logo} name={value.name} version={version} />
         <T variant="footnote" numberOfLines={2} style={styles.teamName}>
           {value.name}
         </T>
@@ -218,19 +219,58 @@ export function StatsBody({ content }: { content: Content<'stats'> }) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Checklist: tick, add, remove.
+// Checklist: tick, add, remove (on Home); as it was, in a message.
 
 const BOX = 22;
 
+function Box({ done }: { done: boolean }) {
+  return (
+    <View style={[styles.box, done && styles.boxDone]}>
+      {done && <Check size={14} color={colors.accentInk} strokeWidth={3} />}
+    </View>
+  );
+}
+
+/** A list shown in a message: read-only (the bot keeps lists to edit on Home). */
+export function ChecklistView({ content }: { content: Content<'checklist'> }) {
+  const { t } = useTranslation();
+  if (content.items.length === 0) {
+    return (
+      <T variant="footnote" tone="faint" style={styles.emptyList}>
+        {t('board.canvas.emptyList')}
+      </T>
+    );
+  }
+  return (
+    <View>
+      {content.items.map((item) => (
+        <View
+          key={item.id}
+          accessible
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: item.done, disabled: true }}
+          accessibilityLabel={item.text}
+          style={styles.itemStill}
+        >
+          <Box done={item.done} />
+          <T variant="callout" style={[styles.itemText, item.done && styles.itemDone]}>
+            {item.text}
+          </T>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function ChecklistBody({
-  canvas,
+  canvasId,
   content,
 }: {
-  canvas: Canvas;
+  canvasId: string;
   content: Content<'checklist'>;
 }) {
   const { t } = useTranslation();
-  const { toggle, add, remove } = useChecklist(canvas.id);
+  const { toggle, add, remove } = useChecklist(canvasId);
   const [text, setText] = useState('');
 
   const submit = () => {
@@ -264,9 +304,7 @@ export function ChecklistBody({
             }}
             style={styles.itemPress}
           >
-            <View style={[styles.box, item.done && styles.boxDone]}>
-              {item.done && <Check size={14} color={colors.accentInk} strokeWidth={3} />}
-            </View>
+            <Box done={item.done} />
             <T variant="callout" style={[styles.itemText, item.done && styles.itemDone]}>
               {item.text}
             </T>
@@ -352,6 +390,74 @@ export function HtmlBody({ content, size }: { content: Content<'html'>; size: Ca
   );
 }
 
+// ---------------------------------------------------------------------------------------------
+// Any kind, without the Home card around it (also what a bot shows inside its answer).
+
+export interface CanvasBodyProps {
+  content: CanvasContent;
+  /** The bot's workspace, where its pictures are. */
+  workspaceId: string | null;
+  size: CanvasSize;
+  /** Changes when the pictures may have changed (the canvas was updated). */
+  version: string;
+  /** Name of a note's picture (the canvas title, or the bot). */
+  title: string;
+  /** A canvas on Home: its list can be ticked and edited. In a message, lists are read-only. */
+  canvasId?: string;
+  /** In a message: the card button pressed (null: not yet). Left out on Home. */
+  pressed?: string | null;
+  /** A card's button that answers the bot: resolves true once the bot has the answer. */
+  onAnswer(index: number): Promise<boolean>;
+}
+
+export function CanvasBody({
+  content,
+  workspaceId,
+  size,
+  version,
+  title,
+  canvasId,
+  pressed,
+  onAnswer,
+}: CanvasBodyProps) {
+  switch (content.kind) {
+    case 'note':
+      return (
+        <NoteBody
+          content={content}
+          workspaceId={workspaceId}
+          size={size}
+          version={version}
+          title={title}
+        />
+      );
+    case 'score':
+      return <ScoreBody content={content} workspaceId={workspaceId} version={version} />;
+    case 'stats':
+      return <StatsBody content={content} />;
+    case 'checklist':
+      return canvasId ? (
+        <ChecklistBody canvasId={canvasId} content={content} />
+      ) : (
+        <ChecklistView content={content} />
+      );
+    case 'html':
+      return <HtmlBody content={content} size={size} />;
+    case 'card':
+      return (
+        <CardBody
+          content={content}
+          workspaceId={workspaceId}
+          version={version}
+          pressed={pressed}
+          onAnswer={onAnswer}
+        />
+      );
+    case 'gallery':
+      return <GalleryBody content={content} workspaceId={workspaceId} version={version} />;
+  }
+}
+
 const styles = StyleSheet.create({
   // Note
   note: { gap: 12 },
@@ -423,6 +529,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   boxDone: { backgroundColor: colors.accentStrong, borderColor: colors.accentStrong },
+  itemStill: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   itemText: { flex: 1, color: colors.text },
   itemDone: { color: colors.textFaint, textDecorationLine: 'line-through' },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 40, marginRight: -8 },

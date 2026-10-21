@@ -68,4 +68,36 @@ describe('activity line', () => {
     expect(blocks.map((b) => b.kind)).toEqual(['text', 'activity', 'text']);
     expect(blocks[1]?.kind === 'activity' && blocks[1].parts).toHaveLength(3);
   });
+
+  it('places what the bot shows between its texts', () => {
+    const card = {
+      type: 'canvas' as const,
+      content: { kind: 'card' as const, title: 'Kiprun', buttons: [] },
+      pressed: null,
+    };
+    const blocks = segments([
+      { type: 'text', text: 'Voici la chaussure.' },
+      tool('open_url', { url: 'https://example.com' }),
+      tool('show_in_chat', { content: {} }),
+      card,
+      { type: 'text', text: 'Elle te va ?' },
+    ]);
+    // The finished show_in_chat call is left out: the card stands for it.
+    expect(blocks.map((b) => [b.kind, b.index])).toEqual([
+      ['text', 0],
+      ['activity', 1],
+      ['canvas', 3],
+      ['text', 4],
+    ]);
+    expect(blocks[1]?.kind === 'activity' && blocks[1].parts).toHaveLength(1);
+    expect(blocks[2]?.kind === 'canvas' && blocks[2].part).toBe(card);
+  });
+
+  it('keeps a show_in_chat call while it runs, or when it failed', async () => {
+    const t = await translator('fr');
+    const running = tool('show_in_chat', {}, 'running');
+    expect(segments([running]).map((b) => b.kind)).toEqual(['activity']);
+    expect(segments([tool('show_in_chat', {}, 'error')]).map((b) => b.kind)).toEqual(['activity']);
+    expect(activityHeadline([running], true, t).title).toBe('Prépare un aperçu');
+  });
 });

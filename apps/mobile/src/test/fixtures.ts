@@ -16,6 +16,7 @@ export function message(overrides: Partial<Message> = {}): Message {
     kind: 'chat',
     taskId: null,
     parts: [],
+    steered: false,
     status: 'done',
     errorCode: null,
     error: null,

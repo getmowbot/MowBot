@@ -2,7 +2,7 @@ import type { Bot, Canvas } from '@mowbot/contract';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
-import { ArrowUp, ChevronRight, Pause, Play } from 'lucide-react-native';
+import { ArrowUp, Pause, Play } from 'lucide-react-native';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
@@ -10,11 +10,9 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import Animated from 'react-native-reanimated';
 import { CanvasCard } from '../../../../components/board/canvas-card';
 import { leave, settle } from '../../../../components/board/motion';
-import { NOTIFICATION_INSET, NotificationRow } from '../../../../components/board/notification-row';
 import { Pill } from '../../../../components/board/pill';
 import { BotAvatar } from '../../../../components/bot-avatar';
 import { useBotMood } from '../../../../components/bot-row';
-import { ListCard } from '../../../../components/list-card';
 import { QuestionCard } from '../../../../components/questions';
 import { reveal } from '../../../../components/reveal';
 import { Section } from '../../../../components/tab-scroll';
@@ -33,8 +31,6 @@ import {
 import {
   useCanvasActions,
   useCanvases,
-  useMarkNotificationsRead,
-  useNotifications,
   useQuestions,
   useSystem,
   useUpdateSystem,
@@ -44,14 +40,7 @@ import { isAndroid, isIOS } from '../../../../lib/platform';
 import { botsById, keys, useBots, useMe, useSendMessage } from '../../../../lib/queries';
 import { colors, shape, spacing, type } from '../../../../theme';
 
-const HOME_QUERIES = [
-  keys.me,
-  keys.bots,
-  keys.system,
-  keys.questions,
-  keys.canvases,
-  keys.notifications,
-];
+const HOME_QUERIES = [keys.me, keys.bots, keys.system, keys.questions, keys.canvases];
 
 /** The hour, kept current (the greeting turns to "good evening" while the app is open). */
 function useHour(): number {
@@ -367,82 +356,9 @@ function Canvases({ byId }: { byId: Map<string, Bot> }) {
   );
 }
 
-const HOME_NOTIFICATIONS = 5;
-
-/** The latest notifications, the unread count, "read all", and the way to the full list. */
-function Notifications({ byId }: { byId: Map<string, Bot> }) {
-  const { t } = useTranslation();
-  const notifications = useNotifications();
-  const read = useMarkNotificationsRead();
-  if (notifications.isPending) return null;
-  const all = notifications.data?.items ?? [];
-  const items = all.slice(0, HOME_NOTIFICATIONS);
-  const unread = notifications.data?.unread ?? 0;
-
-  return (
-    <Section
-      title={t('board.notifications.title')}
-      accessory={
-        unread > 0 ? (
-          <View style={styles.accessory}>
-            <View
-              style={styles.badge}
-              accessibilityLabel={t('board.notifications.unread', { count: unread })}
-            >
-              <T variant="caption" style={styles.badgeText}>
-                {unread > 99 ? '99+' : unread}
-              </T>
-            </View>
-            <Touchable
-              accessibilityRole="button"
-              onPress={() => read.mutate(undefined)}
-              hitSlop={10}
-            >
-              <T variant="footnote" tone="muted">
-                {t('board.notifications.readAll')}
-              </T>
-            </Touchable>
-          </View>
-        ) : null
-      }
-    >
-      {notifications.isError ? (
-        <LoadFailed onRetry={() => void notifications.refetch()} />
-      ) : items.length === 0 ? (
-        <T variant="footnote" tone="faint" style={styles.indent}>
-          {t('board.notifications.none')}
-        </T>
-      ) : (
-        <ListCard inset={NOTIFICATION_INSET}>
-          {items.map((notification) => (
-            <NotificationRow
-              key={notification.id}
-              notification={notification}
-              bot={notification.botId ? byId.get(notification.botId) : undefined}
-              bodyLines={3}
-              onRead={(n) => read.mutate([n.id])}
-            />
-          ))}
-          <Touchable
-            key="all"
-            accessibilityRole="button"
-            onPress={() => router.push('/notifications')}
-            style={styles.seeAll}
-          >
-            <T variant="callout" style={styles.flex}>
-              {t('board.notifications.seeAll')}
-            </T>
-            <ChevronRight size={18} color={colors.textFaint} />
-          </Touchable>
-        </ListCard>
-      )}
-    </Section>
-  );
-}
-
 /**
  * Home: a greeting (the large title), who is working and the global pause, the bots' questions,
- * a quick word to the Chef, what the bots pinned, and the latest news.
+ * a quick word to the Chef, and what the bots pinned (their news is in the Activity tab).
  */
 export default function HomeScreen() {
   const { t } = useTranslation();
@@ -475,7 +391,6 @@ export default function HomeScreen() {
         <Questions byId={byId} />
         {chef && <AskChef chef={chef} />}
         <Canvases byId={byId} />
-        <Notifications byId={byId} />
       </HomeScroll>
     </>
   );
@@ -486,7 +401,6 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.xl },
   flex: { flex: 1, minWidth: 0 },
   stack: { gap: spacing.md },
-  indent: { paddingHorizontal: spacing.xs },
   centered: { textAlign: 'center' },
   // Status
   status: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: 14 },
@@ -535,24 +449,4 @@ const styles = StyleSheet.create({
   hiddenToggle: { alignSelf: 'center', paddingVertical: 4 },
   link: { fontWeight: '600' },
   failed: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingLeft: spacing.xs },
-  // Notifications
-  accessory: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  badge: {
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 5,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accentStrong,
-  },
-  badgeText: { color: colors.accentInk, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  seeAll: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 48,
-    paddingLeft: NOTIFICATION_INSET,
-    paddingRight: 16,
-  },
 });
