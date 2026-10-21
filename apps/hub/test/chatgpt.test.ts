@@ -541,6 +541,10 @@ describe('Sign in with ChatGPT', () => {
     // Paused a while: the next run goes straight to the fallback.
     expect(textOf(await ask('Encore'))).toBe('Depuis le secours');
     expect(fake?.of('/v1/responses')).toHaveLength(1);
+    // The model list still answers, and does not count as the plan working again.
+    expect((await call('GET', `/api/v1/providers/${chatgpt.id}/models`)).status).toBe(200);
+    const after = (await call<{ items: Provider[] }>('GET', '/api/v1/providers')).body.items;
+    expect(after.find((p) => p.id === chatgpt.id)?.chatgpt?.status).toBe('usage_limited');
   });
 
   it('says clearly why a bot without fallback could not answer', async () => {

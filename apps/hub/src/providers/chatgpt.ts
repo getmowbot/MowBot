@@ -523,11 +523,12 @@ export class ChatgptService {
   fetchFor(providerId: string): typeof fetch {
     return async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const responses = new URL(url).pathname.endsWith('/responses');
+      // Paused after a usage limit: no inference (the model list still works).
       const paused = this.pausedUntil.get(providerId);
-      if (paused !== undefined && paused > Date.now()) {
+      if (responses && paused !== undefined && paused > Date.now()) {
         throw await this.planError('usageLimit', 429, 'paused', url);
       }
-      const responses = new URL(url).pathname.endsWith('/responses');
       const body =
         responses && typeof init?.body === 'string' ? planRequestBody(init.body) : init?.body;
       const send = (token: string) => {
@@ -546,7 +547,7 @@ export class ChatgptService {
       if (responses && response.headers.get('content-type')?.includes('text/event-stream')) {
         return this.checkStream(providerId, response, url);
       }
-      await this.working(providerId);
+      if (responses) await this.working(providerId);
       return response;
     };
   }
