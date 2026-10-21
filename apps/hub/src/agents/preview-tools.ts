@@ -34,7 +34,8 @@ const pathSchema = z
   .string()
   .trim()
   .max(500)
-  .regex(/^\/(?!\/)[^\s]*$/, 'un chemin qui commence par /, ex. /admin')
+  // No lookaround: some providers drop such patterns from tool schemas.
+  .regex(/^\/([^/\s]\S*)?$/, 'un chemin qui commence par /, ex. /admin')
   .optional()
   .describe('La page à ouvrir, ex. /admin (par défaut /)');
 
