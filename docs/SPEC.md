@@ -220,7 +220,7 @@ Principes :
 | Mémoire | `remember(scope: private \| team)`, `recall(query)`, `kb_search` (base de connaissances = `/workspace/kb/`) |
 | Ordinateur | `bash`, `read_file`, `write_file`, `edit_file`, `screenshot`, `computer(action…, display)`, `open_display`, `pc_status`, `file_lock` / `file_unlock`, `install_package`, `reserve_port` ; navigateur via `@playwright/mcp` limité aux fenêtres du bot |
 | Coffre | `vault_find(service \| domain)`, `vault_use(item_id)`, `vault_capture_session(service, account_label)`, `vault_store_secret`, placeholders `{{vault:item.field}}` |
-| MCP | `mcp__<server>__<tool>`, `mcp_search_tools` (chargement à la demande), `mcp_install_local` |
+| MCP | `mcp__<server>__<tool>`, `mcp_search_tools` (chargement à la demande), `mcp_call` ; pour le Chef `mcp_list`, `mcp_add`, `mcp_update`, `mcp_remove`, `mcp_setup` |
 
 Limites par défaut : 20 bots, 10 équipes, profondeur hiérarchique 3. Une équipe **cloisonnée** ne reçoit de messages que via son lead ou le Chef.
 
@@ -266,8 +266,10 @@ Limites par défaut : 20 bots, 10 équipes, profondeur hiérarchique 3. Une équ
 
 ## 11. MCP
 
-- Serveurs **distants** (Streamable HTTP, OAuth 2.1 géré par le Hub avec redirection vers l'UI) ou **stdio** (dans un conteneur `mcp-runner` isolé, ou sur l'ordinateur du bot).
-- Portée : globale, équipe, bots désignés, ou locale à un ordinateur (installé par un bot).
+- Serveurs **distants** (Streamable HTTP, OAuth 2.1 géré par le Hub avec redirection vers l'UI) ou **stdio**, lancés sur le **PC MCP** (`workstation/mcp.Dockerfile`, `MOWBOT_MCP_IMAGE`) : un conteneur à part, sans bureau (Node 24, Python 3, pipx, uv, git, `mow-agent`), démarré au besoin, mis en veille quand il ne sert plus ; son `/home/bot` est un volume. Il ne reçoit aucun secret du hub, seulement ceux de chaque serveur, en variables d'environnement au lancement.
+- Portée : globale, équipes ou bots désignés, quel que soit leur PC. Les serveurs installés avant par un bot sur son propre PC y restent, pour les bots de ce PC, jusqu'à leur déplacement sur le PC MCP.
+- Le Chef gère les serveurs (`mcp_list`, `mcp_add`, `mcp_update`, `mcp_remove`, `mcp_setup` pour une commande sur le PC MCP) ; les autres bots les lui demandent.
+- Les bots n'utilisent un serveur que par ses outils ; un résultat long garde son début (48 000 caractères) et dit qu'il est coupé.
 - UI : ajout, OAuth, liste des outils, assignation, logs.
 
 ---
