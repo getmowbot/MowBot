@@ -18,6 +18,10 @@ import type {
   RoutineTrigger,
   Scope,
   TaskStatus,
+  VaultAction,
+  VaultField,
+  VaultKind,
+  VaultPolicy,
 } from '@mowbot/contract';
 import type { ModelMessage } from 'ai';
 import { sql } from 'drizzle-orm';
@@ -361,6 +365,10 @@ export const questions = pgTable(
     status: text('status').$type<QuestionStatus>().notNull().default('open'),
     answer: text('answer'),
     answeredAt: timestamp('answered_at', { withTimezone: true }),
+    /** Asking the user to let the bot use this vault entry. */
+    vaultItemId: uuid('vault_item_id').references((): AnyPgColumn => vaultItems.id, {
+      onDelete: 'cascade',
+    }),
     createdAt: createdAt(),
   },
   (t) => [index('questions_status_created_idx').on(t.status, t.createdAt)],
@@ -385,4 +393,65 @@ export const canvases = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('canvases_bot_key_unique').on(t.botId, t.key)],
+);
+
+/**
+ * The vault: browser sessions, logins and secrets. Values are sealed with a key of their own
+ * (`dekSealed`, itself sealed with the master key) and never leave the hub.
+ */
+export const vaultItems = pgTable(
+  'vault_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: text('kind').$type<VaultKind>().notNull(),
+    service: text('service').notNull(),
+    account: text('account'),
+    /** Registrable domains, e.g. ["google.com"]; a session's first site identifies it. */
+    sites: jsonb('sites').$type<string[]>().notNull().default([]),
+    notes: text('notes'),
+    policy: text('policy').$type<VaultPolicy>().notNull().default('auto'),
+    fields: jsonb('fields').$type<VaultField[]>().notNull().default([]),
+    computerId: uuid('computer_id').references(() => computers.id, { onDelete: 'set null' }),
+    createdByBotId: uuid('created_by_bot_id').references(() => bots.id, { onDelete: 'set null' }),
+    session: jsonb('session').$type<{ cookies: number; origins: number }>(),
+    dekSealed: text('dek_sealed').notNull(),
+    payloadSealed: text('payload_sealed').notNull(),
+    capturedAt: timestamp('captured_at', { withTimezone: true }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('vault_items_computer_idx').on(t.computerId)],
+);
+
+/** Bots the user allowed to use an `ask` entry. */
+export const vaultGrants = pgTable(
+  'vault_grants',
+  {
+    itemId: uuid('item_id')
+      .notNull()
+      .references(() => vaultItems.id, { onDelete: 'cascade' }),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [unique('vault_grants_item_bot_unique').on(t.itemId, t.botId)],
+);
+
+/** History of each vault entry: captures, uses, requests and decisions. */
+export const vaultEvents = pgTable(
+  'vault_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    itemId: uuid('item_id')
+      .notNull()
+      .references(() => vaultItems.id, { onDelete: 'cascade' }),
+    action: text('action').$type<VaultAction>().notNull(),
+    botId: uuid('bot_id').references(() => bots.id, { onDelete: 'set null' }),
+    computerId: uuid('computer_id').references(() => computers.id, { onDelete: 'set null' }),
+    detail: text('detail'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('vault_events_item_created_idx').on(t.itemId, t.createdAt)],
 );

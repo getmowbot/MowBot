@@ -189,6 +189,24 @@ export const proactivityRoutes: FastifyPluginAsyncZod = async (app) => {
     async () => notifications.list(),
   );
 
+  app.delete(
+    '/notifications',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags: ['notifications'],
+        operationId: 'clearNotifications',
+        description: 'Deletes every notification.',
+        security: bearerSecurity,
+        response: { 204: z.null(), ...errorResponses },
+      },
+    },
+    async (_request, reply) => {
+      await notifications.clear();
+      return reply.code(204).send(null);
+    },
+  );
+
   app.post(
     '/notifications/read',
     {

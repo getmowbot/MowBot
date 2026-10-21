@@ -8,7 +8,7 @@ import type {
   ModelRef,
   Question,
 } from '@mowbot/contract';
-import { type LanguageModel, type ModelMessage, stepCountIs, streamText } from 'ai';
+import { type LanguageModel, type ModelMessage, stepCountIs, streamText, type ToolSet } from 'ai';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import { type BotRow, type BotService, toMessage } from '../bots/service';
 import type { AgentClient, ExecResult } from '../computers/agent-client';
@@ -23,6 +23,8 @@ import type { NotificationService, SystemService } from '../proactivity/notifica
 import type { QuestionService } from '../proactivity/questions';
 import { IDLE_ANSWER, MAX_FAILURES, type RoutineService } from '../proactivity/routines';
 import type { ProviderService } from '../providers/service';
+import type { SecretScope } from '../vault/secrets';
+import type { VaultService } from '../vault/service';
 import type { WorkspaceFiles } from '../workspaces/files';
 import { BrowserHub } from './browser';
 import { buildBrowserTools } from './browser-tools';
@@ -33,6 +35,7 @@ import { buildProactiveTools } from './proactive-tools';
 import { systemPrompt } from './prompt';
 import { FileLocks, ScreenLeases } from './shared-pc';
 import { buildTools, clip } from './tools';
+import { buildVaultTools } from './vault-tools';
 
 const HISTORY_MESSAGES = 40;
 const MAX_STEPS = 30;
@@ -63,6 +66,9 @@ export interface RuntimeDeps {
   system: SystemService;
   canvases: CanvasService;
   questions: QuestionService;
+  vault: VaultService;
+  /** Shared with the vault, which reads and writes the computers' Chrome. */
+  browser?: BrowserHub;
   /** Tests inject scripted models (several: a fallback chain). */
   modelFor?: (bot: BotRow) => LanguageModel | LanguageModel[] | null;
   tidyAfterMs?: number;
@@ -142,6 +148,29 @@ function summarize(
   };
 }
 
+/** The vault's secrets never come back to the model, nor to the app, in a tool's output. */
+function masked(secrets: SecretScope, tools: ToolSet): ToolSet {
+  return Object.fromEntries(
+    Object.entries(tools).map(([name, entry]) => {
+      const { execute } = entry;
+      if (!execute) return [name, entry];
+      return [
+        name,
+        {
+          ...entry,
+          execute: async (input: unknown, options: Parameters<typeof execute>[1]) => {
+            try {
+              return secrets.mask(await execute(input, options));
+            } catch (error) {
+              throw secrets.maskError(error);
+            }
+          },
+        },
+      ];
+    }),
+  );
+}
+
 /**
  * Runs bots. Each bot has a single-flight queue: a user message schedules a run that answers
  * with a streamed LLM ↔ tools loop; text deltas and tool checkpoints are published as events.
@@ -160,10 +189,11 @@ export class BotRuntime {
   readonly screen = new ScreenLeases();
   readonly locks = new FileLocks();
   /** Each bot's own Chrome window, driven over DevTools. */
-  readonly browser = new BrowserHub();
+  readonly browser: BrowserHub;
   readonly tasks: TaskService;
 
   constructor(private readonly deps: RuntimeDeps) {
+    this.browser = deps.browser ?? new BrowserHub();
     this.tasks = new TaskService(deps.db, deps.events, (notice) =>
       this.deliver(notice.to.id, {
         from: notice.from,
@@ -405,7 +435,10 @@ export class BotRuntime {
 
   /** The user answered a bot's question: the answer reaches the bot as their message. */
   async answerQuestion(id: string, answer: string): Promise<Question> {
+    const { vaultItemId } = await this.deps.questions.row(id);
     const question = await this.deps.questions.answer(id, answer);
+    // An access request: the decision is recorded before the bot hears it.
+    if (vaultItemId) await this.deps.vault.answered(vaultItemId, question.botId, answer);
     await this.post(
       question.botId,
       `[Réponse à ta question « ${question.question} »]\n${answer}`,
@@ -765,6 +798,8 @@ export class BotRuntime {
       const allTeams = await this.deps.org.listTeams();
       const allBots = await db.select().from(bots).orderBy(bots.createdAt);
       const pendingImages: string[] = [];
+      const secrets = await this.deps.vault.scope(bot);
+      const expand = (text: string) => secrets.expand(text);
       const computer = computerId
         ? async () => {
             const agent = await this.computerAgent(computerId);
@@ -776,7 +811,7 @@ export class BotRuntime {
             return agent;
           }
         : null;
-      const tools = {
+      const tools = masked(secrets, {
         ...buildTools({
           botId,
           botName: bot.name,
@@ -796,6 +831,7 @@ export class BotRuntime {
             : null,
           computer,
           pendingImages,
+          expand,
         }),
         ...(computerId && computer
           ? buildBrowserTools({
@@ -807,6 +843,7 @@ export class BotRuntime {
               browser: this.browser,
               computer,
               pendingImages,
+              expand,
             })
           : {}),
         ...(await buildOrgTools({
@@ -830,7 +867,8 @@ export class BotRuntime {
           db,
         }),
         ...buildCanvasTools({ self: bot, canvases: this.deps.canvases }),
-      };
+        ...buildVaultTools({ self: bot, vault: this.deps.vault, db, computer }),
+      });
       const system = systemPrompt({
         bot,
         ownerName: account?.name ?? "l'utilisateur",
@@ -841,6 +879,7 @@ export class BotRuntime {
         sharesComputer: allBots.some((b) => b.id !== botId && b.computerId === computerId),
         timeZone: this.deps.routines.timeZone,
         now: new Date(),
+        vault: await this.deps.vault.promptLines(bot),
       });
       const history = await this.history(botId, created.createdAt);
 

@@ -60,6 +60,7 @@ export class QuestionService {
     bot: { id: string; name: string },
     question: string,
     options: string[],
+    about: { vaultItemId?: string } = {},
   ): Promise<Question> {
     const open = await this.list({ open: true, botId: bot.id });
     if (open.length >= MAX_OPEN_QUESTIONS) {
@@ -69,7 +70,7 @@ export class QuestionService {
     }
     const [row] = await this.db
       .insert(questions)
-      .values({ botId: bot.id, question, options })
+      .values({ botId: bot.id, question, options, vaultItemId: about.vaultItemId ?? null })
       .returning();
     if (!row) throw new Error('Question insert returned no row');
     const created = toQuestion(row);

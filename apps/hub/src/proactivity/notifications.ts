@@ -61,6 +61,12 @@ export class NotificationService {
     return { items: rows.map(toNotification), unread };
   }
 
+  /** Deletes them all. */
+  async clear(): Promise<void> {
+    await this.db.delete(notifications);
+    this.events.publish({ type: 'notifications.cleared' });
+  }
+
   async markRead(ids?: string[]): Promise<void> {
     await this.db
       .update(notifications)

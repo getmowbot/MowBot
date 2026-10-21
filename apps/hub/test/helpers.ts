@@ -37,6 +37,10 @@ export class FakeRuntime implements ComputerRuntime {
     { agent: Agent; vnc: net.Server; port: number; running: boolean; workspaceId: string }
   >();
   failNextStart: Error | null = null;
+  /** Shell commands the computers ran, in order. */
+  readonly commands: string[] = [];
+  /** Answers each shell command with the command itself (to see what reached the computer). */
+  echoCommands = false;
 
   async start(spec: ComputerSpec): Promise<{ containerId: string }> {
     if (this.failNextStart) {
@@ -54,7 +58,10 @@ export class FakeRuntime implements ComputerRuntime {
       run: async (command, args) => {
         // scrot writes its PNG to the path given last.
         if (command === 'scrot') await writeFile(args.at(-1) as string, TINY_PNG);
-        return { exitCode: 0, stdout: '', stderr: '', timedOut: false };
+        const script = command === 'bash' ? (args.at(-1) ?? '') : '';
+        if (script) this.commands.push(script);
+        const stdout = this.echoCommands ? script : '';
+        return { exitCode: 0, stdout, stderr: '', timedOut: false };
       },
     });
     const { port } = await agent.listen(0, '127.0.0.1');

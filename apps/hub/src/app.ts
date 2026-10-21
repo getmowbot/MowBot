@@ -28,6 +28,7 @@ import { providerRoutes } from './routes/providers';
 import { questionRoutes } from './routes/questions';
 import { taskRoutes } from './routes/tasks';
 import { teamRoutes } from './routes/teams';
+import { vaultRoutes } from './routes/vault';
 import type { Services } from './services';
 
 const MAX_UPLOAD_BYTES = 2 * 1024 ** 3;
@@ -147,6 +148,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
       await api.register(botRoutes);
       await api.register(taskRoutes);
       await api.register(questionRoutes);
+      await api.register(vaultRoutes);
       await api.register(proactivityRoutes);
       await api.register(canvasRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
@@ -156,8 +158,11 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
 
   services.computers.setLogger(app.log);
   services.runtime.setLogger(app.log);
+  services.vault.setLogger(app.log);
+  services.vault.watchTakeovers();
   app.addHook('onClose', async () => {
     services.scheduler.stop();
+    services.vault.close();
     await services.runtime.close();
     await services.computers.close();
   });
