@@ -181,6 +181,8 @@ export const fr = {
     noModel: 'Connecte un modèle (Command Code, OpenAI ou compatible) pour réveiller {{name}}.',
     connectModel: 'Connecter un modèle',
     steered: 'Pris en compte en cours de route',
+    readMore: 'Lire la suite',
+    readLess: 'Replier',
     /** Above messages from other bots, before their names: « Messages de Nova et Iris ». */
     incoming_one: 'Message de',
     incoming_other: 'Messages de',

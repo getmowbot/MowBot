@@ -174,6 +174,8 @@ export const en: Catalog = {
     noModel: 'Connect a model (Command Code, OpenAI or compatible) to wake {{name}} up.',
     connectModel: 'Connect a model',
     steered: 'Taken into account mid-answer',
+    readMore: 'Read more',
+    readLess: 'Show less',
     incoming_one: 'Message from',
     incoming_other: 'Messages from',
     and: 'and',
