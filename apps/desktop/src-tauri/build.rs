@@ -14,6 +14,8 @@ fn main() {
             "project_pick",
             "project_add",
             "project_remove",
+            "chatgpt_sign_in",
+            "chatgpt_sign_in_cancel",
         ]),
     ))
     .expect("failed to run tauri-build");

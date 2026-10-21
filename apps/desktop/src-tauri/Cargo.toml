@@ -1,6 +1,6 @@
 [package]
 name = "mowbot-desktop"
-version = "0.2.2"
+version = "0.2.3"
 description = "MowBot desktop app: the hub's interface and the connector to local projects"
 edition = "2021"
 publish = false
@@ -16,7 +16,7 @@ tauri-plugin-single-instance = "2.5"
 tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "time", "sync", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "time", "sync", "io-util", "net"] }
 tokio-tungstenite = { version = "0.30", features = ["native-tls"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "system-proxy"] }
@@ -30,6 +30,7 @@ hostname = "0.4"
 sha2 = "0.10"
 hex = "0.4"
 base64 = "0.22"
+getrandom = "0.4"
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3.6", features = ["windows-native"] }
