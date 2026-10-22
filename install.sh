@@ -459,7 +459,7 @@ show_memory() {
     from memories m left join bots b on b.id = m.source_bot_id
     order by m.kind, m.updated_at desc"
 
-  step 'Ce qu’ils ont prévu d’eux-mêmes, et la veille du Chef'
+  step "Ce qu’ils ont prévu d’eux-mêmes, et la veille du Chef"
   sql "select case r.kind when 'watch' then 'veille' else 'initiative' end as type, b.name as bot,
     to_char(r.next_run_at, 'DD/MM/YYYY HH24:MI') as prochaine,
     to_char(r.last_run_at, 'DD/MM HH24:MI') as derniere,
