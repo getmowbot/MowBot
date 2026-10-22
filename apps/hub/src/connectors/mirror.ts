@@ -659,11 +659,15 @@ export class MirrorService implements LinkListener {
       // From now on, what the bots write there is theirs (even before the first copy).
       await this.writeState(row, state);
     } else if (!present && Object.keys(state.files).length > 0) {
-      // The whole mirror went (rm -rf): copied again; nothing is deleted on their side.
+      // The whole mirror went (rm -rf): copied again; nothing is deleted on their side, even if
+      // the computer only comes back later.
       state = { v: 1, files: {}, head: state.head, at: null };
+      await this.writeState(row, state);
     }
     await mkdir(root, { recursive: true });
     const mine = await this.scan(row, root);
+    // Written back only when it changed (a reconcile after each bot command often finds nothing).
+    const agreed = JSON.stringify({ files: state.files, head: state.head, at: state.at });
 
     if (!report.online) {
       report.pending = countPending(state, mine.files);
@@ -919,8 +923,11 @@ export class MirrorService implements LinkListener {
       }
     }
 
-    state.at = new Date().toISOString();
-    await this.writeState(row, state);
+    state.at ??= new Date().toISOString();
+    if (JSON.stringify({ files: state.files, head: state.head, at: state.at }) !== agreed) {
+      state.at = new Date().toISOString();
+      await this.writeState(row, state);
+    }
     if (touched || kept.length) {
       this.announce(row.workspaceId, kept.length ? [row.folder, CONFLICTS_DIR] : [row.folder]);
     }

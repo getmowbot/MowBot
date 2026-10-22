@@ -342,6 +342,19 @@ describe('a project mirrored in the workspace', () => {
     expect(await exists(s.theirs('src/f7.ts'))).toBe(true);
   });
 
+  it('copies a mirror deleted whole again, even when the computer was away meanwhile', async () => {
+    const s = await setup({ version: '0.2.5', files: { 'a.txt': 'a\n', 'b/c.txt': 'c\n' } });
+    connector?.close();
+    await until(async () => (await s.project())?.online === false, 'offline');
+    await rm(s.ws(), { recursive: true });
+    await s.synced();
+    await s.connect();
+    await until(async () => exists(s.ws('b/c.txt')), 'copied again');
+    expect(await readFile(s.theirs('a.txt'), 'utf8')).toBe('a\n');
+    expect(await readFile(s.theirs('b/c.txt'), 'utf8')).toBe('c\n');
+    expect(connector?.requests.some((r) => r.op === 'delete')).toBe(false);
+  });
+
   it('stops at the size limit with a clear message, and can be turned off', async () => {
     const s = await setup({
       version: '0.2.5',
