@@ -129,10 +129,13 @@ Then open the address, create your account with the setup token, and add a model
 
 | Provider | How |
 |---|---|
+| Anthropic | API key from the Claude Console, with prompt caching. A Claude Pro/Max subscription can't be used: Anthropic keeps it for its own apps |
 | OpenAI | API key |
 | OpenAI (ChatGPT account) | your ChatGPT plan (Plus, Pro…): **Sign in with ChatGPT** in the desktop app, no key ([how](docs/DESKTOP.md#se-connecter-avec-chatgpt)) |
+| OpenRouter, Google Gemini, xAI (Grok), DeepSeek, Mistral, Groq | API key, the address is filled in |
+| Ollama | your Ollama server's address, no key |
 | Command Code | your subscription key |
-| Any OpenAI-compatible API | OpenRouter, Ollama, vLLM, xAI, DeepSeek… (base URL + key) |
+| Any other OpenAI-compatible API | vLLM, LM Studio, Together… (base URL, and a key if it asks for one) |
 
 Each bot has its model, fallback models and a lighter model for check-ins. Pick a model that
 accepts images for screenshots.

@@ -1,13 +1,16 @@
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import Anthropic from '@anthropic-ai/sdk';
 import {
+  ANTHROPIC_DEFAULT_MODEL,
   type ChatgptSignIn,
   PROVIDER_DEFAULT_URLS,
   type Provider,
   type ProviderCreate,
   type ProviderUpdate,
 } from '@mowbot/contract';
-import type { LanguageModel } from 'ai';
+import { type LanguageModel, wrapLanguageModel } from 'ai';
 import { eq, isNull } from 'drizzle-orm';
 import { CHATGPT_DEFAULTS, type ChatgptOptions } from '../config';
 import { open, seal } from '../crypto/secretbox';
@@ -44,6 +47,12 @@ export function toProvider(row: ProviderRow): Provider {
 }
 
 const trimSlash = (url: string) => url.replace(/\/+$/, '');
+
+/**
+ * Claude models whose refusals Anthropic can rerun on another model within the same request
+ * (`fallbacks: "default"`), on its own API.
+ */
+const REFUSAL_FALLBACK_MODELS = /^claude-(opus-5|fable-5|sonnet-5-5)/;
 
 const chatgptOnly = () =>
   new HttpProblem(
@@ -107,13 +116,18 @@ export class ProviderService {
         ? this.chatgpt.options.apiUrl
         : (input.baseUrl ?? PROVIDER_DEFAULT_URLS[input.kind]);
     if (!baseUrl) throw new HttpProblem(400, 'base_url_required', 'This provider needs a base URL');
+    if (input.kind === 'anthropic' && !input.apiKey) {
+      throw new HttpProblem(400, 'api_key_required', 'An Anthropic provider needs an API key');
+    }
+    const defaultModel =
+      input.defaultModel ?? (input.kind === 'anthropic' ? ANTHROPIC_DEFAULT_MODEL : null);
     const [created] = await this.db
       .insert(providerProfiles)
       .values({
         name: input.name,
         kind: input.kind,
         baseUrl: trimSlash(baseUrl),
-        defaultModel: input.defaultModel ?? null,
+        defaultModel,
         headers: input.headers ?? {},
         apiKeySealed: input.apiKey ? seal(this.masterKey, KEY_PURPOSE, input.apiKey) : null,
         ...(signedIn ?? {}),
@@ -195,6 +209,7 @@ export class ProviderService {
   async listModels(id: string): Promise<{ id: string; name?: string }[]> {
     const row = await this.row(id);
     if (row.kind === 'openai-chatgpt') return this.chatgpt.listModels(row.id);
+    if (row.kind === 'anthropic') return this.anthropicModels(row);
     const key = this.apiKey(row);
     let response: Response;
     try {
@@ -215,10 +230,59 @@ export class ProviderService {
     return [...new Set(ids)].sort().map((value) => ({ id: value }));
   }
 
+  /** Claude's models, newest first, with their names (Models API). */
+  private async anthropicModels(row: ProviderRow): Promise<{ id: string; name?: string }[]> {
+    const client = new Anthropic({
+      apiKey: this.apiKey(row),
+      // The SDK adds `/v1` itself.
+      baseURL: row.baseUrl.replace(/\/v1$/, ''),
+      defaultHeaders: row.headers,
+      timeout: 15_000,
+      maxRetries: 1,
+    });
+    const models: { id: string; name?: string }[] = [];
+    try {
+      for await (const model of client.models.list()) {
+        models.push({ id: model.id, name: model.display_name });
+      }
+    } catch (error) {
+      if (error instanceof Anthropic.APIError && error.status) {
+        throw new HttpProblem(502, 'provider_error', `The provider answered HTTP ${error.status}`);
+      }
+      throw new HttpProblem(502, 'provider_unreachable', (error as Error).message);
+    }
+    return models;
+  }
+
   /** AI SDK model for a provider row and model id. */
   languageModel(row: ProviderRow, modelId: string): LanguageModel {
     if (row.kind === 'openai-chatgpt') return this.chatgpt.languageModel(row.id, modelId);
     const apiKey = this.apiKey(row);
+    if (row.kind === 'anthropic') {
+      const anthropic = createAnthropic({ apiKey, baseURL: row.baseUrl, headers: row.headers });
+      const official = row.baseUrl === PROVIDER_DEFAULT_URLS.anthropic;
+      return wrapLanguageModel({
+        model: anthropic(modelId),
+        middleware: {
+          transformParams: async ({ params }) => ({
+            ...params,
+            providerOptions: {
+              ...params.providerOptions,
+              anthropic: {
+                // The tools, the system prompt and the conversation come again at each step:
+                // cached, they cost a tenth.
+                cacheControl: { type: 'ephemeral' },
+                // A refused request is rerun on another Claude model instead of stopping.
+                ...(official && REFUSAL_FALLBACK_MODELS.test(modelId)
+                  ? { fallbacks: 'default' as const }
+                  : {}),
+                ...params.providerOptions?.anthropic,
+              },
+            },
+          }),
+        },
+      });
+    }
     if (row.kind === 'openai') {
       return createOpenAI({ apiKey, baseURL: row.baseUrl, headers: row.headers }).responses(
         modelId,

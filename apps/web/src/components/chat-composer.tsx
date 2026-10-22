@@ -65,6 +65,7 @@ import { useClearConversation } from './bot-menu';
 import { fileLook } from './canvas-body';
 import { useOrgDialogs } from './org-dialogs';
 import { ProjectChip } from './project-chip';
+import { ProviderMark } from './provider-mark';
 import { Button } from './ui/button';
 
 /** A `/` command of the composer: done in the app, never sent to the bot. */
@@ -698,6 +699,7 @@ export function ChatComposer({
       ? models.map((group) => ({
           key: group.provider.id,
           title: group.provider.name,
+          provider: group.provider,
           note: group.state === 'unreachable' ? t('chat.model.unreachable') : null,
           rows: options.filter(
             (o) => o.section === 'models' && o.model.providerId === group.provider.id,
@@ -712,6 +714,7 @@ export function ChatComposer({
       : SECTIONS.map((section) => ({
           key: section,
           title: t(`chat.mentions.sections.${section}`),
+          provider: null,
           note: null,
           rows: options.filter((o) => o.section === section),
           footer: null,
@@ -743,7 +746,14 @@ export function ChatComposer({
           >
             {sections.map((section) => (
               <div key={section.key} className="py-0.5">
-                <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-medium uppercase tracking-wide text-faint">
+                <p className="flex items-center gap-1.5 px-2.5 pt-1.5 pb-1 text-[11px] font-medium uppercase tracking-wide text-faint">
+                  {section.provider && (
+                    <ProviderMark
+                      kind={section.provider.kind}
+                      baseUrl={section.provider.baseUrl}
+                      className="size-3"
+                    />
+                  )}
                   {section.title}
                   {section.note && (
                     <span className="normal-case tracking-normal"> · {section.note}</span>

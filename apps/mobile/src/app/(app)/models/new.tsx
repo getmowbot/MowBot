@@ -1,4 +1,8 @@
-import { PROVIDER_DEFAULT_URLS, type ProviderKind } from '@mowbot/contract';
+import {
+  ANTHROPIC_DEFAULT_MODEL,
+  PROVIDER_DEFAULT_URLS,
+  type ProviderKind,
+} from '@mowbot/contract';
 import { router } from 'expo-router';
 import { Download, Plug } from 'lucide-react-native';
 import { useState } from 'react';
@@ -7,6 +11,7 @@ import { Linking, StyleSheet } from 'react-native';
 import { HeadersEditor } from '../../../components/admin/headers-editor';
 import { FormError, Note } from '../../../components/admin/parts';
 import { ListCard } from '../../../components/list-card';
+import { ProviderMark } from '../../../components/provider-mark';
 import { FormActions, Screen } from '../../../components/screen';
 import { Section } from '../../../components/tab-scroll';
 import { Button } from '../../../components/ui/button';
@@ -19,35 +24,50 @@ import {
   type HeaderRow,
   headersRecord,
   isChatgpt,
-  kindHint,
-  kindLabel,
-  PROVIDER_KINDS,
+  keyRequired,
   providerFormProblem,
+  providerOptions,
 } from '../../../lib/provider-form';
 import { fonts } from '../../../theme';
 
 /**
- * Connects a provider: Command Code, OpenAI or any OpenAI-compatible endpoint. A ChatGPT account
- * is signed in from the desktop app.
+ * Connects a provider: Anthropic, OpenAI, Command Code, a well-known service (OpenRouter, Gemini…)
+ * or any OpenAI-compatible endpoint. A ChatGPT account is signed in from the desktop app.
  */
 export default function NewProviderScreen() {
   const { t } = useTranslation();
   const create = useCreateProvider();
-  const [kind, setKind] = useState<ProviderKind>('command-code');
-  // null: not typed yet, follows the kind ("Command Code", "OpenAI"…).
+  const options = providerOptions(t);
+  const [picked, setPicked] = useState<string | null>(null);
+  const option = options.find((candidate) => candidate.id === picked);
+  const kind: ProviderKind = option?.kind ?? 'openai-compatible';
+  // null: not typed yet, follows the choice ("Anthropic", "OpenRouter"…).
   const [name, setName] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [defaultModel, setDefaultModel] = useState('');
   const [rows, setRows] = useState<HeaderRow[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const nameValue = name ?? kindLabel(kind, t);
+  const nameValue = name ?? option?.name ?? '';
+  const needsKey = option ? keyRequired(option) : false;
+
+  // Another choice: its name and its address (a preset's) start over.
+  const pick = (id: string) => {
+    const next = options.find((candidate) => candidate.id === id);
+    setPicked(id);
+    setName(null);
+    setBaseUrl(next?.baseUrl ?? '');
+    setError(null);
+  };
 
   const submit = () => {
+    if (!option) return;
     const problem = providerFormProblem({
       kind,
       name: nameValue,
       baseUrl,
+      apiKey,
+      needsKey,
       rows,
       editing: false,
     });
@@ -77,23 +97,25 @@ export default function NewProviderScreen() {
     <Screen title={t('appAdmin.models.newTitle')}>
       <Section title={t('appAdmin.models.kind')}>
         <ListCard inset={ROW_INSET}>
-          <ChoiceRows<ProviderKind>
-            options={PROVIDER_KINDS.map((option) => ({
-              value: option.kind,
-              label: kindLabel(option.kind, t),
-              hint: kindHint(option.kind, t),
+          <ChoiceRows<string>
+            options={options.map((candidate) => ({
+              value: candidate.id,
+              label: candidate.name,
+              hint: candidate.id === picked ? candidate.hint : undefined,
+              icon: <ProviderMark kind={candidate.kind} baseUrl={candidate.baseUrl} />,
             }))}
-            value={kind}
-            onChange={setKind}
+            value={picked}
+            onChange={pick}
           />
         </ListCard>
       </Section>
 
-      {isChatgpt(kind) ? (
+      {!option ? null : isChatgpt(kind) ? (
         <ChatgptFromDesktop />
       ) : (
         <KeyFields
           kind={kind}
+          needsKey={needsKey}
           nameValue={nameValue}
           setName={setName}
           baseUrl={baseUrl}
@@ -137,6 +159,7 @@ function ChatgptFromDesktop() {
 
 interface KeyFieldsProps {
   kind: ProviderKind;
+  needsKey: boolean;
   nameValue: string;
   setName(value: string): void;
   baseUrl: string;
@@ -155,6 +178,7 @@ interface KeyFieldsProps {
 /** The fields of a provider reached with an API key. */
 function KeyFields({
   kind,
+  needsKey,
   nameValue,
   setName,
   baseUrl,
@@ -183,7 +207,13 @@ function KeyFields({
         label={t('appAdmin.models.apiKey')}
         value={apiKey}
         onChangeText={setApiKey}
-        placeholder={t('appAdmin.models.apiKeyPlaceholder')}
+        placeholder={
+          kind === 'anthropic'
+            ? 'sk-ant-…'
+            : needsKey
+              ? t('appAdmin.models.apiKeyPlaceholder')
+              : t('appAdmin.models.apiKeyOptional')
+        }
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
@@ -196,7 +226,7 @@ function KeyFields({
         label={t('appAdmin.models.baseUrl')}
         value={baseUrl}
         onChangeText={setBaseUrl}
-        placeholder={PROVIDER_DEFAULT_URLS[kind] ?? 'https://openrouter.ai/api/v1'}
+        placeholder={PROVIDER_DEFAULT_URLS[kind] ?? 'https://api.example.com/v1'}
         keyboardType="url"
         autoCapitalize="none"
         autoCorrect={false}
@@ -206,7 +236,11 @@ function KeyFields({
         label={t('appAdmin.models.defaultModel')}
         value={defaultModel}
         onChangeText={setDefaultModel}
-        placeholder={t('appAdmin.models.defaultModelPlaceholder')}
+        placeholder={
+          kind === 'anthropic'
+            ? ANTHROPIC_DEFAULT_MODEL
+            : t('appAdmin.models.defaultModelPlaceholder')
+        }
         autoCapitalize="none"
         autoCorrect={false}
         maxLength={200}

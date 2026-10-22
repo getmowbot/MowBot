@@ -646,14 +646,22 @@ export const fr = {
     subtitle:
       'Les cerveaux de tes bots. Les clés sont chiffrées sur ton hub et ne quittent jamais le serveur.',
     providers: 'Fournisseurs',
+    pick: 'Choisis un fournisseur à connecter.',
     add: 'Ajouter',
-    empty: 'Aucun fournisseur. Ajoute ta clé Command Code ou OpenAI pour réveiller le Chef.',
+    empty:
+      'Aucun fournisseur. Ajoute ta clé Command Code, OpenAI ou Anthropic pour réveiller le Chef.',
     perBot: 'Modèle de chaque bot',
     kinds: {
       commandCodeHint: 'Clé de ton abonnement (Studio → API keys).',
       openaiHint: 'Clé API de platform.openai.com.',
+      anthropicHint:
+        'Clé API de la console Claude (platform.claude.com), facturée à l’usage. Un abonnement Claude Pro ou Max ne marche pas ici : Anthropic le réserve à ses propres apps.',
       compatible: 'Compatible OpenAI',
-      compatibleHint: 'OpenRouter, Ollama, xAI, DeepSeek… : URL de base + clé.',
+      compatibleHint:
+        'Tout autre service compatible OpenAI (vLLM, LM Studio, Together…) : son URL de base, et sa clé s’il en demande une.',
+      presetHint: 'Clé API à créer sur {{site}}.',
+      ollamaHint:
+        'Ton serveur Ollama, sans clé : son adresse vue depuis le hub (pas localhost si le hub tourne dans Docker, mais l’IP de la machine d’Ollama).',
       chatgpt: 'OpenAI (compte ChatGPT)',
       chatgptHint:
         'Tes bots utilisent ton forfait ChatGPT (Plus, Pro…) : pas de clé API, tu te connectes avec ton compte ChatGPT.',
@@ -717,6 +725,7 @@ export const fr = {
     apiKeyUnchanged: 'Inchangée',
     apiKeyNone: 'Aucune',
     apiKeyPlaceholder: 'Chiffrée sur le hub, jamais réaffichée',
+    apiKeyOptional: 'Facultative · chiffrée sur le hub',
     baseUrl: 'URL de base',
     defaultModel: 'Modèle par défaut',
     defaultModelPlaceholder: 'ex. gpt-5.1, kimi-k2…',

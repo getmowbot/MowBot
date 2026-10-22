@@ -4,6 +4,13 @@ What changed in each version of MowBot. The version is the desktop app's: each o
 
 The release workflow publishes the section of the version it builds as the release notes.
 
+## Unreleased
+
+### More model providers
+- **Anthropic**, with an API key from the Claude Console: Claude's Messages API with prompt caching, and refusals rerun on another Claude model. A Claude Pro/Max subscription can't be used: Anthropic keeps it for its own apps.
+- **OpenRouter, Google Gemini, xAI (Grok), DeepSeek, Mistral, Groq and Ollama** ready to pick, their address filled in.
+- Each provider shows its company's logo, in Models and in `/model`; the page to add one is a grid of them.
+
 ## 0.2.5 — 2026-10-22
 
 ### Your projects, mirrored

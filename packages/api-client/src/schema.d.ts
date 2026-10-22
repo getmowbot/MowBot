@@ -4296,7 +4296,7 @@ export interface operations {
                             id: string;
                             name: string;
                             /** @enum {string} */
-                            kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt";
+                            kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt" | "anthropic";
                             baseUrl: string;
                             defaultModel: string | null;
                             headers: {
@@ -4370,7 +4370,7 @@ export interface operations {
                 "application/json": {
                     name: string;
                     /** @enum {string} */
-                    kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt";
+                    kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt" | "anthropic";
                     /** Format: uri */
                     baseUrl?: string;
                     apiKey?: string;
@@ -4403,7 +4403,7 @@ export interface operations {
                         id: string;
                         name: string;
                         /** @enum {string} */
-                        kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt";
+                        kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt" | "anthropic";
                         baseUrl: string;
                         defaultModel: string | null;
                         headers: {
@@ -4632,7 +4632,7 @@ export interface operations {
                         id: string;
                         name: string;
                         /** @enum {string} */
-                        kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt";
+                        kind: "openai-compatible" | "command-code" | "openai" | "openai-chatgpt" | "anthropic";
                         baseUrl: string;
                         defaultModel: string | null;
                         headers: {

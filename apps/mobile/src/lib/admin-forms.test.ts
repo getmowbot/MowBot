@@ -1,4 +1,5 @@
-import type { Provider } from '@mowbot/contract';
+import { OPENAI_COMPATIBLE_PRESETS, type Provider } from '@mowbot/contract';
+import { providerBrand } from '@mowbot/design';
 import type { TFunction } from 'i18next';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { translator } from '../test/fixtures';
@@ -80,6 +81,19 @@ describe('provider headers', () => {
       'url',
     );
     expect(providerFormProblem({ ...base, editing: true })).toBe('url');
+    // A key where one is needed.
+    expect(
+      providerFormProblem({ ...base, kind: 'anthropic', needsKey: true, editing: false }),
+    ).toBe('keyRequired');
+    expect(
+      providerFormProblem({
+        ...base,
+        kind: 'anthropic',
+        needsKey: true,
+        apiKey: 'sk-ant-1',
+        editing: false,
+      }),
+    ).toBeNull();
     expect(providerFormProblem({ ...base, rows: [headerRow('a b', '1')], editing: false })).toBe(
       'headerName',
     );
@@ -345,5 +359,21 @@ describe('routine triggers', () => {
         { type: 'once', at: '2026-12-24T18:05:00+01:00' },
       ),
     ).toBe(true);
+  });
+});
+
+describe('a provider’s mark', () => {
+  it('comes from its kind, or from the address of an OpenAI-compatible endpoint', () => {
+    expect(providerBrand('anthropic')).toBe('anthropic');
+    expect(providerBrand('openai-chatgpt')).toBe('openai');
+    expect(providerBrand('command-code', 'https://api.commandcode.ai/provider/v1')).toBe(
+      'commandcode',
+    );
+    for (const preset of OPENAI_COMPATIBLE_PRESETS) {
+      expect(providerBrand('openai-compatible', preset.baseUrl)).toBe(preset.id);
+    }
+    expect(providerBrand('openai-compatible', 'http://192.168.1.20:11434/v1')).toBe('ollama');
+    expect(providerBrand('openai-compatible', 'https://llm.example.com/v1')).toBeNull();
+    expect(providerBrand('openai-compatible', 'not a url')).toBeNull();
   });
 });

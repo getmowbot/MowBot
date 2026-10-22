@@ -1,4 +1,4 @@
-import type { Provider, ProviderKind } from '@mowbot/contract';
+import { OPENAI_COMPATIBLE_PRESETS, type Provider, type ProviderKind } from '@mowbot/contract';
 import type { TFunction } from 'i18next';
 
 /** One editable header line: `key` keeps React rows stable while names change. */
@@ -88,8 +88,52 @@ export const PROVIDER_KINDS = [
   { kind: 'command-code', name: 'Command Code' },
   { kind: 'openai', name: 'OpenAI' },
   { kind: 'openai-chatgpt', name: null },
+  { kind: 'anthropic', name: 'Anthropic' },
   { kind: 'openai-compatible', name: null },
 ] as const satisfies readonly { kind: ProviderKind; name: string | null }[];
+
+/** What can be added: the providers MowBot speaks to natively, well-known services, any other. */
+export interface ProviderOption {
+  id: string;
+  kind: ProviderKind;
+  name: string;
+  hint: string;
+  /** A preset's address, filled in. */
+  baseUrl?: string;
+  /** No key needed (Ollama). */
+  keyless?: boolean;
+}
+
+/** In the order shown (as on the web). */
+export function providerOptions(t: TFunction): ProviderOption[] {
+  const native = (kind: ProviderKind): ProviderOption => ({
+    id: kind,
+    kind,
+    name: kindLabel(kind, t),
+    hint: kindHint(kind, t),
+  });
+  return [
+    native('anthropic'),
+    native('openai'),
+    native('openai-chatgpt'),
+    ...OPENAI_COMPATIBLE_PRESETS.map((preset) => ({
+      id: preset.id,
+      kind: 'openai-compatible' as const,
+      name: preset.name,
+      baseUrl: preset.baseUrl,
+      keyless: preset.keyAt === null,
+      hint: preset.keyAt
+        ? t('appAdmin.models.kinds.presetHint', { site: preset.keyAt })
+        : t('appAdmin.models.kinds.ollamaHint'),
+    })),
+    native('command-code'),
+    native('openai-compatible'),
+  ];
+}
+
+/** Whether adding this option asks for a key: all but a generic endpoint or a local Ollama. */
+export const keyRequired = (option: ProviderOption) =>
+  !option.keyless && (option.kind !== 'openai-compatible' || Boolean(option.baseUrl));
 
 /** Signed in from the desktop app ("Sign in with ChatGPT"), not added with a key here. */
 export const isChatgpt = (kind: ProviderKind) => kind === 'openai-chatgpt';
@@ -113,6 +157,8 @@ export function kindHint(kind: ProviderKind, t: TFunction): string {
       return t('appAdmin.models.kinds.openaiHint');
     case 'openai-chatgpt':
       return t('appAdmin.models.kinds.chatgptHint');
+    case 'anthropic':
+      return t('appAdmin.models.kinds.anthropicHint');
     case 'openai-compatible':
       return t('appAdmin.models.kinds.compatibleHint');
   }
@@ -136,13 +182,16 @@ export function chatgptSummary(provider: Provider, t: TFunction): string | null 
   return [account.email, plan, state].filter(Boolean).join(' · ');
 }
 
-export type ProviderFormProblem = 'name' | 'url' | 'urlRequired' | HeaderProblem;
+export type ProviderFormProblem = 'name' | 'url' | 'urlRequired' | 'keyRequired' | HeaderProblem;
 
 /** Checks the fields shared by the "add" and "edit" forms. */
 export function providerFormProblem(input: {
   kind: ProviderKind;
   name: string;
   baseUrl: string;
+  /** Adding: the key typed, and whether one is needed (see `keyRequired`). */
+  apiKey?: string;
+  needsKey?: boolean;
   rows: HeaderRow[];
   /** Editing: the URL is always there (presets were filled in by the hub). */
   editing: boolean;
@@ -155,5 +204,6 @@ export function providerFormProblem(input: {
   } else if (!isHttpUrl(url)) {
     return 'url';
   }
+  if (!input.editing && input.needsKey && !input.apiKey?.trim()) return 'keyRequired';
   return headersProblem(input.rows);
 }

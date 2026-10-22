@@ -628,14 +628,21 @@ export const en: Catalog = {
   models: {
     subtitle: 'Your bots’ brains. Keys are encrypted on your hub and never leave the server.',
     providers: 'Providers',
+    pick: 'Pick a provider to connect.',
     add: 'Add',
-    empty: 'No providers yet. Add your Command Code or OpenAI key to wake the Chef up.',
+    empty: 'No providers yet. Add your Command Code, OpenAI or Anthropic key to wake the Chef up.',
     perBot: 'Each bot’s model',
     kinds: {
       commandCodeHint: 'Your subscription key (Studio → API keys).',
       openaiHint: 'API key from platform.openai.com.',
+      anthropicHint:
+        'API key from the Claude Console (platform.claude.com), billed by usage. A Claude Pro or Max subscription doesn’t work here: Anthropic keeps it for its own apps.',
       compatible: 'OpenAI-compatible',
-      compatibleHint: 'OpenRouter, Ollama, xAI, DeepSeek…: base URL + key.',
+      compatibleHint:
+        'Any other OpenAI-compatible service (vLLM, LM Studio, Together…): its base URL, and its key if it asks for one.',
+      presetHint: 'API key from {{site}}.',
+      ollamaHint:
+        'Your Ollama server, no key: its address as the hub sees it (not localhost when the hub runs in Docker, but the IP of the machine running Ollama).',
       chatgpt: 'OpenAI (ChatGPT account)',
       chatgptHint:
         'Your bots run on your ChatGPT plan (Plus, Pro…): no API key, you sign in with your ChatGPT account.',
@@ -696,6 +703,7 @@ export const en: Catalog = {
     apiKeyUnchanged: 'Unchanged',
     apiKeyNone: 'None',
     apiKeyPlaceholder: 'Encrypted on the hub, never shown again',
+    apiKeyOptional: 'Optional · encrypted on the hub',
     baseUrl: 'Base URL',
     defaultModel: 'Default model',
     defaultModelPlaceholder: 'e.g. gpt-5.1, kimi-k2…',

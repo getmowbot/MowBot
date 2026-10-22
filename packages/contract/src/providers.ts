@@ -3,13 +3,14 @@ import { z } from 'zod';
 /**
  * `command-code` is an OpenAI-compatible endpoint preset; `openai` uses the Responses API with an
  * API key; `openai-chatgpt` uses it with the user's ChatGPT plan ("Sign in with ChatGPT", done in
- * the desktop app, see docs/DESKTOP.md).
+ * the desktop app, see docs/DESKTOP.md); `anthropic` is Claude's Messages API with an API key.
  */
 export const providerKindSchema = z.enum([
   'openai-compatible',
   'command-code',
   'openai',
   'openai-chatgpt',
+  'anthropic',
 ]);
 export type ProviderKind = z.infer<typeof providerKindSchema>;
 
@@ -17,7 +18,52 @@ export const PROVIDER_DEFAULT_URLS: Partial<Record<ProviderKind, string>> = {
   'command-code': 'https://api.commandcode.ai/provider/v1',
   openai: 'https://api.openai.com/v1',
   'openai-chatgpt': 'https://api.openai.com/v1',
+  anthropic: 'https://api.anthropic.com/v1',
 };
+
+/** What an Anthropic provider gives its bots when no model is chosen: the current Opus. */
+export const ANTHROPIC_DEFAULT_MODEL = 'claude-opus-5-5';
+
+/**
+ * Well-known OpenAI-compatible services, their address filled in: picked as such in the apps,
+ * saved as `openai-compatible` providers (whose mark comes from the address). `keyAt`: where the
+ * user makes a key (null: none needed).
+ */
+export const OPENAI_COMPATIBLE_PRESETS = [
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    keyAt: 'openrouter.ai/settings/keys',
+  },
+  {
+    id: 'gemini',
+    name: 'Google Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    keyAt: 'aistudio.google.com/apikey',
+  },
+  { id: 'xai', name: 'xAI (Grok)', baseUrl: 'https://api.x.ai/v1', keyAt: 'console.x.ai' },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    keyAt: 'platform.deepseek.com/api_keys',
+  },
+  {
+    id: 'mistral',
+    name: 'Mistral',
+    baseUrl: 'https://api.mistral.ai/v1',
+    keyAt: 'console.mistral.ai/api-keys',
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    keyAt: 'console.groq.com/keys',
+  },
+  { id: 'ollama', name: 'Ollama', baseUrl: 'http://localhost:11434/v1', keyAt: null },
+] as const;
+export type OpenaiCompatiblePreset = (typeof OPENAI_COMPATIBLE_PRESETS)[number];
 
 /** Where the user follows and manages the usage of their ChatGPT plan. */
 export const CHATGPT_USAGE_URL = 'https://chatgpt.com/settings/usage';
