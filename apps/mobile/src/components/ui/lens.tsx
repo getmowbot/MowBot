@@ -35,6 +35,16 @@ const TAIL = [0.04, 0.08, 0.12, 0.16, 0.2, 0.24, 0.28, 0.32] as const;
 
 type Size = { width: number; height: number };
 
+/**
+ * A color as react-native-svg needs it: native iOS and Android ignore the alpha of an `rgba()`
+ * in gradient stops and strokes (the edge turned opaque white), so it becomes an opacity.
+ */
+function svgColor(color: string): { color: string; opacity: number } {
+  const rgba = /^rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\s*\)$/.exec(color);
+  if (!rgba) return { color, opacity: 1 };
+  return { color: `rgb(${rgba[1]}, ${rgba[2]}, ${rgba[3]})`, opacity: Number(rgba[4]) };
+}
+
 /** An id usable in an SVG `url(#…)` (React's have colons). */
 const useSvgId = () => useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
@@ -99,12 +109,13 @@ function Shine({ width, height }: Size) {
   const id = useSvgId();
   const w = width * 0.88;
   const h = height * 0.6;
+  const shine = svgColor(colors.lensShine);
   return (
     <Svg width={w} height={h} style={[styles.shine, { left: width * 0.06 }]}>
       <Defs>
         <RadialGradient id={id} cx="50%" cy="0%" rx="50%" ry="100%">
-          <Stop offset="0" stopColor={colors.lensShine} stopOpacity={0.5} />
-          <Stop offset="1" stopColor={colors.lensShine} stopOpacity={0} />
+          <Stop offset="0" stopColor={shine.color} stopOpacity={shine.opacity * 0.5} />
+          <Stop offset="1" stopColor={shine.color} stopOpacity={0} />
         </RadialGradient>
       </Defs>
       <Rect width={w} height={h} fill={`url(#${id})`} />
@@ -141,13 +152,15 @@ function Edge({ width, height, radius, focused }: Size & { radius: number; focus
 
   const fade = useAnimatedStyle(() => ({ opacity: shown.get() }));
   const shape = { x: 0.5, y: 0.5, width: width - 1, height: height - 1, rx: r, ry: r };
+  const rim = svgColor(colors.lensRim);
+  const side = svgColor(focused ? colors.borderStrong : colors.border);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
         <Defs>
           <SvgGradient id={id} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={colors.lensRim} />
-            <Stop offset="0.5" stopColor={focused ? colors.borderStrong : colors.border} />
+            <Stop offset="0" stopColor={rim.color} stopOpacity={rim.opacity} />
+            <Stop offset="0.5" stopColor={side.color} stopOpacity={side.opacity} />
           </SvgGradient>
         </Defs>
         <Rect {...shape} fill="none" stroke={`url(#${id})`} strokeWidth={1} />
@@ -177,6 +190,7 @@ function TailPart({
   shape: { x: number; y: number; width: number; height: number; rx: number; ry: number };
 }) {
   const length = part * perimeter;
+  const beam = svgColor(colors.lensBeam);
   // Every part's head at the same point: the overlap brightens towards it.
   const props = useAnimatedProps(() => ({
     strokeDashoffset: length - (turns.get() % 1) * perimeter,
@@ -185,8 +199,8 @@ function TailPart({
     <AnimatedRect
       {...shape}
       fill="none"
-      stroke={colors.lensBeam}
-      strokeOpacity={0.14}
+      stroke={beam.color}
+      strokeOpacity={beam.opacity * 0.14}
       strokeWidth={1}
       strokeDasharray={[length, perimeter - length]}
       animatedProps={props}
