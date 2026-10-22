@@ -3,7 +3,7 @@
 #
 #   sudo ./install.sh        install, or update an existing install: same command
 #   sudo mowbot update       the same, once installed
-#   sudo mowbot status | logs [service] | start | stop | restart
+#   sudo mowbot status | logs [service] | memory | start | stop | restart
 #
 # Installs Docker when missing, writes deploy/.env on the first run (address, generated keys),
 # builds the images (hub, web, the bots' computers) and starts the stack. Running it again pulls
@@ -37,6 +37,8 @@ MowBot : installation et mise à jour sur un serveur Linux.
   sudo mowbot update              met à jour (code, images, redémarrage)
   sudo mowbot status              état des services et adresse
   sudo mowbot logs [service]      journaux en direct (hub, caddy, postgres…)
+  sudo mowbot memory              ce que les bots savent de toi, ce qu’ils ont prévu d’eux-mêmes
+                                  et la veille du Chef (les applis ne les montrent pas)
   sudo mowbot start | stop | restart
 
 Options de la première installation :
@@ -65,7 +67,7 @@ tty=''
 parse_args() {
   while (($#)); do
     case $1 in
-      install | update | status | logs | start | stop | restart | help) command=$1 ;;
+      install | update | status | logs | memory | start | stop | restart | help) command=$1 ;;
       --domain)
         domain=${2:?--domain attend un nom}
         shift
@@ -438,6 +440,45 @@ script_sum() {
   if [[ -f $dir/install.sh ]]; then sha256sum "$dir/install.sh" | cut -d ' ' -f 1; fi
 }
 
+# What the bots know of the user and what they planned on their own: the memory, their
+# initiatives and the Chef's watch, which the apps never show. Times in the hub's time zone.
+show_memory() {
+  local zone
+  zone=$(sed -n 's/^MOWBOT_TIME_ZONE=//p' "$env_file" | tail -n 1)
+  [[ $zone =~ ^[A-Za-z0-9_/+-]+$ ]] || zone=Europe/Paris
+  sql() {
+    compose exec -T postgres psql -U mowbot -d mowbot -q -P pager=off \
+      -c "set timezone to '$zone'" -c "$1"
+  }
+
+  step 'Ce que tes bots savent de toi'
+  sql "select case m.kind when 'profile' then 'profil' when 'preference' then 'goût'
+      when 'event' then 'événement' else 'note' end as type,
+    m.text as souvenir, to_char(m.at, 'DD/MM/YYYY HH24:MI') as date,
+    coalesce(b.name, 'toi') as retenu_par, to_char(m.updated_at, 'DD/MM HH24:MI') as le
+    from memories m left join bots b on b.id = m.source_bot_id
+    order by m.kind, m.updated_at desc"
+
+  step "Ce qu’ils ont prévu d’eux-mêmes, et la veille du Chef"
+  sql "select case r.kind when 'watch' then 'veille' else 'initiative' end as type, b.name as bot,
+    to_char(r.next_run_at, 'DD/MM/YYYY HH24:MI') as prochaine,
+    to_char(r.last_run_at, 'DD/MM HH24:MI') as derniere,
+    left(case when r.kind = 'watch' then r.name else r.prompt end, 120) as quoi
+    from routines r join bots b on b.id = r.bot_id
+    where r.kind in ('initiative', 'watch') and r.enabled
+    order by r.next_run_at nulls last"
+
+  step 'Leurs derniers passages (idle : rien à dire, rien laissé)'
+  sql "select case r.kind when 'watch' then 'veille' else 'initiative' end as type, b.name as bot,
+    rr.status as issue, to_char(rr.started_at, 'DD/MM HH24:MI') as le,
+    left(case when r.kind = 'watch' then r.name else r.prompt end, 80) as quoi
+    from routine_runs rr join routines r on r.id = rr.routine_id join bots b on b.id = r.bot_id
+    where r.kind in ('initiative', 'watch')
+    order by rr.started_at desc limit 20"
+
+  note "En direct : sudo mowbot logs hub | grep -E 'Memory (kept|forgotten)|\"msg\":\"Initiative\"'"
+}
+
 install_or_update() {
   if [[ -z ${MOWBOT_REEXEC:-} ]]; then
     step "Prérequis"
@@ -503,6 +544,10 @@ main() {
     logs)
       installed
       compose logs -f --tail=200 "${services[@]}"
+      ;;
+    memory)
+      installed
+      show_memory
       ;;
     start)
       installed
