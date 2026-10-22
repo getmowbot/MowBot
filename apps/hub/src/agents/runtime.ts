@@ -17,7 +17,7 @@ import type {
   VaultField,
   VaultRequestAnswer,
 } from '@mowbot/contract';
-import { REASONING_ACTIVITY } from '@mowbot/contract';
+import { REASONING_ACTIVITY, SILENT_TOOLS } from '@mowbot/contract';
 import { reasoningHeadline } from '@mowbot/design';
 import { type LanguageModel, type ModelMessage, stepCountIs, streamText, type ToolSet } from 'ai';
 import { and, asc, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
@@ -276,7 +276,7 @@ function masked(secrets: SecretScope, tools: ToolSet): ToolSet {
   return Object.fromEntries(
     Object.entries(tools).map(([name, entry]) => {
       const { execute } = entry;
-      if (!execute) return [name, entry];
+      if (!execute || SILENT_TOOLS.has(name)) return [name, entry];
       return [
         name,
         {
@@ -1329,6 +1329,7 @@ export class BotRuntime {
   }
 
   private publish(row: MessageRow): void {
+    if (row.meta?.unseen) return;
     this.deps.events.publish({ type: 'message.updated', message: toMessage(row) });
   }
 

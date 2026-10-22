@@ -337,6 +337,11 @@ export interface MessageMeta {
   steeredInto?: string;
   /** Context only (e.g. "stopped by …"): does not call for an answer. */
   silent?: boolean;
+  /**
+   * Woke the bot for its own initiative or the Chef's watch: the apps never get it, only what
+   * the bot does about it.
+   */
+  unseen?: boolean;
   /** What the user pointed at with @ in the message. */
   mentions?: MessageMention[];
   /** A note that the user changed the project the bot works in. */

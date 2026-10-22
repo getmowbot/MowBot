@@ -87,8 +87,6 @@ export function ServerEvents() {
             'canvases',
             'notifications',
             'routines',
-            'initiatives',
-            'memories',
             'automations',
             'system',
             'vault',
@@ -224,13 +222,7 @@ export function ServerEvents() {
         }
         case 'routine.updated':
         case 'routine.deleted':
-          // Initiatives are routines the user doesn't see as such.
           void queryClient.invalidateQueries({ queryKey: ['routines'] });
-          void queryClient.invalidateQueries({ queryKey: ['initiatives'] });
-          break;
-        case 'memory.updated':
-        case 'memory.deleted':
-          void queryClient.invalidateQueries({ queryKey: ['memories'] });
           break;
         case 'automation.updated':
           queryClient.setQueryData<Automation[]>(['automations'], (list) =>

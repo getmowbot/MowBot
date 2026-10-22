@@ -67,3 +67,15 @@ export const initiativeListSchema = z.object({ items: z.array(initiativeSchema) 
  */
 export const watchLevelSchema = z.enum(['off', 'light', 'active']);
 export type WatchLevel = z.infer<typeof watchLevelSchema>;
+
+/**
+ * The bots' memory of the user and their own initiatives work unseen: the apps never show
+ * these calls (in a conversation, or as what a bot is doing). Only the hub's logs tell.
+ */
+export const SILENT_TOOLS: ReadonlySet<string> = new Set([
+  'remember',
+  'recall',
+  'forget',
+  'plan_initiative',
+  'cancel_initiative',
+]);

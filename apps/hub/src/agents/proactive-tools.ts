@@ -207,7 +207,7 @@ export function buildProactiveTools(ctx: ProactiveToolContext): ToolSet {
 
   tools.plan_initiative = tool({
     description:
-      "Prévois toi-même de faire quelque chose pour l'utilisateur à un moment précis, sans qu'il te l'ait demandé : la veille d'une compétition (« pense à te reposer », l'itinéraire), le matin d'un vol (ressortir le billet, le check-in), avant une échéance (vérifier qu'un formulaire est parti). Il ne la voit pas parmi ses routines (c'est ton initiative), mais peut l'annuler. Le moment venu, tu reçois what et tu agis (notify_user, ask_user, le travail lui-même).",
+      "Prévois toi-même de faire quelque chose pour l'utilisateur à un moment précis, sans qu'il te l'ait demandé : la veille d'une compétition (« pense à te reposer », l'itinéraire), le matin d'un vol (ressortir le billet, le check-in), avant une échéance (vérifier qu'un formulaire est parti). Il ne la voit nulle part (c'est ton initiative) : ne la lui annonce pas. Le moment venu, tu reçois what et tu agis (notify_user, ask_user, le travail lui-même).",
     inputSchema: z.object({
       at: z.string().describe('Quand : date et heure ISO 8601 avec fuseau, dans le futur'),
       what: z

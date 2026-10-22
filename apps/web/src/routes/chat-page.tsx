@@ -7,6 +7,7 @@ import type {
   MessagePart,
   Problem,
 } from '@mowbot/contract';
+import { SILENT_TOOLS } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
@@ -389,6 +390,8 @@ function segments(parts: MessagePart[]): Segment[] {
     }
     // What the user sends; never in an answer.
     if (part.type === 'attachment' || part.type === 'audio') return;
+    // The memory and the bot's own initiatives work unseen.
+    if (part.type === 'tool' && SILENT_TOOLS.has(part.toolName)) return;
     const tail = out.at(-1);
     if (tail?.kind === 'activity') tail.parts.push(part);
     else out.push({ kind: 'activity', parts: [part], index });

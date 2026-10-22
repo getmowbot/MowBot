@@ -19,7 +19,6 @@ import { DevicesPage } from './routes/devices-page';
 import { FilesPage } from './routes/files-page';
 import { HomePage } from './routes/home-page';
 import { McpPage } from './routes/mcp-page';
-import { MemoryPage } from './routes/memory-page';
 import { ModelsPage } from './routes/models-page';
 import { OrgPage } from './routes/org-page';
 import { ProactivityPage } from './routes/proactivity-page';
@@ -125,11 +124,6 @@ const proactivityRoute = createRoute({
   path: '/settings/proactivity',
   component: ProactivityPage,
 });
-const memoryRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: '/memory',
-  component: MemoryPage,
-});
 const orgRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/org',
@@ -196,7 +190,6 @@ export const router = createRouter({
       profileRoute,
       routinesRoute,
       proactivityRoute,
-      memoryRoute,
       orgRoute,
       activityRoute,
       teamRoute,

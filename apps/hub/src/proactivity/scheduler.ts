@@ -120,7 +120,12 @@ export class Scheduler {
       ]
         .filter(Boolean)
         .join('\n'),
-      meta: { routineId: routine.id, runId: run.id, depth: 0 },
+      meta: {
+        routineId: routine.id,
+        runId: run.id,
+        depth: 0,
+        ...(routine.kind === 'initiative' || routine.kind === 'watch' ? { unseen: true } : {}),
+      },
     });
     return { status: 'running', reason: null };
   }

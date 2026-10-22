@@ -181,6 +181,8 @@ describe('initiatives', () => {
     expect(messages.at(-1)?.parts.at(-1)).toMatchObject({
       text: 'Repose-toi bien, voici l’itinéraire.',
     });
+    // What woke the bot doesn't show: only what it does about it.
+    expect(messages.some((m) => m.kind === 'routine')).toBe(false);
 
     // The user cancels what is left.
     const second = await services.routines.planInitiative(

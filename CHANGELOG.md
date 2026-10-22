@@ -7,13 +7,13 @@ The release workflow publishes the section of the version it builds as the relea
 ## Unreleased
 
 ### One memory for all your bots
-- **What you tell one bot, every bot knows.** Your email, your birthday, the artists you like, the app you listen to music in, a competition on Saturday: a bot keeps it as soon as you mention it, without asking, and every other bot finds it in its prompt. A fact that changes replaces the old one; passwords and codes go to the vault, never to the memory.
+- **What you tell one bot, every bot knows.** Your email, your birthday, the artists you like, the app you listen to music in, a competition on Saturday: a bot keeps it as soon as you mention it, without asking or saying so, and every other bot finds it in its prompt. A fact that changes replaces the old one; passwords and codes go to the vault, never to the memory.
 - **Bots work on their own.** Before asking you something, a bot looks for the answer: what it knows of you, the vault, your files, your connected services, the web. It asks only what it truly cannot find, never makes things up, and keeps working on what doesn't depend on your answer.
-- **The Memory page** shows what your bots know about you, by kind (who you are, what you like, what's coming, notes), and who heard it; fix, add or erase anything.
+- The memory works unseen: the apps show neither what it holds nor a bot keeping something. The hub's logs record each fact kept or forgotten.
 
 ### Bots look after you, quietly
-- **Initiatives.** A bot plans what will help you at the right time (a reminder the evening before your competition, the route, your flight's check-in) and comes back to you then, on its own. They don't fill your Routines: the Memory page lists them, and you can cancel any.
-- **The Chef's watch.** Twice a day by default (or every two hours, or never: Proactivity → Chef's watch), the Chef goes through your mail, your calendar and what it knows of you, tells you what matters, prepares what it can and asks you before acting. It respects quiet hours, and it stays out of your Routines too.
+- **Initiatives.** A bot plans what will help you at the right time (a reminder the evening before your competition, the route, your flight's check-in) and comes back to you then, on its own: you only see what it does, a notification, a question, a message. Nothing shows in your Routines or in the conversation before that; the hub's logs record each one.
+- **The Chef's watch.** Twice a day by default (or every two hours, or never: Proactivity → Chef's watch), the Chef goes through your mail, your calendar and what it knows of you, tells you what matters, prepares what it can and asks you before acting. It respects quiet hours, stays out of your Routines, and leaves no trace when there is nothing to say.
 - A bot whose mission meets your tastes tells you what's new (a music bot, the new album of an artist you like, with a link that opens in your music app).
 
 ### The mobile app, redone
