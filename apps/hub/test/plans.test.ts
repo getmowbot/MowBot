@@ -1,6 +1,6 @@
 import type { Bot, Message, ServerEvent, Task, Team, TeamPlan } from '@mowbot/contract';
 import type { MockLanguageModelV4 } from 'ai/test';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { HttpProblem } from '../src/http/problems';
 import { bearer, createTestApp, setupOwner } from './helpers';
 import { promptOf, scripted, scriptedBy, textTurn, toolTurn } from './models';
@@ -556,5 +556,72 @@ describe('team plans', () => {
     // The bot knows what the user now sees.
     expect(promptOf(chefModel, 1)).toContain('1. [à faire] Maquettes — Marco');
     expect(promptOf(chefModel, 0)).toContain('montre-le avec show_plan');
+  });
+});
+
+describe('a finished plan', () => {
+  it('has whoever answers to the user give them the recap, once, unseen', async () => {
+    const leaModel = scripted([
+      textTurn(
+        '**Le comparatif est prêt : prends Claude Free pour commencer.** Tout est dans outputs/comparatif.md.',
+      ),
+      textTurn('RAS'),
+    ]);
+    const { services, team, lea, marco, row, conversation } = await start({ Léa: leaModel });
+    const leaRow = await row(lea.id);
+    await services.plans.set(
+      team.id,
+      {
+        goal: 'Comparer les IA abordables',
+        steps: [
+          { title: 'Assistants', status: 'done', ownerBotId: lea.id },
+          { title: 'API', ownerBotId: marco.id },
+        ],
+      },
+      leaRow,
+    );
+    expect(await services.routines.initiatives(lea.id)).toEqual([]);
+
+    await services.plans.update(
+      team.id,
+      { steps: [{ step: 2, status: 'done', result: 'Tarifs API comparés' }] },
+      leaRow,
+    );
+    // Without tasks from the Chef, the lead answers for it.
+    await vi.waitFor(async () =>
+      expect(await services.routines.initiatives(lea.id)).toHaveLength(1),
+    );
+    // The plan changing again while still done asks for nothing more.
+    await services.plans.update(
+      team.id,
+      { steps: [{ step: 1, result: 'Assistants comparés' }] },
+      leaRow,
+    );
+    const [recap] = await services.routines.initiatives(lea.id);
+    expect(await services.routines.initiatives(lea.id)).toHaveLength(1);
+
+    await services.scheduler.fire(await services.routines.row(recap?.id as string));
+    await services.runtime.settle();
+    const prompt = promptOf(leaModel, 0);
+    expect(prompt).toContain("Le plan de l'équipe Agence web est terminé");
+    expect(prompt).toContain('2. [fait] API');
+    expect(prompt).toContain('Tarifs API comparés');
+    expect(prompt).toContain('notify_user');
+    const messages = await conversation(lea.id);
+    // What woke Léa doesn't show; her recap does, in full (not folded as bot talk).
+    expect(messages.some((m) => m.kind === 'routine')).toBe(false);
+    expect(messages.at(-1)).toMatchObject({ role: 'assistant', autonomous: false });
+
+    // Done again later, after a step reopened: a new recap, which may be « RAS ».
+    await services.plans.update(team.id, { steps: [{ step: 2, status: 'doing' }] }, leaRow);
+    await services.plans.update(team.id, { steps: [{ step: 2, status: 'done' }] }, leaRow);
+    await vi.waitFor(async () =>
+      expect(await services.routines.initiatives(lea.id)).toHaveLength(1),
+    );
+    const [again] = await services.routines.initiatives(lea.id);
+    await services.scheduler.fire(await services.routines.row(again?.id as string));
+    await services.runtime.settle();
+    // Nothing to add: no trace.
+    expect((await conversation(lea.id)).length).toBe(messages.length);
   });
 });

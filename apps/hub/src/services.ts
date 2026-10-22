@@ -18,6 +18,7 @@ import { EventBus } from './events';
 import { TicketService } from './http/tickets';
 import { McpService } from './mcp/service';
 import { MemoryService } from './memory/service';
+import { PlanEnds } from './org/plan-recap';
 import { PlanService } from './org/plans';
 import { OrgService } from './org/service';
 import type { TaskService } from './org/tasks';
@@ -51,6 +52,8 @@ export interface Services {
   org: OrgService;
   tasks: TaskService;
   plans: PlanService;
+  /** A finished plan: a recap for the user from whoever answers to them for it. */
+  planEnds: PlanEnds;
   runtime: BotRuntime;
   routines: RoutineService;
   notifications: NotificationService;
@@ -130,6 +133,8 @@ export async function createServices(
   await bots.watchTasks();
   const org = new OrgService(db, files, computers, events, config.masterKey);
   const plans = new PlanService(db, events);
+  const planEnds = new PlanEnds({ db, events, plans, routines, bots });
+  await planEnds.watch();
   const browser = new BrowserHub();
   const vault = new VaultService({
     db,
@@ -217,6 +222,7 @@ export async function createServices(
     org,
     tasks: runtime.tasks,
     plans,
+    planEnds,
     runtime,
     routines,
     notifications,

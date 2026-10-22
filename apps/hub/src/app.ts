@@ -183,6 +183,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
   services.automations.setLogger(app.log);
   services.mcp.setLogger(app.log);
   services.previews.setLogger(app.log);
+  services.planEnds.setLogger(app.log);
   services.vault.watchTakeovers();
   services.runtime.watchTakeovers();
   services.mirrors.setLogger(app.log);
@@ -204,6 +205,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
     services.scheduler.stop();
     services.automations.stop();
     services.mirrors.stop();
+    services.planEnds.close();
     await services.mcp.close();
     services.connectors.close();
     await services.mirrors.idle();

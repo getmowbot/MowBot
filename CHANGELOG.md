@@ -6,6 +6,15 @@ The release workflow publishes the section of the version it builds as the relea
 
 ## Unreleased
 
+### A mission ends with a recap
+- **When a team's plan is done, you get the conclusion.** Whoever you gave the mission to (usually the Chef) writes you the recap in your conversation: the conclusion first, then what the team found or made, with figures and links, and for a study, a watch or a comparison, a summary document in Outputs. A notification tells you it's there. You no longer read the bots' exchanges to know how it ended.
+
+### Bots' talk, quieter
+- **Messages between bots are small grey marks** in a conversation, web and mobile: the sender's face and what happened ("Milo a écrit", "Chef a confié une tâche"). Tap one to read it.
+- **A message read while the bot worked** shows two small checks instead of a sentence.
+- **The chat's header on mobile:** what the bot is doing shows inside its name capsule, which grows to make room for it.
+- The working and waiting rings stay centered on the bot as it looks around.
+
 ### One memory for all your bots
 - **What you tell one bot, every bot knows.** Your email, your birthday, the artists you like, the app you listen to music in, a competition on Saturday: a bot keeps it as soon as you mention it, without asking or saying so, and every other bot finds it in its prompt. A fact that changes replaces the old one; passwords and codes go to the vault, never to the memory.
 - **Bots work on their own.** Before asking you something, a bot looks for the answer: what it knows of you, the vault, your files, your connected services, the web. It asks only what it truly cannot find, never makes things up, and keeps working on what doesn't depend on your answer.
