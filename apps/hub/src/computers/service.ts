@@ -346,8 +346,9 @@ export class ComputerService {
         workspaceId: row.workspaceId,
         agentToken: this.agentToken(row),
       };
-      const { containerId } = await this.runtime.start(spec);
-      const started = await this.update(row.id, { containerId, appliedSetup: setupKey(spec) });
+      // A container that was still running keeps the setup it was made with.
+      const { containerId, setup } = await this.runtime.start(spec);
+      const started = await this.update(row.id, { containerId, appliedSetup: setup });
       await this.waitForAgent(started);
       await this.update(row.id, {
         status: 'running',

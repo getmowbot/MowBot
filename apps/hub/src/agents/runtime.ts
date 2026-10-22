@@ -48,6 +48,7 @@ import type { SecretScope } from '../vault/secrets';
 import type { VaultService } from '../vault/service';
 import { decodeRecording, peaksOf, playableEverywhere, SAMPLE_RATE } from '../voice/audio';
 import type { Transcriber } from '../voice/whisper';
+import type { WebService } from '../web/service';
 import { parentOf, type WorkspaceFiles } from '../workspaces/files';
 import { picturesOf, resolveAttachments } from './attachments';
 import { buildAutomationTools } from './automation-tools';
@@ -75,6 +76,7 @@ import {
 import { buildTakeoverTools, REQUEST_TAKEOVER } from './takeover-tools';
 import { buildTools, clip } from './tools';
 import { buildVaultTools, VAULT_REQUEST } from './vault-tools';
+import { buildWebTools } from './web-tools';
 
 const HISTORY_MESSAGES = 40;
 /** An answer that took this long reaches the phone: the user has probably moved on. */
@@ -175,6 +177,8 @@ export interface RuntimeDeps {
   previews?: PreviewService;
   /** The projects' copies in the workspaces, kept in sync with the user's folders. */
   mirrors?: MirrorService;
+  /** Web searches and page reads from the hub (no computer needed). */
+  web?: WebService;
   /** Transcribes voice messages; without it, they stay untranscribed. */
   voice?: VoiceDeps;
   finishedPushAfterMs?: number;
@@ -1781,6 +1785,7 @@ export class BotRuntime {
           bots: this.deps.bots,
           db,
         }),
+        ...(this.deps.web ? buildWebTools(this.deps.web) : {}),
         ...buildCanvasTools({
           self: bot,
           canvases: this.deps.canvases,

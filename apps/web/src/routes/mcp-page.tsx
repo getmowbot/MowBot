@@ -42,6 +42,7 @@ import { Button } from '../components/ui/button';
 import { Dialog } from '../components/ui/dialog';
 import { FormError, Input, Label, SecretInput } from '../components/ui/form';
 import { Switch } from '../components/ui/switch';
+import { WebSearchSettings } from '../components/web-search-settings';
 import { i18n } from '../i18n';
 import { api, problemMessage } from '../lib/auth';
 import {
@@ -1081,6 +1082,10 @@ export function McpPage() {
         <Button onClick={() => add()}>
           <Plus className="size-4" /> {t('mcp.add')}
         </Button>
+      </Reveal>
+
+      <Reveal delay={0.03}>
+        <WebSearchSettings />
       </Reveal>
 
       {servers.isPending && <p className="text-sm text-muted-foreground">{t('common.loading')}</p>}

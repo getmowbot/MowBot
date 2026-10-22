@@ -20,6 +20,41 @@ interface SpeechPipeline {
 /** Unused this long, the model leaves the memory (it reloads from disk in a few seconds). */
 const IDLE_UNLOAD_MS = 10 * 60_000;
 
+/** Waits between tries of a download cut short (then it gives up). */
+const RETRY_DELAYS_MS = [500, 1_500, 4_000, 8_000];
+
+/**
+ * Downloads that survive a flaky network: a connection reset (before or during the body) is
+ * tried again, and a file comes back whole or not at all. HTTP answers are not retried.
+ */
+export function retryingFetch(
+  fetchImpl: typeof fetch,
+  delays: readonly number[] = RETRY_DELAYS_MS,
+): typeof fetch {
+  return (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const response = await fetchImpl(input, init);
+        if (!response.ok || init?.method === 'HEAD') return response;
+        // Read here: a cut in the middle of a model file is retried too.
+        const body = await response.arrayBuffer();
+        return new Response(body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      } catch (error) {
+        const delay = delays[attempt];
+        if (delay === undefined || init?.signal?.aborted) throw error;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }) as typeof fetch;
+}
+
+/** transformers.js downloads through `env.fetch`: wrapped once. */
+const RETRYING = Symbol('mowbot.retrying');
+
 /**
  * Whisper run on the hub's CPU with transformers.js (ONNX): no audio leaves the server. The
  * model is downloaded from Hugging Face on first use and kept in `cacheDir`. One recording at a
@@ -38,7 +73,12 @@ export class WhisperTranscriber implements Transcriber {
   private load(): Promise<SpeechPipeline> {
     this.model ??= (async () => {
       // Loaded on demand: the ONNX runtime is heavy and most hubs start without a recording.
-      const { pipeline } = await import('@huggingface/transformers');
+      const { env, pipeline } = await import('@huggingface/transformers');
+      // The first recording downloads the model: a flaky connection must not fail it.
+      const current = env.fetch as typeof fetch & { [RETRYING]?: true };
+      if (!current[RETRYING]) {
+        env.fetch = Object.assign(retryingFetch(current), { [RETRYING]: true as const });
+      }
       const threads = Math.max(1, Math.floor(availableParallelism() / 2));
       return (await pipeline('automatic-speech-recognition', this.options.model, {
         cache_dir: this.options.cacheDir,
