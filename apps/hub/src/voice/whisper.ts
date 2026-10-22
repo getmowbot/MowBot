@@ -52,6 +52,28 @@ export function retryingFetch(
   }) as typeof fetch;
 }
 
+/**
+ * The model from the disk when it is all there, with Hugging Face out of reach (`remote(false)`:
+ * transformers.js checks some files online even when cached, and a network that cuts
+ * connections then failed every recording); from Hugging Face otherwise, the first time, kept
+ * for the next ones.
+ */
+export async function loadModel<T>(
+  load: (options: Record<string, unknown>) => Promise<T>,
+  options: Record<string, unknown>,
+  remote: (allowed: boolean) => void,
+): Promise<T> {
+  remote(false);
+  try {
+    return await load({ ...options, local_files_only: true });
+  } catch {
+    // Not all on the disk yet.
+  } finally {
+    remote(true);
+  }
+  return load(options);
+}
+
 /** transformers.js downloads through `env.fetch`: wrapped once. */
 const RETRYING = Symbol('mowbot.retrying');
 
@@ -79,14 +101,23 @@ export class WhisperTranscriber implements Transcriber {
       if (!current[RETRYING]) {
         env.fetch = Object.assign(retryingFetch(current), { [RETRYING]: true as const });
       }
+      // pipeline() lists the model's files without its cache_dir (transformers.js 4.3), from the
+      // default cache: the same folder, or it looks for them on Hugging Face every time.
+      env.cacheDir = this.options.cacheDir;
       const threads = Math.max(1, Math.floor(availableParallelism() / 2));
-      return (await pipeline('automatic-speech-recognition', this.options.model, {
-        cache_dir: this.options.cacheDir,
-        device: 'cpu',
-        // The encoder loses accuracy when quantized; the decoder hardly does.
-        dtype: { encoder_model: 'fp32', decoder_model_merged: 'q8' },
-        session_options: { intraOpNumThreads: threads },
-      })) as unknown as SpeechPipeline;
+      return (await loadModel(
+        (options) => pipeline('automatic-speech-recognition', this.options.model, options),
+        {
+          cache_dir: this.options.cacheDir,
+          device: 'cpu',
+          // The encoder loses accuracy when quantized; the decoder hardly does.
+          dtype: { encoder_model: 'fp32', decoder_model_merged: 'q8' },
+          session_options: { intraOpNumThreads: threads },
+        },
+        (allowed) => {
+          env.allowRemoteModels = allowed;
+        },
+      )) as unknown as SpeechPipeline;
     })().catch((error: unknown) => {
       this.model = null;
       throw error;

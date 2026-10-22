@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { Bot, Message, MessagePart, ServerEvent } from '@mowbot/contract';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parsePeaks, parseWav, peaksOf, voiceExtension } from '../src/voice/audio';
-import { retryingFetch, type Transcriber } from '../src/voice/whisper';
+import { loadModel, retryingFetch, type Transcriber } from '../src/voice/whisper';
 import { bearer, createTestApp, multipartForm, setupOwner } from './helpers';
 import { promptOf, scripted, textTurn } from './models';
 
@@ -397,5 +397,35 @@ describe('the Whisper model download', () => {
     expect(calls).toBe(3);
     const missing = (async () => new Response('no', { status: 404 })) as typeof fetch;
     expect((await retryingFetch(missing, [1])('https://huggingface.co/x')).status).toBe(404);
+  });
+
+  it('loads the model from the disk without the network once it is there', async () => {
+    let online = true;
+    const remote = (allowed: boolean) => {
+      online = allowed;
+    };
+    const asked: { options: Record<string, unknown>; online: boolean }[] = [];
+    const cached = async (options: Record<string, unknown>) => {
+      asked.push({ options, online });
+      return 'model';
+    };
+    expect(await loadModel(cached, { cache_dir: '/models' }, remote)).toBe('model');
+    expect(asked).toEqual([
+      { options: { cache_dir: '/models', local_files_only: true }, online: false },
+    ]);
+    expect(online).toBe(true);
+
+    // Not on the disk yet: the first recording downloads it.
+    asked.length = 0;
+    const first = async (options: Record<string, unknown>) => {
+      asked.push({ options, online });
+      if (options.local_files_only) throw new Error('file was not found locally');
+      return 'downloaded';
+    };
+    expect(await loadModel(first, { cache_dir: '/models' }, remote)).toBe('downloaded');
+    expect(asked).toEqual([
+      { options: { cache_dir: '/models', local_files_only: true }, online: false },
+      { options: { cache_dir: '/models' }, online: true },
+    ]);
   });
 });
