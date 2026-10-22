@@ -242,7 +242,9 @@ describe('a project mirrored in the workspace', () => {
     // Only what changed was looked at.
     const scoped = connector?.requests.filter((r) => r.op === 'manifest' && r.args.paths);
     expect(scoped?.at(-1)?.args.paths).toEqual(['src/app.js', 'public/logo.png']);
-    expect(s.mirror()).toMatchObject({ status: 'synced', pending: 0 });
+    // The files land before the run saves where it stands.
+    await until(() => s.mirror()?.status === 'synced', 'synced');
+    expect(s.mirror()?.pending).toBe(0);
   });
 
   it('keeps the bots working while the computer is away, and catches up when it is back', async () => {
@@ -328,11 +330,12 @@ describe('a project mirrored in the workspace', () => {
   });
 
   it('puts back files deleted all at once in the mirror instead of deleting them there', async () => {
-    const files: Record<string, string> = {};
+    const files: Record<string, string> = { 'README.md': '# Site\n' };
     for (let i = 0; i < 30; i++) files[`src/f${i}.ts`] = `export const n = ${i};\n`;
     const s = await setup({ version: '0.2.5', files });
     await rm(s.ws('src'), { recursive: true });
-    await s.synced();
+    const report = await s.synced();
+    expect(report?.restored).toBe(30);
     for (let i = 0; i < 30; i++) expect(await exists(s.theirs(`src/f${i}.ts`))).toBe(true);
     expect(await exists(s.ws('src/f7.ts'))).toBe(true);
     // A whole mirror gone is copied again, nothing deleted on their side.
@@ -425,7 +428,8 @@ describe('a project mirrored in the workspace', () => {
     await s.connect('0.2.4');
     await s.synced();
     expect(await readFile(s.theirs('logo.png'))).toEqual(png);
-    expect(s.mirror()).toMatchObject({ status: 'pending', pending: 1 });
+    await until(() => s.mirror()?.status === 'pending', 'pending on 0.2.4');
+    expect(s.mirror()?.pending).toBe(1);
     // 0.2.5: the deletion goes too.
     await s.connect('0.2.5');
     await until(() => s.mirror()?.status === 'synced', 'synced on 0.2.5');

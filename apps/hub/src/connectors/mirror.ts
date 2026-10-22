@@ -658,14 +658,15 @@ export class MirrorService implements LinkListener {
       await mkdir(root, { recursive: true });
       // From now on, what the bots write there is theirs (even before the first copy).
       await this.writeState(row, state);
-    } else if (!present && Object.keys(state.files).length > 0) {
-      // The whole mirror went (rm -rf): copied again; nothing is deleted on their side, even if
-      // the computer only comes back later.
-      state = { v: 1, files: {}, head: state.head, at: null };
-      await this.writeState(row, state);
     }
     await mkdir(root, { recursive: true });
     const mine = await this.scan(row, root);
+    if (mine.files.size === 0 && mine.skipped.size === 0 && Object.keys(state.files).length > 0) {
+      // Nothing left in the mirror (rm -rf, folder gone): copied again rather than everything
+      // deleted on their side, even if the computer only comes back later.
+      state = { v: 1, files: {}, head: state.head, at: null };
+      await this.writeState(row, state);
+    }
     // Written back only when it changed (a reconcile after each bot command often finds nothing).
     const agreed = JSON.stringify({ files: state.files, head: state.head, at: state.at });
 

@@ -150,7 +150,8 @@ par le hub dans les deux sens. Les bots y travaillent avec leurs outils habituel
 - **Garde-fous** : une écriture ou une suppression chez l'utilisateur dit ce qu'elle s'attend à
   trouver (`expect`) ; plus de la moitié du projet (et plus de 20 fichiers) supprimée d'un coup
   dans le miroir y est remise depuis l'ordinateur au lieu d'être supprimée chez lui ; un miroir
-  disparu en entier (`rm -rf`) est recopié ; un dossier déjà là à la création du miroir (une
+  vidé ou disparu (`rm -rf`) est recopié, rien n'est supprimé chez lui, même s'il ne revient en
+  ligne que plus tard ; un dossier déjà là à la création du miroir (une
   ancienne copie de `local_pull`) va à la corbeille du workspace.
 - **Taille** : au-delà de `MOWBOT_MIRROR_MAX_MB` (500 Mo) ou `MOWBOT_MIRROR_MAX_FILES` (20 000
   fichiers), pas de miroir (`too_big`, avec le message) : les bots travaillent alors directement
