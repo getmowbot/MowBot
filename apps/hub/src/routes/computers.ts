@@ -2,6 +2,8 @@ import {
   computerIdParamsSchema,
   computerListSchema,
   computerSchema,
+  computerUpdateSchema,
+  gpuListSchema,
   ticketSchema,
 } from '@mowbot/contract';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -36,6 +38,40 @@ export const computerRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async () => ({ items: await computers.list() }),
+  );
+
+  app.get(
+    '/computers/gpus',
+    {
+      preHandler: requireAuth('read'),
+      schema: {
+        tags: ['computers'],
+        operationId: 'listGpus',
+        description:
+          "The host's graphics cards PCs can get (NVIDIA, through the NVIDIA Container Toolkit). `available` false: none can be handed out.",
+        security: bearerSecurity,
+        response: { 200: gpuListSchema, ...errorResponses },
+      },
+    },
+    async () => computers.gpus(),
+  );
+
+  app.patch(
+    '/computers/:id',
+    {
+      preHandler: requireAuth('control'),
+      schema: {
+        tags: ['computers'],
+        operationId: 'updateComputer',
+        description:
+          'Changes what the PC runs (`desktop`, or `terminal`: no screen) and the graphics cards it gets. A running PC takes it once it restarts (`restartNeeded`).',
+        security: bearerSecurity,
+        params: computerIdParamsSchema,
+        body: computerUpdateSchema,
+        response: { 200: computerSchema, ...errorResponses },
+      },
+    },
+    async (request) => computers.configure(request.params.id, request.body),
   );
 
   app.get(

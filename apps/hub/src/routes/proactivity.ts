@@ -229,7 +229,7 @@ export const proactivityRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      await notifications.markRead(request.body.ids);
+      await notifications.markRead(request.body.ids, request.body.botId);
       return reply.code(204).send(null);
     },
   );

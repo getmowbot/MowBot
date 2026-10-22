@@ -75,6 +75,8 @@ export class OrgService {
     if (total >= MAX_TEAMS) {
       throw new HttpProblem(409, 'too_many_teams', `At most ${MAX_TEAMS} teams`);
     }
+    const pc = input.computer ?? {};
+    if (pc.gpus) await this.computers.checkGpus(pc.gpus);
     const team = await this.db.transaction(async (tx) => {
       const [workspace] = await tx
         .insert(workspaces)
@@ -94,6 +96,8 @@ export class OrgService {
       await tx.insert(computers).values({
         name: `PC — ${input.name}`,
         kind: 'team',
+        system: pc.system ?? 'desktop',
+        gpus: pc.gpus ?? null,
         teamId: row.id,
         workspaceId: workspace.id,
         agentTokenSealed: newAgentTokenSealed(this.masterKey),

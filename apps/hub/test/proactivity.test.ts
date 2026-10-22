@@ -362,4 +362,17 @@ describe('notifications', () => {
       .body;
     expect(list.unread).toBe(0);
   });
+
+  it("marks one bot's notifications read when the user opens its conversation", async () => {
+    const { inject, chef, services } = await start();
+    await services.notifications.create({ botId: chef.id, title: 'Du Chef', priority: 'normal' });
+    await services.notifications.create({ botId: null, title: 'Du hub', priority: 'normal' });
+    await inject('POST', '/api/v1/notifications/read', { botId: chef.id });
+    const list = (
+      await inject<{ items: Notification[]; unread: number }>('GET', '/api/v1/notifications')
+    ).body;
+    expect(list.items.find((n) => n.title === 'Du Chef')?.readAt).not.toBeNull();
+    expect(list.items.find((n) => n.title === 'Du hub')?.readAt).toBeNull();
+    expect(list.unread).toBe(1);
+  });
 });

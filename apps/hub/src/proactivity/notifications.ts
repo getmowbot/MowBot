@@ -86,11 +86,18 @@ export class NotificationService {
     this.events.publish({ type: 'notifications.cleared' });
   }
 
-  async markRead(ids?: string[]): Promise<void> {
+  /** Marks them read: these `ids`, those of `botId`, or all of them. */
+  async markRead(ids?: string[], botId?: string): Promise<void> {
     await this.db
       .update(notifications)
       .set({ readAt: new Date() })
-      .where(and(isNull(notifications.readAt), ids ? inArray(notifications.id, ids) : undefined));
+      .where(
+        and(
+          isNull(notifications.readAt),
+          ids ? inArray(notifications.id, ids) : undefined,
+          botId ? eq(notifications.botId, botId) : undefined,
+        ),
+      );
   }
 }
 

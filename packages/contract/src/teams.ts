@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { computerUpdateSchema } from './computers';
 
 export const teamSchema = z.object({
   id: z.uuid(),
@@ -25,6 +26,8 @@ export const teamCreateSchema = z.object({
   name: z.string().trim().min(1).max(60),
   mission: z.string().trim().max(4000).optional(),
   isolated: z.boolean().optional(),
+  /** What the team's PC runs (by default, the desktop, without graphics cards). */
+  computer: computerUpdateSchema.optional(),
 });
 export type TeamCreate = z.infer<typeof teamCreateSchema>;
 

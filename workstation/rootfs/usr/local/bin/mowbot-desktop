@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# A computer without its desktop (MOWBOT_DESKTOP=0) only runs a shell.
+if [ "${MOWBOT_DESKTOP:-1}" = "0" ]; then
+  exec sleep infinity
+fi
 /usr/local/bin/mowbot-wait-x
 # Never blank the screen: someone may be watching the desktop at any time.
 xset s off -dpms s noblank || true

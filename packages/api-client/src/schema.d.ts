@@ -272,6 +272,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/computers/gpus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The host's graphics cards PCs can get (NVIDIA, through the NVIDIA Container Toolkit). `available` false: none can be handed out. */
+        get: operations["listGpus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/computers/{id}": {
         parameters: {
             query?: never;
@@ -285,7 +302,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** @description Changes what the PC runs (`desktop`, or `terminal`: no screen) and the graphics cards it gets. A running PC takes it once it restarts (`restartNeeded`). */
+        patch: operations["updateComputer"];
         trace?: never;
     };
     "/api/v1/computers/{id}/start": {
@@ -913,6 +931,23 @@ export interface paths {
         put?: never;
         /** @description Answers with one of the suggested answers or your own words. The bot receives it as a message from you and picks up from there. */
         post: operations["answerQuestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/questions/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Closes the question without answering it: the bot is not told, and waits for what you write next. */
+        post: operations["dismissQuestion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2543,6 +2578,11 @@ export interface operations {
                     name: string;
                     mission?: string;
                     isolated?: boolean;
+                    computer?: {
+                        /** @enum {string} */
+                        system?: "desktop" | "terminal";
+                        gpus?: ("all" | string[]) | null;
+                    };
                 };
             };
         };
@@ -3070,6 +3110,10 @@ export interface operations {
                             name: string;
                             /** @enum {string} */
                             kind: "team" | "dedicated" | "mcp";
+                            /** @enum {string} */
+                            system: "desktop" | "terminal";
+                            gpus: ("all" | string[]) | null;
+                            restartNeeded: boolean;
                             teamId: string | null;
                             /** Format: uuid */
                             workspaceId: string;
@@ -3085,6 +3129,72 @@ export interface operations {
                             lastActivityAt: string | null;
                             /** Format: date-time */
                             createdAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    listGpus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        available: boolean;
+                        items: {
+                            id: string;
+                            index: number;
+                            name: string;
+                            memoryMb: number | null;
                         }[];
                     };
                 };
@@ -3152,6 +3262,103 @@ export interface operations {
                         name: string;
                         /** @enum {string} */
                         kind: "team" | "dedicated" | "mcp";
+                        /** @enum {string} */
+                        system: "desktop" | "terminal";
+                        gpus: ("all" | string[]) | null;
+                        restartNeeded: boolean;
+                        teamId: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                        /** @enum {string} */
+                        status: "stopped" | "starting" | "running" | "stopping" | "error";
+                        statusDetail: string | null;
+                        control: {
+                            /** Format: uuid */
+                            deviceId: string;
+                            /** Format: date-time */
+                            since: string;
+                        } | null;
+                        lastActivityAt: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    updateComputer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    system?: "desktop" | "terminal";
+                    gpus?: ("all" | string[]) | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        /** @enum {string} */
+                        kind: "team" | "dedicated" | "mcp";
+                        /** @enum {string} */
+                        system: "desktop" | "terminal";
+                        gpus: ("all" | string[]) | null;
+                        restartNeeded: boolean;
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -3233,6 +3440,10 @@ export interface operations {
                         name: string;
                         /** @enum {string} */
                         kind: "team" | "dedicated" | "mcp";
+                        /** @enum {string} */
+                        system: "desktop" | "terminal";
+                        gpus: ("all" | string[]) | null;
+                        restartNeeded: boolean;
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -3314,6 +3525,10 @@ export interface operations {
                         name: string;
                         /** @enum {string} */
                         kind: "team" | "dedicated" | "mcp";
+                        /** @enum {string} */
+                        system: "desktop" | "terminal";
+                        gpus: ("all" | string[]) | null;
+                        restartNeeded: boolean;
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -3395,6 +3610,10 @@ export interface operations {
                         name: string;
                         /** @enum {string} */
                         kind: "team" | "dedicated" | "mcp";
+                        /** @enum {string} */
+                        system: "desktop" | "terminal";
+                        gpus: ("all" | string[]) | null;
+                        restartNeeded: boolean;
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -3476,6 +3695,10 @@ export interface operations {
                         name: string;
                         /** @enum {string} */
                         kind: "team" | "dedicated" | "mcp";
+                        /** @enum {string} */
+                        system: "desktop" | "terminal";
+                        gpus: ("all" | string[]) | null;
+                        restartNeeded: boolean;
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -3557,6 +3780,10 @@ export interface operations {
                         name: string;
                         /** @enum {string} */
                         kind: "team" | "dedicated" | "mcp";
+                        /** @enum {string} */
+                        system: "desktop" | "terminal";
+                        gpus: ("all" | string[]) | null;
+                        restartNeeded: boolean;
                         teamId: string | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -8105,6 +8332,79 @@ export interface operations {
             };
         };
     };
+    dismissQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        botId: string;
+                        question: string;
+                        options: string[];
+                        /** @enum {string} */
+                        status: "open" | "answered" | "closed";
+                        answer: string | null;
+                        answeredAt: string | null;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     listVaultItems: {
         parameters: {
             query?: never;
@@ -11063,6 +11363,8 @@ export interface operations {
             content: {
                 "application/json": {
                     ids?: string[];
+                    /** Format: uuid */
+                    botId?: string;
                 };
             };
         };

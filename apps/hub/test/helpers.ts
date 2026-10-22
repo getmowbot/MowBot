@@ -5,7 +5,7 @@ import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { type Agent, createAgent } from '@mowbot/agent';
-import type { TokenResponse } from '@mowbot/contract';
+import type { GpuList, TokenResponse } from '@mowbot/contract';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app';
 import type { AgentEndpoint, ComputerRuntime, ComputerSpec } from '../src/computers/runtime';
@@ -45,9 +45,13 @@ export class FakeRuntime implements ComputerRuntime {
       running: boolean;
       workspaceId: string;
       kind: ComputerSpec['kind'];
+      system: ComputerSpec['system'];
+      gpus: ComputerSpec['gpus'];
     }
   >();
   failNextStart: Error | null = null;
+  /** The host's graphics cards, as Docker would list them. */
+  gpuList: GpuList = { available: false, items: [] };
   /** Shell commands the computers ran, in order. */
   readonly commands: string[] = [];
   /** The same, with the kind of computer each ran on. */
@@ -73,7 +77,9 @@ export class FakeRuntime implements ComputerRuntime {
     }
     const containerId = `fake-${spec.id}`;
     if (this.machines.get(containerId)?.running) return { containerId };
-    const vnc = spec.kind === 'mcp' ? null : net.createServer((socket) => socket.pipe(socket));
+    // No screen on the MCP computer, nor on a PC without its desktop.
+    const screen = spec.kind !== 'mcp' && spec.system === 'desktop';
+    const vnc = screen ? net.createServer((socket) => socket.pipe(socket)) : null;
     if (vnc) await new Promise<void>((resolve) => vnc.listen(0, '127.0.0.1', resolve));
     const agent = createAgent({
       token: spec.agentToken,
@@ -107,6 +113,8 @@ export class FakeRuntime implements ComputerRuntime {
       running: true,
       workspaceId: spec.workspaceId,
       kind: spec.kind,
+      system: spec.system,
+      gpus: spec.gpus,
     });
     return { containerId };
   }
@@ -135,6 +143,10 @@ export class FakeRuntime implements ComputerRuntime {
     const machine = this.machines.get(containerId);
     if (!machine) throw new Error('no such container');
     return { host: '127.0.0.1', port: machine.port };
+  }
+
+  async gpus(): Promise<GpuList> {
+    return this.gpuList;
   }
 
   async stopAll(): Promise<void> {
