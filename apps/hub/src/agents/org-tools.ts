@@ -9,6 +9,7 @@ import type { Db } from '../db/client';
 import { bots, computers, tasks, teams } from '../db/schema';
 import type { EventBus } from '../events';
 import { HttpProblem } from '../http/problems';
+import type { PlanService } from '../org/plans';
 import { eqName, type OrgService } from '../org/service';
 import { TASK_STATUS_LABELS, type TaskService } from '../org/tasks';
 import { parentOf, type WorkspaceFiles } from '../workspaces/files';
@@ -23,6 +24,8 @@ export interface OrgToolContext {
   runtime: BotRuntime;
   org: OrgService;
   tasks: TaskService;
+  /** The teams' plans: a task can carry a step of one. */
+  plans: PlanService;
   bots: BotService;
   files: WorkspaceFiles;
   events: EventBus;
@@ -219,25 +222,50 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
         .describe(
           "Projet de l'utilisateur où faire la tâche (il devient le projet actif du bot) : par défaut ton projet actif ; « aucun » pour une tâche hors projet",
         ),
+      step: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe(
+          "Numéro de l'étape du plan de son équipe que porte cette tâche : l'étape lui revient et suit la tâche",
+        ),
     }),
-    execute: async ({ to, title, details, project }) => {
+    execute: async ({ to, title, details, project, step }) => {
       const target = await findBot(to);
       // A task to itself wakes the bot up too: it counts against the same limits.
       await runtime.checkReach(self, target, ctx.depth, { allowSelf: true });
+      if (step !== undefined) {
+        if (!target.teamId) {
+          throw new Error(
+            `${target.name} n'est dans aucune équipe : pas de plan où relier la tâche.`,
+          );
+        }
+        if (!(await ctx.plans.keeps(target.teamId, self))) {
+          throw new Error(
+            "Seuls le lead de l'équipe et le Chef relient une tâche à son plan : confie-la sans step.",
+          );
+        }
+      }
       const where = await taskProject(project, target);
       if (where && target.projectId !== where.id) {
         await ctx.bots.update(target.id, { projectId: where.id });
       }
-      const task = await ctx.tasks.create(
-        {
-          assignee: target,
-          title,
-          details: [details, where ? `Projet : ${where.name}` : ''].filter(Boolean).join('\n\n'),
-        },
-        self,
-        ctx.depth,
-      );
-      return `Tâche créée (id ${task.id}) pour ${target.name}${where ? `, dans le projet ${where.name} (son projet actif)` : ''}.`;
+      const task = await ctx.tasks
+        .create(
+          {
+            assignee: target,
+            title,
+            details: [details, where ? `Projet : ${where.name}` : ''].filter(Boolean).join('\n\n'),
+            ...(step !== undefined && target.teamId
+              ? { step: { teamId: target.teamId, number: step } }
+              : {}),
+          },
+          self,
+          ctx.depth,
+        )
+        .catch(toolError);
+      return `Tâche créée (id ${task.id}) pour ${target.name}${where ? `, dans le projet ${where.name} (son projet actif)` : ''}${step !== undefined ? `, elle porte l'étape ${step} du plan` : ''}.`;
     },
   });
 
@@ -427,7 +455,7 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
   if (self.isChef || (await isLead())) {
     tools.clear_conversations = tool({
       description:
-        "Vide les conversations des bots d'une équipe (ou de quelques bots) pour repartir de zéro, par exemple avant de passer à un autre projet : ils s'arrêtent et oublient leurs échanges, leurs fichiers et leurs tâches restent. Ta propre conversation n'est pas touchée. Le Chef : tous les bots ; un lead : ceux de son équipe. Dis à l'utilisateur ce que tu as vidé.",
+        "Vide les conversations des bots d'une équipe (ou de quelques bots) pour repartir de zéro, par exemple avant de passer à un autre projet : ils s'arrêtent et oublient leurs échanges, leurs fichiers et leurs tâches restent. Toute l'équipe : son plan part aussi (écris le nouveau ensuite). Ta propre conversation n'est pas touchée. Le Chef : tous les bots ; un lead : ceux de son équipe. Dis à l'utilisateur ce que tu as vidé.",
       inputSchema: z.object({
         team: z.string().optional().describe("Nom de l'équipe dont vider toutes les conversations"),
         bots: z.array(z.string()).max(30).optional().describe('Ou seulement ces bots (noms)'),
@@ -439,10 +467,12 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
         if (team) {
           const found = await findTeam(team);
           if (!allowed(found.id)) throw new Error(`Tu ne peux vider que ton équipe.`);
+          const planned = Boolean(await ctx.plans.get(found.id));
           const cleared = await runtime.clearTeam(found.id, self.id);
+          const plan = planned ? ' Son plan est effacé : écris le nouveau avec plan_set.' : '';
           return cleared.length
-            ? `Conversations vidées : ${cleared.join(', ')}.`
-            : `Aucun autre bot dans l'équipe ${found.name}.`;
+            ? `Conversations vidées : ${cleared.join(', ')}.${plan}`
+            : `Aucun autre bot dans l'équipe ${found.name}.${plan}`;
         }
         if (!names?.length) throw new Error('Donne team ou bots.');
         const cleared: string[] = [];

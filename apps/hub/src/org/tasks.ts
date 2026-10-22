@@ -5,6 +5,7 @@ import { bots, settings, tasks } from '../db/schema';
 import type { EventBus } from '../events';
 import { HttpProblem, notFound } from '../http/problems';
 import { HUB_TEXTS, ownerLocale } from '../i18n';
+import type { PlanService } from './plans';
 
 type TaskRow = typeof tasks.$inferSelect;
 type BotRow = typeof bots.$inferSelect;
@@ -54,6 +55,8 @@ export class TaskService {
     private readonly db: Db,
     private readonly events: EventBus,
     private readonly notify: TaskNotifier,
+    /** The teams' plans: a task can carry a step, which then follows it. */
+    private readonly plans?: PlanService,
   ) {}
 
   async list(filter: { botId?: string; status?: TaskStatus } = {}): Promise<Task[]> {
@@ -75,12 +78,22 @@ export class TaskService {
     return row;
   }
 
-  /** `creator` null: the user. */
+  /**
+   * `creator` null: the user. `step`: the step of a team's plan the task carries (it goes to
+   * the assignee and follows the task), checked before the task is made.
+   */
   async create(
-    input: { assignee: BotRow; title: string; details?: string | null },
+    input: {
+      assignee: BotRow;
+      title: string;
+      details?: string | null;
+      step?: { teamId: string; number: number };
+    },
     creator: BotRow | null,
     depth = 0,
   ): Promise<Task> {
+    const { step } = input;
+    if (step) await this.plans?.step(step.teamId, step.number);
     const [row] = await this.db
       .insert(tasks)
       .values({
@@ -92,6 +105,8 @@ export class TaskService {
       .returning();
     if (!row) throw new Error('Task insert returned no row');
     this.events.publish({ type: 'task.updated', task: toTask(row) });
+    // Before the assignee wakes up: it reads the step as its own.
+    if (step) await this.plans?.attach(step.teamId, step.number, row);
     await this.notify({
       to: input.assignee,
       from: creator,
@@ -141,6 +156,7 @@ export class TaskService {
     this.events.publish({ type: 'task.updated', task: toTask(row) });
 
     if (input.status && input.status !== before.status) {
+      await this.plans?.followTask(row);
       // Whoever did not make the change hears about it: the creator when the assignee reports,
       // the assignee when someone else (the creator, the Chef, the user) moves its task.
       const otherId = actor?.id === row.assigneeBotId ? row.creatorBotId : row.assigneeBotId;

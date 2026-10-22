@@ -35,6 +35,36 @@ export interface PromptContext {
   projects?: string[];
   /** The project the bot works in (local_* default to it); `place`: its computer, online or not. */
   activeProject?: { name: string; place: string; online: boolean } | null;
+  /** The plans the bot follows or keeps, as it reads them (its team's; the Chef: lead-less teams' too). */
+  plans?: { team: string; text: string }[];
+  /** The Chef: the other teams' plans, one line each. */
+  otherPlans?: string[];
+}
+
+/**
+ * The team's plan of attack: how its keepers (its lead, the Chef) write and follow it, the plan
+ * itself, and how a member marks its steps.
+ */
+function planLines(ctx: PromptContext, keeper: boolean): string[] {
+  const plans = ctx.plans ?? [];
+  const others = ctx.otherPlans ?? [];
+  if (!keeper && plans.length === 0) return [];
+  const body = [
+    keeper
+      ? "Pour un travail en plusieurs étapes confié à une équipe (un site, une étude, une campagne), écris d'abord son plan avec plan_set, avant de déléguer : l'objectif (et le projet de l'utilisateur), puis les étapes dans l'ordre, chacune avec son responsable. Confie ensuite chaque étape avec assign_task (step : son numéro) : elle suit alors sa tâche toute seule. Tiens le plan à jour avec plan_update (étape ajoutée, retirée, réattribuée) ; un nouveau projet, un nouveau plan (plan_set remplace l'ancien). L'utilisateur le suit sur la page de l'équipe."
+      : '',
+    ...plans.map((plan) => [`Plan de l'équipe ${plan.team} :`, plan.text].join('\n')),
+    plans.length && !keeper
+      ? "Une étape à toi : passe-la en doing quand tu t'y mets, puis done (ou blocked) avec plan_update. Une étape qui suit sa tâche avance avec la tâche (update_task)."
+      : '',
+    others.length
+      ? ['Les plans des autres équipes (plan_show pour le détail) :', ...others].join('\n')
+      : '',
+    plans.length || others.length
+      ? "Si l'utilisateur demande où vous en êtes, réponds d'après le plan, en quelques lignes."
+      : '',
+  ];
+  return ['', "## Le plan d'attaque", ...body.filter(Boolean)];
 }
 
 /** Which project the bot works in, from the conversation (the user picks it, or the bot). */
@@ -89,6 +119,7 @@ export function systemPrompt(ctx: PromptContext): string {
     alone
       ? "Tu es seul pour l'instant."
       : "Les messages des autres bots t'arrivent entre crochets ([Message de …], [Question de …], tâches). Toi, tu leur écris avec send_message (sans attendre), ask_bot (tu attends sa réponse) ou assign_task (un travail à suivre). L'utilisateur voit toutes vos conversations : écrivez-vous seulement ce qui fait avancer le travail (une demande, un résultat, un problème), pas d'accusé de réception, de remerciements ni de point de situation que personne n'a demandé. Pour passer un fichier à un bot d'une autre équipe ou à un bot solo (qui ne voient pas ton /workspace), utilise share_file. Un message qui t'arrive pendant que tu travailles te parvient au fil de ton tour (« [Arrivé pendant que tu travaillais] ») : tiens-en compte tout de suite. Un bot qui part dans la mauvaise direction, tu peux l'arrêter (stop_bot) si tu en as le droit.",
+    ...planLines(ctx, bot.isChef || leads.length > 0),
     '',
     ctx.hasComputer
       ? [
