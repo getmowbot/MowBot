@@ -1,10 +1,12 @@
 //! What the hub asks the connector to do in a project (docs/DESKTOP.md): list, read, write, edit,
-//! find, search, exec, and for a copy on a bot's PC manifest, read_files, branch. Every error is a
-//! readable French sentence for the bot.
+//! find, search, exec, and for the mirror in a bot workspace manifest, read_files, put, delete
+//! (branch stays for hubs from before the mirror). Every error is a readable French sentence for
+//! the bot.
 
 mod exec;
 mod files;
 mod git;
+pub mod mirror;
 pub mod paths;
 mod sync;
 mod walk;
@@ -19,7 +21,7 @@ pub async fn run(op: &str, project_path: &str, args: Value) -> Result<Value, Str
     match op {
         "exec" => exec::exec(&root, &args).await,
         "list" | "read" | "write" | "edit" | "find" | "search" | "manifest" | "read_files"
-        | "branch" => {
+        | "put" | "delete" | "branch" => {
             let op = op.to_string();
             tokio::task::spawn_blocking(move || match op.as_str() {
                 "list" => files::list(&root, &args),
@@ -29,6 +31,8 @@ pub async fn run(op: &str, project_path: &str, args: Value) -> Result<Value, Str
                 "find" => walk::find(&root, &args),
                 "manifest" => sync::manifest(&root, &args),
                 "read_files" => sync::read_files(&root, &args),
+                "put" => mirror::put(&root, &args),
+                "delete" => mirror::delete(&root, &args),
                 "branch" => git::branch(&root, &args),
                 _ => walk::search(&root, &args),
             })
@@ -114,9 +118,21 @@ mod tests {
             run("branch", root, json!({})).await.unwrap_err(),
             "Paramètre manquant : name"
         );
+        let put = run(
+            "put",
+            root,
+            json!({ "files": [{ "path": "c.txt", "data": "eQ==" }] }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(put["results"][0]["ok"], true);
+        assert!(run("delete", root, json!({}))
+            .await
+            .unwrap_err()
+            .starts_with("Paramètre manquant : files"));
         assert_eq!(
-            run("delete", root, json!({})).await.unwrap_err(),
-            "Opération inconnue : delete"
+            run("nope", root, json!({})).await.unwrap_err(),
+            "Opération inconnue : nope"
         );
         let missing = dir.path().join("missing");
         assert!(run("list", missing.to_str().unwrap(), json!({}))

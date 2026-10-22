@@ -84,16 +84,68 @@ fn literal_prefix(pattern: &str) -> String {
 pub(super) fn walk_files(
     root: &Path,
     start: &Path,
+    visit: impl FnMut(&Path, String) -> bool,
+) -> bool {
+    walk_files_with(root, start, &WalkRules::default(), visit)
+}
+
+/// Which ignore rules a walk follows besides skipping `.git`.
+#[derive(Default, Clone)]
+pub(super) struct WalkRules {
+    /// Only the project's own `.gitignore` files (no global excludes, `.git/info/exclude`,
+    /// `.ignore` or parent folders' rules): what the hub applies on its side of a mirror.
+    pub project_only: bool,
+    /// File and folder names skipped at any depth (`node_modules`…).
+    pub exclude: Vec<String>,
+    /// Only these project-relative paths (files, or folders and what they hold); `None`: all.
+    pub only: Option<Vec<String>>,
+}
+
+impl WalkRules {
+    /// Whether a project-relative path is on the way to (or inside) one of `only`.
+    fn wanted(&self, rel: &str, is_dir: bool) -> bool {
+        let Some(only) = &self.only else {
+            return true;
+        };
+        only.iter().any(|scope| {
+            scope.is_empty()
+                || rel == scope
+                || rel.starts_with(&format!("{scope}/"))
+                || (is_dir && scope.starts_with(&format!("{rel}/")))
+        })
+    }
+}
+
+/// Like [`walk_files`], with these rules.
+pub(super) fn walk_files_with(
+    root: &Path,
+    start: &Path,
+    rules: &WalkRules,
     mut visit: impl FnMut(&Path, String) -> bool,
 ) -> bool {
+    let project_only = rules.project_only;
+    let filter = rules.clone();
+    let base = root.to_path_buf();
     let walker = WalkBuilder::new(start)
         .hidden(false)
         .git_ignore(true)
-        .git_exclude(true)
-        .git_global(true)
+        .git_exclude(!project_only)
+        .git_global(!project_only)
+        .ignore(!project_only)
+        .parents(!project_only)
         .require_git(false)
         .follow_links(false)
-        .filter_entry(|entry| entry.file_name() != ".git")
+        .filter_entry(move |entry| {
+            let name = entry.file_name();
+            if name == ".git" || filter.exclude.iter().any(|skip| name == skip.as_str()) {
+                return false;
+            }
+            if entry.depth() == 0 {
+                return true;
+            }
+            let is_dir = entry.file_type().is_some_and(|t| t.is_dir());
+            filter.wanted(&relative(&base, entry.path()), is_dir)
+        })
         .sort_by_file_name(|a, b| a.cmp(b))
         .build();
     for (visited, entry) in walker.enumerate() {
@@ -106,6 +158,9 @@ pub(super) fn walk_files(
             continue;
         }
         let rel = relative(root, entry.path());
+        if !rules.wanted(&rel, false) {
+            continue;
+        }
         if !visit(entry.path(), rel) {
             return true;
         }

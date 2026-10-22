@@ -22,10 +22,11 @@ import { Button, IconButton } from '../../../components/ui/button';
 import { ListRow, ROW_INSET, SwitchRow } from '../../../components/ui/rows';
 import { T } from '../../../components/ui/text';
 import { liveScope, type ScopeNames, sameScope, scopeProblem } from '../../../lib/mcp';
-import { alertError } from '../../../lib/options-menu';
+import { alertError, confirm } from '../../../lib/options-menu';
 import {
   computerSummary,
   connectorName,
+  mirrorText,
   modeBody,
   nameProblem,
   renameBody,
@@ -33,6 +34,7 @@ import {
 import {
   projectError,
   useConnectors,
+  useDismissConflicts,
   useProject,
   useUpdateProject,
 } from '../../../lib/projects-queries';
@@ -139,6 +141,112 @@ function Mode({ project }: { project: Project }) {
   );
 }
 
+/**
+ * The copy in the bots' workspaces: on or off, how each one stands, and the files both sides
+ * changed (dismissed to the trash).
+ */
+function Mirror({
+  project,
+  bots,
+  teams,
+}: {
+  project: Project;
+  bots: Bot[] | undefined;
+  teams: Team[] | undefined;
+}) {
+  const { t } = useTranslation();
+  const toggle = useUpdateProject();
+  const dismiss = useDismissConflicts();
+  const pending = toggle.isPending ? toggle.variables?.body.mirror : undefined;
+  const on = pending ?? project.mirror;
+  const owner = (workspaceId: string) =>
+    teams?.find((team) => team.workspaceId === workspaceId)?.name ??
+    bots?.find((bot) => bot.workspaceId === workspaceId)?.name ??
+    '…';
+
+  const setMirror = async (mirror: boolean) => {
+    if (
+      !mirror &&
+      project.mirrors.length > 0 &&
+      !(await confirm(t('projects.mirror.offTitle'), t('projects.mirror.offConfirm'), {
+        label: t('projects.mirror.offAction'),
+        destructive: true,
+      }))
+    ) {
+      return;
+    }
+    toggle.mutate(
+      { id: project.id, body: { mirror } },
+      { onError: (err) => alertError(projectError(err, t('projects.mirror.notSaved'))) },
+    );
+  };
+  const drop = (workspaceId: string, path?: string) =>
+    dismiss.mutate(
+      { id: project.id, workspaceId, path },
+      { onError: (err) => alertError(projectError(err, t('projects.conflicts.notDismissed'))) },
+    );
+
+  return (
+    <Section title={t('projects.mirror.title')}>
+      <ListCard inset={ROW_INSET}>
+        <SwitchRow
+          label={t('projects.mirror.label')}
+          hint={on ? t('projects.mirror.on') : t('projects.mirror.off')}
+          value={on}
+          onChange={(value) => void setMirror(value)}
+          disabled={toggle.isPending}
+        />
+        {project.mirrors.map((mirror) => (
+          <ListRow
+            key={mirror.workspaceId}
+            label={t('projects.mirror.of', { who: owner(mirror.workspaceId) })}
+            hint={`/workspace/${mirror.folder}\n${mirrorText(mirror, project.online, t)}${
+              mirror.error && mirror.status !== 'synced' ? `\n${mirror.error}` : ''
+            }`}
+          />
+        ))}
+      </ListCard>
+      {project.mirror && project.mirrors.length === 0 ? (
+        <Caption>{t('projects.mirror.none')}</Caption>
+      ) : null}
+      {project.mirrors
+        .filter((mirror) => mirror.conflicts.length > 0)
+        .map((mirror) => (
+          <View key={`conflicts-${mirror.workspaceId}`} style={styles.conflicts}>
+            <T variant="footnote" tone="muted">
+              {`${t('projects.conflicts.title')} · ${t('projects.mirror.conflicts', {
+                count: mirror.conflicts.length,
+              })}`}
+            </T>
+            <Note>{t('projects.conflicts.intro')}</Note>
+            <ListCard inset={ROW_INSET}>
+              {mirror.conflicts.map((conflict) => (
+                <ListRow
+                  key={`${conflict.path}-${conflict.at}`}
+                  label={conflict.path}
+                  hint={t('projects.conflicts.copy', { path: conflict.copy })}
+                  disabled={dismiss.isPending}
+                  onPress={() =>
+                    void confirm(t('projects.conflicts.dismiss'), conflict.path, {
+                      label: t('projects.conflicts.dismiss'),
+                    }).then((ok) => ok && drop(mirror.workspaceId, conflict.path))
+                  }
+                />
+              ))}
+            </ListCard>
+            <Caption>{t('projects.conflicts.dismissHint')}</Caption>
+            <Button
+              label={t('projects.conflicts.dismissAll')}
+              variant="secondary"
+              onPress={() => drop(mirror.workspaceId)}
+              loading={dismiss.isPending}
+            />
+          </View>
+        ))}
+    </Section>
+  );
+}
+
 /** All bots, some teams or some bots, saved with its own button. */
 function Scope({
   project,
@@ -224,6 +332,7 @@ function ProjectDetail({
         renaming={renaming}
       />
       <Mode project={project} />
+      <Mirror project={project} bots={bots} teams={teams} />
       <Scope project={project} bots={bots} teams={teams} />
       <Caption>
         {t('projects.info.unshareNote', {
@@ -283,4 +392,5 @@ export default function ProjectScreen() {
 
 const styles = StyleSheet.create({
   pathRow: { paddingHorizontal: ROW_INSET, paddingVertical: 12, gap: 2 },
+  conflicts: { gap: 8, marginTop: 12 },
 });

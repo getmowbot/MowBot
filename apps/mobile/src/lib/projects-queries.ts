@@ -10,6 +10,9 @@ export function projectError(error: unknown, fallback: string): string {
   const code = problemCode(error);
   if (code === 'validation_failed' || code === 'rate_limited') return i18n.t(`errors.${code}`);
   if (code === 'not_found') return i18n.t('projects.problems.not_found');
+  if (code === 'connector_offline' || code === 'app_update_needed') {
+    return i18n.t(`projects.problems.${code}`);
+  }
   return fallback;
 }
 
@@ -74,6 +77,43 @@ export function useSetBotProject(botId: string) {
       client.setQueryData<Bot[]>(keys.bots, (list) =>
         list?.map((other) => (other.id === bot.id ? bot : other)),
       ),
+  });
+}
+
+/**
+ * Asks a computer's desktop app to open its folder picker: the folder picked there becomes the
+ * bot's active project (null: cancelled). Waits up to 5 minutes for the user at that computer.
+ */
+export function usePickOnComputer(botId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (connectorId: string) =>
+      (
+        await data(
+          api().POST('/api/v1/connectors/{id}/pick', {
+            params: { path: { id: connectorId } },
+            body: { botId },
+          }),
+        )
+      ).project,
+    onSuccess: (project) => {
+      if (project) putProject(client, project);
+    },
+  });
+}
+
+/** Dismisses a mirror's conflicts (or one file's); the bots' copies go to the trash. */
+export function useDismissConflicts() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, workspaceId, path }: { id: string; workspaceId: string; path?: string }) =>
+      data(
+        api().POST('/api/v1/projects/{id}/conflicts/dismiss', {
+          params: { path: { id } },
+          body: { workspaceId, ...(path ? { path } : {}) },
+        }),
+      ),
+    onSuccess: (project) => putProject(client, project),
   });
 }
 

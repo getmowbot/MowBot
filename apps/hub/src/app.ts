@@ -181,11 +181,15 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
   services.previews.setLogger(app.log);
   services.vault.watchTakeovers();
   services.runtime.watchTakeovers();
+  services.mirrors.setLogger(app.log);
+  await services.mirrors.start();
   app.addHook('onClose', async () => {
     services.scheduler.stop();
     services.automations.stop();
+    services.mirrors.stop();
     await services.mcp.close();
     services.connectors.close();
+    await services.mirrors.idle();
     services.vault.close();
     await services.previews.close();
     await services.runtime.close();

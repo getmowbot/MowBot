@@ -61,6 +61,8 @@ export const en: Catalog = {
     mcp_oauth_state: 'Unknown or expired sign-in: start again from the app.',
     mcp_oauth_failed: 'The server refused the sign-in.',
     project_not_allowed: 'This bot has no access to that project.',
+    connector_offline: 'This computer is not connected: open the MowBot desktop app on it.',
+    app_update_needed: 'The desktop app of this computer needs an update for that.',
   },
   time: {
     justNow: 'just now',
@@ -225,6 +227,18 @@ export const en: Catalog = {
         '{{computer}} is offline: the bot cannot reach the project until the desktop app is open there.',
       manage: 'Manage projects',
       failed: 'The project could not be changed.',
+      add: 'Add a folder…',
+      addTitle: 'Add a folder',
+      addFailed: 'The folder could not be added.',
+      addFromDesktop:
+        'A folder is added from the MowBot desktop app, on the computer it is on: it then becomes {{name}}’s project.',
+      pickOn: 'Choose on {{computer}}',
+      picking: 'Pick the folder in the window open on {{computer}}…',
+      pickCancelled: 'No folder picked.',
+      updateApp: '{{computer}}: update the desktop app to pick a folder from here.',
+      noComputer:
+        'No linked computer is online. Open the MowBot desktop app on your computer, or install it from the Projects page.',
+      mirror: 'Mirror: /workspace/{{folder}}',
     },
     model: {
       current: 'Current model',
@@ -1079,6 +1093,37 @@ export const en: Catalog = {
     neverSeen: 'never connected',
     unlink: 'Unlink',
     unlinkConfirm: 'Unlink “{{name}}”? Its projects will no longer be reachable by bots.',
+    mirror: {
+      title: 'Mirror in the workspaces',
+      on: 'Bots work on a copy in their workspace, synced both ways, even while this computer is off.',
+      off: 'Bots work in this folder directly, only while this computer is online.',
+      offConfirm:
+        'Stop mirroring “{{name}}”? The bots’ copies go to their workspace’s trash, with whatever has not reached your computer yet.',
+      none: 'No copy yet: it is made when a bot works in this project.',
+      synced: 'In sync',
+      syncedOffline: 'In sync (computer offline)',
+      syncing: 'Syncing…',
+      waiting: 'First copy as soon as the computer is online',
+      pending_one: '{{count}} change waiting for the computer',
+      pending_other: '{{count}} changes waiting for the computer',
+      tooBig: 'Too big for a mirror',
+      error: 'Sync error',
+      conflicts_one: '{{count}} conflict',
+      conflicts_other: '{{count}} conflicts',
+      see: 'See',
+      of: 'Copy of {{who}}',
+    },
+    conflicts: {
+      title: 'Conflicts in “{{name}}”',
+      intro:
+        'You and the bots changed these files at the same time. Your version is kept, on your computer and in the mirror; the bots’ version is set aside in their workspace.',
+      theirs: 'Bots’ version',
+      yours: 'Your version',
+      dismiss: 'Dismiss',
+      dismissAll: 'Dismiss all',
+      dismissHint: 'Dismissed, the bots’ version goes to the workspace’s trash.',
+      none: 'No conflicts.',
+    },
   },
   mcp: {
     subtitle:

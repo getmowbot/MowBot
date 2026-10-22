@@ -43,6 +43,52 @@ export type ProjectMode = z.infer<typeof projectModeSchema>;
 export const projectScopeSchema = mcpScopeSchema;
 export type ProjectScope = z.infer<typeof projectScopeSchema>;
 
+/**
+ * Where a mirror stands: `waiting` (no first copy yet, the computer is offline), `syncing`,
+ * `synced`, `pending` (changes not yet on the computer: offline, or an update of the app needed),
+ * `too_big` (over the size limit: nothing copied), `error`.
+ */
+export const mirrorStatusSchema = z.enum([
+  'waiting',
+  'syncing',
+  'synced',
+  'pending',
+  'too_big',
+  'error',
+]);
+export type MirrorStatus = z.infer<typeof mirrorStatusSchema>;
+
+/**
+ * A file both sides changed since they last agreed: the user's version stayed in place, the bots'
+ * version was kept in their workspace (`copy`).
+ */
+export const mirrorConflictSchema = z.object({
+  /** In the project. */
+  path: z.string(),
+  /** Workspace path of the bots' version. */
+  copy: z.string(),
+  at: z.iso.datetime(),
+});
+export type MirrorConflict = z.infer<typeof mirrorConflictSchema>;
+
+/**
+ * The copy of a project in a workspace (a team's, or a solo bot's), kept in sync both ways with
+ * the user's folder: the bots work there with their usual tools.
+ */
+export const projectMirrorSchema = z.object({
+  workspaceId: z.uuid(),
+  /** Workspace path: `projects/<name>`. */
+  folder: z.string(),
+  status: mirrorStatusSchema,
+  /** Changes made in the mirror that have not reached the computer yet. */
+  pending: z.number().int(),
+  conflicts: z.array(mirrorConflictSchema),
+  /** Why it is `too_big`, `error`, or `pending` for another reason than being offline. */
+  error: z.string().nullable(),
+  syncedAt: z.iso.datetime().nullable(),
+});
+export type ProjectMirror = z.infer<typeof projectMirrorSchema>;
+
 /** A folder the user shared from their computer, through its desktop app. */
 export const projectSchema = z.object({
   id: z.uuid(),
@@ -56,6 +102,13 @@ export const projectSchema = z.object({
   scope: projectScopeSchema,
   /** Its computer's app is connected: bots can reach it now. */
   online: z.boolean(),
+  /**
+   * Mirrored in the workspaces of the bots that work in it (on by default). Off: bots work in
+   * the folder directly, only while the computer is online.
+   */
+  mirror: z.boolean(),
+  /** One per workspace where bots work in it. */
+  mirrors: z.array(projectMirrorSchema),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -66,8 +119,27 @@ export const projectUpdateSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   mode: projectModeSchema.optional(),
   scope: projectScopeSchema.optional(),
+  mirror: z.boolean().optional(),
 });
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
 
 export const projectListSchema = z.object({ items: z.array(projectSchema) });
 export const projectIdParamsSchema = z.object({ id: z.uuid() });
+
+/** Dismisses conflicts of a mirror (all of them without `path`); the bots' copies go to the trash. */
+export const mirrorConflictsDismissSchema = z.object({
+  workspaceId: z.uuid(),
+  path: z.string().optional(),
+});
+export type MirrorConflictsDismiss = z.infer<typeof mirrorConflictsDismissSchema>;
+
+/** Asks a computer's desktop app to open its folder picker; the folder picked becomes a project. */
+export const connectorPickSchema = z.object({
+  /** It becomes this bot's active project. */
+  botId: z.uuid().optional(),
+});
+export type ConnectorPick = z.infer<typeof connectorPickSchema>;
+
+/** The project picked, or null when the user cancelled. */
+export const connectorPickedSchema = z.object({ project: projectSchema.nullable() });
+export type ConnectorPicked = z.infer<typeof connectorPickedSchema>;

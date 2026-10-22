@@ -1,8 +1,12 @@
-//! `manifest` and `read_files`: what the hub needs to copy a project on a bot's PC (docs/DESKTOP.md).
+//! `manifest` and `read_files`: what the hub needs to mirror a project in a bot's workspace
+//! (docs/DESKTOP.md).
 
+use std::collections::HashMap;
 use std::fs;
 use std::io::{ErrorKind, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, SystemTime};
 
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
@@ -11,12 +15,58 @@ use sha2::{Digest, Sha256};
 
 use super::files::existing_file;
 use super::git;
-use super::paths::{io_error, resolve, shown};
-use super::walk::walk_files;
+use super::paths::{components, io_error, resolve, shown};
+use super::walk::{walk_files_with, WalkRules};
 use super::{opt_str, str_list};
 
+/// Hashes already computed, by file: reused while its size and modification time stay the same.
+/// A file modified less than [`RACY`] before it was hashed is not kept (it could change again
+/// within the same timestamp).
+static HASHES: OnceLock<Mutex<HashCache>> = OnceLock::new();
+/// Path → (size, modification time, hash).
+type HashCache = HashMap<PathBuf, (u64, SystemTime, String)>;
+const HASHES_MAX: usize = 200_000;
+const RACY: Duration = Duration::from_secs(2);
+
+fn cached_hash(path: &Path, size: u64, modified: Option<SystemTime>) -> Option<String> {
+    let modified = modified?;
+    let cache = HASHES.get_or_init(Default::default).lock().ok()?;
+    let (len, at, hash) = cache.get(path)?;
+    (*len == size && *at == modified).then(|| hash.clone())
+}
+
+fn remember_hash(path: &Path, size: u64, modified: Option<SystemTime>, hash: &str) {
+    let Some(modified) = modified else { return };
+    let settled = SystemTime::now()
+        .duration_since(modified)
+        .is_ok_and(|age| age > RACY);
+    if !settled {
+        return;
+    }
+    if let Ok(mut cache) = HASHES.get_or_init(Default::default).lock() {
+        if cache.len() >= HASHES_MAX {
+            cache.clear();
+        }
+        cache.insert(path.to_path_buf(), (size, modified, hash.to_string()));
+    }
+}
+
+/// Whether the file can be run (Unix permissions); never on Windows.
+fn executable(meta: &fs::Metadata) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        meta.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = meta;
+        false
+    }
+}
+
 /// Files bigger than this are left out of a manifest (`truncated`).
-const MANIFEST_MAX_FILE: u64 = 20 * 1024 * 1024;
+pub(super) const MANIFEST_MAX_FILE: u64 = 20 * 1024 * 1024;
 /// Files a manifest lists at most (`truncated` beyond).
 const MANIFEST_MAX_FILES: usize = 50_000;
 /// Paths one `read_files` asks for at most.
@@ -46,38 +96,104 @@ fn manifest_within(
     if !meta.is_dir() {
         return Err(format!("Ce n'est pas un dossier : {}", shown(rel)));
     }
+    // A mirror's rules: the project's .gitignore files only, names always skipped, and maybe
+    // only some paths (what changed).
+    let only = str_list(args, "paths")?
+        .map(|paths| {
+            paths
+                .into_iter()
+                .map(|p| components(p).map(|parts| parts.join("/")))
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()?;
+    let rules = WalkRules {
+        project_only: opt_str(args, "rules") == Some("project"),
+        exclude: str_list(args, "exclude")?
+            .unwrap_or_default()
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+        only: only.clone(),
+    };
 
     let mut files: Vec<Value> = Vec::new();
+    let mut skipped: Vec<String> = Vec::new();
     let mut truncated = false;
     let mut buffer = vec![0u8; 64 * 1024];
-    let stopped = walk_files(root, &start, |path, rel| {
+    let stopped = walk_files_with(root, &start, &rules, |path, rel| {
         if files.len() == max_files {
             truncated = true;
             return false;
         }
         match hash_file(path, max_file, &mut buffer) {
-            Ok(Some((size, hash))) => {
-                files.push(json!({ "path": rel, "size": size, "hash": hash }));
+            Ok(Some(found)) => {
+                let mut entry = json!({ "path": rel, "size": found.size, "hash": found.hash });
+                if found.executable {
+                    entry["exec"] = json!(true);
+                }
+                files.push(entry);
             }
             // Gone since the walk saw it: nothing to copy.
             Err(error) if error.kind() == ErrorKind::NotFound => {}
-            // Too big, or unreadable (locked by another program…): left out.
-            _ => truncated = true,
+            // Too big, or unreadable (locked by another program…): left out, and said.
+            _ => {
+                truncated = true;
+                skipped.push(rel);
+            }
         }
         true
     });
     Ok(json!({
         "files": files,
-        "head": git::head(root),
+        "skipped": skipped,
+        // Asked about some paths only (what changed): the commit is not looked up.
+        "head": if only.is_some() { Value::Null } else { json!(git::head(root)) },
         "truncated": truncated || stopped,
+        // Every file was seen: one that is neither listed nor skipped is not there.
+        "complete": !stopped,
     }))
 }
 
+struct Hashed {
+    size: u64,
+    hash: String,
+    executable: bool,
+}
+
 /// The size and SHA-256 (hexadecimal) of a file, `None` when it is bigger than `max`.
-fn hash_file(path: &Path, max: u64, buffer: &mut [u8]) -> std::io::Result<Option<(u64, String)>> {
-    if fs::metadata(path)?.len() > max {
+fn hash_file(path: &Path, max: u64, buffer: &mut [u8]) -> std::io::Result<Option<Hashed>> {
+    let meta = fs::metadata(path)?;
+    if meta.len() > max {
         return Ok(None);
     }
+    let modified = meta.modified().ok();
+    let exec = executable(&meta);
+    if let Some(hash) = cached_hash(path, meta.len(), modified) {
+        return Ok(Some(Hashed {
+            size: meta.len(),
+            hash,
+            executable: exec,
+        }));
+    }
+    let Some((size, hash)) = hash_contents(path, max, buffer)? else {
+        return Ok(None);
+    };
+    if size == meta.len() {
+        remember_hash(path, size, modified, &hash);
+    }
+    Ok(Some(Hashed {
+        size,
+        hash,
+        executable: exec,
+    }))
+}
+
+/// The SHA-256 of a file's contents (hexadecimal), `None` when it is bigger than `max`.
+pub(super) fn hash_contents(
+    path: &Path,
+    max: u64,
+    buffer: &mut [u8],
+) -> std::io::Result<Option<(u64, String)>> {
     let mut file = fs::File::open(path)?.take(max + 1);
     let mut hasher = Sha256::new();
     let mut size: u64 = 0;
@@ -231,6 +347,70 @@ mod tests {
         assert!(manifest(&root, &json!({ "path": "README.md" }))
             .unwrap_err()
             .starts_with("Ce n'est pas un dossier"));
+    }
+
+    #[test]
+    fn manifest_for_a_mirror_follows_its_rules() {
+        let (_dir, root) = project();
+        fs::create_dir_all(root.join("node_modules/lib")).unwrap();
+        fs::write(root.join("node_modules/lib/index.js"), "x").unwrap();
+        fs::write(root.join(".ignore"), "README.md\n").unwrap();
+        let mirror = json!({ "rules": "project", "exclude": ["node_modules"] });
+        let data = manifest(&root, &mirror).unwrap();
+        // `.ignore` is not git's: only .gitignore files count for a mirror.
+        assert_eq!(
+            listed(&data),
+            [
+                ".gitignore",
+                ".ignore",
+                "README.md",
+                "src/app/view.ts",
+                "src/main.ts"
+            ]
+        );
+        assert_eq!(data["complete"], true);
+        assert_eq!(data["skipped"], json!([]));
+        // Without the mirror's rules, .ignore applies.
+        assert!(!listed(&manifest(&root, &json!({})).unwrap()).contains(&"README.md"));
+
+        // Only what changed: files, folders, and paths that are gone.
+        let scoped = json!({
+            "rules": "project",
+            "exclude": ["node_modules"],
+            "paths": ["src/app", "README.md", "gone.txt", "node_modules/lib"],
+        });
+        let data = manifest(&root, &scoped).unwrap();
+        assert_eq!(listed(&data), ["README.md", "src/app/view.ts"]);
+        assert!(data["head"].is_null());
+        assert!(manifest(&root, &json!({ "paths": ["../x"] })).is_err());
+
+        // A file too big is said, not just left out.
+        let big = fs::File::create(root.join("big.bin")).unwrap();
+        big.set_len(MANIFEST_MAX_FILE + 1).unwrap();
+        drop(big);
+        let data = manifest(&root, &mirror).unwrap();
+        assert_eq!(data["skipped"], json!(["big.bin"]));
+        assert_eq!(data["complete"], true);
+        assert_eq!(data["truncated"], true);
+    }
+
+    #[test]
+    fn manifest_hashes_again_a_file_that_changed() {
+        let (_dir, root) = project();
+        let hash_of = |data: &Value| {
+            data["files"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f["path"] == "src/main.ts")
+                .unwrap()["hash"]
+                .clone()
+        };
+        let first = hash_of(&manifest(&root, &json!({})).unwrap());
+        assert_eq!(first, HELLO_SHA256);
+        fs::write(root.join("src/main.ts"), "hello, world").unwrap();
+        let second = hash_of(&manifest(&root, &json!({})).unwrap());
+        assert_ne!(second, first);
     }
 
     #[test]

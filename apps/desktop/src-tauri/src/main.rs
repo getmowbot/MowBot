@@ -12,6 +12,7 @@ mod hub;
 mod ops;
 mod state;
 mod update;
+mod watch;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};

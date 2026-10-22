@@ -1241,6 +1241,40 @@ export interface paths {
         patch: operations["updateProject"];
         trace?: never;
     };
+    "/api/v1/projects/{id}/conflicts/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Clears a mirror's conflicts (or one file's): the bots' versions kept aside go to the workspace's trash. */
+        post: operations["dismissMirrorConflicts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connectors/{id}/pick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Opens the folder picker on that computer (its desktop app, 0.2.5+): the folder the user picks there is shared, and becomes the bot's active project. Waits up to 5 minutes; `project` is null when they cancel. */
+        post: operations["pickConnectorFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/routines": {
         parameters: {
             query?: never;
@@ -9883,6 +9917,23 @@ export interface operations {
                                 ids: string[];
                             };
                             online: boolean;
+                            mirror: boolean;
+                            mirrors: {
+                                /** Format: uuid */
+                                workspaceId: string;
+                                folder: string;
+                                /** @enum {string} */
+                                status: "waiting" | "syncing" | "synced" | "pending" | "too_big" | "error";
+                                pending: number;
+                                conflicts: {
+                                    path: string;
+                                    copy: string;
+                                    /** Format: date-time */
+                                    at: string;
+                                }[];
+                                error: string | null;
+                                syncedAt: string | null;
+                            }[];
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: date-time */
@@ -9951,6 +10002,7 @@ export interface operations {
                         kind: "all" | "teams" | "bots";
                         ids: string[];
                     };
+                    mirror?: boolean;
                 };
             };
         };
@@ -9977,10 +10029,238 @@ export interface operations {
                             ids: string[];
                         };
                         online: boolean;
+                        mirror: boolean;
+                        mirrors: {
+                            /** Format: uuid */
+                            workspaceId: string;
+                            folder: string;
+                            /** @enum {string} */
+                            status: "waiting" | "syncing" | "synced" | "pending" | "too_big" | "error";
+                            pending: number;
+                            conflicts: {
+                                path: string;
+                                copy: string;
+                                /** Format: date-time */
+                                at: string;
+                            }[];
+                            error: string | null;
+                            syncedAt: string | null;
+                        }[];
                         /** Format: date-time */
                         createdAt: string;
                         /** Format: date-time */
                         updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    dismissMirrorConflicts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                    path?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        connectorId: string;
+                        key: string;
+                        name: string;
+                        path: string;
+                        /** @enum {string} */
+                        mode: "ask" | "auto";
+                        scope: {
+                            /** @enum {string} */
+                            kind: "all" | "teams" | "bots";
+                            ids: string[];
+                        };
+                        online: boolean;
+                        mirror: boolean;
+                        mirrors: {
+                            /** Format: uuid */
+                            workspaceId: string;
+                            folder: string;
+                            /** @enum {string} */
+                            status: "waiting" | "syncing" | "synced" | "pending" | "too_big" | "error";
+                            pending: number;
+                            conflicts: {
+                                path: string;
+                                copy: string;
+                                /** Format: date-time */
+                                at: string;
+                            }[];
+                            error: string | null;
+                            syncedAt: string | null;
+                        }[];
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    pickConnectorFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    botId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        project: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            connectorId: string;
+                            key: string;
+                            name: string;
+                            path: string;
+                            /** @enum {string} */
+                            mode: "ask" | "auto";
+                            scope: {
+                                /** @enum {string} */
+                                kind: "all" | "teams" | "bots";
+                                ids: string[];
+                            };
+                            online: boolean;
+                            mirror: boolean;
+                            mirrors: {
+                                /** Format: uuid */
+                                workspaceId: string;
+                                folder: string;
+                                /** @enum {string} */
+                                status: "waiting" | "syncing" | "synced" | "pending" | "too_big" | "error";
+                                pending: number;
+                                conflicts: {
+                                    path: string;
+                                    copy: string;
+                                    /** Format: date-time */
+                                    at: string;
+                                }[];
+                                error: string | null;
+                                syncedAt: string | null;
+                            }[];
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
                     };
                 };
             };

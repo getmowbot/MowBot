@@ -53,6 +53,13 @@ export interface HubTexts {
   commandAnswers: readonly [string, string, string];
   /** The user picked the project the bot works in (null: none), as the conversation shows it. */
   projectChosen(project: string | null): string;
+  /** Files both the user and the bots changed in a mirrored project (notification title). */
+  mirrorConflicts(project: string, count: number): string;
+  mirrorConflictsBody(files: string, where: string): string;
+  /** The same, as the bots' conversations show it. */
+  mirrorConflictsNote(project: string, count: number): string;
+  /** Files deleted all at once in a mirror were put back (bots' conversations). */
+  mirrorRestored(project: string, count: number): string;
   /** The page the browser lands on after signing in to an MCP server. */
   mcpSignIn: {
     lang: Locale;
@@ -120,6 +127,14 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     commandAnswers: ['Autoriser', 'Tout autoriser dans ce projet', 'Refuser'],
     projectChosen: (project) =>
       project ? `📁 Projet actif : ${project}` : '📁 Aucun projet actif',
+    mirrorConflicts: (project, count) =>
+      count > 1 ? `${count} conflits dans « ${project} »` : `Un conflit dans « ${project} »`,
+    mirrorConflictsBody: (files, where) =>
+      `Toi et les bots avez changé ${files}. Ta version est gardée ; celle des bots est dans ${where}.`,
+    mirrorConflictsNote: (project, count) =>
+      `⚠️ ${count > 1 ? `${count} conflits` : 'Un conflit'} dans ${project} : la version de l'utilisateur est gardée`,
+    mirrorRestored: (project, count) =>
+      `↩️ ${count} fichiers de ${project} supprimés d'un coup : remis depuis l'ordinateur`,
     mcpSignIn: {
       lang: 'fr',
       refused: 'Connexion refusée',
@@ -181,6 +196,14 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
     commandAnswers: ['Allow', 'Allow everything in this project', 'Refuse'],
     projectChosen: (project) =>
       project ? `📁 Active project: ${project}` : '📁 No active project',
+    mirrorConflicts: (project, count) =>
+      count > 1 ? `${count} conflicts in “${project}”` : `A conflict in “${project}”`,
+    mirrorConflictsBody: (files, where) =>
+      `You and the bots both changed ${files}. Your version is kept; the bots’ is in ${where}.`,
+    mirrorConflictsNote: (project, count) =>
+      `⚠️ ${count > 1 ? `${count} conflicts` : 'A conflict'} in ${project}: the user’s version is kept`,
+    mirrorRestored: (project, count) =>
+      `↩️ ${count} files of ${project} deleted at once: put back from the computer`,
     mcpSignIn: {
       lang: 'en',
       refused: 'Sign-in refused',

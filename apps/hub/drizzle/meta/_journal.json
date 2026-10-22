@@ -162,6 +162,13 @@
       "when": 1792627729884,
       "tag": "0022_team_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792654924901,
+      "tag": "0023_project_mirrors",
+      "breakpoints": true
     }
   ]
 }

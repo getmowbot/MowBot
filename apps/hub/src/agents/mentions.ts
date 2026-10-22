@@ -1,6 +1,7 @@
 import type { Mention, MessageMention } from '@mowbot/contract';
 import { inArray } from 'drizzle-orm';
 import type { BotRow } from '../bots/service';
+import type { MirrorService } from '../connectors/mirror';
 import type { ConnectorService } from '../connectors/service';
 import type { Db } from '../db/client';
 import { bots, teams } from '../db/schema';
@@ -24,7 +25,7 @@ export const size = (bytes: number) =>
  * project the bot may not use) are dropped.
  */
 export async function resolveMentions(
-  deps: { db: Db; files: WorkspaceFiles; connectors?: ConnectorService },
+  deps: { db: Db; files: WorkspaceFiles; connectors?: ConnectorService; mirrors?: MirrorService },
   bot: BotRow,
   mentions: Mention[],
 ): Promise<{ context: string; kept: MessageMention[] }> {
@@ -88,8 +89,14 @@ export async function resolveMentions(
       kept.push({ kind: 'project', id: project.id, label: project.name });
       const online = Boolean(deps.connectors?.isOnline(project.connectorId));
       const place = projectPlace(machines.get(project.connectorId), online);
+      const mirror = deps.mirrors?.mirrorIn(project.id, bot.workspaceId);
+      const how = mirror
+        ? `Son miroir : /workspace/${mirror.folder} (tes outils habituels ; local_exec pour une commande sur son ordinateur).`
+        : project.mirror && bot.workspaceId
+          ? `local_sync avec project « ${project.name} » en fait un miroir dans ton workspace.`
+          : `Outils local_* avec project « ${project.name} ».`;
       lines.push(
-        `- @${project.name} : le projet ${project.name}, dossier ${project.path} de l'ordinateur de l'utilisateur (${place})${project.id === bot.projectId ? ', ton projet actif' : ''}. Outils local_* avec project « ${project.name} ».`,
+        `- @${project.name} : le projet ${project.name}, dossier ${project.path} de l'ordinateur de l'utilisateur (${place})${project.id === bot.projectId ? ', ton projet actif' : ''}. ${how}`,
       );
     } else {
       const line = await describeFile(deps.files, bot, mention.path);

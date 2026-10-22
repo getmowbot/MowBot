@@ -19,6 +19,8 @@ import type {
   MessageKind,
   MessageMention,
   MessagePart,
+  MirrorConflict,
+  MirrorStatus,
   ModelRef,
   NotificationPriority,
   PlanStepStatus,
@@ -629,10 +631,38 @@ export const projects = pgTable(
     path: text('path').notNull(),
     mode: text('mode').$type<ProjectMode>().notNull().default('ask'),
     scope: jsonb('scope').$type<ProjectScope>().notNull().default({ kind: 'all', ids: [] }),
+    /** Mirrored in the workspaces of the bots working in it (off: bots work in it directly). */
+    mirror: boolean('mirror').notNull().default(true),
     createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('projects_connector_key_unique').on(t.connectorId, t.key)],
+);
+
+/**
+ * The copy of a project in a workspace, kept in sync both ways with the user's folder. The hashes
+ * of the last state both sides agreed on are in the workspace (`.mowbot/mirrors/<id>.json`).
+ */
+export const projectMirrors = pgTable(
+  'project_mirrors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    /** Workspace path, chosen once (`projects/<name>`, `projects/<name>-2`…). */
+    folder: text('folder').notNull(),
+    status: text('status').$type<MirrorStatus>().notNull().default('waiting'),
+    pending: integer('pending').notNull().default(0),
+    conflicts: jsonb('conflicts').$type<MirrorConflict[]>().notNull().default([]),
+    error: text('error'),
+    syncedAt: timestamp('synced_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('project_mirrors_project_workspace_unique').on(t.projectId, t.workspaceId)],
 );
 
 /** A command the user allowed once, for a bot in a project (used up when it runs). */

@@ -61,9 +61,12 @@ or a local model.
 - MCP servers: remote (with OAuth) or local, run on their own MCP computer (Node, Python, uv),
   apart from the bots' PCs; the Chef adds and sets them up for the bots that need them.
 - The **desktop app** shares folders of your computer as projects, even when the hub is on a
-  remote server. Bots read, edit, search and run commands there (commands with your approval,
-  or freely in auto mode), or copy the project to their PC to install and test it and bring
-  their changes back as a **git branch** of your repository.
+  remote server; add one from the conversation itself. Each project is **mirrored** in the
+  bots' workspace and kept in sync both ways within seconds: bots work there with their usual
+  tools, keep going while your computer is off, and their work lands in your folder when it is
+  back, without any bot doing anything. Files changed on both sides keep your version (the
+  bots' is set aside and you are told). Commands run on your computer with your approval, or
+  freely in auto mode.
 
 **Apps**
 - Web, desktop (Windows, macOS, Linux; updates itself) and mobile (iOS, Android), in English and

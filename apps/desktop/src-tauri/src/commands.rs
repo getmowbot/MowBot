@@ -94,17 +94,25 @@ pub async fn connector_unlink(app: AppHandle) -> Result<Status, String> {
     Ok(state.status())
 }
 
-/// The native folder picker. `None` when cancelled.
-#[tauri::command]
-pub async fn project_pick(app: AppHandle, window: WebviewWindow) -> Result<Option<String>, String> {
+/// The native folder picker, over the app's window. `None` when cancelled.
+pub async fn pick_folder(app: &AppHandle, title: &str) -> Result<Option<String>, String> {
+    let window: Option<WebviewWindow> = app.get_webview_window(hub::MAIN);
+    pick_folder_over(app, window.as_ref(), title).await
+}
+
+async fn pick_folder_over(
+    app: &AppHandle,
+    window: Option<&WebviewWindow>,
+    title: &str,
+) -> Result<Option<String>, String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    app.dialog()
-        .file()
-        .set_parent(&window)
-        .set_title("Dossier à partager avec les bots")
-        .pick_folder(move |folder| {
-            let _ = tx.send(folder);
-        });
+    let mut dialog = app.dialog().file().set_title(title);
+    if let Some(window) = window {
+        dialog = dialog.set_parent(window);
+    }
+    dialog.pick_folder(move |folder| {
+        let _ = tx.send(folder);
+    });
     let folder = rx
         .await
         .map_err(|_| "Choix du dossier interrompu.".to_string())?;
@@ -113,14 +121,25 @@ pub async fn project_pick(app: AppHandle, window: WebviewWindow) -> Result<Optio
         .map(|p| dunce::simplified(&p).display().to_string()))
 }
 
+/// The native folder picker. `None` when cancelled.
+#[tauri::command]
+pub async fn project_pick(app: AppHandle, window: WebviewWindow) -> Result<Option<String>, String> {
+    pick_folder_over(&app, Some(&window), "Dossier à partager avec les bots").await
+}
+
 /// Shares a folder with the hub's bots.
 #[tauri::command]
 pub async fn project_add(app: AppHandle, name: String, path: String) -> Result<Project, String> {
+    share_folder(&app, &name, &path)
+}
+
+/// Shares a folder with the hub's bots: saved, then announced to the hub.
+pub fn share_folder(app: &AppHandle, name: &str, path: &str) -> Result<Project, String> {
     let state = app.state::<AppState>();
     let home = app.path().home_dir().ok();
     let project = {
         let mut config = state.config.lock().unwrap();
-        let (name, canonical) = check_new_project(&name, &path, &config.projects, home.as_deref())?;
+        let (name, canonical) = check_new_project(name, path, &config.projects, home.as_deref())?;
         let project = Project {
             key: uuid::Uuid::new_v4().to_string(),
             name,
@@ -134,8 +153,43 @@ pub async fn project_add(app: AppHandle, name: String, path: String) -> Result<P
         project
     };
     state.send(state.projects_message());
-    emit_status(&app);
+    emit_status(app);
     Ok(project)
+}
+
+/// A folder picked for the hub: the project it already is, or a new one named after the folder
+/// (`Site 2` when a project is already called `Site`).
+pub fn share_picked(app: &AppHandle, path: &str) -> Result<Project, String> {
+    let projects = app.state::<AppState>().projects();
+    let canonical =
+        dunce::canonicalize(path).map_err(|_| format!("Dossier introuvable : {path}"))?;
+    if let Some(project) = projects
+        .iter()
+        .find(|p| dunce::canonicalize(&p.path).is_ok_and(|shared| shared == canonical))
+    {
+        return Ok(project.clone());
+    }
+    let base = canonical
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "Projet".into());
+    let base: String = base.chars().take(70).collect();
+    let taken = |name: &str| {
+        projects
+            .iter()
+            .any(|p| p.name.to_lowercase() == name.to_lowercase())
+    };
+    let name = (1..)
+        .map(|n| {
+            if n == 1 {
+                base.clone()
+            } else {
+                format!("{base} {n}")
+            }
+        })
+        .find(|name| !taken(name))
+        .unwrap_or(base);
+    share_folder(app, &name, path)
 }
 
 /// "Sign in with ChatGPT" for the hub's models: opens OpenAI's page in the user's browser, waits

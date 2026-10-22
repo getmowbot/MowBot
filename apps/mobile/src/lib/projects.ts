@@ -3,6 +3,7 @@ import type {
   Connector,
   ConnectorOs,
   Project,
+  ProjectMirror,
   ProjectMode,
   ProjectUpdate,
 } from '@mowbot/contract';
@@ -217,6 +218,85 @@ export function activeProject(
 ): Project | null {
   const project = projects?.find((p) => p.id === bot.projectId);
   return project && usableBy(project, bot) ? project : null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The project's copy in the bots' workspace, kept in sync with the user's folder
+
+/** The mirror this bot works in (its workspace's), if there is one. */
+export function mirrorFor(
+  project: Pick<Project, 'mirrors'>,
+  bot: Pick<Bot, 'workspaceId'>,
+): ProjectMirror | null {
+  return project.mirrors.find((mirror) => mirror.workspaceId === bot.workspaceId) ?? null;
+}
+
+/** "À jour", "3 changements en attente de l'ordinateur"… */
+export function mirrorText(mirror: ProjectMirror, online: boolean, t: TFunction): string {
+  switch (mirror.status) {
+    case 'syncing':
+      return t('projects.mirror.syncing');
+    case 'waiting':
+      return t('projects.mirror.waiting');
+    case 'pending':
+      return t('projects.mirror.pending', { count: mirror.pending });
+    case 'too_big':
+      return t('projects.mirror.tooBig');
+    case 'error':
+      return t('projects.mirror.error');
+    default:
+      return online ? t('projects.mirror.synced') : t('projects.mirror.syncedOffline');
+  }
+}
+
+/** On the project chip: nothing while in sync, else a few words ("2 conflits", "3 en attente"). */
+export function mirrorShort(mirror: ProjectMirror, t: TFunction): string | null {
+  if (mirror.conflicts.length > 0) {
+    return t('projects.mirror.conflicts', { count: mirror.conflicts.length });
+  }
+  switch (mirror.status) {
+    case 'syncing':
+      return t('projects.mirror.short.syncing');
+    case 'waiting':
+      return t('projects.mirror.short.waiting');
+    case 'pending':
+      return t('projects.mirror.short.pending', { count: mirror.pending });
+    case 'too_big':
+      return t('projects.mirror.short.tooBig');
+    case 'error':
+      return t('projects.mirror.short.error');
+    default:
+      return null;
+  }
+}
+
+/** Whether a desktop app version is at least `wanted` (unknown versions are not). */
+export function versionAtLeast(version: string | null | undefined, wanted: number[]): boolean {
+  const parts = (version ?? '').split(/[.-]/).map((n) => Number.parseInt(n, 10));
+  for (let i = 0; i < wanted.length; i++) {
+    const have = parts[i] ?? 0;
+    if (Number.isNaN(have)) return false;
+    if (have !== wanted[i]) return have > (wanted[i] as number);
+  }
+  return true;
+}
+
+/** The desktop app opens its folder picker for the hub from this version. */
+export const PICK_FROM = [0, 2, 5];
+
+/**
+ * Where a folder can be picked from this device: the online computers whose app can open its
+ * picker for the hub, and those whose app needs an update first.
+ */
+export function pickTargets(connectors: readonly Connector[] | undefined): {
+  able: Connector[];
+  outdated: Connector[];
+} {
+  const online = sortConnectors((connectors ?? []).filter((c) => c.online));
+  return {
+    able: online.filter((c) => versionAtLeast(c.version, PICK_FROM)),
+    outdated: online.filter((c) => !versionAtLeast(c.version, PICK_FROM)),
+  };
 }
 
 export interface ProjectChoice {

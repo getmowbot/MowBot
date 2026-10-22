@@ -3,6 +3,9 @@ import {
   connectorCreateSchema,
   connectorIdParamsSchema,
   connectorListSchema,
+  connectorPickedSchema,
+  connectorPickSchema,
+  mirrorConflictsDismissSchema,
   projectIdParamsSchema,
   projectListSchema,
   projectSchema,
@@ -18,7 +21,7 @@ const tags = ['projects'];
 
 /** The desktop apps of the user's computers, and the folders shared there for the bots. */
 export const projectRoutes: FastifyPluginAsyncZod = async (app) => {
-  const { connectors } = app.services;
+  const { connectors, mirrors, runtime } = app.services;
   /** The connector behind each WebSocket, known before the upgrade. */
   const authenticated = new WeakMap<object, ConnectorRow>();
 
@@ -125,7 +128,55 @@ export const projectRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: projectSchema, ...errorResponses },
       },
     },
-    async (request) =>
-      connectors.toProject(await connectors.updateProject(request.params.id, request.body)),
+    async (request) => {
+      const before = await connectors.project(request.params.id);
+      const row = await connectors.updateProject(request.params.id, request.body);
+      if (row.mirror !== before.mirror) await mirrors.setEnabled(row);
+      return connectors.toProject(row);
+    },
+  );
+
+  app.post(
+    '/projects/:id/conflicts/dismiss',
+    {
+      preHandler: requireAuth('admin'),
+      schema: {
+        tags,
+        operationId: 'dismissMirrorConflicts',
+        description:
+          "Clears a mirror's conflicts (or one file's): the bots' versions kept aside go to the workspace's trash.",
+        security: bearerSecurity,
+        params: projectIdParamsSchema,
+        body: mirrorConflictsDismissSchema,
+        response: { 200: projectSchema, ...errorResponses },
+      },
+    },
+    async (request) => {
+      const row = await connectors.project(request.params.id);
+      await mirrors.dismissConflicts(row.id, request.body.workspaceId, request.body.path);
+      return connectors.toProject(row);
+    },
+  );
+
+  app.post(
+    '/connectors/:id/pick',
+    {
+      preHandler: requireAuth('admin'),
+      schema: {
+        tags,
+        operationId: 'pickConnectorFolder',
+        description:
+          "Opens the folder picker on that computer (its desktop app, 0.2.5+): the folder the user picks there is shared, and becomes the bot's active project. Waits up to 5 minutes; `project` is null when they cancel.",
+        security: bearerSecurity,
+        params: connectorIdParamsSchema,
+        body: connectorPickSchema,
+        response: { 200: connectorPickedSchema, ...errorResponses },
+      },
+    },
+    async (request) => {
+      const row = await connectors.pick(request.params.id);
+      if (row && request.body.botId) await runtime.setProject(request.body.botId, row.id);
+      return { project: row ? connectors.toProject(row) : null };
+    },
   );
 };

@@ -121,7 +121,9 @@
 - [x] Connecteur Rust : WebSocket sortante vers le hub avec son propre jeton (révocable), reconnexion automatique ; list, read, write, edit, find, search (.gitignore respecté), exec (PowerShell sous Windows) ; chemins vérifiés (liens symboliques compris), rien hors des dossiers partagés
 - [x] Hub : connecteurs et projets, outils local_* des bots, accord de l'utilisateur pour chaque commande (Autoriser / Tout autoriser dans ce projet / Refuser) ou mode auto, portée par équipes ou bots
 - [x] Pages Projets (web et app) : relier ce PC et partager un dossier depuis l'app desktop, mode, portée, ordinateurs reliés
-- [x] Copier un projet sur le PC d'un bot (local_pull : incrémental, .gitignore, garde les changements du bot) et rapporter ses changements en branche git (local_push), sans toucher au dossier de l'utilisateur
+- [x] ~~Copier un projet sur le PC d'un bot (local_pull) et rapporter ses changements en branche git (local_push)~~, remplacé par le miroir
+- [x] Miroir de chaque projet dans le workspace des bots, synchronisé dans les deux sens (réconciliation à trois, suppressions comprises) : à la connexion de l'app, sur les changements de son observateur de fichiers, sur ceux du workspace, et toutes les 2 min ; conflits gardant la version de l'utilisateur (celle des bots dans `projects/_conflicts/`, utilisateur et bots prévenus) ; limite de taille et miroir désactivable par projet ; apps desktop plus anciennes servies au mieux
+- [x] Ajouter un dossier depuis la conversation (puce du projet) : sélecteur de l'app desktop, ou celui d'un ordinateur connecté demandé depuis un autre appareil
 - [x] Fenêtre sans barre système (boutons intégrés à l'interface), adresse du hub au premier lancement, dans Profil ou avec `--hub`
 - [x] Installeurs Windows, macOS et Linux (workflow « Desktop app ») et commande d'installation Linux
 - [x] Profil : nom, mot de passe du hub (avec déconnexion des autres appareils)

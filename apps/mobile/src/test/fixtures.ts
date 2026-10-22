@@ -7,6 +7,7 @@ import type {
   Message,
   MessagePart,
   Project,
+  ProjectMirror,
   VaultEvent,
   VaultItem,
 } from '@mowbot/contract';
@@ -198,8 +199,23 @@ export function project(overrides: Partial<Project> = {}): Project {
     mode: 'ask',
     scope: { kind: 'all', ids: [] },
     online: true,
+    mirror: true,
+    mirrors: [],
     createdAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
     updatedAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
+    ...overrides,
+  };
+}
+
+export function projectMirror(overrides: Partial<ProjectMirror> = {}): ProjectMirror {
+  return {
+    workspaceId: '00000000-0000-4000-8000-0000000000ws',
+    folder: 'projects/mowbot',
+    status: 'synced',
+    pending: 0,
+    conflicts: [],
+    error: null,
+    syncedAt: new Date(Date.UTC(2026, 9, 20, 12, 0, sequence)).toISOString(),
     ...overrides,
   };
 }
