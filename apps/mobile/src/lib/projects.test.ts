@@ -1,18 +1,23 @@
 import { QueryClient } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { bot, connector, project, translator } from '../test/fixtures';
+import { bot, connector, project, projectMirror, translator } from '../test/fixtures';
 import { applyServerEvent } from './event-cache';
 import {
   activeProject,
   computerSummary,
   connectorHint,
   connectorName,
+  mirrorFor,
+  mirrorShort,
+  mirrorText,
   modeBody,
   modeLabel,
   NAME_MAX,
   nameProblem,
   PATH_CHARS,
+  PICK_FROM,
+  pickTargets,
   presenceText,
   projectChoices,
   projectHint,
@@ -22,6 +27,7 @@ import {
   sortConnectors,
   sortProjects,
   usableBy,
+  versionAtLeast,
 } from './projects';
 import { keys } from './query-keys';
 
@@ -255,5 +261,49 @@ describe('the project a bot works in', () => {
     const moved = { ...nova, projectId: site.id };
     applyServerEvent(client, { type: 'bot.updated', bot: moved });
     expect(client.getQueryData(keys.bots)).toEqual([moved]);
+  });
+});
+
+describe('the mirror of a project', () => {
+  const WS = '00000000-0000-4000-8000-0000000000ws';
+  const nova = bot({ name: 'Nova', workspaceId: WS });
+  const conflict = {
+    path: 'src/app.ts',
+    copy: 'projects/_conflicts/site/x/src/app.ts',
+    at: minutesAgo(1),
+  };
+
+  it('is the one in the bot’s workspace', () => {
+    const mine = projectMirror({ workspaceId: WS });
+    const other = projectMirror({ workspaceId: '00000000-0000-4000-8000-0000000000zz' });
+    expect(mirrorFor(project({ mirrors: [other, mine] }), nova)).toBe(mine);
+    expect(mirrorFor(project({ mirrors: [other] }), nova)).toBeNull();
+    expect(mirrorFor(project(), { workspaceId: null })).toBeNull();
+  });
+
+  it('says how it stands, in a few words on the chip', () => {
+    expect(mirrorText(projectMirror(), true, fr)).toBe('À jour');
+    expect(mirrorText(projectMirror(), false, en)).toBe('In sync (computer offline)');
+    expect(mirrorText(projectMirror({ status: 'pending', pending: 3 }), false, fr)).toBe(
+      '3 changements en attente de l’ordinateur',
+    );
+    expect(mirrorText(projectMirror({ status: 'too_big' }), true, en)).toBe('Too big for a mirror');
+    expect(mirrorShort(projectMirror(), fr)).toBeNull();
+    expect(mirrorShort(projectMirror({ status: 'pending', pending: 1 }), fr)).toBe('1 en attente');
+    expect(mirrorShort(projectMirror({ status: 'waiting' }), en)).toBe('copy waiting');
+    // Conflicts come first.
+    const both = projectMirror({ status: 'pending', pending: 2, conflicts: [conflict] });
+    expect(mirrorShort(both, fr)).toBe('1 conflit');
+  });
+
+  it('lets a folder be picked on the computers whose app can do it', () => {
+    const fresh = connector({ name: 'Bureau', version: '0.2.5' });
+    const old = connector({ name: 'Portable', version: '0.2.4' });
+    const away = connector({ name: 'Mac', version: '0.3.0', online: false });
+    expect(pickTargets([old, away, fresh])).toEqual({ able: [fresh], outdated: [old] });
+    expect(pickTargets(undefined)).toEqual({ able: [], outdated: [] });
+    expect(versionAtLeast('0.10.0', PICK_FROM)).toBe(true);
+    expect(versionAtLeast('0.0.0-test', PICK_FROM)).toBe(false);
+    expect(versionAtLeast(null, PICK_FROM)).toBe(false);
   });
 });
