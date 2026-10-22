@@ -1,12 +1,11 @@
+import MaskedView from '@react-native-masked-view/masked-view';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { type ReactNode, useEffect, useId, useState } from 'react';
-import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
+import { type ReactNode, useEffect, useId, useMemo, useState } from 'react';
+import { Platform, type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
-  type SharedValue,
-  useAnimatedProps,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -15,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, {
   Defs,
+  Path,
   RadialGradient,
   Rect,
   Stop,
@@ -23,15 +23,19 @@ import Svg, {
 import { isIOS } from '../../lib/platform';
 import { colors, currentScheme, themed } from '../../theme';
 
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
-
 /** One turn of the light along the edge: slow, quicker while the user writes (as on the web). */
 const TURN_MS = { idle: 6_000, focused: 3_500 } as const;
+
 /**
- * The light's tail, as parts of the edge: overlapping, faint each, they brighten towards its
- * head without a visible step.
+ * The web's light along the edge, a conic gradient: nothing on most of the turn, then rising to
+ * its brightest at 310° and fading out by 360° (0° up, clockwise).
  */
-const TAIL = [0.04, 0.08, 0.12, 0.16, 0.2, 0.24, 0.28, 0.32] as const;
+function beamAt(degrees: number): number {
+  if (degrees < 250) return 0;
+  return degrees < 310 ? (degrees - 250) / 60 : (360 - degrees) / 50;
+}
+/** The conic gradient drawn as thin wedges, fine enough that no step shows on the edge. */
+const WEDGE = 3;
 
 type Size = { width: number; height: number };
 
@@ -50,7 +54,7 @@ const useSvgId = () => useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
 /**
  * The web's message field, natively: a lens of glass, very round, bulging (a shine on top, depth
- * under, a soft shadow), with a single edge lit from above and a slow light running along it,
+ * under, a soft shadow), with a single edge lit from above and a slow light turning along it,
  * brighter and quicker while `focused`. Blurs what scrolls under it on iOS; Android keeps it
  * opaque.
  */
@@ -123,35 +127,10 @@ function Shine({ width, height }: Size) {
   );
 }
 
-/** The field's one edge: lit from above, quiet down its sides; and the light going round it. */
+/** The field's one edge: lit from above, quiet down its sides; and the light turning along it. */
 function Edge({ width, height, radius, focused }: Size & { radius: number; focused: boolean }) {
   const id = useSvgId();
-  const reduced = useReducedMotion();
   const r = Math.min(radius, height / 2) - 0.5;
-  const perimeter = 2 * (width - 1 + (height - 1)) - 8 * r + 2 * Math.PI * r;
-  const turns = useSharedValue(0);
-  const shown = useSharedValue(focused ? 1 : 0.6);
-
-  useEffect(() => {
-    shown.set(withTiming(focused ? 1 : 0.6, { duration: 300 }));
-    if (reduced) return;
-    // Goes on from where the light is, at the new pace.
-    const from = turns.get() % 1;
-    turns.set(from);
-    turns.set(
-      withRepeat(
-        withTiming(from + 1, {
-          duration: focused ? TURN_MS.focused : TURN_MS.idle,
-          easing: Easing.linear,
-        }),
-        -1,
-      ),
-    );
-    return () => cancelAnimation(turns);
-  }, [focused, reduced, turns, shown]);
-
-  const fade = useAnimatedStyle(() => ({ opacity: shown.get() }));
-  const shape = { x: 0.5, y: 0.5, width: width - 1, height: height - 1, rx: r, ry: r };
   const rim = svgColor(colors.lensRim);
   const side = svgColor(focused ? colors.borderStrong : colors.border);
   return (
@@ -163,48 +142,105 @@ function Edge({ width, height, radius, focused }: Size & { radius: number; focus
             <Stop offset="0.5" stopColor={side.color} stopOpacity={side.opacity} />
           </SvgGradient>
         </Defs>
-        <Rect {...shape} fill="none" stroke={`url(#${id})`} strokeWidth={1} />
+        <Rect
+          x={0.5}
+          y={0.5}
+          width={width - 1}
+          height={height - 1}
+          rx={r}
+          ry={r}
+          fill="none"
+          stroke={`url(#${id})`}
+          strokeWidth={1}
+        />
       </Svg>
-      {!reduced && (
-        <Animated.View style={[StyleSheet.absoluteFill, fade]}>
-          <Svg width={width} height={height}>
-            {TAIL.map((part) => (
-              <TailPart key={part} part={part} perimeter={perimeter} turns={turns} shape={shape} />
-            ))}
-          </Svg>
-        </Animated.View>
-      )}
+      <Beam width={width} height={height} radius={radius} focused={focused} />
     </View>
   );
 }
 
-function TailPart({
-  part,
-  perimeter,
-  turns,
-  shape,
-}: {
-  part: number;
-  perimeter: number;
-  turns: SharedValue<number>;
-  shape: { x: number; y: number; width: number; height: number; rx: number; ry: number };
-}) {
-  const length = part * perimeter;
-  const beam = svgColor(colors.lensBeam);
-  // Every part's head at the same point: the overlap brightens towards it.
-  const props = useAnimatedProps(() => ({
-    strokeDashoffset: length - (turns.get() % 1) * perimeter,
-  }));
+/**
+ * The light along the edge, as on the web: a conic gradient turning behind the field, seen only
+ * through its 1 px edge.
+ */
+function Beam({ width, height, radius, focused }: Size & { radius: number; focused: boolean }) {
+  const reduced = useReducedMotion();
+  const turn = useSharedValue(0);
+  const shown = useSharedValue(focused ? 1 : 0.6);
+
+  useEffect(() => {
+    shown.set(withTiming(focused ? 1 : 0.6, { duration: 300 }));
+    if (reduced) return;
+    // Goes on from where the light is, at the new pace.
+    const from = turn.get() % 360;
+    turn.set(from);
+    turn.set(
+      withRepeat(
+        withTiming(from + 360, {
+          duration: focused ? TURN_MS.focused : TURN_MS.idle,
+          easing: Easing.linear,
+        }),
+        -1,
+      ),
+    );
+    return () => cancelAnimation(turn);
+  }, [focused, reduced, turn, shown]);
+
+  const turning = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.get()}deg` }] }));
+  const fade = useAnimatedStyle(() => ({ opacity: shown.get() }));
+  // A square around the field's center, wide enough to cover its corners at any angle.
+  const side = Math.ceil(Math.hypot(width, height)) + 2;
+  // The web's MaskedView draws only its mask: no light there (the app is iOS and Android).
+  if (reduced || Platform.OS === 'web') return null;
   return (
-    <AnimatedRect
-      {...shape}
-      fill="none"
-      stroke={beam.color}
-      strokeOpacity={beam.opacity * 0.14}
-      strokeWidth={1}
-      strokeDasharray={[length, perimeter - length]}
-      animatedProps={props}
-    />
+    <Animated.View style={[StyleSheet.absoluteFill, fade]}>
+      <MaskedView
+        style={StyleSheet.absoluteFill}
+        maskElement={<View style={[styles.ring, { borderRadius: radius }]} />}
+      >
+        <Animated.View
+          style={[
+            styles.conic,
+            { width: side, height: side, left: (width - side) / 2, top: (height - side) / 2 },
+            turning,
+          ]}
+        >
+          <Conic side={side} />
+        </Animated.View>
+      </MaskedView>
+    </Animated.View>
+  );
+}
+
+/** The conic gradient itself, drawn once: thin wedges from the center, each at its brightness. */
+function Conic({ side }: { side: number }) {
+  const beam = svgColor(colors.lensBeam);
+  const wedges = useMemo(() => {
+    const c = side / 2;
+    // Past the corners: a wedge's straight end stays outside the square.
+    const reach = side;
+    const at = (degrees: number) => {
+      const a = (degrees * Math.PI) / 180;
+      return `${(c + reach * Math.sin(a)).toFixed(2)} ${(c - reach * Math.cos(a)).toFixed(2)}`;
+    };
+    const out: { d: string; opacity: number }[] = [];
+    for (let from = 250; from < 360; from += WEDGE) {
+      const opacity = beamAt(from + WEDGE / 2);
+      if (opacity > 0) out.push({ d: `M${c} ${c}L${at(from)}L${at(from + WEDGE)}Z`, opacity });
+    }
+    return out;
+  }, [side]);
+  return (
+    <Svg width={side} height={side}>
+      {wedges.map((wedge) => (
+        <Path
+          key={wedge.d}
+          d={wedge.d}
+          fill={beam.color}
+          fillOpacity={beam.opacity * wedge.opacity}
+        />
+      ))}
+    </Svg>
   );
 }
 
@@ -221,5 +257,8 @@ const styles = themed(() =>
     fill: { backgroundColor: isIOS ? colors.lensFill : colors.lensFillOpaque },
     depth: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 18 },
     shine: { position: 'absolute', top: 0 },
+    // What shows the light: only the field's 1 px edge.
+    ring: { flex: 1, borderWidth: 1, borderColor: '#000000' },
+    conic: { position: 'absolute' },
   }),
 );

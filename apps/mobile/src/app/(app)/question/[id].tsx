@@ -15,7 +15,7 @@ import { useAnswerQuestion, useDismissQuestion, useQuestions } from '../../../li
 import { isAndroid, isIOS } from '../../../lib/platform';
 import { useBots } from '../../../lib/queries';
 import { timeAgo } from '../../../lib/time';
-import { colors, currentScheme, shape, themed, tint, type } from '../../../theme';
+import { colors, currentScheme, fieldType, shape, themed, tint, type } from '../../../theme';
 
 const MAX_ANSWER = 2_000;
 const SEND = isAndroid ? 40 : 36;
@@ -230,12 +230,13 @@ const styles = themed(() =>
       backgroundColor: tint.ink(0.03),
     },
     input: {
-      ...type.body,
+      paddingTop: 6,
+      paddingBottom: 6,
+      ...fieldType(type.body, SEND),
       flex: 1,
       color: colors.text,
+      minHeight: SEND,
       maxHeight: 140,
-      paddingTop: isIOS ? 8 : 6,
-      paddingBottom: isIOS ? 8 : 6,
     },
     send: {
       width: SEND,

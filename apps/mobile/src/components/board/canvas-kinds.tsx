@@ -18,7 +18,7 @@ import {
 import { useChecklist } from '../../lib/board-queries';
 import { alertError } from '../../lib/options-menu';
 import { isAndroid, isIOS } from '../../lib/platform';
-import { colors, currentScheme, themed, tint, type } from '../../theme';
+import { colors, currentScheme, fieldType, themed, tint, type } from '../../theme';
 import { Markdown } from '../markdown';
 import { IconButton } from '../ui/button';
 import { T } from '../ui/text';
@@ -540,7 +540,7 @@ const styles = themed(() =>
     addRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 40, marginRight: -8 },
     addIcon: { width: BOX, alignItems: 'center' },
     addInput: {
-      ...type.callout,
+      ...fieldType(type.callout),
       flex: 1,
       color: colors.text,
       paddingVertical: isIOS ? 8 : 4,

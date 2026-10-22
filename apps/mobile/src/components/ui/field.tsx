@@ -1,7 +1,7 @@
 import { type ReactNode, type Ref, useState } from 'react';
 import { StyleSheet, TextInput, type TextInputProps, View } from 'react-native';
 import { isAndroid, isIOS } from '../../lib/platform';
-import { colors, currentScheme, shape, themed, tint, type } from '../../theme';
+import { colors, currentScheme, fieldType, shape, themed, tint, type } from '../../theme';
 import { T } from './text';
 
 interface Props extends TextInputProps {
@@ -72,7 +72,7 @@ const styles = themed(() =>
     root: { gap: 6 },
     label: { paddingHorizontal: 4 },
     input: {
-      ...type.body,
+      ...fieldType(type.body),
       color: colors.text,
       minHeight: isAndroid ? 56 : 50,
       paddingHorizontal: 16,

@@ -10,7 +10,7 @@ import { questionsOfBot } from '../lib/board';
 import { useAnswerQuestion, useQuestions } from '../lib/board-queries';
 import { isAndroid, isIOS } from '../lib/platform';
 import { timeAgo } from '../lib/time';
-import { colors, currentScheme, shape, themed, tint, type } from '../theme';
+import { colors, currentScheme, fieldType, shape, themed, tint, type } from '../theme';
 import { leave, settle } from './board/motion';
 import { Pill } from './board/pill';
 import { BotAvatar } from './bot-avatar';
@@ -193,14 +193,14 @@ const styles = themed(() =>
     options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     write: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
     input: {
-      ...type.callout,
+      paddingTop: 6,
+      paddingBottom: 6,
+      ...fieldType(type.callout, SEND),
       flex: 1,
       color: colors.text,
       minHeight: SEND,
       maxHeight: 120,
       paddingHorizontal: 14,
-      paddingTop: isIOS ? 8 : 6,
-      paddingBottom: isIOS ? 8 : 6,
       borderRadius: shape.field,
       borderCurve: 'continuous',
       borderWidth: StyleSheet.hairlineWidth,
