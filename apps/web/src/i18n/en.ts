@@ -402,6 +402,8 @@ export const en: Catalog = {
     planUpdate: 'Updating the team’s plan',
     planShow: 'Reading the team’s plan',
     showPlan: 'Showing the plan',
+    webSearch: 'Searching “{{query}}”',
+    webRead: 'Reading {{host}}',
     createTeam: 'Creating the {{name}} team',
     createBot: 'Creating {{name}}',
     updateBot: 'Updating {{name}}',
@@ -789,6 +791,21 @@ export const en: Catalog = {
     seen: 'Signed in {{created}} · last seen {{seen}}',
     revoke: 'Revoke',
     confirmRevoke: 'Revoke “{{name}}”?',
+  },
+  webSearch: {
+    title: 'Web search',
+    subtitle:
+      'Bots search the web and read public pages from the hub, without turning on their PC.',
+    providers: { duckduckgo: 'DuckDuckGo', brave: 'Brave Search', tavily: 'Tavily' },
+    hints: {
+      duckduckgo:
+        'Free, no key, but DuckDuckGo often blocks automated searches: bots then use the browser of their PC. For reliable searches, get a Brave Search or Tavily key (both free).',
+      brave: 'A Brave Search API key (search.brave.com/api): 2,000 free searches a month.',
+      tavily: 'A Tavily API key (tavily.com), made for agents: 1,000 free searches a month.',
+    },
+    key: 'API key',
+    keySaved: 'Key saved (type another one to change it)',
+    notSaved: 'Setting not saved.',
   },
   questions: {
     title_one: 'A question for you',

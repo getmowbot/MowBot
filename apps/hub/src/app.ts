@@ -32,6 +32,7 @@ import { questionRoutes } from './routes/questions';
 import { taskRoutes } from './routes/tasks';
 import { teamRoutes } from './routes/teams';
 import { vaultRoutes } from './routes/vault';
+import { webRoutes } from './routes/web';
 import type { Services } from './services';
 
 const MAX_UPLOAD_BYTES = 2 * 1024 ** 3;
@@ -167,6 +168,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
       await api.register(proactivityRoutes);
       await api.register(canvasRoutes);
       await api.register(previewRoutes);
+      await api.register(webRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: API_PREFIX },

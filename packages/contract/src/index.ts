@@ -16,3 +16,4 @@ export * from './routines';
 export * from './tasks';
 export * from './teams';
 export * from './vault';
+export * from './web';

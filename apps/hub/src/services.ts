@@ -31,6 +31,7 @@ import { ProviderService } from './providers/service';
 import { PushService } from './push/service';
 import { VaultService } from './vault/service';
 import { type Transcriber, WhisperTranscriber } from './voice/whisper';
+import { WebService } from './web/service';
 import { WorkspaceFiles } from './workspaces/files';
 
 /** Everything route handlers need, built once at startup (and per test). */
@@ -63,11 +64,15 @@ export interface Services {
   connectors: ConnectorService;
   previews: PreviewService;
   mirrors: MirrorService;
+  /** The bots' web searches and page reads, from the hub. */
+  web: WebService;
   /** Main team, its PC, the Chef and its daily summary (at startup and right after setup). */
   bootstrap(): Promise<void>;
 }
 
 export interface ServiceOverrides {
+  /** How the hub fetches web pages for the bots (tests: a fake web). */
+  webFetch?: ConstructorParameters<typeof WebService>[2];
   /** Tests replace Docker with a fake runtime. */
   runtime?: ComputerRuntime;
   /** Tests replace LLM providers with scripted models. */
@@ -95,6 +100,7 @@ export async function createServices(
   const routines = new RoutineService(db, events, config.masterKey, config.timeZone);
   const notifications = new NotificationService(db, events);
   const system = new SystemService(db, events, config.timeZone);
+  const web = new WebService(db, config.masterKey, overrides.webFetch);
   const canvases = new CanvasService(db, events);
   const questions = new QuestionService(db, events, notifications);
   const push = new PushService(db, system, { url: config.pushUrl, fetch: overrides.pushFetch });
@@ -174,6 +180,7 @@ export async function createServices(
     connectors,
     previews,
     mirrors,
+    web,
     voice: {
       transcriber:
         overrides.transcriber ??
@@ -216,6 +223,7 @@ export async function createServices(
     connectors,
     previews,
     mirrors,
+    web,
     bootstrap,
   };
 }

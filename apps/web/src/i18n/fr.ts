@@ -416,6 +416,8 @@ export const fr = {
     planUpdate: 'Met à jour le plan de l’équipe',
     planShow: 'Lit le plan de l’équipe',
     showPlan: 'Montre le plan',
+    webSearch: 'Cherche « {{query}} »',
+    webRead: 'Lit {{host}}',
     createTeam: 'Crée l’équipe {{name}}',
     createBot: 'Crée {{name}}',
     updateBot: 'Met à jour {{name}}',
@@ -812,6 +814,23 @@ export const fr = {
     seen: 'Connecté le {{created}} · vu {{seen}}',
     revoke: 'Révoquer',
     confirmRevoke: 'Révoquer « {{name}} » ?',
+  },
+  webSearch: {
+    title: 'Recherche web',
+    subtitle:
+      'Les bots cherchent sur le web et lisent les pages publiques depuis le hub, sans allumer leur PC.',
+    providers: { duckduckgo: 'DuckDuckGo', brave: 'Brave Search', tavily: 'Tavily' },
+    hints: {
+      duckduckgo:
+        'Gratuit et sans clé, mais DuckDuckGo bloque souvent les recherches automatiques : les bots passent alors par le navigateur de leur PC. Pour des recherches fiables, prends une clé Brave Search ou Tavily (gratuites).',
+      brave:
+        'Une clé API Brave Search (search.brave.com/api) : 2 000 recherches gratuites par mois.',
+      tavily:
+        'Une clé API Tavily (tavily.com), faite pour les agents : 1 000 recherches gratuites par mois.',
+    },
+    key: 'Clé API',
+    keySaved: 'Clé enregistrée (en saisir une autre pour la changer)',
+    notSaved: 'Réglage non enregistré.',
   },
   questions: {
     title_one: 'Une question pour toi',

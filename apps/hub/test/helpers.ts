@@ -161,7 +161,12 @@ export async function createTestApp(
   modelFor?: ServiceOverrides['modelFor'],
   extra: Pick<
     ServiceOverrides,
-    'askTimeoutMs' | 'pushFetch' | 'finishedPushAfterMs' | 'transcriber' | 'previewClock'
+    | 'askTimeoutMs'
+    | 'pushFetch'
+    | 'finishedPushAfterMs'
+    | 'transcriber'
+    | 'previewClock'
+    | 'webFetch'
   > = {},
 ): Promise<TestApp & { runtime: FakeRuntime; workspacesDir: string }> {
   const workspacesDir = await mkdtemp(path.join(tmpdir(), 'mowbot-ws-'));

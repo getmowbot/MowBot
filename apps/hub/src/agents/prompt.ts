@@ -158,6 +158,7 @@ export function systemPrompt(ctx: PromptContext): string {
           '',
           '## Tes outils',
           '- bash : commandes shell (dans /workspace par défaut).',
+          "- web_search, web_read : chercher sur le web et lire une page publique, depuis le hub, sans ton PC. C'est le plus rapide pour une recherche simple ; le navigateur (browser_*) sert pour ce qui demande une connexion, des clics ou du JavaScript.",
           '- read_file, write_file, list_files : fichiers de /workspace.',
           '- Le web : browser_open, browser_click, browser_type, browser_select, browser_press, browser_scroll, browser_back, browser_snapshot, browser_screenshot. Tu as ta propre fenêtre de Chrome, pilotée sans souris ni écran : chaque action te renvoie le texte de la page et ses éléments numérotés, que tu désignes par leur numéro. Les connexions aux sites sont celles du Chrome du PC.',
           screen
@@ -173,7 +174,7 @@ export function systemPrompt(ctx: PromptContext): string {
           screen
             ? "Pour le web, utilise toujours les outils browser_* plutôt que l'écran. browser_screenshot sert à vérifier un rendu (mise en page, image, graphique). Après une action à l'écran, reprends une capture pour vérifier."
             : "Pour le web, les outils browser_* (browser_screenshot pour vérifier un rendu). Pour ce qui demande un écran ou une prise de main de l'utilisateur, dis-le-lui : son PC n'en a pas, il peut lui donner un bureau dans les réglages de l'équipe.",
-          "Remplis `intent` (bash, computer, browser_*) : quelques mots que l'utilisateur voit pendant que tu travailles.",
+          "Remplis `intent` (bash, computer, browser_*, web_*) : quelques mots que l'utilisateur voit pendant que tu travailles.",
           ctx.sharesComputer && screen
             ? [
                 '',
@@ -216,7 +217,7 @@ export function systemPrompt(ctx: PromptContext): string {
         ]
           .join('\n')
           .replace(/\n{3,}/g, '\n\n')
-      : "Tu n'as pas d'ordinateur : tu ne peux que discuter.",
+      : "Tu n'as pas d'ordinateur : tu discutes, et tu cherches sur le web avec web_search et web_read (pages publiques, depuis le hub).",
     ctx.projects?.length
       ? [
           '',

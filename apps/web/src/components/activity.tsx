@@ -362,6 +362,16 @@ const TOOLS: Record<string, ToolMeta> = {
     title: () => i18n.t('activity.showPlan'),
     kind: () => null,
   },
+  web_search: {
+    icon: () => Search,
+    title: (i) => i18n.t('activity.webSearch', { query: str(i.query) }),
+    kind: () => 'search',
+  },
+  web_read: {
+    icon: () => Globe,
+    title: (i) => i18n.t('activity.webRead', { host: describeUrl(i.url) }),
+    kind: () => 'page',
+  },
   create_team: {
     icon: () => Users,
     title: (i) => i18n.t('activity.createTeam', { name: str(i.name) }),
