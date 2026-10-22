@@ -1,11 +1,12 @@
 import {
   PLAN_MAX_STEPS,
+  PLAN_RESULT_MAX,
   type PlanStepStatus,
   type TaskStatus,
   type TeamPlan,
   type TeamPlanInput,
 } from '@mowbot/contract';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { bots, planSteps, projects, tasks, teamPlans, teams } from '../db/schema';
 import type { EventBus } from '../events';
@@ -28,6 +29,9 @@ export function toPlan(row: PlanRow, steps: StepRow[]): TeamPlan {
       status: step.status,
       ownerBotId: step.ownerBotId,
       taskId: step.taskId,
+      deliverable: step.deliverable,
+      result: step.result,
+      link: step.link,
     })),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -59,6 +63,10 @@ export interface StepEdit {
   ownerBotId?: string | null;
   /** null: the step lets go of its task. */
   taskId?: string | null;
+  /** null: cleared. */
+  deliverable?: string | null;
+  result?: string | null;
+  link?: string | null;
   remove?: boolean;
 }
 
@@ -68,7 +76,13 @@ export interface PlanEdit {
   projectId?: string | null;
   steps?: StepEdit[];
   /** New steps, after the step numbered `after` (0: first; by default, at the end). */
-  add?: { title: string; status?: PlanStepStatus; ownerBotId?: string | null; after?: number }[];
+  add?: {
+    title: string;
+    status?: PlanStepStatus;
+    ownerBotId?: string | null;
+    deliverable?: string | null;
+    after?: number;
+  }[];
 }
 
 type StepValues = Omit<typeof planSteps.$inferInsert, 'teamId' | 'position'>;
@@ -84,6 +98,25 @@ const tooManySteps = () =>
 
 const clip = (text: string, max: number) =>
   text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+
+/**
+ * Where a deliverable is: a web address, or a file of the team's workspace, kept relative to it
+ * (`/workspace/outputs/a.png` → `outputs/a.png`). null: none.
+ */
+export function deliverableLink(link: string | null): string | null {
+  const value = link?.trim();
+  if (!value) return null;
+  if (/^https?:\/\/\S+$/i.test(value)) return value;
+  const path = value.replace(/^\/?workspace\//, '').replace(/^\.?\//, '');
+  if (!path || /^[a-z]+:/i.test(path) || path.startsWith('/') || path.split('/').includes('..')) {
+    throw new HttpProblem(
+      400,
+      'bad_link',
+      'Un livrable se trouve à une adresse web (https://…) ou dans /workspace (outputs/rapport.pdf).',
+    );
+  }
+  return path;
+}
 
 const notKeeper = () =>
   new HttpProblem(
@@ -178,6 +211,10 @@ export class PlanService {
           status: step.status ?? old?.status ?? 'todo',
           ownerBotId: step.ownerBotId !== undefined ? step.ownerBotId : (old?.ownerBotId ?? null),
           taskId: step.taskId !== undefined ? step.taskId : (old?.taskId ?? null),
+          deliverable:
+            step.deliverable !== undefined ? step.deliverable : (old?.deliverable ?? null),
+          result: step.result !== undefined ? step.result : (old?.result ?? null),
+          link: step.link !== undefined ? deliverableLink(step.link) : (old?.link ?? null),
         });
       }
       const values = { goal: input.goal, authorBotId: author?.id ?? null, updatedAt: now };
@@ -198,8 +235,11 @@ export class PlanService {
   /** Changes some steps, adds or removes some. `actor` null: the user. */
   async update(teamId: string, edit: PlanEdit, actor: BotRow | null): Promise<TeamPlan> {
     const keeper = await this.keeps(teamId, actor);
-    const edits = edit.steps ?? [];
-    const onlyStatus =
+    const edits = (edit.steps ?? []).map((e) =>
+      e.link !== undefined ? { ...e, link: deliverableLink(e.link) } : e,
+    );
+    // A member says where its own steps stand: their status, what they delivered and where.
+    const onlyProgress =
       edit.goal === undefined &&
       edit.projectId === undefined &&
       !edit.add?.length &&
@@ -208,9 +248,10 @@ export class PlanService {
           e.title === undefined &&
           e.ownerBotId === undefined &&
           e.taskId === undefined &&
+          e.deliverable === undefined &&
           !e.remove,
       );
-    if (!keeper && !onlyStatus) throw notKeeper();
+    if (!keeper && !onlyProgress) throw notKeeper();
     await this.checkRefs({
       bots: [...edits.map((e) => e.ownerBotId), ...(edit.add ?? []).map((a) => a.ownerBotId)],
       tasks: edits.map((e) => e.taskId),
@@ -278,6 +319,9 @@ export class PlanService {
           ...(e.status !== undefined ? { status: e.status } : {}),
           ...(e.ownerBotId !== undefined ? { ownerBotId: e.ownerBotId } : {}),
           ...(e.taskId !== undefined ? { taskId: e.taskId } : {}),
+          ...(e.deliverable !== undefined ? { deliverable: e.deliverable } : {}),
+          ...(e.result !== undefined ? { result: e.result } : {}),
+          ...(e.link !== undefined ? { link: e.link } : {}),
         });
       }
       const additions = new Map<number, StepValues[]>();
@@ -286,7 +330,12 @@ export class PlanService {
         if (after !== 0) at(after);
         additions.set(after, [
           ...(additions.get(after) ?? []),
-          { title: add.title, status: add.status ?? 'todo', ownerBotId: add.ownerBotId ?? null },
+          {
+            title: add.title,
+            status: add.status ?? 'todo',
+            ownerBotId: add.ownerBotId ?? null,
+            deliverable: add.deliverable ?? null,
+          },
         ]);
       }
       const steps: StepValues[] = [...(additions.get(0) ?? [])];
@@ -360,6 +409,11 @@ export class PlanService {
           .set({
             status: FROM_TASK[task.status],
             ...(task.status === 'cancelled' ? { taskId: null } : {}),
+            ...(task.status === 'done' && task.result?.trim()
+              ? {
+                  result: sql`coalesce(${planSteps.result}, ${clip(task.result.trim(), PLAN_RESULT_MAX)})`,
+                }
+              : {}),
           })
           .where(eq(planSteps.taskId, task.id));
         await tx
@@ -397,6 +451,10 @@ export class PlanService {
           `${index + 1}. [${PLAN_STATUS_LABELS[step.status]}] ${clip(step.title, 160)}`,
           owner ? ` — ${owner}${step.ownerBotId === selfId ? ' (toi)' : ''}` : '',
           step.taskId ? ' · suit sa tâche' : '',
+          step.deliverable ? `\n   Livrable : ${clip(step.deliverable, 160)}` : '',
+          step.result || step.link
+            ? `\n   Livré : ${[step.result && clip(step.result, 200), step.link && `(${step.link})`].filter(Boolean).join(' ')}`
+            : '',
         ].join('');
       }),
       plan.steps.length ? `Avancement : ${done}/${plan.steps.length}.` : 'Pas encore d’étape.',

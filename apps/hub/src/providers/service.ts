@@ -284,9 +284,25 @@ export class ProviderService {
       });
     }
     if (row.kind === 'openai') {
-      return createOpenAI({ apiKey, baseURL: row.baseUrl, headers: row.headers }).responses(
-        modelId,
-      );
+      return wrapLanguageModel({
+        model: createOpenAI({ apiKey, baseURL: row.baseUrl, headers: row.headers }).responses(
+          modelId,
+        ),
+        middleware: {
+          transformParams: async ({ params }) => ({
+            ...params,
+            providerOptions: {
+              ...params.providerOptions,
+              openai: {
+                // What a reasoning model thinks about, in short: the apps show it while it
+                // thinks (dropped for the other models).
+                reasoningSummary: 'auto',
+                ...params.providerOptions?.openai,
+              },
+            },
+          }),
+        },
+      });
     }
     return createOpenAICompatible({
       name: row.kind === 'command-code' ? 'command-code' : `provider-${row.id.slice(0, 8)}`,

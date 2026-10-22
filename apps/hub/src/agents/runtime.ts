@@ -17,6 +17,8 @@ import type {
   VaultField,
   VaultRequestAnswer,
 } from '@mowbot/contract';
+import { REASONING_ACTIVITY } from '@mowbot/contract';
+import { reasoningHeadline } from '@mowbot/design';
 import { type LanguageModel, type ModelMessage, stepCountIs, streamText, type ToolSet } from 'ai';
 import { and, asc, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import { activityInput, type BotActivities } from '../bots/activity';
@@ -57,12 +59,19 @@ import { buildLocalTools, mirrorState, OFFLINE_HINT, projectPlace } from './loca
 import { buildMcpTools } from './mcp-tools';
 import { resolveMentions } from './mentions';
 import { buildOrgTools } from './org-tools';
-import { buildPlanTools } from './plan-tools';
+import { buildPlanTools, SHOW_PLAN } from './plan-tools';
 import { buildPreviewTools, previewLines, SHARE_PREVIEW } from './preview-tools';
 import { buildProactiveTools } from './proactive-tools';
 import { type PromptContext, systemPrompt } from './prompt';
 import { FileLocks, ScreenLeases } from './shared-pc';
-import { LAST_STEP_NOTE, MAX_AUTONOMOUS_STEPS, MAX_STEPS, shortenOldOutputs } from './step-budget';
+import {
+  lastStepNote,
+  MAX_AUTONOMOUS_STEPS,
+  MAX_RESUMES,
+  MAX_STEPS,
+  RESUME_NOTE,
+  shortenOldOutputs,
+} from './step-budget';
 import { buildTakeoverTools, REQUEST_TAKEOVER } from './takeover-tools';
 import { buildTools, clip } from './tools';
 import { buildVaultTools, VAULT_REQUEST } from './vault-tools';
@@ -233,6 +242,10 @@ function summarize(
       output: toolName === 'screenshot' ? "Capture de l'écran" : 'Capture de la page',
       ...(saved && workspaceId ? { image: { workspaceId, path: saved } } : {}),
     };
+  }
+  // The apps draw the team's plan, live, from its id.
+  if (toolName === SHOW_PLAN) {
+    return { output: (output as { teamId?: string }).teamId ?? '' };
   }
   if (toolName === 'bash') {
     const result = output as ExecResult;
@@ -1504,6 +1517,65 @@ export class BotRuntime {
     }
   }
 
+  /**
+   * A turn cut by the step limit goes on by itself: the hub tells the bot to go on, as many as
+   * `MAX_RESUMES` times in a row. Past that, the bot's lead (or the Chef) is told and decides:
+   * tell it to go on, help it, split its work, or stop it. Paused: nothing goes on.
+   */
+  private async resumeAfterLimit(
+    bot: BotRow,
+    turn: { autonomous: boolean; depth: number; resumes: number },
+  ): Promise<void> {
+    if ((await this.deps.system.get()).paused) return;
+    const texts = await hubTexts(this.deps.db);
+    const count = turn.resumes + 1;
+    if (count <= MAX_RESUMES) {
+      const [row] = await this.deps.db
+        .insert(messages)
+        .values({
+          botId: bot.id,
+          role: 'user',
+          // For the user's request, it still is; on its own, it still is too.
+          kind: turn.autonomous ? 'routine' : 'chat',
+          meta: { resume: count, ...(turn.autonomous ? { depth: turn.depth } : {}) },
+          parts: [{ type: 'text', text: texts.resumed(count, MAX_RESUMES) }],
+          modelMessages: [{ role: 'user', content: RESUME_NOTE }],
+          status: 'done',
+        })
+        .returning();
+      if (!row) return;
+      this.publish(row);
+      this.schedule(bot.id);
+      return;
+    }
+    const overseer = await this.overseerOf(bot);
+    if (!overseer || turn.depth + 1 >= MAX_DEPTH) return;
+    await this.deliver(overseer.id, {
+      from: null,
+      kind: 'routine',
+      text: [
+        `[Note du hub] ${await this.describe(bot)} a atteint la limite d'étapes ${count} fois de suite sans finir.`,
+        `Regarde où il en est (plan_show, ses messages) et décide : relance-le avec send_message s'il avance, aide-le ou redécoupe son travail s'il tourne en rond, ou arrête-le (stop_bot). Ne dérange pas l'utilisateur pour ça, sauf s'il faut sa décision.`,
+      ].join('\n'),
+      display: texts.stuck(bot.name, count),
+      meta: { depth: turn.depth + 1 },
+    });
+  }
+
+  /** Who looks after a bot's work: its team's lead, or the Chef (none for the Chef itself). */
+  private async overseerOf(bot: BotRow): Promise<BotRow | null> {
+    const [team] = bot.teamId
+      ? await this.deps.db.select().from(teams).where(eq(teams.id, bot.teamId))
+      : [];
+    if (team?.leadBotId && team.leadBotId !== bot.id) {
+      const [lead] = await this.deps.db.select().from(bots).where(eq(bots.id, team.leadBotId));
+      if (lead) return lead;
+    }
+    if (bot.isChef) return null;
+    const [chef] = await this.deps.db.select().from(bots).where(eq(bots.isChef, true));
+    return chef ?? null;
+  }
+
   private async run(botId: string): Promise<void> {
     const { db, events } = this.deps;
     const bot = await this.deps.bots.row(botId);
@@ -1528,6 +1600,10 @@ export class BotRuntime {
     if (incoming.every((m) => m.meta?.silent || unheard(m))) return;
     const autonomous = !incoming.some(fromOwner);
     const depth = autonomous ? Math.max(0, ...incoming.map((m) => m.meta?.depth ?? 0)) : 0;
+    // The hub's "go on" after the step limit, and how many in a row (anything else: none).
+    const resumes = incoming.every((m) => m.meta?.resume || m.meta?.silent)
+      ? Math.max(0, ...incoming.map((m) => m.meta?.resume ?? 0))
+      : 0;
     const askIds = incoming.flatMap((m) =>
       m.kind === 'ask' && m.meta?.askId ? [m.meta.askId] : [],
     );
@@ -1887,7 +1963,10 @@ export class BotRuntime {
             ];
             if (stepNumber < maxSteps - 1) return { messages };
             stepLimit = true;
-            return { messages: [...messages, LAST_STEP_NOTE], toolChoice: 'none' };
+            return {
+              messages: [...messages, lastStepNote(resumes < MAX_RESUMES && !checkInOnly)],
+              toolChoice: 'none',
+            };
           },
           abortSignal: controller.signal,
           maxRetries: 2,
@@ -1896,12 +1975,25 @@ export class BotRuntime {
         for await (const chunk of result.fullStream) {
           switch (chunk.type) {
             case 'text-delta':
+              this.deps.bots.activity.end(botId, REASONING_ACTIVITY);
               appendText('text', chunk.text);
               break;
-            case 'reasoning-delta':
+            case 'reasoning-delta': {
               appendText('reasoning', chunk.text);
+              const tail = parts.at(-1);
+              // Its latest headline is in its last words.
+              const headline =
+                tail?.type === 'reasoning' ? reasoningHeadline(tail.text.slice(-2000)) : '';
+              if (headline) {
+                this.deps.bots.activity.start(botId, REASONING_ACTIVITY, {
+                  toolName: REASONING_ACTIVITY,
+                  input: { intent: headline },
+                });
+              }
               break;
+            }
             case 'tool-call':
+              this.deps.bots.activity.end(botId, REASONING_ACTIVITY);
               // What it shows lands in the answer itself (showPart), not as a tool call.
               if (SHOWN_TOOLS.has(chunk.toolName)) break;
               parts.push({
@@ -1972,8 +2064,13 @@ export class BotRuntime {
       this.deps.bots.activity.clear(botId);
       await this.deps.bots.update(botId, { status: 'idle', statusDetail: null });
       const answer = textOf(parts);
-      this.pushFinished(bot, created, parts, autonomous, answer, null);
+      // Going on by itself: not finished yet.
+      const resuming = outcome.stepLimit && !checkInOnly && resumes < MAX_RESUMES;
+      if (!resuming) this.pushFinished(bot, created, parts, autonomous, answer, null);
       await this.settleAsks(askIds, bot, answer || '(pas de réponse écrite)');
+      if (outcome.stepLimit && !checkInOnly) {
+        await this.resumeAfterLimit(bot, { autonomous, depth, resumes });
+      }
       await this.settleRoutines(routineRunIds, bot, {
         ok: true,
         answer,

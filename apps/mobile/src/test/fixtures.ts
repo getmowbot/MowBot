@@ -33,6 +33,7 @@ export function message(overrides: Partial<Message> = {}): Message {
     steeredInto: null,
     autonomous: false,
     stepLimit: false,
+    resume: null,
     mentions: [],
     status: 'done',
     errorCode: null,

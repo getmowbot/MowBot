@@ -62,6 +62,7 @@ export function toMessage(row: MessageRow): Message {
     mentions: row.meta?.mentions ?? [],
     status: row.status,
     stepLimit: Boolean(row.meta?.stepLimit),
+    resume: row.meta?.resume ?? null,
     errorCode: row.errorCode ?? null,
     error: row.error,
     usage: row.usage ?? null,

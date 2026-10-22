@@ -6,6 +6,10 @@ export type PlanStepStatus = z.infer<typeof planStepStatusSchema>;
 
 /** At most this many steps in a plan. */
 export const PLAN_MAX_STEPS = 30;
+/** Longest wording of what a step will deliver, of what it delivered, and of its link. */
+export const PLAN_DELIVERABLE_MAX = 200;
+export const PLAN_RESULT_MAX = 300;
+export const PLAN_LINK_MAX = 500;
 
 export const planStepSchema = z.object({
   id: z.uuid(),
@@ -15,6 +19,15 @@ export const planStepSchema = z.object({
   ownerBotId: z.uuid().nullable(),
   /** The task that carries the step: the step's status follows it. */
   taskId: z.uuid().nullable(),
+  /** What the step will deliver (« La maquette de la page d'accueil »). */
+  deliverable: z.string().nullable(),
+  /** What it delivered, in a sentence, once done (its task's result when it carries one). */
+  result: z.string().nullable(),
+  /**
+   * Where that is: a file of the team's workspace (`outputs/maquette.png`) or a web address
+   * (a preview, a document).
+   */
+  link: z.string().nullable(),
 });
 export type PlanStep = z.infer<typeof planStepSchema>;
 
@@ -50,6 +63,9 @@ export const teamPlanInputSchema = z.object({
         ownerBotId: z.uuid().nullable().optional(),
         /** A task of a bot that carries the step. */
         taskId: z.uuid().nullable().optional(),
+        deliverable: z.string().trim().max(PLAN_DELIVERABLE_MAX).nullable().optional(),
+        result: z.string().trim().max(PLAN_RESULT_MAX).nullable().optional(),
+        link: z.string().trim().max(PLAN_LINK_MAX).nullable().optional(),
       }),
     )
     .max(PLAN_MAX_STEPS),

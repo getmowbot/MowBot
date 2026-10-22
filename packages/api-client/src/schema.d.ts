@@ -2839,6 +2839,9 @@ export interface operations {
                                 status: "todo" | "doing" | "done" | "blocked";
                                 ownerBotId: string | null;
                                 taskId: string | null;
+                                deliverable: string | null;
+                                result: string | null;
+                                link: string | null;
                             }[];
                             /** Format: date-time */
                             createdAt: string;
@@ -2908,6 +2911,9 @@ export interface operations {
                         status?: "todo" | "doing" | "done" | "blocked";
                         ownerBotId?: string | null;
                         taskId?: string | null;
+                        deliverable?: string | null;
+                        result?: string | null;
+                        link?: string | null;
                     }[];
                 };
             };
@@ -2933,6 +2939,9 @@ export interface operations {
                             status: "todo" | "doing" | "done" | "blocked";
                             ownerBotId: string | null;
                             taskId: string | null;
+                            deliverable: string | null;
+                            result: string | null;
+                            link: string | null;
                         }[];
                         /** Format: date-time */
                         createdAt: string;
@@ -5563,6 +5572,7 @@ export interface operations {
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
                             stepLimit: boolean;
+                            resume: number | null;
                             errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                             error: string | null;
                             usage: {
@@ -5851,6 +5861,7 @@ export interface operations {
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
                         stepLimit: boolean;
+                        resume: number | null;
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                         error: string | null;
                         usage: {
@@ -6234,6 +6245,7 @@ export interface operations {
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
                         stepLimit: boolean;
+                        resume: number | null;
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                         error: string | null;
                         usage: {
@@ -6491,6 +6503,7 @@ export interface operations {
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
                         stepLimit: boolean;
+                        resume: number | null;
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                         error: string | null;
                         usage: {
@@ -6755,6 +6768,7 @@ export interface operations {
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
                         stepLimit: boolean;
+                        resume: number | null;
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                         error: string | null;
                         usage: {
@@ -7025,6 +7039,7 @@ export interface operations {
                         /** @enum {string} */
                         status: "streaming" | "done" | "error" | "stopped";
                         stepLimit: boolean;
+                        resume: number | null;
                         errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                         error: string | null;
                         usage: {
@@ -7879,6 +7894,7 @@ export interface operations {
                             /** @enum {string} */
                             status: "streaming" | "done" | "error" | "stopped";
                             stepLimit: boolean;
+                            resume: number | null;
                             errorCode: ("no_model" | "hub_restart" | "run_failed") | null;
                             error: string | null;
                             usage: {
