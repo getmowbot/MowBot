@@ -52,8 +52,11 @@ export interface AgentEndpoint {
 
 /** Where computers actually run. Docker in production, a fake in tests. */
 export interface ComputerRuntime {
-  /** Creates the container on first use, then starts it. */
-  start(spec: ComputerSpec): Promise<{ containerId: string }>;
+  /**
+   * Creates the container on first use, then starts it. `setup`: what the container was made
+   * with (`setupKey`), the asked one unless it was already running.
+   */
+  start(spec: ComputerSpec): Promise<{ containerId: string; setup: string }>;
   stop(containerId: string): Promise<void>;
   /** Deletes the computer for good: its container and its home volume. */
   remove(computerId: string): Promise<void>;
@@ -94,7 +97,7 @@ export class DockerComputerRuntime implements ComputerRuntime {
     return `mowbot-pc-${computerId}`;
   }
 
-  async start(spec: ComputerSpec): Promise<{ containerId: string }> {
+  async start(spec: ComputerSpec): Promise<{ containerId: string; setup: string }> {
     const name = DockerComputerRuntime.containerName(spec.id);
     let container = this.docker.getContainer(name);
     let info = await container.inspect().catch((error) => {
@@ -121,7 +124,10 @@ export class DockerComputerRuntime implements ComputerRuntime {
       info = await container.inspect();
     }
     if (!info.State.Running) await container.start();
-    return { containerId: info.Id };
+    return {
+      containerId: info.Id,
+      setup: info.Config.Labels?.['dev.mowbot.setup'] ?? setupKey(DEFAULT_SETUP),
+    };
   }
 
   async stop(containerId: string): Promise<void> {

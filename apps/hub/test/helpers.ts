@@ -8,7 +8,12 @@ import { type Agent, createAgent } from '@mowbot/agent';
 import type { GpuList, TokenResponse } from '@mowbot/contract';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app';
-import type { AgentEndpoint, ComputerRuntime, ComputerSpec } from '../src/computers/runtime';
+import {
+  type AgentEndpoint,
+  type ComputerRuntime,
+  type ComputerSpec,
+  setupKey,
+} from '../src/computers/runtime';
 import { type Config, loadConfig } from '../src/config';
 import { type Database, openDatabase } from '../src/db/client';
 import { createServices, type ServiceOverrides, type Services } from '../src/services';
@@ -69,14 +74,15 @@ export class FakeRuntime implements ComputerRuntime {
       ) => ChildProcessWithoutNullStreams)
     | null = null;
 
-  async start(spec: ComputerSpec): Promise<{ containerId: string }> {
+  async start(spec: ComputerSpec): Promise<{ containerId: string; setup: string }> {
     if (this.failNextStart) {
       const error = this.failNextStart;
       this.failNextStart = null;
       throw error;
     }
     const containerId = `fake-${spec.id}`;
-    if (this.machines.get(containerId)?.running) return { containerId };
+    const running = this.machines.get(containerId);
+    if (running?.running) return { containerId, setup: setupKey(running) };
     // No screen on the MCP computer, nor on a PC without its desktop.
     const screen = spec.kind !== 'mcp' && spec.system === 'desktop';
     const vnc = screen ? net.createServer((socket) => socket.pipe(socket)) : null;
@@ -116,7 +122,7 @@ export class FakeRuntime implements ComputerRuntime {
       system: spec.system,
       gpus: spec.gpus,
     });
-    return { containerId };
+    return { containerId, setup: setupKey(spec) };
   }
 
   async stop(containerId: string): Promise<void> {
