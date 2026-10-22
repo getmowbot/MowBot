@@ -1,14 +1,19 @@
 name: Desktop app
 
-# Builds the installers of the desktop app (Windows .exe/.msi, macOS .dmg, Linux AppImage/.deb)
+# Builds the installers of the desktop app (Windows .exe/.msi, macOS .dmg, Linux AppImage/.deb/.rpm)
 # and publishes them as the GitHub release `desktop-v<version>` (version from tauri.conf.json):
 # on every merge into main that changes the app, on a `desktop-v*` tag, or by hand. A new version
 # number makes a new release; the same one replaces its installers.
+#
+# A new release stays a draft until every platform is built: the installed apps read latest.json
+# from the latest published release, which would otherwise miss the platforms still building.
+# Its notes are the version's section of CHANGELOG.md.
 on:
   push:
     branches: [main]
     paths:
       - 'apps/desktop/**'
+      - 'CHANGELOG.md'
       - '.github/workflows/desktop.yml'
     tags: ['desktop-v*']
   workflow_dispatch:
@@ -21,7 +26,60 @@ permissions:
   contents: write
 
 jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.release.outputs.id }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Release notes from CHANGELOG.md
+        id: notes
+        run: |
+          version=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          awk -v v="$version" '
+            index($0, "## " v " ") == 1 || $0 == "## " v { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for $version: add '## $version — <date>' with its notes."
+            exit 1
+          fi
+          cat >> notes.md <<EOF
+
+          ### Install
+          - **Windows:** \`MowBot_${version}_x64-setup.exe\` (or the \`.msi\`)
+          - **macOS:** \`MowBot_${version}_universal.dmg\`
+          - **Linux:** the AppImage, \`.deb\` or \`.rpm\`, or one command: see [the README](https://github.com/getmowbot/MowBot#desktop-app)
+
+          On first launch, enter your hub's address (the web app's). Installed apps update themselves.
+          Update a server with \`sudo mowbot update\` to get the hub's side of these changes.
+          EOF
+      - name: Draft release (or the existing one)
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.notes.outputs.version }}
+        run: |
+          tag="desktop-v$VERSION"
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            -q ".[] | select(.tag_name == \"$tag\") | .id" | head -n 1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" -F body=@notes.md > /dev/null
+          else
+            id=$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+              -f tag_name="$tag" \
+              -f target_commitish="$GITHUB_SHA" \
+              -f name="MowBot desktop $VERSION" \
+              -F body=@notes.md \
+              -F draft=true \
+              -q .id)
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: release
     strategy:
       fail-fast: false
       matrix:
@@ -62,12 +120,16 @@ jobs:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
           args: ${{ matrix.args }}
-          tagName: desktop-v__VERSION__
-          releaseName: MowBot desktop __VERSION__
-          releaseBody: |
-            Installe l'app, puis indique l'adresse de ton hub au premier lancement (celle de l'interface web).
-            Linux en une commande : voir docs/DESKTOP.md.
-          releaseDraft: false
+          releaseId: ${{ needs.release.outputs.id }}
           # latest.json: what the installed apps read to update themselves.
           includeUpdaterJson: true
-          prerelease: false
+
+  publish:
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release, now complete
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ID: ${{ needs.release.outputs.id }}
+        run: gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" -F draft=false -f make_latest=true > /dev/null
