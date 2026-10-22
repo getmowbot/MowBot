@@ -9,7 +9,7 @@ import type {
   TeamCreate,
   TeamUpdate,
 } from '@mowbot/contract';
-import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { data, keys, useTeams } from './queries';
 import { api } from './session';
 
@@ -66,6 +66,25 @@ export function useDeleteTeam() {
       client.setQueryData<Team[]>(keys.teams, (list) => list?.filter((team) => team.id !== id));
       void client.invalidateQueries({ queryKey: keys.computers });
     },
+  });
+}
+
+/** A team's plan of attack (null: none yet), kept current by `plan.updated` events. */
+export function usePlan(teamId: string) {
+  return useQuery({
+    queryKey: keys.plan(teamId),
+    queryFn: async () =>
+      (await data(api().GET('/api/v1/teams/{id}/plan', { params: { path: { id: teamId } } }))).plan,
+  });
+}
+
+/** Clears a team's plan (its tasks stay). */
+export function useClearPlan() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (teamId: string) =>
+      ok(api().DELETE('/api/v1/teams/{id}/plan', { params: { path: { id: teamId } } })),
+    onSuccess: (_, teamId) => client.setQueryData(keys.plan(teamId), null),
   });
 }
 

@@ -335,6 +335,21 @@ const TOOLS: Record<string, ToolMeta> = {
     title: (_, t) => t('activity.tool.listTasks'),
     kind: () => null,
   },
+  plan_set: {
+    icon: () => 'tasks',
+    title: (_, t) => t('activity.tool.planSet'),
+    kind: () => null,
+  },
+  plan_update: {
+    icon: () => 'tasks',
+    title: (_, t) => t('activity.tool.planUpdate'),
+    kind: () => null,
+  },
+  plan_show: {
+    icon: () => 'tasks',
+    title: (_, t) => t('activity.tool.planShow'),
+    kind: () => null,
+  },
   create_team: {
     icon: () => 'users',
     title: (i, t) => t('activity.tool.createTeam', { name: str(i.name) }),
