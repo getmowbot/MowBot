@@ -102,7 +102,18 @@ describe('projects on the user’s computer', () => {
       project = (await inject<{ items: Project[] }>('GET', '/api/v1/projects')).body.items[0];
       return project?.online === true;
     });
-    expect(project).toMatchObject({ name: 'Site', path: 'C:\\Users\\Joris\\site', mode: 'ask' });
+    expect(project).toMatchObject({
+      name: 'Site',
+      path: 'C:\\Users\\Joris\\site',
+      mode: 'ask',
+      mirror: true,
+      mirrors: [],
+    });
+    // Kept out of the mirrors: the bot works in the folder itself.
+    const direct = await inject<Project>('PATCH', `/api/v1/projects/${project?.id}`, {
+      mirror: false,
+    });
+    expect(direct.body.mirror).toBe(false);
 
     await inject('POST', `/api/v1/bots/${chef.id}/messages`, {
       text: 'Change le titre du site et lance les tests',
@@ -194,7 +205,9 @@ describe('projects on the user’s computer', () => {
     await inject('POST', `/api/v1/bots/${chef.id}/messages`, { text: 'Salut' });
     await services.runtime.settle();
     expect(promptOf(model, 0)).not.toContain('Compta');
-    expect(Object.keys(model.doStreamCalls[0]?.tools ?? {})).not.toContain('local_read');
+    const offered = (model.doStreamCalls[0]?.tools ?? []).map((tool) => tool.name);
+    expect(offered).toContain('bash');
+    expect(offered.filter((name) => name.startsWith('local_'))).toEqual([]);
 
     // Unlinking the computer closes its connection and removes its projects.
     const closed = new Promise<number>((resolve) => connector?.socket.once('close', resolve));

@@ -105,6 +105,10 @@ describe('the project a bot works in', () => {
     });
     const siteId = projects.find((p) => p.name === 'Site')?.id as string;
     const comptaId = projects.find((p) => p.name === 'Compta')?.id as string;
+    // Kept out of the mirrors: local_* work in the folders themselves.
+    for (const id of [siteId, comptaId]) {
+      await inject('PATCH', `/api/v1/projects/${id}`, { mirror: false });
+    }
 
     // The user picks Site: every device hears it, the bot gets a silent note and does not answer.
     const picked = await pick(siteId);
@@ -328,6 +332,8 @@ describe('the project a bot works in', () => {
     await services.runtime.settle();
     const prompt = promptOf(model, 0);
     expect(prompt).toContain('Projet actif : Site (PC-de-test, linux, hors ligne)');
-    expect(prompt).toContain("Pour l'instant, son ordinateur est hors ligne");
+    // Its mirror waits for the first copy; the bot keeps working there meanwhile.
+    expect(prompt).toContain('Son miroir : /workspace/projects/site');
+    expect(prompt).toContain('continue dans le miroir');
   });
 });

@@ -33,8 +33,16 @@ export interface PromptContext {
   vault: string[];
   /** The folders the user shared from their computer that this bot may work in, one per line. */
   projects?: string[];
-  /** The project the bot works in (local_* default to it); `place`: its computer, online or not. */
-  activeProject?: { name: string; place: string; online: boolean } | null;
+  /**
+   * The project the bot works in (local_* default to it); `place`: its computer, online or not;
+   * `mirror`: its copy in the bot's workspace and where it stands (null: worked on directly).
+   */
+  activeProject?: {
+    name: string;
+    place: string;
+    online: boolean;
+    mirror?: { folder: string; state: string } | null;
+  } | null;
   /** The plans the bot follows or keeps, as it reads them (its team's; the Chef: lead-less teams' too). */
   plans?: { team: string; text: string }[];
   /** The Chef: the other teams' plans, one line each. */
@@ -70,9 +78,13 @@ function planLines(ctx: PromptContext, keeper: boolean): string[] {
 /** Which project the bot works in, from the conversation (the user picks it, or the bot). */
 function activeProjectLines(ctx: PromptContext): string[] {
   const active = ctx.activeProject;
+  const where = (a: NonNullable<PromptContext['activeProject']>) =>
+    a.mirror
+      ? `Son miroir : ${a.mirror.folder} (${a.mirror.state}) : c'est là que tu travailles.${a.online ? '' : ' Son ordinateur est hors ligne : continue dans le miroir, ton travail arrivera chez lui à sa reconnexion, sans rien faire de ta part ; les commandes se lancent sur ton PC, dans le miroir.'}`
+      : `Sans miroir : les outils local_* y travaillent quand tu ne précises pas project.${a.online ? '' : ` Pour l'instant, ${OFFLINE_HINT}`}`;
   return [
     active
-      ? `Projet actif : ${active.name} (${active.place}). Les outils local_* y travaillent quand tu ne précises pas project.${active.online ? '' : ` Pour l'instant, ${OFFLINE_HINT}`}`
+      ? `Projet actif : ${active.name} (${active.place}). ${where(active)}`
       : 'Aucun projet actif : précise project dans les outils local_*.',
     "- L'utilisateur choisit le projet actif dans la conversation ; s'il te dit sur quel projet il travaille, choisis-le toi-même avec local_use_project.",
   ];
@@ -192,13 +204,15 @@ export function systemPrompt(ctx: PromptContext): string {
       ? [
           '',
           "## Les projets de l'utilisateur",
-          "Des dossiers de son propre ordinateur, partagés avec l'app MowBot desktop. Quand il parle de son projet, de son code ou de ses fichiers, c'est là : outils local_* (local_list, local_find, local_search, local_read, local_edit, local_write, local_exec).",
+          "Des dossiers de son propre ordinateur, partagés avec l'app MowBot desktop. Quand il parle de son projet, de son code ou de ses fichiers, c'est là.",
           ...ctx.projects,
           ...activeProjectLines(ctx),
-          "- Un travail sur un de ses projets se fait dans ce projet, sur son ordinateur : c'est là que l'utilisateur attend le résultat. Ne le refais jamais dans /workspace à côté (un dossier qu'il ne verrait pas), même si le projet est vide : crée-y les fichiers.",
-          "- Lis avant de modifier ; pour changer un fichier existant, local_edit plutôt que local_write. Ces fichiers sont ceux de l'utilisateur : ne supprime ni n'écrase rien sans raison.",
-          "- local_exec lance une commande sur son ordinateur, avec son shell (PowerShell sous Windows). Sauf en mode auto, il doit l'accepter : la question lui est posée, termine ton tour et relance la même commande quand il a dit oui.",
-          "- Ton PC sert à installer, générer, lancer et tester sans toucher à son ordinateur : copie le projet (local_pull → /workspace/projects/<projet>), travailles-y avec bash, puis rapporte tes changements avec local_push. Dans un dépôt git, ils arrivent en branche qu'il relit et fusionne ; sinon, ils sont écrits directement dans son dossier. Ne laisse pas de travail sur ton PC sans l'avoir rapporté.",
+          "- Chaque projet a un miroir dans ton workspace, /workspace/projects/<projet>, gardé en synchro avec son dossier, dans les deux sens et en continu : travailles-y avec tes outils habituels (read_file, write_file, bash). Ce que tu y changes arrive chez lui en quelques secondes quand son ordinateur est en ligne, et à sa reconnexion sinon ; ce qu'il change revient dans le miroir. Ne refais jamais le travail dans un autre dossier de /workspace (il ne le verrait pas), même si le projet est vide : crée les fichiers dans le miroir.",
+          "- Ces fichiers sont ceux de l'utilisateur : lis avant de modifier, ne supprime ni n'écrase rien sans raison (une suppression dans le miroir le supprime chez lui).",
+          '- Pas dans le miroir : .git, ce que son .gitignore exclut, node_modules et les autres dépendances ou caches. Installe-les sur ton PC (npm install…) si tu dois lancer le projet. Pour git (log, diff, commit), local_exec.',
+          "- local_exec lance une commande sur son ordinateur, avec son shell (PowerShell sous Windows), quand il est en ligne : son dossier a d'abord ton travail du miroir. Sauf en mode auto, il doit l'accepter : la question lui est posée, termine ton tour et relance la même commande quand il a dit oui. Pour installer, générer, lancer et tester sans toucher à son ordinateur, ou quand il est hors ligne : bash sur ton PC, dans le miroir.",
+          '- Un fichier changé des deux côtés depuis la dernière synchro est un conflit : sa version est gardée, la tienne va dans /workspace/projects/_conflicts/ et tu en es prévenu ; reporte alors tes changements sur sa version. local_sync force une synchro et dit où elle en est.',
+          "- Un projet sans miroir (désactivé par l'utilisateur, ou trop gros) se travaille directement sur son ordinateur avec local_list, local_find, local_search, local_read, local_edit et local_write, seulement quand il est en ligne.",
           "- Une tâche confiée dans un projet (« Projet : … ») en fait ton projet actif. Quand tu délègues, assign_task transmet ton projet actif à l'autre bot.",
         ].join('\n')
       : '',

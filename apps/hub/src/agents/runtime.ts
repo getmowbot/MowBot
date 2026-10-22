@@ -23,6 +23,7 @@ import { activityInput, type BotActivities } from '../bots/activity';
 import { type BotRow, type BotService, toMessage } from '../bots/service';
 import type { AgentClient, ExecResult } from '../computers/agent-client';
 import type { ComputerService, Logger } from '../computers/service';
+import type { MirrorService } from '../connectors/mirror';
 import { type ConnectorService, type ProjectRow, usableBy } from '../connectors/service';
 import type { Db } from '../db/client';
 import { bots, type MessageMeta, messages, owner, routineRuns, teams } from '../db/schema';
@@ -52,7 +53,7 @@ import { BrowserHub } from './browser';
 import { buildBrowserTools } from './browser-tools';
 import { buildCanvasTools, SHOW_IN_CHAT } from './canvas-tools';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
-import { buildLocalTools, OFFLINE_HINT, projectPlace } from './local-tools';
+import { buildLocalTools, mirrorState, OFFLINE_HINT, projectPlace } from './local-tools';
 import { buildMcpTools } from './mcp-tools';
 import { resolveMentions } from './mentions';
 import { buildOrgTools } from './org-tools';
@@ -163,6 +164,8 @@ export interface RuntimeDeps {
   connectors?: ConnectorService;
   /** Web pages bots show from their PCs (share_preview). */
   previews?: PreviewService;
+  /** The projects' copies in the workspaces, kept in sync with the user's folders. */
+  mirrors?: MirrorService;
   /** Transcribes voice messages; without it, they stay untranscribed. */
   voice?: VoiceDeps;
   finishedPushAfterMs?: number;
@@ -887,11 +890,17 @@ export class BotRuntime {
     if (bot.projectId === (row?.id ?? null)) return this.deps.bots.toBot(bot);
     const updated = await this.deps.bots.update(botId, { projectId: row?.id ?? null });
     let text =
-      "[L'utilisateur a retiré le projet actif : précise project dans les outils local_*.]";
+      "[L'utilisateur a retiré le projet actif : précise project dans les outils local_* si tu travailles encore sur un de ses projets.]";
     if (row && connectors) {
       const online = connectors.isOnline(row.connectorId);
       const machine = (await connectors.connectorsOf([row])).get(row.connectorId);
-      text = `[L'utilisateur a choisi le projet actif : ${row.name} (${projectPlace(machine, online)}). Les outils local_* y travaillent quand tu ne précises pas project.${online ? '' : ` Pour l'instant, ${OFFLINE_HINT}`}]`;
+      const mirror =
+        row.mirror && bot.workspaceId
+          ? await this.deps.mirrors?.ensure(row.id, bot.workspaceId).catch(() => null)
+          : null;
+      text = mirror
+        ? `[L'utilisateur a choisi le projet actif : ${row.name} (${projectPlace(machine, online)}). Son miroir est /workspace/${mirror.folder}, synchronisé avec son dossier : travailles-y avec tes outils habituels.]`
+        : `[L'utilisateur a choisi le projet actif : ${row.name} (${projectPlace(machine, online)}), sans miroir : les outils local_* y travaillent quand tu ne précises pas project.${online ? '' : ` Pour l'instant, ${OFFLINE_HINT}`}]`;
     }
     const display = (await hubTexts(this.deps.db)).projectChosen(row?.name ?? null);
     const [last] = await this.deps.db
@@ -1622,6 +1631,11 @@ export class BotRuntime {
       const machines = connectors ? await connectors.connectorsOf(projects) : new Map();
       const active = projects.find((p) => p.id === bot.projectId);
       const activeOnline = Boolean(active && connectors?.isOnline(active.connectorId));
+      // Its copy in the workspace (made now if the bot just got the project).
+      const activeMirror =
+        active?.mirror && bot.workspaceId && this.deps.mirrors
+          ? await this.deps.mirrors.ensure(active.id, bot.workspaceId).catch(() => null)
+          : null;
       const toolset = masked(secrets, {
         ...buildTools({
           botId,
@@ -1692,10 +1706,10 @@ export class BotRuntime {
               bot,
               db,
               connectors,
+              mirrors: this.deps.mirrors,
               questions: this.deps.questions,
               projects,
               machines,
-              files: this.deps.files,
               // Read at each call: the user may pick another project while the bot works.
               activeProjectId: async () => (await this.deps.bots.row(botId)).projectId,
               setActiveProject: async (projectId) => {
@@ -1753,15 +1767,28 @@ export class BotRuntime {
         vault: await this.deps.vault.promptLines(bot),
         projects: projects.map((p) => {
           const machine = machines.get(p.connectorId);
-          const online = connectors?.isOnline(p.connectorId) ? 'en ligne' : 'hors ligne';
+          const online = Boolean(connectors?.isOnline(p.connectorId));
           const mode = p.mode === 'auto' ? 'commandes libres' : 'commandes avec accord';
-          return `- ${p.name} : ${p.path} (${machine?.hostname ?? machine?.name ?? '?'}${machine?.os ? `, ${machine.os}` : ''}) · ${online} · ${mode}`;
+          const mirror = this.deps.mirrors?.mirrorIn(p.id, bot.workspaceId);
+          const copy = !p.mirror
+            ? 'sans miroir'
+            : mirror
+              ? `miroir /workspace/${mirror.folder} (${mirrorState(mirror, online)})`
+              : 'miroir dès que tu y travailles';
+          return `- ${p.name} : ${p.path} (${machine?.hostname ?? machine?.name ?? '?'}${machine?.os ? `, ${machine.os}` : ''}) · ${online ? 'en ligne' : 'hors ligne'} · ${mode} · ${copy}`;
         }),
         activeProject: active
           ? {
               name: active.name,
               place: projectPlace(machines.get(active.connectorId), activeOnline),
               online: activeOnline,
+              mirror:
+                activeMirror && activeMirror.status !== 'too_big'
+                  ? {
+                      folder: `/workspace/${activeMirror.folder}`,
+                      state: mirrorState(activeMirror, activeOnline),
+                    }
+                  : null,
             }
           : null,
         ...(await this.planContext(bot, allTeams)),

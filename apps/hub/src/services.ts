@@ -10,6 +10,7 @@ import { type BotRow, BotService } from './bots/service';
 import { type ComputerRuntime, DockerComputerRuntime } from './computers/runtime';
 import { ComputerService } from './computers/service';
 import type { Config } from './config';
+import { MirrorService } from './connectors/mirror';
 import { ConnectorService } from './connectors/service';
 import type { Db } from './db/client';
 import { bots as botsTable } from './db/schema';
@@ -61,6 +62,7 @@ export interface Services {
   mcp: McpService;
   connectors: ConnectorService;
   previews: PreviewService;
+  mirrors: MirrorService;
   /** Main team, its PC, the Chef and its daily summary (at startup and right after setup). */
   bootstrap(): Promise<void>;
 }
@@ -127,6 +129,14 @@ export async function createServices(
   });
   const mcp = new McpService({ db, events, masterKey: config.masterKey, computers, files });
   const connectors = new ConnectorService({ db, events, bots });
+  const mirrors = new MirrorService({
+    db,
+    events,
+    files,
+    connectors,
+    notifications,
+    limits: config.mirror,
+  });
   const previews = new PreviewService(db, computers, events, config.masterKey, {
     ...config.previews,
     host: config.host,
@@ -163,6 +173,7 @@ export async function createServices(
     mcp,
     connectors,
     previews,
+    mirrors,
     voice: {
       transcriber:
         overrides.transcriber ??
@@ -175,6 +186,7 @@ export async function createServices(
     askTimeoutMs: overrides.askTimeoutMs,
   });
   automations.setRuntime(runtime);
+  mirrors.setNote((botId, text, display) => runtime.note(botId, text, display));
   return {
     config,
     db,
@@ -203,6 +215,7 @@ export async function createServices(
     mcp,
     connectors,
     previews,
+    mirrors,
     bootstrap,
   };
 }

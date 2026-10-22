@@ -4,6 +4,7 @@ import {
   type ConnectorCreate,
   connectorOsSchema,
   type Project,
+  type ProjectMirror,
   type ProjectUpdate,
 } from '@mowbot/contract';
 import { and, asc, eq, inArray, notInArray } from 'drizzle-orm';
@@ -13,7 +14,7 @@ import type { BotRow, BotService } from '../bots/service';
 import type { Db } from '../db/client';
 import { bots, connectors, projectGrants, projects } from '../db/schema';
 import type { EventBus } from '../events';
-import { notFound } from '../http/problems';
+import { HttpProblem, notFound } from '../http/problems';
 import { HUB_TEXTS } from '../i18n';
 
 export type ConnectorRow = typeof connectors.$inferSelect;
@@ -30,10 +31,38 @@ export type ProjectOp =
   | 'exec'
   | 'manifest'
   | 'read_files'
-  | 'branch';
+  | 'put'
+  | 'delete';
+
+/** Whether a desktop app version is at least `wanted` (`[0, 2, 5]`); unknown versions are not. */
+export function atLeast(version: string | null | undefined, wanted: number[]): boolean {
+  const parts = (version ?? '').split(/[.-]/).map((n) => Number.parseInt(n, 10));
+  for (let i = 0; i < wanted.length; i++) {
+    const have = parts[i] ?? 0;
+    if (Number.isNaN(have)) return false;
+    if (have !== wanted[i]) return have > (wanted[i] as number);
+  }
+  return true;
+}
+
+/** The desktop app has `put`, `delete`, mirror manifests, `watch` and `pick` from this version. */
+export const MIRROR_APP_FROM = [0, 2, 5];
+
+/** What the mirror engine hears from the connections (connectors/mirror.ts). */
+export interface LinkListener {
+  /** The app connected and announced its folders. */
+  connected(connectorId: string): void;
+  /** Files changed in a project it watches (null: anything may have). */
+  changed(connectorId: string, key: string, paths: string[] | null): void;
+  disconnected(connectorId: string): void;
+  /** Where the project's mirrors stand, for the apps. */
+  mirrorsOf(projectId: string): ProjectMirror[];
+}
 
 const KEEPALIVE_MS = 25_000;
 const REQUEST_TIMEOUT_MS = 60_000;
+/** How long the user has to pick a folder on their computer. */
+const PICK_TIMEOUT_MS = 5 * 60_000;
 /** Close code telling the desktop app its token is no longer valid (it stops retrying). */
 export const REVOKED_CLOSE_CODE = 4401;
 
@@ -56,6 +85,11 @@ const frameSchema = z.discriminatedUnion('t', [
   }),
   z.object({ t: z.literal('projects'), projects: z.array(announcedSchema).max(200) }),
   z.object({
+    t: z.literal('changed'),
+    project: z.string().max(100),
+    paths: z.array(z.string().max(4096)).max(1000).nullable(),
+  }),
+  z.object({
     t: z.literal('res'),
     id: z.string(),
     ok: z.boolean(),
@@ -73,6 +107,8 @@ interface Pending {
 interface Link {
   socket: WebSocket;
   pending: Map<string, Pending>;
+  /** Its announcements, applied in order. */
+  chain: Promise<void>;
 }
 
 /** Whether this bot may work in the project (its scope: all bots, some teams, some bots). */
@@ -102,8 +138,14 @@ export function toConnector(row: ConnectorRow, online: boolean): Connector {
  */
 export class ConnectorService {
   private readonly links = new Map<string, Link>();
+  private listener: LinkListener | null = null;
 
   constructor(private readonly deps: { db: Db; events: EventBus; bots: BotService }) {}
+
+  /** The mirror engine follows the connections. */
+  setListener(listener: LinkListener): void {
+    this.listener = listener;
+  }
 
   // Connectors
 
@@ -157,10 +199,9 @@ export class ConnectorService {
   attach(row: ConnectorRow, socket: WebSocket): void {
     // A second connection of the same app replaces the first.
     this.links.get(row.id)?.socket.close(1000, 'Replaced');
-    const link: Link = { socket, pending: new Map() };
+    const link: Link = { socket, pending: new Map(), chain: Promise.resolve() };
     this.links.set(row.id, link);
     const keepalive = setInterval(() => socket.ping(), KEEPALIVE_MS);
-    let chain = Promise.resolve();
     socket.on('message', (data: WebSocket.RawData) => {
       let frame: z.infer<typeof frameSchema>;
       try {
@@ -177,8 +218,22 @@ export class ConnectorService {
         else pending.reject(new Error(frame.error ?? 'Échec sur le PC de l’utilisateur'));
         return;
       }
-      // Announcements are applied in order.
-      chain = chain.then(() => this.announced(row.id, frame)).catch(() => undefined);
+      if (frame.t === 'changed') {
+        const { project, paths } = frame;
+        link.chain = link.chain
+          .then(() => this.listener?.changed(row.id, project, paths))
+          .catch(() => undefined);
+        return;
+      }
+      // Announcements are applied in order; once the app said hello, its mirrors catch up.
+      link.chain = link.chain
+        .then(() => this.announced(row.id, frame))
+        .then(() => {
+          if (frame.t === 'hello' && this.links.get(row.id) === link) {
+            this.listener?.connected(row.id);
+          }
+        })
+        .catch(() => undefined);
     });
     socket.on('close', () => {
       clearInterval(keepalive);
@@ -189,7 +244,57 @@ export class ConnectorService {
       if (this.links.get(row.id) !== link) return;
       this.links.delete(row.id);
       void this.seen(row.id).catch(() => undefined);
+      this.listener?.disconnected(row.id);
     });
+  }
+
+  /** Once the folders the app announced so far are known here. */
+  async settled(connectorId: string): Promise<void> {
+    await this.links.get(connectorId)?.chain;
+  }
+
+  /** Sends a message to a connected app (false: not connected). */
+  send(connectorId: string, frame: Record<string, unknown>): boolean {
+    const link = this.links.get(connectorId);
+    if (!link || link.socket.readyState !== WebSocket.OPEN) return false;
+    link.socket.send(JSON.stringify(frame));
+    return true;
+  }
+
+  /** The version the app of this computer said it is. */
+  async versionOf(connectorId: string): Promise<string | null> {
+    const [row] = await this.deps.db
+      .select({ version: connectors.version })
+      .from(connectors)
+      .where(eq(connectors.id, connectorId));
+    return row?.version ?? null;
+  }
+
+  /**
+   * Opens the folder picker on the computer (asked from another device): the project the user
+   * picked there, or null when they cancelled.
+   */
+  async pick(connectorId: string): Promise<ProjectRow | null> {
+    const link = this.links.get(connectorId);
+    if (!link || link.socket.readyState !== WebSocket.OPEN) {
+      throw new HttpProblem(409, 'connector_offline', 'This computer is not connected');
+    }
+    if (!atLeast(await this.versionOf(connectorId), MIRROR_APP_FROM)) {
+      throw new HttpProblem(409, 'app_update_needed', 'The desktop app needs an update for this');
+    }
+    const picked = await this.call<{ key: string } | null>(
+      link,
+      (id) => ({ t: 'pick', id }),
+      PICK_TIMEOUT_MS,
+      'pick',
+    );
+    if (!picked) return null;
+    await this.settled(connectorId);
+    const [row] = await this.deps.db
+      .select()
+      .from(projects)
+      .where(and(eq(projects.connectorId, connectorId), eq(projects.key, picked.key)));
+    return row ?? null;
   }
 
   private async announced(
@@ -273,12 +378,14 @@ export class ConnectorService {
       mode: row.mode,
       scope: row.scope,
       online: this.links.has(row.connectorId),
+      mirror: row.mirror,
+      mirrors: this.listener?.mirrorsOf(row.id) ?? [],
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
   }
 
-  private publishProject(row: ProjectRow): void {
+  publishProject(row: ProjectRow): void {
     this.deps.events.publish({ type: 'project.updated', project: this.toProject(row) });
   }
 
@@ -385,14 +492,29 @@ export class ConnectorService {
         `L'ordinateur de « ${row.name} » n'est pas connecté : l'utilisateur doit ouvrir l'app MowBot desktop.`,
       );
     }
+    return this.call<T>(
+      link,
+      (id) => ({ t: 'req', id, op, project: row.key, args }),
+      timeoutMs,
+      op,
+    );
+  }
+
+  /** Sends a message that the app answers with `res` (same id). */
+  private call<T>(
+    link: Link,
+    frame: (id: string) => Record<string, unknown>,
+    timeoutMs: number,
+    what: string,
+  ): Promise<T> {
     const id = randomUUID();
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         link.pending.delete(id);
-        reject(new Error(`Pas de réponse de l'ordinateur de l'utilisateur (${op}).`));
+        reject(new Error(`Pas de réponse de l'ordinateur de l'utilisateur (${what}).`));
       }, timeoutMs);
       link.pending.set(id, { resolve: (data) => resolve(data as T), reject, timer });
-      link.socket.send(JSON.stringify({ t: 'req', id, op, project: row.key, args }));
+      link.socket.send(JSON.stringify(frame(id)));
     });
   }
 

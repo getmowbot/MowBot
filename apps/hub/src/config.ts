@@ -76,6 +76,10 @@ const envSchema = z.object({
    * (previews). Unset: the address of the apps' latest request.
    */
   MOWBOT_PUBLIC_URL: z.url({ protocol: /^https?$/ }).optional(),
+  /** Largest project mirrored in the bots' workspaces (files kept in sync, in megabytes). */
+  MOWBOT_MIRROR_MAX_MB: z.coerce.number().int().min(1).default(500),
+  /** Most files a mirrored project may have. */
+  MOWBOT_MIRROR_MAX_FILES: z.coerce.number().int().min(1).default(20_000),
 });
 
 export interface PortRange {
@@ -138,6 +142,8 @@ export interface Config {
     /** A preview ends after this long at most (sharing it again restarts the clock). */
     ttlMs: number;
   };
+  /** How big a project mirrored in the bots' workspaces may be. */
+  mirror: { maxBytes: number; maxFiles: number };
 }
 
 export function parseMasterKey(value: string): Buffer {
@@ -199,6 +205,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       ports: parsePortRange(e.MOWBOT_PREVIEW_PORTS),
       publicUrl: e.MOWBOT_PUBLIC_URL,
       ttlMs: 24 * 60 * 60 * 1000,
+    },
+    mirror: {
+      maxBytes: e.MOWBOT_MIRROR_MAX_MB * 1024 * 1024,
+      maxFiles: e.MOWBOT_MIRROR_MAX_FILES,
     },
   };
 }
