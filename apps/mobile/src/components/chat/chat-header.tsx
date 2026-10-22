@@ -15,6 +15,9 @@ import { Surface } from '../ui/surface';
 import { T } from '../ui/text';
 import { useBotMenu } from './bot-menu';
 
+/** The bot's face in the floating header: big, as in a group chat. */
+const FACE = 64;
+
 interface Props {
   bot: Bot;
   mood: BotMood;
@@ -28,7 +31,7 @@ function Identity({ bot, mood, live }: { bot: Bot; mood: BotMood; live?: Message
   const { t } = useTranslation();
   return (
     <>
-      <BotAvatar seed={bot.avatarSeed} size={26} mood={mood} />
+      <BotAvatar seed={bot.avatarSeed} size={34} mood={mood} />
       <View style={styles.names}>
         <T variant="callout" numberOfLines={1} style={styles.name}>
           {bot.name}
@@ -50,7 +53,7 @@ function Face({ bot, mood, live }: { bot: Bot; mood: BotMood; live?: Message | n
   const glass = useLiquidGlass();
   return (
     <View style={styles.face} accessible accessibilityLabel={`${bot.name}, ${bot.role}`}>
-      <BotAvatar seed={bot.avatarSeed} size={44} mood={mood} />
+      <BotAvatar seed={bot.avatarSeed} size={FACE} mood={mood} />
       <Surface variant="bar" radius={glass ? 16 : 14} style={styles.namePill}>
         <T variant="footnote" numberOfLines={1} style={styles.name}>
           {bot.name}
@@ -96,11 +99,15 @@ export function ChatHeader({ bot, mood, live, onLayout }: Props) {
   return (
     <View onLayout={onLayout} style={[styles.floating, { paddingTop: insets.top + 4 }]}>
       <EdgeFade edge="top" style={styles.fade} />
-      <IconButton icon={ChevronLeft} label={t('common.back')} onPress={back} raised size={44} />
+      <View style={styles.side}>
+        <IconButton icon={ChevronLeft} label={t('common.back')} onPress={back} raised size={44} />
+      </View>
       <View style={styles.center}>
         <Face bot={bot} mood={mood} live={live} />
       </View>
-      <IconButton icon={Ellipsis} label={optionsLabel} onPress={openMenu} raised size={44} />
+      <View style={styles.side}>
+        <IconButton icon={Ellipsis} label={optionsLabel} onPress={openMenu} raised size={44} />
+      </View>
     </View>
   );
 }
@@ -140,10 +147,12 @@ const styles = themed(() =>
     },
     fade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: -24 },
     names: { flexShrink: 1, minWidth: 0 },
+    // The round buttons, level with the middle of the face.
+    side: { marginTop: (FACE - 44) / 2 },
     face: { maxWidth: '100%', alignItems: 'center' },
     // Tucked under the face, overlapping it a little; as wide as the name needs.
     namePill: {
-      marginTop: -8,
+      marginTop: -10,
       maxWidth: '100%',
       height: 28,
       paddingHorizontal: 12,

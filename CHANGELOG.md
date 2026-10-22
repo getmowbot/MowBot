@@ -21,6 +21,7 @@ The release workflow publishes the section of the version it builds as the relea
 - **The chat's header** as in a group chat: the bot's face in the middle, its name in a capsule under it, round back and ⋯ buttons; what the bot is doing shows under its name while it works.
 - **A bot's question opens as a native sheet**: the photo, what it found, a link, and its answers as big buttons; answer, write your own, keep it for later, or dismiss it. It opens by itself when you get to the chat (from its notification, for instance); above the message field it stays a line to reopen it.
 - **Fold a team** in the bot list to see only its row; the app remembers it.
+- **The message field as on the web**: a round lens of glass with a slow light along its edge, brighter while you write, and the white send and mic buttons with their sweeping reflection. The bot's face at the top of the chat is bigger.
 
 ### Questions that help you decide
 - A bot asking you something can join a few lines, a picture (a file of its PC or a web picture) and a link: "The sneakers are down to €89 — order them?", with the photo and the page. The web shows them on the question's card.

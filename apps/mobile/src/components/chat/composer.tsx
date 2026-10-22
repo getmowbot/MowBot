@@ -3,9 +3,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowUp, Camera, FileText, Images, Paperclip, Square } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, TextInput, View } from 'react-native';
+import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useModelListings } from '../../lib/admin-queries';
 import {
   ATTACHMENT_MAX_BYTES,
@@ -46,8 +47,9 @@ import {
   useStopBot,
   useTeams,
 } from '../../lib/queries';
-import { colors, currentScheme, shape, themed, tint, type } from '../../theme';
-import { Surface } from '../ui/surface';
+import { colors, currentScheme, themed, tint, type } from '../../theme';
+import { Lens } from '../ui/lens';
+import { Pebble } from '../ui/pebble';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 import { AttachmentStrip } from './attachment-strip';
@@ -106,6 +108,14 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
   });
   const working = bot.status === 'working';
   const empty = !canSend(text, attached);
+  const [focused, setFocused] = useState(false);
+  // The send button's reflection runs across when it lights up, and when pressed.
+  const [sweep, setSweep] = useState(0);
+  const wasEmpty = useRef(empty);
+  useEffect(() => {
+    if (wasEmpty.current && !empty) setSweep((n) => n + 1);
+    wasEmpty.current = empty;
+  }, [empty]);
 
   const trigger = triggerAt(text, caret);
   const mention = trigger?.kind === 'mention' && triggerKey(trigger) !== closed ? trigger : null;
@@ -317,7 +327,7 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
           onRemove={(id) => setAttached((list) => list.filter((file) => file.id !== id))}
         />
       )}
-      <Surface variant="bar" interactive radius={shape.bar} style={styles.bar}>
+      <Lens focused={focused} style={styles.bar}>
         {canAttach && !voice.recording && (
           <View style={styles.action}>
             <Touchable
@@ -339,6 +349,8 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
             value={text}
             onChangeText={change}
             onSelectionChange={(event) => setCaret(event.nativeEvent.selection.end)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             multiline
             maxLength={MAX_LENGTH}
             placeholder={t('chat.placeholder', { name: bot.name })}
@@ -353,57 +365,78 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
         )}
         <View style={styles.action}>
           {voice.recording || (empty && !working && canAttach) ? (
-            <HoldToRecord
-              recorder={voice}
-              size={SIZE}
-              onTap={() => showInfo(t('chatMedia.voice.holdHint'))}
-            />
+            <Swap key="mic">
+              <HoldToRecord
+                recorder={voice}
+                size={SIZE}
+                onTap={() => showInfo(t('chatMedia.voice.holdHint'))}
+              />
+            </Swap>
           ) : working && empty ? (
-            <Touchable
-              accessibilityRole="button"
-              accessibilityLabel={t('chat.stop')}
-              onPress={() => stop.mutate()}
-              disabled={stop.isPending}
-              style={[styles.round, styles.stop]}
-            >
-              <Square size={13} color={colors.text} fill={colors.text} />
-            </Touchable>
+            <Swap key="stop">
+              <Touchable
+                accessibilityRole="button"
+                accessibilityLabel={t('chat.stop')}
+                onPress={() => stop.mutate()}
+                disabled={stop.isPending}
+                style={[styles.round, styles.stop]}
+              >
+                <Square size={13} color={colors.text} fill={colors.text} />
+              </Touchable>
+            </Swap>
           ) : (
-            <Touchable
-              accessibilityRole="button"
-              accessibilityLabel={t('chat.send')}
-              onPress={submit}
-              disabled={empty}
-              onAccent
-              style={[styles.round, styles.send, empty && styles.sendIdle]}
-            >
-              <ArrowUp size={19} color={colors.accentInk} strokeWidth={2.4} />
-            </Touchable>
+            <Swap key="send">
+              <Touchable
+                accessibilityRole="button"
+                accessibilityLabel={t('chat.send')}
+                onPress={() => {
+                  setSweep((n) => n + 1);
+                  submit();
+                }}
+                disabled={empty}
+                onAccent
+                style={styles.round}
+              >
+                <Pebble size={SIZE} sweep={sweep} disabled={empty}>
+                  <ArrowUp size={19} color={colors.pebbleInk} strokeWidth={2.4} />
+                </Pebble>
+              </Touchable>
+            </Swap>
           )}
         </View>
-      </Surface>
+      </Lens>
     </View>
   );
 }
 
-const SIZE = isAndroid ? 40 : 36;
+/** The round buttons, as on the web. */
+const SIZE = 40;
+
+/** The send, stop and mic buttons trade places with a quick zoom. */
+function Swap({ children }: { children: ReactNode }) {
+  return (
+    <Animated.View entering={ZoomIn.duration(180)} exiting={ZoomOut.duration(120)}>
+      {children}
+    </Animated.View>
+  );
+}
 
 const styles = themed(() =>
   StyleSheet.create({
     bar: {
       flexDirection: 'row',
       alignItems: 'flex-end',
-      paddingLeft: 6,
-      paddingRight: 6,
-      paddingVertical: 6,
-      minHeight: SIZE + 12,
+      padding: 6,
+      gap: 6,
+      minHeight: SIZE + 14,
     },
     input: {
       ...type.body,
       flex: 1,
       color: colors.text,
-      maxHeight: 150,
-      paddingHorizontal: 12,
+      minHeight: SIZE,
+      maxHeight: 220,
+      paddingHorizontal: 10,
       paddingTop: isIOS ? 8 : 6,
       paddingBottom: isIOS ? 8 : 6,
       textAlignVertical: 'center',
@@ -418,10 +451,8 @@ const styles = themed(() =>
       justifyContent: 'center',
       overflow: 'hidden',
     },
-    send: { backgroundColor: colors.accentStrong },
     attach: { backgroundColor: 'transparent' },
     inputAfterClip: { paddingLeft: 4 },
-    sendIdle: { backgroundColor: tint.accent(0.35) },
     done: { paddingHorizontal: 12, paddingBottom: 8 },
     stop: { borderWidth: 1, borderColor: colors.borderStrong },
   }),
