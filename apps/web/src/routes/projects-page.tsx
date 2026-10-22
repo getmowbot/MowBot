@@ -1,9 +1,11 @@
 import type { Connector, Project } from '@mowbot/contract';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FolderGit2, FolderPlus, Laptop, Link2, Pencil, Unlink } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { FolderGit2, FolderPlus, FolderSync, Laptop, Link2, Pencil, Unlink } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ConflictsDialog, MirrorState } from '../components/project-mirror';
 import {
   type ScopeDraft,
   ScopePicker,
@@ -26,7 +28,9 @@ import {
   useConnectors,
   useDesktopStatus,
   useProjects,
+  useSetMirror,
 } from '../lib/projects';
+import { useBots, useTeams } from '../lib/queries';
 import { cn, timeAgo } from '../lib/utils';
 
 const Dot = ({ on }: { on: boolean }) => (
@@ -189,6 +193,15 @@ function ProjectCard({
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['desktop-status'] }),
   });
   const where = computer?.hostname ?? computer?.name ?? '…';
+  const setMirror = useSetMirror(project);
+  const teams = useTeams();
+  const bots = useBots();
+  const [conflictsIn, setConflictsIn] = useState<string | null>(null);
+  /** Whose workspace a mirror is in: a team's, or a solo bot's. */
+  const owner = (workspaceId: string) =>
+    teams.data?.find((team) => team.workspaceId === workspaceId)?.name ??
+    bots.data?.find((bot) => bot.workspaceId === workspaceId)?.name ??
+    '…';
   return (
     <motion.li variants={reveal} className="glass rounded-2xl p-4">
       <div className="flex items-start gap-3">
@@ -221,7 +234,69 @@ function ProjectCard({
           onChange={() => mode.mutate()}
           label={t('projects.auto')}
         />
-        {local && (
+      </div>
+      <div className="mt-3 space-y-2 border-t border-border pt-3">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm">{t('projects.mirror.title')}</p>
+            <p className="text-xs text-muted-foreground">
+              {project.mirror ? t('projects.mirror.on') : t('projects.mirror.off')}
+            </p>
+          </div>
+          <Switch
+            checked={project.mirror}
+            onChange={() => {
+              if (setMirror.isPending) return;
+              if (
+                !project.mirror ||
+                project.mirrors.length === 0 ||
+                confirm(t('projects.mirror.offConfirm', { name: project.name }))
+              ) {
+                setMirror.mutate(!project.mirror);
+              }
+            }}
+            label={t('projects.mirror.title')}
+          />
+        </div>
+        {project.mirror && project.mirrors.length === 0 && (
+          <p className="text-xs text-faint">{t('projects.mirror.none')}</p>
+        )}
+        {project.mirrors.map((mirror) => (
+          <div
+            key={mirror.workspaceId}
+            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-white/[0.03] px-2.5 py-1.5 text-xs"
+          >
+            <FolderSync className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="text-muted-foreground">
+              {t('projects.mirror.of', { who: owner(mirror.workspaceId) })}
+            </span>
+            <Link
+              to="/workspaces/$workspaceId/files"
+              params={{ workspaceId: mirror.workspaceId }}
+              search={{ path: mirror.folder }}
+              className="font-mono text-faint hover:text-foreground hover:underline"
+            >
+              /workspace/{mirror.folder}
+            </Link>
+            <span className="text-faint">·</span>
+            <MirrorState
+              mirror={mirror}
+              online={project.online}
+              onConflicts={() => setConflictsIn(mirror.workspaceId)}
+            />
+            {mirror.error && mirror.status !== 'synced' && (
+              <p className="w-full text-faint">{mirror.error}</p>
+            )}
+          </div>
+        ))}
+        {setMirror.isError && (
+          <p className="text-xs text-destructive">
+            {problemMessage(setMirror.error, t('projects.saveFailed'))}
+          </p>
+        )}
+      </div>
+      {local && (
+        <div className="mt-3 flex justify-end">
           <Button
             variant="outline"
             size="sm"
@@ -232,8 +307,14 @@ function ProjectCard({
           >
             {t('projects.unshare')}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
+      <ConflictsDialog
+        project={project}
+        mirror={project.mirrors.find((m) => m.workspaceId === conflictsIn) ?? null}
+        open={conflictsIn !== null}
+        onClose={() => setConflictsIn(null)}
+      />
     </motion.li>
   );
 }

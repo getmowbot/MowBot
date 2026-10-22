@@ -55,6 +55,8 @@ const WORDED_PROBLEMS = [
   'mcp_oauth_state',
   'mcp_oauth_failed',
   'project_not_allowed',
+  'connector_offline',
+  'app_update_needed',
 ] as const;
 type WordedProblem = (typeof WORDED_PROBLEMS)[number];
 

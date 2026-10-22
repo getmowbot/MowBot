@@ -1,4 +1,4 @@
-import type { Bot, ChatgptCredential, Connector, Project } from '@mowbot/contract';
+import type { Bot, ChatgptCredential, Connector, Project, ProjectMirror } from '@mowbot/contract';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './auth';
 
@@ -82,6 +82,148 @@ export function useSetBotProject(bot: Bot) {
       queryClient.setQueryData<Bot[]>(['bots'], (list) =>
         list?.map((other) => (other.id === saved.id ? saved : other)),
       ),
+  });
+}
+
+// The project's copy in the bots' workspace, kept in sync with the user's folder.
+
+/** The mirror this bot works in (its workspace's), if there is one. */
+export function mirrorFor(project: Project, bot: Pick<Bot, 'workspaceId'>): ProjectMirror | null {
+  return project.mirrors.find((mirror) => mirror.workspaceId === bot.workspaceId) ?? null;
+}
+
+/** How a mirror shows: a tone for its badge, and its state in a few words. */
+export type MirrorTone = 'ok' | 'busy' | 'waiting' | 'warn' | 'error';
+
+export function mirrorTone(mirror: ProjectMirror): MirrorTone {
+  if (mirror.status === 'error' || mirror.status === 'too_big') return 'error';
+  if (mirror.conflicts.length > 0) return 'warn';
+  if (mirror.status === 'syncing') return 'busy';
+  if (mirror.status === 'pending' || mirror.status === 'waiting') return 'waiting';
+  return 'ok';
+}
+
+/** The desktop app has `pick` (and the mirror's watcher) from this version. */
+export const PICK_FROM = [0, 2, 5];
+
+export function versionAtLeast(version: string | null | undefined, wanted: number[]): boolean {
+  const parts = (version ?? '').split(/[.-]/).map((n) => Number.parseInt(n, 10));
+  for (let i = 0; i < wanted.length; i++) {
+    const have = parts[i] ?? 0;
+    if (Number.isNaN(have)) return false;
+    if (have !== wanted[i]) return have > (wanted[i] as number);
+  }
+  return true;
+}
+
+/** Dismisses a mirror's conflicts (or one file's): the bots' copies go to the trash. */
+export function useDismissConflicts(project: Project) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { workspaceId: string; path?: string }) => {
+      const { data, error } = await api.POST('/api/v1/projects/{id}/conflicts/dismiss', {
+        params: { path: { id: project.id } },
+        body: input,
+      });
+      if (error || !data) throw error;
+      return data;
+    },
+    onSuccess: (saved) => setProject(queryClient, saved),
+  });
+}
+
+/** Turns the project's mirror on or off. */
+export function useSetMirror(project: Project) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (mirror: boolean) => {
+      const { data, error } = await api.PATCH('/api/v1/projects/{id}', {
+        params: { path: { id: project.id } },
+        body: { mirror },
+      });
+      if (error || !data) throw error;
+      return data;
+    },
+    onSuccess: (saved) => setProject(queryClient, saved),
+  });
+}
+
+/**
+ * Asks a computer's desktop app to open its folder picker (from another device): the folder
+ * picked there becomes the bot's active project. Resolves with it, or null when cancelled.
+ */
+export function usePickOnComputer(bot: Bot) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (connectorId: string) => {
+      const { data, error } = await api.POST('/api/v1/connectors/{id}/pick', {
+        params: { path: { id: connectorId } },
+        body: { botId: bot.id },
+      });
+      if (error || !data) throw error;
+      return data.project;
+    },
+    onSuccess: (project) => {
+      if (project) setProject(queryClient, project);
+    },
+  });
+}
+
+const folderName = (path: string) => path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
+const samePath = (a: string, b: string) =>
+  a.replace(/[\\/]+$/, '').toLowerCase() === b.replace(/[\\/]+$/, '').toLowerCase();
+
+/**
+ * In the desktop app: picks a folder of this computer, shares it (linking this computer first
+ * if needed) and makes it the bot's active project. Resolves with the project, or null when the
+ * picker was cancelled.
+ */
+export function useAddFolderHere(bot: Bot, computerName: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<Project | null> => {
+      let status = await desktop.status();
+      if (!status.linked) {
+        const { data, error } = await api.POST('/api/v1/connectors', {
+          body: { name: status.hostname || computerName },
+        });
+        if (error || !data) throw error;
+        await desktop.link(data.token);
+        status = await desktop.status();
+      }
+      const path = await desktop.pickFolder();
+      if (!path) return null;
+      // Already shared: that project. Otherwise shared under a free name.
+      let folder = status.projects.find((shared) => samePath(shared.path, path));
+      if (!folder) {
+        const base = folderName(path);
+        const taken = (name: string) =>
+          status.projects.some((shared) => shared.name.toLowerCase() === name.toLowerCase());
+        let name = base;
+        for (let n = 2; taken(name); n++) name = `${base} ${n}`;
+        folder = await desktop.share(name, path);
+      }
+      // The hub hears of it from the app: wait for the project to be there.
+      const key = folder.key;
+      let project: Project | undefined;
+      for (let i = 0; i < 50 && !project; i++) {
+        const { data } = await api.GET('/api/v1/projects');
+        project = data?.items.find((p) => p.key === key);
+        if (!project) await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+      if (!project) throw new Error('The hub has not heard of the folder yet.');
+      setProject(queryClient, project);
+      const { data, error } = await api.PUT('/api/v1/bots/{id}/project', {
+        params: { path: { id: bot.id } },
+        body: { projectId: project.id },
+      });
+      if (error || !data) throw error;
+      queryClient.setQueryData<Bot[]>(['bots'], (list) =>
+        list?.map((other) => (other.id === data.id ? data : other)),
+      );
+      void queryClient.invalidateQueries({ queryKey: ['desktop-status'] });
+      return project;
+    },
   });
 }
 

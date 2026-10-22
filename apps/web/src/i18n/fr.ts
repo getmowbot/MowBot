@@ -66,6 +66,8 @@ export const fr = {
     mcp_oauth_state: 'Connexion inconnue ou expirée : recommence depuis l’app.',
     mcp_oauth_failed: 'Le serveur a refusé la connexion.',
     project_not_allowed: 'Ce bot n’a pas accès à ce projet.',
+    connector_offline: 'Cet ordinateur n’est pas connecté : ouvre l’app desktop MowBot dessus.',
+    app_update_needed: 'L’app desktop de cet ordinateur doit être mise à jour pour ça.',
   },
   time: {
     justNow: 'à l’instant',
@@ -235,6 +237,18 @@ export const fr = {
         '{{computer}} est hors ligne : le bot n’accède pas au projet tant que l’app desktop n’y est pas ouverte.',
       manage: 'Gérer les projets',
       failed: 'Le projet n’a pas pu être changé.',
+      add: 'Ajouter un dossier…',
+      addTitle: 'Ajouter un dossier',
+      addFailed: 'Le dossier n’a pas pu être ajouté.',
+      addFromDesktop:
+        'Un dossier s’ajoute depuis l’app desktop MowBot, sur l’ordinateur où il se trouve : il devient alors le projet de {{name}}.',
+      pickOn: 'Choisir sur {{computer}}',
+      picking: 'Choisis le dossier dans la fenêtre ouverte sur {{computer}}…',
+      pickCancelled: 'Aucun dossier choisi.',
+      updateApp: '{{computer}} : mets à jour l’app desktop pour choisir un dossier d’ici.',
+      noComputer:
+        'Aucun ordinateur relié n’est en ligne. Ouvre l’app desktop MowBot sur ton ordinateur, ou installe-la depuis la page Projets.',
+      mirror: 'Miroir : /workspace/{{folder}}',
     },
     /** `/model`: the models of the providers, to pick the bot's. */
     model: {
@@ -1111,6 +1125,38 @@ export const fr = {
     neverSeen: 'jamais connecté',
     unlink: 'Délier',
     unlinkConfirm: 'Délier « {{name}} » ? Ses projets ne seront plus accessibles aux bots.',
+    /** The copy of a project in the bots' workspaces, kept in sync with the folder. */
+    mirror: {
+      title: 'Miroir dans les workspaces',
+      on: 'Les bots travaillent sur une copie dans leur workspace, synchronisée dans les deux sens, même quand cet ordinateur est éteint.',
+      off: 'Les bots travaillent directement dans ce dossier, seulement quand cet ordinateur est en ligne.',
+      offConfirm:
+        'Arrêter le miroir de « {{name}} » ? Les copies des bots vont dans la corbeille de leur workspace, avec ce qui n’est pas encore arrivé sur ton ordinateur.',
+      none: 'Pas encore de copie : elle se fait quand un bot travaille dans ce projet.',
+      synced: 'À jour',
+      syncedOffline: 'À jour (ordinateur hors ligne)',
+      syncing: 'Synchronisation…',
+      waiting: 'Première copie dès que l’ordinateur sera en ligne',
+      pending_one: '{{count}} changement en attente de l’ordinateur',
+      pending_other: '{{count}} changements en attente de l’ordinateur',
+      tooBig: 'Trop gros pour un miroir',
+      error: 'Synchro en erreur',
+      conflicts_one: '{{count}} conflit',
+      conflicts_other: '{{count}} conflits',
+      see: 'Voir',
+      of: 'Copie de {{who}}',
+    },
+    conflicts: {
+      title: 'Conflits de « {{name}} »',
+      intro:
+        'Toi et les bots avez changé ces fichiers en même temps. Ta version est gardée, sur ton ordinateur comme dans le miroir ; celle des bots est mise de côté dans leur workspace.',
+      theirs: 'Version des bots',
+      yours: 'Ta version',
+      dismiss: 'Écarter',
+      dismissAll: 'Tout écarter',
+      dismissHint: 'Écartée, la version des bots va dans la corbeille du workspace.',
+      none: 'Aucun conflit.',
+    },
   },
   mcp: {
     subtitle:
