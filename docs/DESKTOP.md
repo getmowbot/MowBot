@@ -2,16 +2,20 @@
 
 L'app desktop (Tauri) affiche l'interface du hub, comme le navigateur, et embarque un **connecteur**
 écrit en Rust. Le connecteur ouvre une connexion sortante vers le hub (qui peut être sur un serveur
-distant) : les bots lisent, écrivent, cherchent et lancent des commandes dans les dossiers que
-l'utilisateur a partagés depuis son ordinateur, les **projets**.
+distant) : les dossiers que l'utilisateur a partagés depuis son ordinateur, les **projets**, ont un
+**miroir** dans le workspace des bots, synchronisé dans les deux sens, où ils travaillent même
+quand l'ordinateur est éteint ; les commandes peuvent se lancer sur l'ordinateur.
 
 ## Confiance
 
-- Seul l'utilisateur, depuis l'app desktop, partage un dossier. Le hub ne peut ni ajouter un
-  dossier ni sortir d'un dossier partagé : le connecteur résout chaque chemin (liens symboliques
-  compris) et refuse tout ce qui sort de la racine du projet.
-- Lire et écrire des fichiers : libre. Lancer une commande : avec l'accord de l'utilisateur
-  (question Autoriser / Tout autoriser dans ce projet / Refuser), sauf en mode **auto** du projet.
+- Seul l'utilisateur, depuis l'app desktop, partage un dossier : le hub peut lui demander
+  d'ouvrir son sélecteur (`pick`), mais c'est lui qui choisit le dossier, sur cet ordinateur. Le
+  hub ne peut pas sortir d'un dossier partagé : le connecteur résout chaque chemin (liens
+  symboliques compris) et refuse tout ce qui sort de la racine du projet, et n'écrit jamais dans
+  `.git`.
+- Lire et écrire des fichiers : libre (une suppression va à la corbeille du système). Lancer une
+  commande : avec l'accord de l'utilisateur (question Autoriser / Tout autoriser dans ce projet /
+  Refuser), sauf en mode **auto** du projet.
 - Le jeton du connecteur ne sert qu'à cette connexion ; il se révoque en supprimant le connecteur
   (page Projets).
 
@@ -32,17 +36,38 @@ message est un objet JSON (texte). Le hub ping toutes les 25 s.
 // Réponse à une requête : data selon l'opération, ou une erreur lisible.
 { "t": "res", "id": "42", "ok": true, "data": { … } }
 { "t": "res", "id": "42", "ok": false, "error": "Fichier introuvable : src/x.ts" }
+
+// 0.2.5 : des fichiers ont changé dans un projet surveillé (null : n'importe lesquels).
+{ "t": "changed", "project": "b6c1…", "paths": ["src/app.ts", "README.md"] }
 ```
 
 `key` est un identifiant stable choisi par le connecteur (UUID) ; `os` : `windows` | `macos` |
 `linux` ; `shell` : celui qui exécute `exec` (`powershell` sous Windows, `bash`/`zsh`/`sh`
 ailleurs).
 
+`changed` (0.2.5) : l'app surveille les projets que le hub lui demande (`watch`, plus bas), le
+temps de la connexion. Elle attend 700 ms sans nouveau changement (3 s au plus quand ça n'arrête
+pas) puis envoie un message par projet, chemins relatifs dédoublonnés ; au-delà de 200 chemins,
+ou quand des événements ont été perdus, `paths` vaut `null`. Ne sont pas envoyés : `.git`, les
+noms de `exclude`, les fichiers temporaires de `put`, et ce que le hub vient d'écrire ou de
+supprimer lui-même (3 s).
+
 ### Hub → connecteur
 
 ```jsonc
 { "t": "req", "id": "42", "op": "read", "project": "b6c1…", "args": { "path": "src/main.rs" } }
+
+// 0.2.5 : les projets à surveiller (ceux qui ont un miroir), remplacés à chaque message.
+{ "t": "watch", "projects": ["b6c1…"], "exclude": ["node_modules", ".venv", "target", …] }
+
+// 0.2.5 : ouvrir le sélecteur de dossier sur cet ordinateur (demandé depuis un autre appareil).
+// Réponse : { t: "res", id, ok: true, data: { key, name, path } | null } (null : annulé).
+{ "t": "pick", "id": "43" }
 ```
+
+`pick` affiche la fenêtre de l'app et le sélecteur natif ; seul le dossier que l'utilisateur
+choisit, sur cet ordinateur, est partagé (déjà partagé : ce projet ; sinon un nouveau, nommé
+d'après le dossier, `Site 2` si `Site` existe), annoncé (`projects`) avant la réponse.
 
 Les chemins sont relatifs à la racine du projet, avec des `/` ; `""` est la racine.
 
@@ -59,36 +84,104 @@ Les chemins sont relatifs à la racine du projet, avec des `/` ; `""` est la rac
 `find` et `search` respectent `.gitignore` et sautent `.git`. `exec` lance la commande avec le
 shell annoncé, dans la racine du projet (ou `cwd`).
 
-### Copie sur le PC d'un bot, retour en branche git
+### Le miroir dans le workspace des bots
 
 | op | args | data |
 |---|---|---|
-| `manifest` | `path?` (dossier, défaut : tout le projet) | `{ files: [{ path, size, hash }], head, truncated }` |
+| `manifest` | `path?` (dossier, défaut : tout le projet) ; 0.2.5 : `rules?`, `exclude?`, `paths?` | `{ files: [{ path, size, hash, exec? }], skipped, head, truncated, complete }` |
 | `read_files` | `paths` (au plus 200) | `{ files: [{ path, data }] }` ; `data` en base64 |
-| `branch` | `name`, `message`, `author`, `base`, `files: [{ path, data }]`, `deletes` | `{ branch, commit }` |
+| `put` (0.2.5) | `files: [{ path, data, expect?, exec? }]` (au plus 500) | `{ results: [{ path, ok, size? \| changed?, current? \| error? }] }` |
+| `delete` (0.2.5) | `files: [{ path, expect? }]` (au plus 500) | `{ results: [{ path, ok, trashed?, gone? \| changed?, current? \| error? }] }` |
+| `branch` | `name`, `message`, `author`, `base`, `files`, `deletes` | `{ branch, commit }` ; gardé pour les hubs d'avant le miroir |
 
 - `manifest` liste les fichiers comme `find` (`.gitignore` respecté, `.git` sauté, liens non
-  suivis), avec `hash` = SHA-256 en hexadécimal du contenu. Fichiers de plus de 20 Mo et listes de
-  plus de 50 000 fichiers : laissés de côté (`truncated`). `head` : le commit `HEAD` si le projet est
-  dans un dépôt git (`git rev-parse HEAD`), sinon `null`.
+  suivis), avec `hash` = SHA-256 en hexadécimal du contenu (gardé en mémoire tant que la taille et
+  la date de modification du fichier ne changent pas). Fichiers de plus de 20 Mo et listes de plus
+  de 50 000 fichiers : laissés de côté (`truncated`) ; depuis 0.2.5, `skipped` nomme les fichiers
+  laissés de côté et `complete` dit que tout a été vu (un fichier ni listé ni dans `skipped`
+  n'existe pas). `head` : le commit `HEAD` si le projet est dans un dépôt git, sinon `null`.
+  Pour un miroir (0.2.5) : `rules: "project"` ne suit que les `.gitignore` du projet (ni ceux des
+  dossiers parents, ni l'exclusion globale de git, ni `.git/info/exclude`, ni `.ignore`), comme le
+  hub de son côté ; `exclude` : des noms sautés à toute profondeur ; `paths` : seulement ces chemins
+  (fichiers, ou dossiers et leur contenu ; `head` vaut alors `null`). `exec` : fichier exécutable
+  (Unix).
 - `read_files` renvoie le contenu de chaque fichier demandé ; le hub demande par lots (8 Mo au plus
   par réponse). Un fichier qui manque ou sort du projet fait échouer la requête.
-- `branch` crée la branche `name` dans le dépôt du projet **sans toucher à son dossier de travail ni
-  à son index** : index temporaire (`GIT_INDEX_FILE`) chargé depuis `base` (`git read-tree`), fichiers
-  écrits avec `git hash-object -w` + `git update-index --cacheinfo` (mode d'origine gardé, sinon
-  100644), suppressions avec `git update-index --force-remove`, puis `git write-tree`,
-  `git commit-tree -p base` (auteur et committer : `author` = `{ name, email }`), et
-  `git update-ref refs/heads/<name> <commit> ""` (refuse d'écraser ; le hub choisit un nom libre).
-  Les chemins sont relatifs au projet : si le projet est un sous-dossier du dépôt, le préfixe
-  (`git rev-parse --show-prefix`) leur est ajouté. Pas de dépôt git ou pas de `git` : erreur lisible.
+- `put` écrit chaque fichier (base64) en place : fichier temporaire `.<nom>.mowbot-tmp` à côté, puis
+  renommé par-dessus (un éditeur ou un build ne lit jamais un fichier à moitié écrit ; permissions
+  gardées, `exec` pour un nouveau fichier exécutable). `delete` met le fichier à la corbeille du
+  système (supprimé pour de bon si la corbeille refuse) et retire les dossiers devenus vides.
+  `expect` : le hash que le hub a vu en dernier (`null` : pas de fichier) ; si le fichier a changé
+  depuis, il n'est pas touché (`changed: true`, `current` : son hash). Rien dans un dossier `.git`.
+
+### Comment se comporte le miroir
+
+Chaque projet où des bots travaillent a un **miroir** dans leur workspace (celui de l'équipe, ou du
+bot solo) : `/workspace/projects/<nom>` (`<nom>-2`… si deux projets ont le même nom), tenu à jour
+par le hub dans les deux sens. Les bots y travaillent avec leurs outils habituels (`bash`,
+`read_file`, `write_file`).
+
+- **Ce qui est synchronisé** : ce que git garderait. Les `.gitignore` du projet sont suivis, et
+  ces noms ne le sont jamais, à aucune profondeur : `.git`, `node_modules`, `.venv`, `venv`,
+  `__pycache__`, `.mypy_cache`, `.pytest_cache`, `target`, `.next`, `.nuxt`, `.svelte-kit`, `.turbo`,
+  `.cache`, `.parcel-cache`, `.gradle`, `.dart_tool`, `.expo`, `.DS_Store`, `Thumbs.db`. Chaque côté
+  installe ses dépendances. Les fichiers de plus de 20 Mo restent où ils sont, des deux côtés.
+- **Réconciliation à trois** : le hub garde, pour chaque miroir, le hash de chaque fichier tel que
+  les deux côtés l'avaient la dernière fois qu'ils étaient d'accord
+  (`.mowbot/mirrors/<id>.json` dans le workspace). Un fichier changé d'un seul côté passe de
+  l'autre ; supprimé d'un côté et inchangé de l'autre, il y est supprimé aussi ; changé d'un côté
+  et supprimé de l'autre, le changement gagne (le fichier revient). Les suppressions partent avant
+  les écritures (un renommage sur un disque qui ignore la casse).
+- **Conflits** (les deux côtés ont changé le même fichier) : la version de l'utilisateur reste en
+  place, dans son dossier et dans le miroir ; celle des bots est gardée dans le workspace, hors du
+  miroir, `projects/_conflicts/<nom>/<date-heure>/<chemin>`. L'utilisateur reçoit une notification,
+  les bots qui travaillent dans le miroir une note dans leur conversation. Les conflits restent
+  listés (projet → `mirrors[].conflicts`) jusqu'à ce que l'utilisateur les écarte
+  (`POST /projects/:id/conflicts/dismiss`, la version des bots va à la corbeille du workspace).
+- **Quand** : à la connexion de l'app (tout est revu, sans qu'un bot fasse rien), sur ses
+  `changed` (seulement les chemins indiqués), quand le workspace change (`workspace.changed` :
+  un bot a écrit, l'utilisateur a déposé un fichier), et toutes les 2 minutes en entier (toutes
+  les 45 s pour une app sans `watch`). Des demandes rapprochées font une seule passe.
+- **Ordinateur hors ligne** : les bots continuent dans le miroir ; le projet affiche le nombre de
+  changements en attente. À la reconnexion, tout est réconcilié.
+- **Git** : le miroir est le dossier de travail, sans `.git`. Le dossier de l'utilisateur est mis à
+  jour en place (plus de branche) : ses changements sont visibles dans `git status`. Pour
+  l'historique (log, diff, commit), les bots passent par `local_exec`.
+- **Garde-fous** : une écriture ou une suppression chez l'utilisateur dit ce qu'elle s'attend à
+  trouver (`expect`) ; plus de la moitié du projet (et plus de 20 fichiers) supprimée d'un coup
+  dans le miroir y est remise depuis l'ordinateur au lieu d'être supprimée chez lui ; un miroir
+  disparu en entier (`rm -rf`) est recopié ; un dossier déjà là à la création du miroir (une
+  ancienne copie de `local_pull`) va à la corbeille du workspace.
+- **Taille** : au-delà de `MOWBOT_MIRROR_MAX_MB` (500 Mo) ou `MOWBOT_MIRROR_MAX_FILES` (20 000
+  fichiers), pas de miroir (`too_big`, avec le message) : les bots travaillent alors directement
+  sur l'ordinateur. Le miroir se désactive aussi par projet (page Projets, `mirror: false`) : ses
+  copies vont à la corbeille de leur workspace.
+- **Apps plus anciennes** : sans `watch`, l'ordinateur est revu en entier ; les écritures passent
+  par `write` (texte, et binaires en base64 depuis 0.2.4) ; les suppressions (et avant 0.2.4 les
+  binaires) attendent 0.2.5, et le miroir le dit (`pending`, avec la raison).
 
 ## Côté hub
 
-- Tables `connectors` (jeton haché, nom, OS, shell, dernière connexion) et `projects` (connecteur,
-  `key`, nom, chemin affiché, mode `ask` | `auto`, portée : tous les bots, des équipes, des bots).
-- Outils des bots : `local_projects`, `local_list`, `local_read`, `local_write`, `local_edit`,
-  `local_find`, `local_search`, `local_exec` (paramètre `project` : nom du projet ; sans lui, le
-  projet actif du bot, ou le seul projet qu'il a).
+- Tables `connectors` (jeton haché, nom, OS, shell, version, dernière connexion), `projects`
+  (connecteur, `key`, nom, chemin affiché, mode `ask` | `auto`, portée : tous les bots, des équipes,
+  des bots ; `mirror`) et `project_mirrors` (projet, workspace, dossier, état : `waiting`,
+  `syncing`, `synced`, `pending`, `too_big`, `error` ; changements en attente, conflits, dernière
+  synchro), exposés avec chaque projet (`mirrors`).
+- Outils des bots (paramètre `project` : nom du projet ; sans lui, le projet actif du bot, ou le
+  seul projet qu'il a) : `local_projects`, `local_use_project`, `local_sync` (synchronise le miroir
+  tout de suite et dit où il en est ; crée le miroir d'un projet qui n'en a pas encore),
+  `local_exec` (sur l'ordinateur quand il est en ligne : le miroir est synchronisé avant et après la
+  commande ; hors ligne, le bot est renvoyé vers son PC, dans le miroir). Pour un projet sans
+  miroir (désactivé ou trop gros) : `local_list`, `local_read`, `local_write`, `local_edit`,
+  `local_find`, `local_search`, directement sur l'ordinateur. Le prompt dit où est le miroir, où il
+  en est, et si l'ordinateur est en ligne.
+- **Ajouter un dossier depuis la conversation** : la puce du projet propose « Ajouter un
+  dossier… ». Dans l'app desktop, son sélecteur s'ouvre, le dossier est partagé (le PC relié
+  d'abord s'il ne l'est pas) et devient le projet actif du bot. Ailleurs (navigateur, mobile),
+  l'app explique qu'un dossier s'ajoute depuis l'app desktop de l'ordinateur, et peut demander à
+  une app connectée (0.2.5) d'ouvrir son sélecteur : `POST /connectors/:id/pick` (`botId` : le bot
+  dont il devient le projet actif ; attend 5 minutes au plus, `project: null` si l'utilisateur
+  annule ; 409 `app_update_needed` pour une app plus ancienne, `connector_offline` hors ligne).
 - **Projet actif** : chaque bot a un projet où il travaille (`bots.project_id`, `projectId` du bot),
   choisi dans la conversation : puce au-dessus du champ de message (web, desktop, mobile), commande
   `/project` (`/projet`), ou le bot lui-même avec `local_use_project` (« je bosse sur X »).
@@ -101,13 +194,10 @@ shell annoncé, dans la racine du projet (ou `cwd`).
 - Une commande en mode `ask` pose la question à l'utilisateur et répond au bot que la décision
   arrivera en message ; « Autoriser » vaut pour cette commande une fois, « Tout autoriser dans ce
   projet » passe le projet en `auto`.
-- `local_pull` copie le projet (ou un dossier) dans le workspace de l'équipe du bot,
-  `/workspace/projects/<projet>/`, pour qu'il le lance et le teste sur son PC : seuls les fichiers
-  changés depuis la dernière copie sont transférés, ceux disparus sont retirés. L'état copié est
-  gardé dans `.mowbot-sync.json` (hash de chaque fichier et commit de départ).
-- `local_push` rapporte les changements de cette copie (fichiers modifiés, ajoutés hors
-  `.gitignore`, supprimés) en une branche `mowbot/<bot>-<date>` du dépôt de l'utilisateur, partie du
-  commit de la copie : rien ne change dans son dossier, il relit et fusionne quand il veut.
+- Le miroir naît quand un bot qui a un workspace prend le projet comme projet actif (choix de
+  l'utilisateur, `local_use_project`, une tâche confiée dans le projet) ou le synchronise
+  (`local_sync`), puis vit tant que le projet est partagé et mis en miroir. `local_pull` et
+  `local_push` (copie, puis retour en branche git) n'existent plus.
 
 ## Se connecter avec ChatGPT
 
@@ -170,7 +260,8 @@ hub**, ou l'icône de la barre des tâches → Changer de hub. `mowbot-desktop -
 l'enregistre directement (c'est ce que fait la commande Linux) ; `MOWBOT_HUB_URL` l'impose sans
 l'enregistrer (développement).
 
-Puis, dans Réglages → Projets : **Relier ce PC**, et **Partager un dossier**.
+Puis, dans Réglages → Projets : **Relier ce PC**, et **Partager un dossier** ; ou, dans une
+conversation, la puce du projet → **Ajouter un dossier…** (le PC est relié au passage).
 
 La fenêtre n'a pas de barre de titre système : l'interface affiche ses boutons (réduire, agrandir,
 fermer) et le haut de la fenêtre la déplace (double-clic : agrandir). La fermer la garde dans la
@@ -185,6 +276,5 @@ pnpm --filter @mowbot/desktop bundle   # installeur de cette machine (tauri buil
 
 ## Plus tard
 
-- Copier un projet (ou un dossier) sur le PC d'un bot, en respectant `.gitignore`, et rapporter
-  ses changements sous forme de branche git ou de diff à valider.
 - Partager les serveurs MCP de l'ordinateur de l'utilisateur.
+- Retirer un miroir dont plus aucun bot de son workspace ne se sert depuis longtemps.
