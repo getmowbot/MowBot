@@ -233,4 +233,4 @@ deploy/               Production docker-compose and Caddy
 ## License
 
 MowBot is free software under the [GNU Affero General Public License v3.0](LICENSE).
-Copyright © 2026 Joris Levasseur.
+Copyright © 2026 MowBot.
