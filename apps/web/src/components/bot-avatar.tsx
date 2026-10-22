@@ -328,33 +328,36 @@ export function BotAvatar({
       aria-label={title}
       className={cn('shrink-0 overflow-visible', className)}
     >
-      {halos && mood === 'working' && (
-        <motion.circle
-          cx={50}
-          cy={50}
-          r={58}
-          fill="none"
-          stroke={genome.color}
-          strokeWidth={3}
-          strokeLinecap="round"
-          strokeDasharray="64 300"
-          style={{ transformOrigin: '50px 50px' }}
-          animate={reduced ? undefined : { rotate: 360 }}
-          transition={{ duration: 1.25, repeat: Number.POSITIVE_INFINITY, ease: 'linear' }}
-        />
-      )}
-      {halos && mood === 'waiting' && (
-        <motion.circle
-          cx={50}
-          cy={50}
-          r={57}
-          fill="none"
-          stroke={genome.color}
-          strokeWidth={2.4}
-          animate={reduced ? { opacity: 0.5 } : { opacity: [0.15, 0.7, 0.15] }}
-          transition={{ duration: 1.8, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
-        />
-      )}
+      {/* The working arc and the waiting ring go where the head goes, centered on it. */}
+      <motion.g style={{ x: headX, y: headY }}>
+        {halos && mood === 'working' && (
+          <motion.circle
+            cx={50}
+            cy={50}
+            r={58}
+            fill="none"
+            stroke={genome.color}
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeDasharray="64 300"
+            style={{ transformOrigin: '50px 50px' }}
+            animate={reduced ? undefined : { rotate: 360 }}
+            transition={{ duration: 1.25, repeat: Number.POSITIVE_INFINITY, ease: 'linear' }}
+          />
+        )}
+        {halos && mood === 'waiting' && (
+          <motion.circle
+            cx={50}
+            cy={50}
+            r={57}
+            fill="none"
+            stroke={genome.color}
+            strokeWidth={2.4}
+            animate={reduced ? { opacity: 0.5 } : { opacity: [0.15, 0.7, 0.15] }}
+            transition={{ duration: 1.8, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+          />
+        )}
+      </motion.g>
 
       <motion.g
         style={{

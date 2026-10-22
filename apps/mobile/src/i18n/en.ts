@@ -98,7 +98,7 @@ export const en: Catalog = {
     stopped: 'Stopped.',
     stepLimit: 'Step limit reached',
     continue: 'Continue',
-    steered: 'Taken into account mid-answer',
+    read: 'Read',
     readMore: 'Read more',
     readLess: 'Show less',
     vaultRequest: {
@@ -134,6 +134,12 @@ export const en: Catalog = {
       },
       to: { chat: 'Message to {{name}}', ask: 'Question to {{name}}' },
       answerFrom: 'Answer from {{name}}',
+      line: {
+        chat: '{{name}} wrote',
+        ask: '{{name}} asks',
+        task: '{{name}} handed over a task',
+        routine: '{{name}} wrote',
+      },
       outcome: 'What happened',
       openChat: 'Open the conversation with {{name}}',
     },

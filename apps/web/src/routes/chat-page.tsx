@@ -12,6 +12,7 @@ import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import {
+  CheckCheck,
   Hand,
   Maximize2,
   Monitor,
@@ -118,10 +119,17 @@ function failure(message: Message): string {
   }
 }
 
-/** Sent while the bot was working: it took it into the answer under way. */
+/** Sent while the bot was working, read into the answer under way: two small checks. */
 function SteeredHint() {
   const { t } = useTranslation();
-  return <p className="px-1 text-[11px] text-faint">{t('chat.steered')}</p>;
+  return (
+    <CheckCheck
+      role="img"
+      aria-label={t('chat.read')}
+      className="mx-1 size-3.5 text-faint"
+      strokeWidth={2.2}
+    />
+  );
 }
 
 /** Under an answer cut by the step limit; it goes on by itself, or the user resumes it. */
@@ -213,16 +221,16 @@ function FromBotMessage({ message }: { message: Message }) {
     at: message.createdAt,
   };
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex flex-col items-center">
       <TalkLine
-        title={talk.title}
+        line={t(`chat.talk.line.${message.kind}`, { name: bot.name })}
         bot={bot}
         summary={summaryOf(message)}
+        read={message.steered}
         onOpen={() => setOpen(true)}
         className="max-w-[92%]"
       />
       <TalkDialog talk={talk} chips={chips} open={open} onClose={() => setOpen(false)} />
-      {message.steered && <SteeredHint />}
     </div>
   );
 }

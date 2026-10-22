@@ -1,12 +1,12 @@
 import type { Bot } from '@mowbot/contract';
 import { router } from 'expo-router';
-import { MessageSquareText, X } from 'lucide-react-native';
+import { CheckCheck, MessageSquareText, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ChipBot } from '../../lib/incoming';
 import { timeAgo } from '../../lib/time';
-import { colors, themed, tint } from '../../theme';
+import { colors, themed } from '../../theme';
 import { BotAvatar } from '../bot-avatar';
 import { Markdown } from '../markdown';
 import { IconButton } from '../ui/button';
@@ -29,39 +29,38 @@ export interface Talk {
 export const chipsOf = (bots: Bot[] | undefined): ChipBot[] =>
   (bots ?? []).map(({ id, name, avatarSeed, isChef }) => ({ id, name, avatarSeed, isChef }));
 
-/** A message between bots on one line: who, then what in a few words. Opens it large. */
+/**
+ * A message between bots, as a small grey mark: the sender's face and what happened ("Milo
+ * a écrit"), nothing more. A tap opens it large.
+ */
 export function TalkLine({
-  title,
+  line,
   bot,
   summary,
+  read = false,
   onPress,
 }: {
-  title: string;
+  line: string;
   bot: ChipBot;
+  /** What it says in a few words: for screen readers, the line itself stays short. */
   summary: string;
+  /** It reached the bot while it worked, which read it into its answer: two small checks. */
+  read?: boolean;
   onPress(): void;
 }) {
   return (
     <Touchable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={summary ? `${title} · ${summary}` : title}
+      accessibilityLabel={summary ? `${line} · ${summary}` : line}
+      hitSlop={{ top: 6, bottom: 6 }}
       style={styles.line}
     >
-      <BotAvatar seed={bot.avatarSeed} size={20} still />
-      <T variant="footnote" tone="muted" style={styles.who} numberOfLines={1}>
-        {title}
+      <BotAvatar seed={bot.avatarSeed} size={16} still />
+      <T variant="caption" tone="faint" numberOfLines={1} style={styles.lineText}>
+        {line}
       </T>
-      {summary ? (
-        <>
-          <T variant="footnote" tone="faint">
-            ·
-          </T>
-          <T variant="footnote" style={styles.gist} numberOfLines={1}>
-            {summary}
-          </T>
-        </>
-      ) : null}
+      {read && <CheckCheck size={12} color={colors.textFaint} strokeWidth={2.2} />}
     </Touchable>
   );
 }
@@ -135,20 +134,8 @@ export function TalkSheet({
 
 const styles = themed(() =>
   StyleSheet.create({
-    line: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 7,
-      maxWidth: '92%',
-      borderRadius: 9999,
-      paddingVertical: 5,
-      paddingLeft: 6,
-      paddingRight: 13,
-      backgroundColor: tint.ink(0.045),
-      overflow: 'hidden',
-    },
-    who: { flexShrink: 0, fontWeight: '600' },
-    gist: { flexShrink: 1, color: tint.text(0.78) },
+    line: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '92%' },
+    lineText: { flexShrink: 1 },
     sheet: { flex: 1, backgroundColor: colors.backgroundRaised },
     header: {
       flexDirection: 'row',

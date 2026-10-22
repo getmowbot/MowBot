@@ -1618,7 +1618,8 @@ export class BotRuntime {
     // Notes ("stopped by …") are context for later, not something to answer; nor is a voice
     // message the bot could not hear (the user can have it transcribed again).
     if (incoming.every((m) => m.meta?.silent || unheard(m))) return;
-    const autonomous = !incoming.some(fromOwner);
+    // A bot's own initiative or the watch is for the user: its answer is theirs to read.
+    const autonomous = !incoming.some((m) => fromOwner(m) || m.meta?.unseen);
     const depth = autonomous ? Math.max(0, ...incoming.map((m) => m.meta?.depth ?? 0)) : 0;
     // The hub's "go on" after the step limit, and how many in a row (anything else: none).
     const resumes = incoming.every((m) => m.meta?.resume || m.meta?.silent)
@@ -1645,8 +1646,10 @@ export class BotRuntime {
     // A run made only of check-ins (or the digest) can use the bot's cheaper model.
     const checkInOnly =
       kinds.length > 0 && kinds.every((kind) => kind === 'heartbeat' || kind === 'digest');
-    // An idle answer (« RAS ») to these, or to the watch, is tidied away.
-    const tidyable = checkInOnly || (kinds.length > 0 && kinds.every((kind) => kind === 'watch'));
+    // An idle answer (« RAS ») to these, to the watch or to an initiative, is tidied away.
+    const tidyable =
+      checkInOnly ||
+      (kinds.length > 0 && kinds.every((kind) => kind === 'watch' || kind === 'initiative'));
 
     const [created] = await db
       .insert(messages)

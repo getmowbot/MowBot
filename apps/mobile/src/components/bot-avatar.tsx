@@ -7,7 +7,7 @@ import {
   HAPPY_MS,
   HEAD_FOLLOW,
 } from '@mowbot/design';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -472,7 +472,8 @@ function LiveCharacter({
   pad,
   halos,
   reduced,
-}: CharacterProps & { halos: boolean; reduced: boolean }) {
+  ring,
+}: CharacterProps & { halos: boolean; reduced: boolean; ring: ReactNode }) {
   const { scale, at } = frame(size, pad);
   const expression = useExpression(mood);
   const face = FACES[expression];
@@ -601,6 +602,13 @@ function LiveCharacter({
       { rotate: `${gazeX.get() * HEAD_FOLLOW.turn + lean.get()}deg` },
     ],
   }));
+  // The working arc and the waiting ring go where the head goes: centered on it as it looks around.
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: gazeX.get() * HEAD_FOLLOW.x * scale },
+      { translateY: (gazeY.get() * HEAD_FOLLOW.y + hop.get()) * scale },
+    ],
+  }));
   const eyesStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: gazeX.get() * TRAVEL.x * scale },
@@ -612,6 +620,11 @@ function LiveCharacter({
 
   return (
     <>
+      {ring && (
+        <Animated.View style={[StyleSheet.absoluteFill, ringStyle]} pointerEvents="none">
+          {ring}
+        </Animated.View>
+      )}
       <Animated.View
         style={[
           StyleSheet.absoluteFill,
@@ -676,16 +689,21 @@ export function BotAvatar({ seed, size = 40, mood = 'idle', badge = false, still
   const halo = { size, pad, color: genome.color, reduced };
   const character = { genome, mood, size, pad };
   const dot = 24 * scale;
+  const ring = !halos ? null : mood === 'working' ? (
+    <WorkingArc {...halo} />
+  ) : mood === 'waiting' ? (
+    <WaitingRing {...halo} />
+  ) : null;
 
   return (
     <View style={{ width: size, height: size }} pointerEvents="none">
-      {halos && mood === 'working' && <WorkingArc {...halo} />}
-      {halos && mood === 'waiting' && <WaitingRing {...halo} />}
-
       {quiet ? (
-        <StillCharacter {...character} />
+        <>
+          {ring}
+          <StillCharacter {...character} />
+        </>
       ) : (
-        <LiveCharacter {...character} halos={halos} reduced={reduced} />
+        <LiveCharacter {...character} halos={halos} reduced={reduced} ring={ring} />
       )}
 
       {(badge || mood === 'error') && (

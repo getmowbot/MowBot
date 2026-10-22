@@ -1,6 +1,6 @@
 import type { Bot } from '@mowbot/contract';
 import { Link } from '@tanstack/react-router';
-import { MessageSquareText } from 'lucide-react';
+import { CheckCheck, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ChipBot } from '../lib/incoming';
 import { cn, timeAgo } from '../lib/utils';
@@ -26,15 +26,19 @@ export const chipsOf = (bots: Bot[] | undefined): ChipBot[] =>
 
 /** A message between bots on one line: who, then what in a few words. Opens it large. */
 export function TalkLine({
-  title,
+  line,
   bot,
   summary,
+  read = false,
   onOpen,
   className,
 }: {
-  title: string;
+  line: string;
   bot: ChipBot;
+  /** What it says in a few words: on hover, the line itself stays short. */
   summary: string;
+  /** It reached the bot while it worked, which read it into its answer: two small checks. */
+  read?: boolean;
   onOpen(): void;
   className?: string;
 }) {
@@ -42,21 +46,15 @@ export function TalkLine({
     <button
       type="button"
       onClick={onOpen}
+      title={summary || undefined}
       className={cn(
-        'group flex max-w-full items-center gap-2 rounded-full bg-ink/[0.04] py-1 pl-1.5 pr-3 text-left text-[13px] transition-colors duration-200 hover:bg-ink/[0.08]',
+        'flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-[12px] text-faint transition-colors duration-200 hover:text-muted-foreground',
         className,
       )}
     >
-      <BotAvatar seed={bot.avatarSeed} size={20} className="shrink-0" />
-      <span className="shrink-0 font-medium text-muted-foreground">{title}</span>
-      {summary && (
-        <>
-          <span className="shrink-0 text-faint">·</span>
-          <span className="min-w-0 truncate text-foreground/75 transition-colors duration-200 group-hover:text-foreground">
-            {summary}
-          </span>
-        </>
-      )}
+      <BotAvatar seed={bot.avatarSeed} size={14} className="shrink-0" />
+      <span className="min-w-0 truncate">{line}</span>
+      {read && <CheckCheck className="size-3 shrink-0" strokeWidth={2.2} />}
     </button>
   );
 }

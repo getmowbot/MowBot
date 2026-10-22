@@ -292,7 +292,7 @@ const styles = themed(() =>
     missing: { alignItems: 'center', gap: 16 },
     content: { flexGrow: 1, paddingHorizontal: 16 },
     separator: { height: 22 },
-    runSeparator: { height: 8 },
+    runSeparator: { height: 6 },
     top: { alignItems: 'center', paddingBottom: 12 },
     empty: { flex: 1, justifyContent: 'center', paddingVertical: 24 },
     dock: { position: 'absolute', left: 0, right: 0, bottom: 0 },
