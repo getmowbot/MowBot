@@ -987,6 +987,15 @@ export const en: Catalog = {
     subtitle:
       'How much your bots act on their own: pause, quiet hours, budgets, check-ins and fallback models.',
     pause: 'Global pause',
+    watch: 'Chef’s watch',
+    watchLevels: { off: 'Off', light: 'Light', active: 'Active' },
+    watchHints: {
+      off: 'The Chef looks at nothing on its own: it acts when you talk to it.',
+      light:
+        'Twice a day (9am, 6pm), the Chef goes through your mail, your calendar and what it knows of you, and tells you what matters.',
+      active:
+        'Every two hours during the day, the Chef goes through your mail, your calendar and what it knows of you, and gets ahead of things.',
+    },
     pauseHint: 'Stops everything bots do on their own; they still answer your messages.',
     quietHours: 'Quiet hours (no check-ins)',
     quietStart: 'Quiet hours start',

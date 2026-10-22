@@ -7,6 +7,7 @@ import type {
   RoutineRunStatus,
   RoutineTrigger,
   RoutineUpdate,
+  WatchLevel,
 } from '@mowbot/contract';
 import { and, count, desc, eq, lte } from 'drizzle-orm';
 import type { BotRow } from '../bots/service';
@@ -31,6 +32,27 @@ export const HEARTBEAT_PROMPT =
 
 export const DIGEST_PROMPT =
   "Bilan de la journée pour l'utilisateur : appelle activity_report, puis envoie-lui un résumé court et utile avec notify_user (titre « Bilan du jour », priorité normal) : ce que chaque équipe et chaque bot solo a fait, ce qui est terminé, ce qui bloque. S'il ne s'est rien passé, réponds « RAS » sans rien envoyer.";
+
+export const WATCH_PROMPT = [
+  "Veille : fais le tour de ce qui concerne l'utilisateur, sans qu'il te l'ait demandé.",
+  "- Ses services branchés (ses mails, son agenda, ses comptes… par leurs outils mcp__) : ce qui est arrivé, ce qui l'attend, une échéance qui approche, un formulaire à rendre, une réponse qu'on attend de lui.",
+  "- Sa mémoire : les événements qui arrivent (une compétition, un voyage, un rendez-vous) et ce qu'il aime.",
+  '- Ce que les bots ont en cours pour lui.',
+  "Agis comme un assistant attentionné : fais ce qui peut l'être sans risque (préparer, remplir, chercher un itinéraire, ressortir un billet), puis demande-lui de valider ce qui l'engage (envoyer, payer, publier, réserver) avec ask_user, en joignant ce qui l'aide à décider (details, image, link). Prévois avec plan_initiative ce qui servira plus tard (la veille, le matin même). Préviens-le avec notify_user pour une info utile qu'il n'a pas vue. Confie à un bot spécialisé ce qui relève de sa mission.",
+  "Une seule chose bien faite vaut mieux que dix notifications. S'il n'y a rien d'utile, réponds seulement « RAS », sans outil.",
+].join('\n');
+
+/** When the Chef looks after the user, by `watch` level (cron, the hub's time zone). */
+export const WATCH_CRON: Record<Exclude<WatchLevel, 'off'>, string> = {
+  light: '0 9,18 * * *',
+  active: '0 8-20/2 * * *',
+};
+
+/** At most this many initiatives waiting per bot. */
+export const MAX_INITIATIVES_PER_BOT = 50;
+
+/** The routines the user set up or sees: the bots' initiatives and the watch are left out. */
+export const SHOWN_KINDS: RoutineKind[] = ['custom', 'heartbeat', 'digest'];
 
 /** An idle check-in answer: the exchange is tidied away. */
 export const IDLE_ANSWER = /^\s*RAS[\s.!]*$/i;
@@ -86,6 +108,67 @@ export class RoutineService {
       .from(routines)
       .where(botId ? eq(routines.botId, botId) : undefined)
       .orderBy(routines.createdAt);
+  }
+
+  /** What the bots planned for the user on their own and that is still to come, soonest first. */
+  async initiatives(botId?: string): Promise<RoutineRow[]> {
+    const rows = await this.db
+      .select()
+      .from(routines)
+      .where(
+        and(
+          eq(routines.kind, 'initiative'),
+          eq(routines.enabled, true),
+          botId ? eq(routines.botId, botId) : undefined,
+        ),
+      );
+    return rows
+      .filter((row) => row.nextRunAt)
+      .sort((a, b) => (a.nextRunAt?.getTime() ?? 0) - (b.nextRunAt?.getTime() ?? 0));
+  }
+
+  /**
+   * A bot plans to do something for the user at `at`, on its own: a one-off routine of its
+   * own, out of the user's routines. When the time comes, it gets `what` back.
+   */
+  async planInitiative(bot: { id: string }, at: string, what: string): Promise<RoutineRow> {
+    const waiting = await this.initiatives(bot.id);
+    if (waiting.length >= MAX_INITIATIVES_PER_BOT) {
+      throw new HttpProblem(
+        409,
+        'too_many_initiatives',
+        `Tu as déjà ${waiting.length} initiatives prévues : annule celles qui ne servent plus.`,
+      );
+    }
+    const name = what.length > 100 ? `${what.slice(0, 99).trimEnd()}…` : what;
+    const created = await this.create(
+      { botId: bot.id, name, prompt: what, trigger: { type: 'once', at }, silent: true },
+      'bot',
+      'initiative',
+    );
+    return this.row(created.id);
+  }
+
+  /** Keeps the Chef's watch in line with the `watch` setting. */
+  async syncWatch(chef: BotRow, level: WatchLevel): Promise<void> {
+    const [existing] = await this.db
+      .select()
+      .from(routines)
+      .where(and(eq(routines.botId, chef.id), eq(routines.kind, 'watch')));
+    if (level === 'off') {
+      if (existing) await this.remove(existing.id);
+      return;
+    }
+    const trigger: RoutineTrigger = { type: 'cron', expr: WATCH_CRON[level] };
+    if (existing) {
+      await this.update(existing.id, { trigger, prompt: WATCH_PROMPT, enabled: true });
+      return;
+    }
+    await this.create(
+      { botId: chef.id, name: 'Veille', prompt: WATCH_PROMPT, trigger },
+      'system',
+      'watch',
+    );
   }
 
   async row(id: string): Promise<RoutineRow> {

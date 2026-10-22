@@ -1,4 +1,4 @@
-import type { Bot, Message } from '@mowbot/contract';
+import { type Bot, type Message, SILENT_TOOLS } from '@mowbot/contract';
 import type { CharacterMood } from '@mowbot/design';
 import type { TFunction } from 'i18next';
 import { actionTitle } from './activity';
@@ -14,7 +14,9 @@ export function currentAction(
   live?: Live,
 ): { toolName: string; input: unknown } | null {
   if (bot.status !== 'working') return null;
-  const running = live?.parts.findLast((p) => p.type === 'tool' && p.state === 'running');
+  const running = live?.parts.findLast(
+    (p) => p.type === 'tool' && p.state === 'running' && !SILENT_TOOLS.has(p.toolName),
+  );
   return running?.type === 'tool' ? running : (bot.activity ?? null);
 }
 

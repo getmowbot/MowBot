@@ -17,6 +17,7 @@ import type {
   McpScope,
   McpStatus,
   McpTransport,
+  MemoryKind,
   Message,
   MessageKind,
   MessageMention,
@@ -336,6 +337,11 @@ export interface MessageMeta {
   steeredInto?: string;
   /** Context only (e.g. "stopped by …"): does not call for an answer. */
   silent?: boolean;
+  /**
+   * Woke the bot for its own initiative or the Chef's watch: the apps never get it, only what
+   * the bot does about it.
+   */
+  unseen?: boolean;
   /** What the user pointed at with @ in the message. */
   mentions?: MessageMention[];
   /** A note that the user changed the project the bot works in. */
@@ -423,6 +429,22 @@ export const notifications = pgTable(
 );
 
 /** A question a bot asked the user, with suggested answers (buttons). */
+/** What the bots know about the user, whichever heard it (see memorySchema in the contract). */
+export const memories = pgTable(
+  'memories',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    kind: text('kind').$type<MemoryKind>().notNull(),
+    text: text('text').notNull(),
+    /** When it happens (events). */
+    at: timestamp('at', { withTimezone: true }),
+    sourceBotId: uuid('source_bot_id').references(() => bots.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('memories_at_idx').on(t.at)],
+);
+
 export const questions = pgTable(
   'questions',
   {

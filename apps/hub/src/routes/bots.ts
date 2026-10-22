@@ -19,7 +19,7 @@ import {
   vaultRequestAnswerSchema,
   voiceFieldsSchema,
 } from '@mowbot/contract';
-import { and, desc, eq, lt } from 'drizzle-orm';
+import { and, desc, eq, lt, sql } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { INBOX, toAttachment } from '../agents/attachments';
@@ -214,9 +214,12 @@ export const botRoutes: FastifyPluginAsyncZod = async (app) => {
         .select()
         .from(messages)
         .where(
-          cursor
-            ? and(eq(messages.botId, request.params.id), lt(messages.createdAt, cursor))
-            : eq(messages.botId, request.params.id),
+          and(
+            eq(messages.botId, request.params.id),
+            cursor ? lt(messages.createdAt, cursor) : undefined,
+            // What woke the bot for its own initiative or the watch stays the hub's.
+            sql`coalesce((${messages.meta}->>'unseen')::boolean, false) = false`,
+          ),
         )
         .orderBy(desc(messages.createdAt))
         .limit(limit + 1);

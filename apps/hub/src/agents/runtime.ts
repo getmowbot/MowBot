@@ -17,7 +17,7 @@ import type {
   VaultField,
   VaultRequestAnswer,
 } from '@mowbot/contract';
-import { REASONING_ACTIVITY } from '@mowbot/contract';
+import { REASONING_ACTIVITY, SILENT_TOOLS } from '@mowbot/contract';
 import { reasoningHeadline } from '@mowbot/design';
 import { type LanguageModel, type ModelMessage, stepCountIs, streamText, type ToolSet } from 'ai';
 import { and, asc, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm';
@@ -33,6 +33,7 @@ import type { EventBus } from '../events';
 import { HttpProblem, notFound } from '../http/problems';
 import { hubTexts } from '../i18n';
 import type { McpService } from '../mcp/service';
+import type { MemoryService } from '../memory/service';
 import type { PlanService } from '../org/plans';
 import type { OrgService } from '../org/service';
 import { TaskService } from '../org/tasks';
@@ -58,6 +59,7 @@ import { buildCanvasTools, SHOW_IN_CHAT } from './canvas-tools';
 import { closeOpened, inventory, openedBy, rememberWindows } from './desktop';
 import { buildLocalTools, mirrorState, OFFLINE_HINT, projectPlace } from './local-tools';
 import { buildMcpTools } from './mcp-tools';
+import { buildMemoryTools } from './memory-tools';
 import { resolveMentions } from './mentions';
 import { buildOrgTools } from './org-tools';
 import { buildPlanTools, SHOW_PLAN } from './plan-tools';
@@ -179,6 +181,8 @@ export interface RuntimeDeps {
   mirrors?: MirrorService;
   /** Web searches and page reads from the hub (no computer needed). */
   web?: WebService;
+  /** What the bots know about the user, whichever heard it. */
+  memory?: MemoryService;
   /** Transcribes voice messages; without it, they stay untranscribed. */
   voice?: VoiceDeps;
   finishedPushAfterMs?: number;
@@ -272,7 +276,7 @@ function masked(secrets: SecretScope, tools: ToolSet): ToolSet {
   return Object.fromEntries(
     Object.entries(tools).map(([name, entry]) => {
       const { execute } = entry;
-      if (!execute) return [name, entry];
+      if (!execute || SILENT_TOOLS.has(name)) return [name, entry];
       return [
         name,
         {
@@ -1325,6 +1329,7 @@ export class BotRuntime {
   }
 
   private publish(row: MessageRow): void {
+    if (row.meta?.unseen) return;
     this.deps.events.publish({ type: 'message.updated', message: toMessage(row) });
   }
 
@@ -1623,21 +1628,25 @@ export class BotRuntime {
       m.kind === 'ask' && m.meta?.askId ? [m.meta.askId] : [],
     );
     const routineRunIds = incoming.flatMap((m) => (m.meta?.runId ? [m.meta.runId] : []));
-    // A run made only of check-ins can use the bot's cheaper model.
+    // What started the run: only routines of the hub's own (check-ins, the digest, the watch)?
+    const kinds =
+      routineRunIds.length === incoming.length
+        ? await Promise.all(
+            incoming.map((m) =>
+              m.meta?.routineId
+                ? this.deps.routines.row(m.meta.routineId).then(
+                    (r) => r.kind,
+                    () => null,
+                  )
+                : null,
+            ),
+          )
+        : [];
+    // A run made only of check-ins (or the digest) can use the bot's cheaper model.
     const checkInOnly =
-      routineRunIds.length === incoming.length &&
-      (
-        await Promise.all(
-          incoming.map((m) =>
-            m.meta?.routineId
-              ? this.deps.routines.row(m.meta.routineId).then(
-                  (r) => r.kind !== 'custom',
-                  () => false,
-                )
-              : false,
-          ),
-        )
-      ).every(Boolean);
+      kinds.length > 0 && kinds.every((kind) => kind === 'heartbeat' || kind === 'digest');
+    // An idle answer (« RAS ») to these, or to the watch, is tidied away.
+    const tidyable = checkInOnly || (kinds.length > 0 && kinds.every((kind) => kind === 'watch'));
 
     const [created] = await db
       .insert(messages)
@@ -1786,6 +1795,7 @@ export class BotRuntime {
           db,
         }),
         ...(this.deps.web ? buildWebTools(this.deps.web) : {}),
+        ...(this.deps.memory ? buildMemoryTools({ self: bot, memory: this.deps.memory }) : {}),
         ...buildCanvasTools({
           self: bot,
           canvases: this.deps.canvases,
@@ -1864,6 +1874,9 @@ export class BotRuntime {
         timeZone: this.deps.routines.timeZone,
         now: new Date(),
         vault: await this.deps.vault.promptLines(bot),
+        memory: this.deps.memory
+          ? await this.deps.memory.promptLines(new Date(), this.deps.routines.timeZone)
+          : undefined,
         projects: projects.map((p) => {
           const machine = machines.get(p.connectorId);
           const online = Boolean(connectors?.isOnline(p.connectorId));
@@ -2099,7 +2112,7 @@ export class BotRuntime {
         answer,
         usedTools: parts.some((p) => p.type === 'tool'),
         messageIds: [...incoming.map((m) => m.id), created.id],
-        tidyable: checkInOnly,
+        tidyable,
       });
     } catch (error) {
       const stopped = controller.signal.aborted;

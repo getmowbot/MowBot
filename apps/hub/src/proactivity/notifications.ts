@@ -107,6 +107,8 @@ const DEFAULTS: Omit<SystemSettings, 'timeZone'> = {
   paused: false,
   quietHours: { start: '22:00', end: '07:00' },
   dailyTokenBudget: null,
+  // Out of the box, the Chef looks after the user twice a day.
+  watch: 'light',
 };
 
 /** Instance-wide proactivity settings: the kill switch, quiet hours, the global budget. */

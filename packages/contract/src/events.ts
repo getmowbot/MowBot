@@ -3,6 +3,7 @@ import { botSchema, messageSchema } from './bots';
 import { canvasSchema } from './canvases';
 import { computerSchema } from './computers';
 import { mcpComputerSchema, mcpServerSchema } from './mcp';
+import { memorySchema } from './memory';
 import { teamPlanSchema } from './plans';
 import { connectorSchema, projectSchema } from './projects';
 import { questionSchema } from './questions';
@@ -60,6 +61,9 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('notification.created'), notification: notificationSchema }),
   /** A bot asked the user something, or the question was answered. */
   z.object({ type: z.literal('question.updated'), question: questionSchema }),
+  /** What the bots know about the user changed (a bot remembered, the user fixed it). */
+  z.object({ type: z.literal('memory.updated'), memory: memorySchema }),
+  z.object({ type: z.literal('memory.deleted'), memoryId: z.uuid() }),
   z.object({ type: z.literal('system.updated'), settings: systemSettingsSchema }),
   /** The user emptied the notifications. */
   z.object({ type: z.literal('notifications.cleared') }),

@@ -1017,6 +1017,15 @@ export const fr = {
     subtitle:
       'Combien tes bots agissent d’eux-mêmes : pause, heures calmes, budgets, réveils et modèles de secours.',
     pause: 'Pause globale',
+    watch: 'Veille du Chef',
+    watchLevels: { off: 'Désactivée', light: 'Légère', active: 'Active' },
+    watchHints: {
+      off: 'Le Chef ne regarde rien de lui-même : il agit quand tu lui parles.',
+      light:
+        'Deux fois par jour (9 h, 18 h), le Chef parcourt tes mails, ton agenda et ce qu’il sait de toi, et te prévient de ce qui compte.',
+      active:
+        'Toutes les deux heures en journée, le Chef parcourt tes mails, ton agenda et ce qu’il sait de toi, et prend les devants.',
+    },
     pauseHint:
       'Arrête tout ce que les bots font d’eux-mêmes ; ils répondent encore à tes messages.',
     quietHours: 'Heures calmes (pas de réveils)',

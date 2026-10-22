@@ -90,7 +90,7 @@ export function buildProactiveTools(ctx: ProactiveToolContext): ToolSet {
 
   tools.create_routine = tool({
     description:
-      "Crée une routine : un travail que tu feras toi-même, plus tard ou régulièrement, sans qu'on te le demande (veille quotidienne, relance, rapport hebdo…). Quand elle se déclenche, tu reçois son instruction. Préfère un déclencheur rare et utile ; silencieuse par défaut (l'utilisateur la voit dans l'app mais n'est pas prévenu à chaque passage).",
+      "Crée une routine : un travail que tu feras toi-même, régulièrement ou plus tard, que l'utilisateur voit dans ses routines (veille quotidienne, rapport hebdo…). Quand elle se déclenche, tu reçois son instruction. Préfère un déclencheur rare et utile ; silencieuse par défaut (il n'est pas prévenu à chaque passage). Pour une attention ponctuelle que tu prends de toi-même (un rappel la veille d'un événement), c'est plan_initiative.",
     inputSchema: z.object({
       name: z.string().min(1).max(100),
       instruction: z
@@ -131,13 +131,19 @@ export function buildProactiveTools(ctx: ProactiveToolContext): ToolSet {
         .innerJoin(bots, eq(bots.id, routines.botId))
         .where(self.isChef ? undefined : eq(routines.botId, self.id))
         .orderBy(routines.createdAt);
-      if (rows.length === 0) return 'Aucune routine.';
-      return rows
-        .map(
+      const initiatives = (await routineService.initiatives(self.isChef ? undefined : self.id)).map(
+        (r) =>
+          `- [${r.id.slice(0, 8)}] initiative pour ${r.nextRunAt?.toISOString()} : ${r.prompt}`,
+      );
+      const shown = rows.filter(({ routine: r }) => r.kind !== 'initiative');
+      if (shown.length === 0 && initiatives.length === 0) return 'Aucune routine.';
+      return [
+        ...shown.map(
           ({ routine: r, bot }) =>
             `- [${r.id}] ${r.name}${self.isChef ? ` (${bot})` : ''} — ${describeTrigger(r.trigger)}, ${r.enabled ? 'active' : 'désactivée'}${r.lastStatus ? `, dernier passage : ${r.lastStatus}` : ''}`,
-        )
-        .join('\n');
+        ),
+        ...(initiatives.length ? ['Initiatives prévues :', ...initiatives] : []),
+      ].join('\n');
     },
   });
 
@@ -196,6 +202,45 @@ export function buildProactiveTools(ctx: ProactiveToolContext): ToolSet {
       await ctx.bots.update(self.id, { heartbeatMinutes: minutes });
       await routineService.syncHeartbeat({ ...self, heartbeatMinutes: minutes });
       return minutes ? `Réveil toutes les ${minutes} minutes.` : 'Réveils arrêtés.';
+    },
+  });
+
+  tools.plan_initiative = tool({
+    description:
+      "Prévois toi-même de faire quelque chose pour l'utilisateur à un moment précis, sans qu'il te l'ait demandé : la veille d'une compétition (« pense à te reposer », l'itinéraire), le matin d'un vol (ressortir le billet, le check-in), avant une échéance (vérifier qu'un formulaire est parti). Il ne la voit nulle part (c'est ton initiative) : ne la lui annonce pas. Le moment venu, tu reçois what et tu agis (notify_user, ask_user, le travail lui-même).",
+    inputSchema: z.object({
+      at: z.string().describe('Quand : date et heure ISO 8601 avec fuseau, dans le futur'),
+      what: z
+        .string()
+        .trim()
+        .min(1)
+        .max(1_000)
+        .describe(
+          "Ce que tu feras alors, assez précis pour être autonome (avec ce qu'il te faudra)",
+        ),
+    }),
+    execute: async ({ at, what }) => {
+      const when = new Date(at);
+      if (Number.isNaN(when.getTime())) throw new Error(`« ${at} » n'est pas une date ISO.`);
+      const row = await routineService
+        .planInitiative(self, when.toISOString(), what)
+        .catch(toolError);
+      return `Initiative prévue [${row.id.slice(0, 8)}] pour ${row.nextRunAt?.toISOString() ?? at}.`;
+    },
+  });
+
+  tools.cancel_initiative = tool({
+    description:
+      "Annule une de tes initiatives devenue inutile (l'événement est annulé, c'est déjà fait).",
+    inputSchema: z.object({
+      id: z.string().trim().min(4).describe('Son id (les 8 premiers caractères suffisent)'),
+    }),
+    execute: async ({ id }) => {
+      const mine = await routineService.initiatives(self.id);
+      const found = mine.find((row) => row.id.startsWith(id.trim().replace(/^\[|\]$/g, '')));
+      if (!found) throw new Error(`Aucune de tes initiatives n'a l'id « ${id} » (list_routines).`);
+      await routineService.remove(found.id);
+      return 'Initiative annulée.';
     },
   });
 

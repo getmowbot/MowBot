@@ -1,8 +1,9 @@
-import type { Bot, BotUpdate, ModelRef, Provider } from '@mowbot/contract';
+import type { Bot, BotUpdate, ModelRef, Provider, WatchLevel } from '@mowbot/contract';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BotAvatar } from '../components/bot-avatar';
+import { ViewSwitch } from '../components/bot-browser-view';
 import { Button } from '../components/ui/button';
 import { Card, FormError, Input, Label, Select } from '../components/ui/form';
 import { api, problemMessage } from '../lib/auth';
@@ -11,6 +12,7 @@ import { useSystem, useUpdateSystem } from '../lib/proactivity';
 import { useBots, useProviders } from '../lib/queries';
 
 const HEARTBEATS = [null, 15, 30, 60, 120, 240, 720] as const;
+const WATCH_LEVELS: WatchLevel[] = ['off', 'light', 'active'];
 
 function GlobalSettings() {
   const { t } = useTranslation();
@@ -52,6 +54,22 @@ function GlobalSettings() {
         >
           {settings.paused ? t('home.resume') : t('home.pause')}
         </Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-medium">{t('proactivity.watch')}</h2>
+          <p className="text-sm text-muted-foreground">
+            {t(`proactivity.watchHints.${settings.watch}`)}
+          </p>
+        </div>
+        <ViewSwitch
+          value={settings.watch}
+          options={WATCH_LEVELS.map((level) => ({
+            value: level,
+            label: t(`proactivity.watchLevels.${level}`),
+          }))}
+          onChange={(watch) => update.mutate({ watch })}
+        />
       </div>
       <form
         className="space-y-4 border-t border-border pt-4"

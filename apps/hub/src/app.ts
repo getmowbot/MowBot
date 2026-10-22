@@ -24,6 +24,7 @@ import { eventRoutes } from './routes/events';
 import { fileRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
 import { mcpRoutes } from './routes/mcp';
+import { memoryRoutes } from './routes/memory';
 import { previewRoutes } from './routes/previews';
 import { proactivityRoutes } from './routes/proactivity';
 import { projectRoutes } from './routes/projects';
@@ -169,6 +170,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
       await api.register(canvasRoutes);
       await api.register(previewRoutes);
       await api.register(webRoutes);
+      await api.register(memoryRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: API_PREFIX },
@@ -185,7 +187,20 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
   services.runtime.watchTakeovers();
   services.mirrors.setLogger(app.log);
   await services.mirrors.start();
+  // What the bots know of the user and plan for them shows nowhere in the apps: the logs tell.
+  const unwatch = services.events.subscribe((event) => {
+    if (event.type === 'memory.updated') {
+      const { id, kind, text, at, sourceBotId } = event.memory;
+      app.log.info({ memoryId: id, kind, at, botId: sourceBotId, text }, 'Memory kept');
+    } else if (event.type === 'memory.deleted') {
+      app.log.info({ memoryId: event.memoryId }, 'Memory forgotten');
+    } else if (event.type === 'routine.updated' && event.routine.kind === 'initiative') {
+      const { id, botId, prompt, nextRunAt, enabled } = event.routine;
+      app.log.info({ routineId: id, botId, at: nextRunAt, enabled, what: prompt }, 'Initiative');
+    }
+  });
   app.addHook('onClose', async () => {
+    unwatch();
     services.scheduler.stop();
     services.automations.stop();
     services.mirrors.stop();

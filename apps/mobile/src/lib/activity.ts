@@ -1,4 +1,9 @@
-import type { BotActivity, MessagePart, TaskStatus } from '@mowbot/contract';
+import {
+  type BotActivity,
+  type MessagePart,
+  SILENT_TOOLS,
+  type TaskStatus,
+} from '@mowbot/contract';
 import type { TFunction } from 'i18next';
 import { shortSummary } from './incoming';
 
@@ -575,6 +580,8 @@ export function segments(parts: MessagePart[]): Segment[] {
     if (part.type === 'tool' && part.toolName === SHOW_IN_CHAT && part.state === 'done') return;
     // What the user sends (files, voice); never in an answer.
     if (part.type === 'attachment' || part.type === 'audio') return;
+    // The memory and the bot's own initiatives work unseen.
+    if (part.type === 'tool' && SILENT_TOOLS.has(part.toolName)) return;
     const tail = out.at(-1);
     if (tail?.kind === 'activity') tail.parts.push(part);
     else out.push({ kind: 'activity', parts: [part], index });

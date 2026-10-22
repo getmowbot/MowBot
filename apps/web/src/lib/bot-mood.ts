@@ -1,4 +1,4 @@
-import { type Bot, type Message, REASONING_ACTIVITY } from '@mowbot/contract';
+import { type Bot, type Message, REASONING_ACTIVITY, SILENT_TOOLS } from '@mowbot/contract';
 import { reasoningHeadline } from '@mowbot/design';
 import { actionTitle } from '../components/activity';
 import type { BotMood } from '../components/bot-avatar';
@@ -13,7 +13,9 @@ export function currentAction(
   live?: Live,
 ): { toolName: string; input: unknown } | null {
   if (bot.status !== 'working') return null;
-  const running = live?.parts.findLast((p) => p.type === 'tool' && p.state === 'running');
+  const running = live?.parts.findLast(
+    (p) => p.type === 'tool' && p.state === 'running' && !SILENT_TOOLS.has(p.toolName),
+  );
   if (running?.type === 'tool') return running;
   // Thinking it over is no action (see `thoughtOf`).
   return bot.activity?.toolName === REASONING_ACTIVITY ? null : bot.activity;
