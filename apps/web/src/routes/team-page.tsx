@@ -15,6 +15,7 @@ import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BotAvatar, TeamAvatar } from '../components/bot-avatar';
+import { ComputerSetup } from '../components/computer-setup';
 import { StatusBadge } from '../components/computer-status';
 import { useOrgDialogs } from '../components/org-dialogs';
 import { TeamPlan } from '../components/team-plan';
@@ -303,6 +304,12 @@ export function TeamPage() {
           </motion.div>
         )}
       </section>
+
+      {current.computerId && (
+        <Reveal delay={0.07}>
+          <ComputerSetup computerId={current.computerId} />
+        </Reveal>
+      )}
 
       <Reveal delay={0.08}>
         <TeamSettings key={current.id} team={current} members={members} />

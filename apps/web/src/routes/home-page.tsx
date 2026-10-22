@@ -10,6 +10,7 @@ import { CanvasCard, SPAN } from '../components/canvas-card';
 import { QuestionCard } from '../components/question-card';
 import { Button } from '../components/ui/button';
 import { api, problemMessage } from '../lib/auth';
+import { useDraft } from '../lib/drafts';
 import { reveal } from '../lib/motion';
 import {
   alertsPermission,
@@ -34,7 +35,7 @@ function AskChef() {
   const { t } = useTranslation();
   const chef = useChef();
   const navigate = useNavigate();
-  const [text, setText] = useState('');
+  const [text, setText] = useDraft('home');
   const send = useMutation({
     mutationFn: async (value: string) => {
       await api.POST('/api/v1/bots/{id}/messages', {
@@ -42,7 +43,11 @@ function AskChef() {
         body: { text: value },
       });
     },
-    onSuccess: () => void navigate({ to: '/chef' }),
+    onSuccess: () => {
+      // Sent: no draft left.
+      setText('');
+      void navigate({ to: '/chef' });
+    },
   });
   const submit = (event: FormEvent) => {
     event.preventDefault();

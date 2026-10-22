@@ -7,6 +7,7 @@ import type {
   SystemSettingsUpdate,
 } from '@mowbot/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { i18n } from '../i18n';
 import { api } from './auth';
 
@@ -40,6 +41,30 @@ export function useMarkNotificationsRead() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
+}
+
+/**
+ * The user is in a bot's conversation: what that bot notified them of is seen (now, and as
+ * new notifications of it come while the conversation is open and in view).
+ */
+export function useSeenInConversation(botId: string | undefined) {
+  const queryClient = useQueryClient();
+  const notifications = useNotifications();
+  const unread = (notifications.data?.items ?? []).filter((n) => n.botId === botId && !n.readAt);
+  const pending = unread.map((n) => n.id).join(',');
+  useEffect(() => {
+    if (!botId || !pending) return;
+    const mark = () => {
+      if (document.visibilityState !== 'visible') return;
+      void api
+        .POST('/api/v1/notifications/read', { body: { botId } })
+        .finally(() => queryClient.invalidateQueries({ queryKey: ['notifications'] }));
+    };
+    mark();
+    // In a background tab: once the user comes back to it.
+    document.addEventListener('visibilitychange', mark);
+    return () => document.removeEventListener('visibilitychange', mark);
+  }, [botId, pending, queryClient]);
 }
 
 /** Deletes every notification. */
@@ -244,6 +269,26 @@ export function useQuestions() {
       if (error || !data) throw error;
       return data.items;
     },
+  });
+}
+
+/** Sets a question aside without answering it (the bot is not told). */
+export function useDismissQuestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await api.POST('/api/v1/questions/{id}/dismiss', {
+        params: { path: { id } },
+      });
+      if (error || !data) throw error;
+      return data;
+    },
+    onMutate: (id) =>
+      queryClient.setQueryData<Question[]>(['questions'], (list) =>
+        list?.filter((q) => q.id !== id),
+      ),
+    // Answered meanwhile on another device: refresh.
+    onError: () => queryClient.invalidateQueries({ queryKey: ['questions'] }),
   });
 }
 

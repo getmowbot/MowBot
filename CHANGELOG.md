@@ -6,6 +6,18 @@ The release workflow publishes the section of the version it builds as the relea
 
 ## Unreleased
 
+### Pick each team's computer
+- **With a desktop or the command line.** A team's PC runs Ubuntu with its desktop (you watch it and take control), or without a screen: lighter, with a shell, files and a browser without a window. Pick it when you create the team (the Chef too) or on the team's page.
+- **Graphics cards.** Give a PC the hub machine's NVIDIA cards, all of them or some: CUDA, NVENC and compute work inside it, and several PCs can share a card. It needs the NVIDIA Container Toolkit on the host (Docker Desktop on Windows has it with WSL 2).
+- A running PC takes a new setup when it restarts, from the team's page.
+- Bots on a PC without a screen don't get the screenshot, mouse and take-control tools; their prompt says what their PC has, cards included.
+
+### Smaller things (web app)
+- The sidebar's "Desktop" is now **Computer**.
+- A bot's question is a new card: its answers as pills, and an × to **close it without answering** (the bot isn't told).
+- **Drafts stay.** What you type to a bot, or to the Chef from the home page, is still there when you come back.
+- Opening a bot's conversation marks its notifications as seen.
+
 ### See the mission, not the chatter (web app)
 - **A mission board per team:** the goal, a progress bar, who works on which step right now (with what they do this very moment), every step with what it delivers, and the deliverables, delivered and coming, with links to open them (a file of the team, a preview).
 - **Deliverables in the plan.** The lead names what each step delivers; a bot that finishes a step says what it delivered and where. A finished task fills its step on its own.

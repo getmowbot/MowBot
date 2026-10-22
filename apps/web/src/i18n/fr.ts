@@ -22,7 +22,7 @@ export const fr = {
     team: 'Équipe',
     lead: 'Lead',
     files: 'Fichiers',
-    desktop: 'Bureau',
+    desktop: 'Ordinateur',
     isolated: 'Cloisonnée',
     teamPc: 'PC de l’équipe',
     newTeam: 'Nouvelle équipe',
@@ -138,6 +138,28 @@ export const fr = {
     idle: 'disponible',
   },
   computer: {
+    setup: {
+      title: 'Ordinateur de l’équipe',
+      system: 'Système',
+      desktop: 'Avec bureau',
+      desktopHint: 'Ubuntu et son bureau : tu vois l’écran en direct et tu peux prendre la main.',
+      terminal: 'Ligne de commande',
+      terminalHint:
+        'Ubuntu sans écran, plus léger : un shell, des fichiers et un navigateur sans fenêtre.',
+      gpus: 'Cartes graphiques',
+      gpusHint:
+        'Pour le calcul, l’IA, la vidéo (CUDA, NVENC). Plusieurs PC peuvent partager une carte.',
+      noGpu:
+        'Aucune carte graphique à donner : il faut une carte NVIDIA et le NVIDIA Container Toolkit sur la machine du hub.',
+      allGpus: 'Toutes',
+      memory: '{{size}} Go',
+      giveGpus: 'Lui donner les cartes graphiques',
+      restartNeeded: 'Pris en compte au prochain démarrage.',
+      restartNow: 'Redémarrer maintenant',
+      notSaved: 'Réglage non enregistré.',
+      noScreen:
+        'Pas d’écran : ce PC n’a que la ligne de commande. Tu vois ici la fenêtre du navigateur des bots.',
+    },
     status: {
       stopped: 'Éteint',
       starting: 'Démarrage…',
@@ -145,7 +167,7 @@ export const fr = {
       stopping: 'Arrêt…',
       error: 'Erreur',
     },
-    connecting: 'Connexion au bureau…',
+    connecting: 'Connexion à l’ordinateur…',
   },
   chat: {
     /** Sent as the user's message when picked: written as the user would. */
@@ -165,8 +187,8 @@ export const fr = {
     resumed: 'Reprend tout seul après la limite d’étapes ({{count}})',
     stepLimitResumes: 'Étapes max atteintes · reprend tout seul',
     panel: {
-      show: 'Afficher le bureau',
-      hide: 'Masquer le bureau',
+      show: 'Afficher l’ordinateur',
+      hide: 'Masquer l’ordinateur',
       mission: 'Mission',
     },
     errors: {
@@ -610,10 +632,9 @@ export const fr = {
     fullscreen: 'Plein écran',
     restart: 'Redémarrer',
     turnOff: 'Éteindre',
-    inControl:
-      'Tu as la main : les bots sont en pause sur ce PC. Clique dans le bureau pour taper.',
+    inControl: 'Tu as la main : les bots sont en pause sur ce PC. Clique dans l’écran pour taper.',
     otherDevice: 'Un autre de tes appareils a la main sur ce PC.',
-    loading: 'Chargement du bureau…',
+    loading: 'Chargement de l’écran…',
     starting: 'Démarrage du PC… (quelques secondes, plus au premier lancement)',
     stopping: 'Arrêt du PC…',
     off: 'Le PC est éteint.',
@@ -799,6 +820,9 @@ export const fr = {
     other: 'Autre réponse…',
     placeholder: 'Ta réponse',
     send: 'Envoyer la réponse',
+    label: 'Question',
+    dismiss: 'Ignorer la question',
+    dismissHint: 'Fermer sans répondre : le bot n’est pas prévenu.',
   },
   home: {
     morning: 'Bonjour {{name}}',
@@ -1100,8 +1124,8 @@ export const fr = {
     filterSites: 'Filtrer les sites',
     alreadySaved: 'déjà enregistrée',
     noSites:
-      'Aucun site avec des cookies dans ce Chrome. Prends la main sur le bureau du PC et connecte-toi au site : la session est enregistrée quand tu rends la main.',
-    openDesktop: 'Ouvrir le bureau',
+      'Aucun site avec des cookies dans ce Chrome. Prends la main sur l’ordinateur et connecte-toi au site : la session est enregistrée quand tu rends la main.',
+    openDesktop: 'Ouvrir l’ordinateur',
     sitesNotRead: 'Le Chrome de ce PC n’a pas pu être lu.',
     fromSite: 'Déduit du site',
     saveSession: 'Enregistrer la session',

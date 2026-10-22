@@ -68,7 +68,7 @@ import {
   summaryOf,
 } from '../lib/incoming';
 import { reveal } from '../lib/motion';
-import { useQuestions } from '../lib/proactivity';
+import { useQuestions, useSeenInConversation } from '../lib/proactivity';
 import {
   MESSAGES_PAGE,
   useBot,
@@ -641,7 +641,7 @@ function ComputerPanel({
           <PanelRightClose className="size-4" />
         </Button>
       </div>
-      {pc?.status === 'running' && (
+      {pc?.status === 'running' && pc.system === 'desktop' && (
         <ViewSwitch
           value={shown}
           options={[
@@ -651,12 +651,15 @@ function ComputerPanel({
           onChange={setShown}
         />
       )}
-      {pc?.status === 'running' && shown === 'bot' ? (
+      {pc?.status === 'running' && pc.system === 'terminal' && (
+        <p className="text-xs text-muted-foreground">{t('computer.setup.noScreen')}</p>
+      )}
+      {pc?.status === 'running' && (shown === 'bot' || pc.system === 'terminal') ? (
         <BotBrowserView
           botId={bot.id}
           botName={bot.name}
           onShown={() => setShown('screen')}
-          onTakeOver={inControl ? undefined : takeOver}
+          onTakeOver={inControl || pc.system === 'terminal' ? undefined : takeOver}
         />
       ) : pc?.status === 'running' ? (
         <Suspense fallback={null}>
@@ -674,7 +677,7 @@ function ComputerPanel({
           </div>
         </div>
       )}
-      {pc?.status === 'running' && (
+      {pc?.status === 'running' && pc.system === 'desktop' && (
         <div className="flex flex-wrap items-center gap-2">
           {inControl ? (
             <Button size="sm" onClick={() => action.mutate('release')} disabled={action.isPending}>
@@ -745,6 +748,8 @@ export function ChatPage() {
   // How many of the last messages are drawn: more as the user scrolls up, back down at the end.
   const [shown, setShown] = useState(MESSAGES_PAGE);
   const questions = useQuestions();
+  // Being here is seeing what this bot notified.
+  useSeenInConversation(bot?.id);
   // Oldest first, like the conversation.
   const asked = (questions.data ?? []).filter((q) => q.botId === bot?.id).reverse();
   const providers = useProviders();

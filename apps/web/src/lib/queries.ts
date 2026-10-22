@@ -1,4 +1,4 @@
-import type { Computer, Message, Provider, TaskStatus } from '@mowbot/contract';
+import type { Computer, ComputerUpdate, Message, Provider, TaskStatus } from '@mowbot/contract';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './auth';
 import type { Listing } from './models';
@@ -70,6 +70,38 @@ export function useComputer(computerId: string | null | undefined) {
     },
     // Events push updates; polling during transitions covers a dropped event stream.
     refetchInterval: (query) => (TRANSITIONS.has(query.state.data?.status ?? '') ? 3_000 : false),
+  });
+}
+
+/** The host's graphics cards PCs can get (rarely changes). */
+export function useGpus() {
+  return useQuery({
+    queryKey: ['gpus'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/computers/gpus');
+      if (error || !data) throw error;
+      return data;
+    },
+  });
+}
+
+/** Changes what a PC runs and the cards it gets (a running one takes it once restarted). */
+export function useConfigureComputer(computerId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: ComputerUpdate): Promise<Computer> => {
+      const { data, error } = await api.PATCH('/api/v1/computers/{id}', {
+        params: { path: { id: computerId as string } },
+        body,
+      });
+      if (error || !data) throw error;
+      return data;
+    },
+    onSuccess: (computer) => {
+      queryClient.setQueryData(['computer', computer.id], computer);
+      void queryClient.invalidateQueries({ queryKey: ['computers'] });
+    },
   });
 }
 

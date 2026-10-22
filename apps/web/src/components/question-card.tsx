@@ -1,18 +1,23 @@
 import type { Bot, Question } from '@mowbot/contract';
-import { ArrowUp, PenLine } from 'lucide-react';
+import { springs } from '@mowbot/design';
+import { ArrowUp, MessageCircleQuestion, PenLine, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { problemMessage } from '../lib/auth';
-import { useAnswerQuestion } from '../lib/proactivity';
+import { useAnswerQuestion, useDismissQuestion } from '../lib/proactivity';
 import { cn, timeAgo } from '../lib/utils';
 import { BotAvatar } from './bot-avatar';
 import { Button } from './ui/button';
-import { Input } from './ui/form';
+
+/** A suggested answer: a pill, one click away. */
+const CHIP =
+  'inline-flex h-9 items-center gap-1.5 rounded-full border border-border-strong bg-ink/[0.03] px-4 text-sm font-medium text-foreground/90 transition-[background-color,border-color,color] duration-200 hover:border-ink/25 hover:bg-ink/[0.08] hover:text-foreground disabled:pointer-events-none disabled:opacity-40';
 
 /**
- * A question a bot asked: one click on a suggested answer, or the user's own words. The answer
- * reaches the bot as a message from the user. `bot` shows who asks (on the home page).
+ * A question a bot asked: one click on a suggested answer, the user's own words, or set aside
+ * without answering (the bot is not told). The answer reaches the bot as a message from the
+ * user. `bot` shows who asks (on the home page).
  */
 export function QuestionCard({
   question,
@@ -25,80 +30,115 @@ export function QuestionCard({
 }) {
   const { t } = useTranslation();
   const answer = useAnswerQuestion();
+  const dismiss = useDismissQuestion();
   const [writing, setWriting] = useState(question.options.length === 0);
   const [text, setText] = useState('');
+  const busy = answer.isPending || dismiss.isPending;
 
   const send = (value: string) => answer.mutate({ id: question.id, answer: value });
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (text.trim()) send(text.trim());
   };
+  const failed = answer.error ?? dismiss.error;
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
-      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, y: -6, filter: 'blur(6px)' }}
-      className={cn(
-        'space-y-3 rounded-2xl border border-border-strong bg-ink/[0.03] p-3.5',
-        className,
-      )}
+      initial={{ opacity: 0, y: 8, scale: 0.98, filter: 'blur(6px)' }}
+      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+      exit={{ opacity: 0, y: -6, scale: 0.98, filter: 'blur(6px)' }}
+      transition={springs.soft}
+      className={cn('glass relative overflow-hidden rounded-[22px] p-4', className)}
     >
-      <div className="flex items-start gap-2.5">
-        {bot && <BotAvatar seed={bot.avatarSeed} size={28} mood="waiting" />}
-        <div className="min-w-0 flex-1">
-          {bot && (
-            <p className="text-xs text-muted-foreground">
-              {t('questions.from', { name: bot.name })} · {timeAgo(question.createdAt)}
-            </p>
+      {/* A soft light from the top left: something waits for the user. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -left-10 -top-16 size-40 rounded-full bg-info/[0.12] blur-3xl"
+      />
+      <button
+        type="button"
+        onClick={() => dismiss.mutate(question.id)}
+        disabled={busy}
+        aria-label={t('questions.dismiss')}
+        title={t('questions.dismissHint')}
+        className="absolute right-2.5 top-2.5 z-10 grid size-8 place-items-center rounded-full text-faint transition-colors duration-200 hover:bg-ink/[0.07] hover:text-foreground disabled:opacity-40"
+      >
+        <X className="size-4" />
+      </button>
+      <div className="relative space-y-3">
+        <div className="flex items-center gap-2.5 pr-8">
+          {bot ? (
+            <BotAvatar seed={bot.avatarSeed} size={26} mood="waiting" />
+          ) : (
+            <span className="grid size-6 place-items-center rounded-full bg-info/15 text-info">
+              <MessageCircleQuestion className="size-3.5" />
+            </span>
           )}
-          <p className="whitespace-pre-wrap break-words text-sm font-medium">{question.question}</p>
+          <p className="min-w-0 truncate text-xs text-muted-foreground">
+            {bot ? t('questions.from', { name: bot.name }) : t('questions.label')}
+            <span className="text-faint"> · {timeAgo(question.createdAt)}</span>
+          </p>
         </div>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {question.options.map((option) => (
-          <Button
-            key={option}
-            size="sm"
-            variant="outline"
-            disabled={answer.isPending}
-            onClick={() => send(option)}
+        <p className="whitespace-pre-wrap break-words text-[15px] font-medium leading-snug">
+          {question.question}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {question.options.map((option) => (
+            <motion.button
+              key={option}
+              type="button"
+              whileTap={{ scale: 0.96 }}
+              transition={springs.snappy}
+              disabled={busy}
+              onClick={() => send(option)}
+              className={cn(CHIP, answer.variables?.answer === option && 'border-ink/30')}
+            >
+              {option}
+            </motion.button>
+          ))}
+          {!writing && (
+            <button
+              type="button"
+              onClick={() => setWriting(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground transition-colors duration-200 hover:bg-ink/[0.06] hover:text-foreground"
+            >
+              <PenLine className="size-3.5" /> {t('questions.other')}
+            </button>
+          )}
+        </div>
+        {writing && (
+          <form
+            onSubmit={submit}
+            className="flex items-center gap-1.5 rounded-full border border-border-strong bg-ink/[0.03] p-1 pl-4 transition-colors duration-200 focus-within:border-ink/25"
           >
-            {option}
-          </Button>
-        ))}
-        {!writing && (
-          <Button size="sm" variant="ghost" onClick={() => setWriting(true)}>
-            <PenLine className="size-3.5" /> {t('questions.other')}
-          </Button>
+            <input
+              // biome-ignore lint/a11y/noAutofocus: the user just asked to write
+              autoFocus={question.options.length > 0}
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder={t('questions.placeholder')}
+              aria-label={t('questions.placeholder')}
+              maxLength={2000}
+              className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-faint"
+            />
+            <Button
+              type="submit"
+              size="icon"
+              className="size-8 rounded-full"
+              disabled={!text.trim() || busy}
+              aria-label={t('questions.send')}
+            >
+              <ArrowUp className="size-4" />
+            </Button>
+          </form>
+        )}
+        {failed && (
+          <p role="alert" className="text-xs text-destructive">
+            {problemMessage(failed, t('common.actionFailed'))}
+          </p>
         )}
       </div>
-      {writing && (
-        <form onSubmit={submit} className="flex gap-2">
-          <Input
-            autoFocus={question.options.length > 0}
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            placeholder={t('questions.placeholder')}
-            maxLength={2000}
-            className="h-9"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!text.trim() || answer.isPending}
-            aria-label={t('questions.send')}
-          >
-            <ArrowUp className="size-4" />
-          </Button>
-        </form>
-      )}
-      {answer.isError && (
-        <p role="alert" className="text-xs text-destructive">
-          {problemMessage(answer.error, t('common.actionFailed'))}
-        </p>
-      )}
     </motion.div>
   );
 }
