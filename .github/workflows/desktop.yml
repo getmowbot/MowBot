@@ -7,13 +7,13 @@ name: Desktop app
 #
 # A new release stays a draft until every platform is built: the installed apps read latest.json
 # from the latest published release, which would otherwise miss the platforms still building.
-# Its notes are the version's section of CHANGELOG.md.
+# Its notes are the version's section of CHANGELOG.md (new notes for a published version: run
+# the workflow by hand). Changes waiting for the next version go under "Unreleased".
 on:
   push:
     branches: [main]
     paths:
       - 'apps/desktop/**'
-      - 'CHANGELOG.md'
       - '.github/workflows/desktop.yml'
     tags: ['desktop-v*']
   workflow_dispatch:
