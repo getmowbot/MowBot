@@ -24,7 +24,7 @@ import {
   releaseOutcome,
   toPeaks,
 } from '../../lib/voice';
-import { colors } from '../../theme';
+import { colors, themed } from '../../theme';
 import { T } from '../ui/text';
 
 /** Speech in mono AAC (.m4a): small, and played as it is everywhere. */
@@ -247,31 +247,33 @@ export function HoldToRecord({
   );
 }
 
-const styles = StyleSheet.create({
-  bar: {
-    flex: 1,
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-  },
-  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.danger },
-  time: { fontVariant: ['tabular-nums'], minWidth: 40 },
-  levels: {
-    flex: 1,
-    height: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    overflow: 'hidden',
-  },
-  level: { width: 2.5, borderRadius: 2, backgroundColor: colors.textMuted },
-  hint: { flexDirection: 'row', alignItems: 'center', gap: 2, maxWidth: 140 },
-  mic: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accentStrong,
-  },
-  micActive: { transform: [{ scale: 1.25 }], backgroundColor: colors.danger },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    bar: {
+      flex: 1,
+      minHeight: 36,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 12,
+    },
+    dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.danger },
+    time: { fontVariant: ['tabular-nums'], minWidth: 40 },
+    levels: {
+      flex: 1,
+      height: 24,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      overflow: 'hidden',
+    },
+    level: { width: 2.5, borderRadius: 2, backgroundColor: colors.textMuted },
+    hint: { flexDirection: 'row', alignItems: 'center', gap: 2, maxWidth: 140 },
+    mic: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accentStrong,
+    },
+    micActive: { transform: [{ scale: 1.25 }], backgroundColor: colors.danger },
+  }),
+);

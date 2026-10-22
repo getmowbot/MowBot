@@ -1,15 +1,16 @@
 import type { Bot, Question } from '@mowbot/contract';
 import * as Haptics from 'expo-haptics';
-import { ArrowUp, PenLine } from 'lucide-react-native';
-import { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { ArrowUp, MessageCircleQuestion, PenLine } from 'lucide-react-native';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { questionsOfBot } from '../lib/board';
 import { useAnswerQuestion, useQuestions } from '../lib/board-queries';
 import { isAndroid, isIOS } from '../lib/platform';
 import { timeAgo } from '../lib/time';
-import { colors, shape, type } from '../theme';
+import { colors, currentScheme, shape, themed, tint, type } from '../theme';
 import { leave, settle } from './board/motion';
 import { Pill } from './board/pill';
 import { BotAvatar } from './bot-avatar';
@@ -100,10 +101,10 @@ export function QuestionCard({ question, bot }: QuestionCardProps) {
             maxLength={MAX_ANSWER}
             placeholder={t('board.questions.placeholder')}
             placeholderTextColor={colors.textFaint}
-            selectionColor={isIOS ? colors.accentStrong : 'rgba(255, 255, 255, 0.35)'}
+            selectionColor={isIOS ? colors.accentStrong : tint.ink(0.35)}
             cursorColor={colors.accentStrong}
             selectionHandleColor={colors.accentStrong}
-            keyboardAppearance="dark"
+            keyboardAppearance={currentScheme()}
             accessibilityLabel={t('board.questions.placeholder')}
             style={styles.input}
           />
@@ -129,64 +130,105 @@ export function QuestionCard({ question, bot }: QuestionCardProps) {
   );
 }
 
-/** The bot's open questions, oldest first, above the message field of its chat. */
+/** Questions shown as a sheet during this run of the app: each opens by itself once. */
+const presented = new Set<string>();
+
+/** Opens a bot's question as a native sheet. */
+export function openQuestion(id: string): void {
+  presented.add(id);
+  router.push(`/question/${id}`);
+}
+
+/**
+ * In a bot's chat: its newest open question opens by itself as a sheet (once), and each open
+ * question stays a line above the message field, which opens it again.
+ */
 export function ChatQuestions({ botId }: { botId: string }) {
+  const { t } = useTranslation();
   const questions = useQuestions();
-  const { height } = useWindowDimensions();
   const asked = questionsOfBot(questions.data, botId);
+  const newest = asked.at(-1)?.id;
+  useFocusEffect(
+    useCallback(() => {
+      if (!newest || presented.has(newest)) return;
+      // Once the chat has settled on screen.
+      const timer = setTimeout(() => openQuestion(newest), 400);
+      return () => clearTimeout(timer);
+    }, [newest]),
+  );
   if (asked.length === 0) return null;
-  const cards = asked.map((question) => (
-    <Animated.View key={question.id} entering={reveal()} exiting={leave} layout={settle}>
-      <QuestionCard question={question} />
-    </Animated.View>
-  ));
-  // Several questions scroll in their own box so the conversation stays visible.
-  if (asked.length === 1) return cards;
   return (
-    <ScrollView
-      style={{ maxHeight: Math.round(height * 0.42) }}
-      contentContainerStyle={styles.stack}
-      keyboardShouldPersistTaps="handled"
-      nestedScrollEnabled
-      showsVerticalScrollIndicator={false}
-    >
-      {cards}
-    </ScrollView>
+    <View style={styles.stack}>
+      {asked.map((question) => (
+        <Animated.View key={question.id} entering={reveal()} exiting={leave} layout={settle}>
+          <Touchable
+            accessibilityRole="button"
+            accessibilityHint={t('board.questions.reply')}
+            onPress={() => openQuestion(question.id)}
+          >
+            <Surface style={styles.line}>
+              <View style={styles.lineIcon}>
+                <MessageCircleQuestion size={16} color={colors.info} />
+              </View>
+              <T variant="callout" numberOfLines={2} style={styles.lineText}>
+                {question.question}
+              </T>
+              <T variant="footnote" style={styles.lineReply}>
+                {t('board.questions.reply')}
+              </T>
+            </Surface>
+          </Touchable>
+        </Animated.View>
+      ))}
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  card: { padding: 14, gap: 12 },
-  head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  headText: { flex: 1, minWidth: 0, gap: 2 },
-  question: { fontWeight: '600', color: colors.text },
-  options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  write: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  input: {
-    ...type.callout,
-    flex: 1,
-    color: colors.text,
-    minHeight: SEND,
-    maxHeight: 120,
-    paddingHorizontal: 14,
-    paddingTop: isIOS ? 8 : 6,
-    paddingBottom: isIOS ? 8 : 6,
-    borderRadius: shape.field,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    textAlignVertical: 'center',
-  },
-  send: {
-    width: SEND,
-    height: SEND,
-    borderRadius: isAndroid ? 14 : SEND / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    backgroundColor: colors.accentStrong,
-  },
-  sendIdle: { backgroundColor: 'rgba(243, 244, 246, 0.35)' },
-  stack: { gap: 8 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    card: { padding: 14, gap: 12 },
+    head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    headText: { flex: 1, minWidth: 0, gap: 2 },
+    question: { fontWeight: '600', color: colors.text },
+    options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    write: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    input: {
+      ...type.callout,
+      flex: 1,
+      color: colors.text,
+      minHeight: SEND,
+      maxHeight: 120,
+      paddingHorizontal: 14,
+      paddingTop: isIOS ? 8 : 6,
+      paddingBottom: isIOS ? 8 : 6,
+      borderRadius: shape.field,
+      borderCurve: 'continuous',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      backgroundColor: tint.ink(0.03),
+      textAlignVertical: 'center',
+    },
+    send: {
+      width: SEND,
+      height: SEND,
+      borderRadius: isAndroid ? 14 : SEND / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      backgroundColor: colors.accentStrong,
+    },
+    sendIdle: { backgroundColor: tint.accent(0.35) },
+    stack: { gap: 8 },
+    line: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, paddingRight: 14 },
+    lineIcon: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tint.ink(0.05),
+    },
+    lineText: { flex: 1, minWidth: 0, fontWeight: '600' },
+    lineReply: { fontWeight: '600', color: colors.textMuted },
+  }),
+);

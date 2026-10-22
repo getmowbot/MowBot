@@ -26,7 +26,7 @@ import Animated, {
 import Svg, { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
 import { bump, expressionAfter, glanceStretch, keyframes } from '../lib/bot-expression';
 import type { BotMood } from '../lib/bot-mood';
-import { colors, springs } from '../theme';
+import { colors, springs, themed } from '../theme';
 
 /** Same silhouettes as the web character (100×100 body box). */
 const BODY: Record<BodyShape, string> = {
@@ -757,18 +757,20 @@ export function TeamAvatar({ seeds, size = 32 }: { seeds: string[]; size?: numbe
   );
 }
 
-const styles = StyleSheet.create({
-  abs: { position: 'absolute' },
-  eye: { position: 'absolute', backgroundColor: '#ffffff' },
-  asleep: { opacity: 0.72 },
-  badge: { position: 'absolute', backgroundColor: colors.error, borderColor: colors.background },
-  center: { alignItems: 'center', justifyContent: 'center' },
-  seat: { borderWidth: 1, borderStyle: 'dashed', borderColor: colors.borderStrong },
-  member: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    margin: -2,
-  },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    abs: { position: 'absolute' },
+    eye: { position: 'absolute', backgroundColor: '#ffffff' },
+    asleep: { opacity: 0.72 },
+    badge: { position: 'absolute', backgroundColor: colors.error, borderColor: colors.background },
+    center: { alignItems: 'center', justifyContent: 'center' },
+    seat: { borderWidth: 1, borderStyle: 'dashed', borderColor: colors.borderStrong },
+    member: {
+      position: 'absolute',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+      margin: -2,
+    },
+  }),
+);

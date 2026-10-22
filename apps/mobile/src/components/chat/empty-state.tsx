@@ -2,7 +2,7 @@ import type { Bot } from '@mowbot/contract';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { BotAvatar } from '../bot-avatar';
 import { reveal } from '../reveal';
 import { T } from '../ui/text';
@@ -53,18 +53,20 @@ export function ChatEmptyState({ bot, onPick }: { bot: Bot; onPick(text: string)
   );
 }
 
-const styles = StyleSheet.create({
-  root: { alignItems: 'center', gap: 20, paddingHorizontal: 24 },
-  copy: { gap: 6, alignItems: 'center' },
-  center: { textAlign: 'center' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
-  chip: {
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    overflow: 'hidden',
-  },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { alignItems: 'center', gap: 20, paddingHorizontal: 24 },
+    copy: { gap: 6, alignItems: 'center' },
+    center: { textAlign: 'center' },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
+    chip: {
+      borderRadius: 9999,
+      borderWidth: 1,
+      borderColor: colors.borderStrong,
+      backgroundColor: tint.ink(0.02),
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      overflow: 'hidden',
+    },
+  }),
+);

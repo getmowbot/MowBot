@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { ScrollView, StyleSheet } from 'react-native';
 import { isAndroid } from '../../lib/platform';
-import { colors, spacing } from '../../theme';
+import { colors, spacing, themed, tint } from '../../theme';
 import { Segmented } from '../ui/segmented';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
@@ -62,19 +62,21 @@ export function ViewSwitch<V extends string>({ options, value, onChange, label }
   );
 }
 
-const styles = StyleSheet.create({
-  // The row scrolls edge to edge while its first pill lines up with the content.
-  bleed: { marginHorizontal: -spacing.lg, flexGrow: 0 },
-  pills: { gap: spacing.sm, paddingHorizontal: spacing.lg },
-  pill: {
-    height: HEIGHT,
-    paddingHorizontal: 16,
-    borderRadius: HEIGHT / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  idle: { borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.22)' },
-  selected: { backgroundColor: colors.accentStrong },
-  label: { fontWeight: '600' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    // The row scrolls edge to edge while its first pill lines up with the content.
+    bleed: { marginHorizontal: -spacing.lg, flexGrow: 0 },
+    pills: { gap: spacing.sm, paddingHorizontal: spacing.lg },
+    pill: {
+      height: HEIGHT,
+      paddingHorizontal: 16,
+      borderRadius: HEIGHT / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    idle: { borderWidth: 1, borderColor: tint.ink(0.22) },
+    selected: { backgroundColor: colors.accentStrong },
+    label: { fontWeight: '600' },
+  }),
+);

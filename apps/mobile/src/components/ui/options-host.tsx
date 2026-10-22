@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { closeMenu, useOpenMenu } from '../../lib/options-menu';
-import { colors, shape } from '../../theme';
+import { colors, shape, themed } from '../../theme';
 import { T } from './text';
 import { Touchable } from './touchable';
 
@@ -73,28 +73,30 @@ export function OptionsHost() {
   );
 }
 
-const styles = StyleSheet.create({
-  scrim: { ...StyleSheet.absoluteFill, backgroundColor: colors.scrim },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingTop: 8,
-    paddingHorizontal: 8,
-    backgroundColor: colors.surfaceContainerHigh,
-    borderTopLeftRadius: shape.card + 6,
-    borderTopRightRadius: shape.card + 6,
-  },
-  head: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, gap: 2 },
-  row: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  cancel: { marginTop: 4, justifyContent: 'center' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    scrim: { ...StyleSheet.absoluteFill, backgroundColor: colors.scrim },
+    sheet: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingTop: 8,
+      paddingHorizontal: 8,
+      backgroundColor: colors.surfaceContainerHigh,
+      borderTopLeftRadius: shape.card + 6,
+      borderTopRightRadius: shape.card + 6,
+    },
+    head: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, gap: 2 },
+    row: {
+      minHeight: 52,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+      overflow: 'hidden',
+    },
+    cancel: { marginTop: 4, justifyContent: 'center' },
+  }),
+);

@@ -1,7 +1,7 @@
 import { type ReactNode, type Ref, useState } from 'react';
 import { StyleSheet, TextInput, type TextInputProps, View } from 'react-native';
 import { isAndroid, isIOS } from '../../lib/platform';
-import { colors, shape, type } from '../../theme';
+import { colors, currentScheme, shape, themed, tint, type } from '../../theme';
 import { T } from './text';
 
 interface Props extends TextInputProps {
@@ -36,10 +36,10 @@ export function Field({
           ref={inputRef}
           accessibilityLabel={label}
           placeholderTextColor={colors.textFaint}
-          selectionColor={isIOS ? colors.accentStrong : 'rgba(255, 255, 255, 0.35)'}
+          selectionColor={isIOS ? colors.accentStrong : tint.ink(0.35)}
           cursorColor={colors.accentStrong}
           selectionHandleColor={colors.accentStrong}
-          keyboardAppearance="dark"
+          keyboardAppearance={currentScheme()}
           onFocus={(event) => {
             setFocused(true);
             onFocus?.(event);
@@ -67,30 +67,32 @@ export function Field({
   );
 }
 
-const styles = StyleSheet.create({
-  root: { gap: 6 },
-  label: { paddingHorizontal: 4 },
-  input: {
-    ...type.body,
-    color: colors.text,
-    minHeight: isAndroid ? 56 : 50,
-    paddingHorizontal: 16,
-    borderRadius: shape.field,
-    borderCurve: 'continuous',
-  },
-  filled: {
-    backgroundColor: colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-  },
-  outlined: { borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.22)' },
-  focused: { borderColor: 'rgba(255, 255, 255, 0.6)' },
-  withAccessory: { paddingRight: 48 },
-  accessory: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    right: 4,
-    justifyContent: 'center',
-  },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { gap: 6 },
+    label: { paddingHorizontal: 4 },
+    input: {
+      ...type.body,
+      color: colors.text,
+      minHeight: isAndroid ? 56 : 50,
+      paddingHorizontal: 16,
+      borderRadius: shape.field,
+      borderCurve: 'continuous',
+    },
+    filled: {
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+    },
+    outlined: { borderWidth: 1, borderColor: tint.ink(0.22) },
+    focused: { borderColor: tint.ink(0.6) },
+    withAccessory: { paddingRight: 48 },
+    accessory: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      right: 4,
+      justifyContent: 'center',
+    },
+  }),
+);

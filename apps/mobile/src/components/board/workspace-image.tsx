@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { type ImageStyle, type StyleProp, StyleSheet, View } from 'react-native';
 import { workspaceFileUrl } from '../../lib/board';
 import { api, authHeaders, hubUrl } from '../../lib/session';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { T } from '../ui/text';
 
 interface Props {
@@ -88,14 +88,16 @@ export function WorkspaceImage({
   );
 }
 
-const styles = StyleSheet.create({
-  image: { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
-  missing: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    paddingHorizontal: 8,
-  },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    image: { backgroundColor: tint.ink(0.04) },
+    missing: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: tint.ink(0.04),
+      paddingHorizontal: 8,
+    },
+  }),
+);

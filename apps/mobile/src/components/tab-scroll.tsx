@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { colors, spacing } from '../theme';
+import { colors, spacing, themed } from '../theme';
 import { T } from './ui/text';
 
 interface Props {
@@ -66,15 +66,17 @@ export function Section({
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.xl },
-  section: { gap: spacing.sm },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  sectionTitle: { flex: 1 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
+    content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.xl },
+    section: { gap: spacing.sm },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.xs,
+    },
+    sectionTitle: { flex: 1 },
+  }),
+);

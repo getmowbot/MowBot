@@ -10,7 +10,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { colors } from '../../theme';
+import { colors, themed } from '../../theme';
 import { T } from '../ui/text';
 
 const DOT = 6;
@@ -53,18 +53,20 @@ export function LiveBadge() {
   );
 }
 
-const styles = StyleSheet.create({
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 7,
-    borderRadius: 9999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-  },
-  dotBox: { width: DOT, height: DOT },
-  dot: { width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.accentStrong },
-  ring: { position: 'absolute' },
-  label: { color: colors.text, fontWeight: '600' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    badge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 7,
+      borderRadius: 9999,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+    },
+    dotBox: { width: DOT, height: DOT },
+    dot: { width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: colors.accentStrong },
+    ring: { position: 'absolute' },
+    label: { color: colors.text, fontWeight: '600' },
+  }),
+);

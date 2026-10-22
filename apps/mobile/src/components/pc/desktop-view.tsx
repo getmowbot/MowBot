@@ -16,7 +16,7 @@ import {
 import { CTRL_V, type KeyPress } from '../../lib/keysyms';
 import { desktopTicket, useAppActive } from '../../lib/pc-queries';
 import { hubUrl } from '../../lib/session';
-import { colors, shape } from '../../theme';
+import { colors, shape, themed } from '../../theme';
 import { Button } from '../ui/button';
 import { T } from '../ui/text';
 
@@ -271,25 +271,27 @@ export function DesktopView({ computerId, interactive, bare = false, onClipboard
   );
 }
 
-const styles = StyleSheet.create({
-  area: { flex: 1, alignItems: 'center' },
-  areaBare: { justifyContent: 'center' },
-  frame: { backgroundColor: '#000', overflow: 'hidden' },
-  frameCard: {
-    borderRadius: shape.field,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-  },
-  frameBare: {},
-  web: { flex: 1, backgroundColor: '#000' },
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
-  },
-  center: { textAlign: 'center' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    area: { flex: 1, alignItems: 'center' },
+    areaBare: { justifyContent: 'center' },
+    frame: { backgroundColor: '#000', overflow: 'hidden' },
+    frameCard: {
+      borderRadius: shape.field,
+      borderCurve: 'continuous',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+    },
+    frameBare: {},
+    web: { flex: 1, backgroundColor: '#000' },
+    overlay: {
+      ...StyleSheet.absoluteFill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      padding: 16,
+      backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    },
+    center: { textAlign: 'center' },
+  }),
+);

@@ -1,4 +1,10 @@
-/** Dark-only, black-and-white palette (bots bring the color). Web maps these to CSS variables; native apps use them directly. */
+/** The palette's colors, by role. */
+export type Palette = Record<keyof typeof colors, string>;
+
+/**
+ * The dark palette, black and white (bots bring the color). Web maps these to CSS variables;
+ * native apps use them directly. `lightColors` is its light twin.
+ */
 export const colors = {
   background: '#06070a',
   backgroundRaised: '#0b0d11',
@@ -18,6 +24,26 @@ export const colors = {
   warning: '#ffc66b',
   info: '#7cc6ff',
 } as const;
+
+/** The light palette: the same roles, ink on white (the accent turns ink, its ink white). */
+export const lightColors: Palette = {
+  background: '#f4f5f8',
+  backgroundRaised: '#ffffff',
+  surface: '#ffffff',
+  surfaceHover: '#f5f6f9',
+  surfaceActive: '#eceef3',
+  border: 'rgba(16, 19, 26, 0.08)',
+  borderStrong: 'rgba(16, 19, 26, 0.15)',
+  text: '#10131a',
+  textMuted: '#5b6371',
+  textFaint: '#8c94a2',
+  accent: '#141821',
+  accentStrong: '#10131a',
+  accentInk: '#ffffff',
+  danger: '#d92d4b',
+  warning: '#b26b00',
+  info: '#1769d1',
+};
 
 export const radii = { sm: 8, md: 12, lg: 16, xl: 22, full: 9999 } as const;
 

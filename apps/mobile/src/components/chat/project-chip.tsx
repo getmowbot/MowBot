@@ -28,7 +28,7 @@ import {
   useProjects,
   useSetBotProject,
 } from '../../lib/projects-queries';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { Dot } from '../admin/parts';
 import { presenceColor } from '../projects/parts';
 import { T } from '../ui/text';
@@ -190,24 +190,26 @@ export function ProjectChip({ bot }: { bot: Bot }) {
   );
 }
 
-const styles = StyleSheet.create({
-  chip: {
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-    marginLeft: 4,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minHeight: 30,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-    borderRadius: 15,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    overflow: 'hidden',
-  },
-  name: { flexShrink: 1 },
-  warn: { color: colors.warning },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    chip: {
+      alignSelf: 'flex-start',
+      maxWidth: '100%',
+      marginLeft: 4,
+      marginBottom: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      minHeight: 30,
+      paddingHorizontal: 11,
+      paddingVertical: 5,
+      borderRadius: 15,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      backgroundColor: tint.ink(0.04),
+      overflow: 'hidden',
+    },
+    name: { flexShrink: 1 },
+    warn: { color: colors.warning },
+  }),
+);

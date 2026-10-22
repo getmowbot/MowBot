@@ -46,7 +46,7 @@ import {
   useStopBot,
   useTeams,
 } from '../../lib/queries';
-import { colors, shape, type } from '../../theme';
+import { colors, currentScheme, shape, themed, tint, type } from '../../theme';
 import { Surface } from '../ui/surface';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
@@ -343,10 +343,10 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
             maxLength={MAX_LENGTH}
             placeholder={t('chat.placeholder', { name: bot.name })}
             placeholderTextColor={colors.textFaint}
-            selectionColor={isIOS ? colors.accentStrong : 'rgba(255, 255, 255, 0.35)'}
+            selectionColor={isIOS ? colors.accentStrong : tint.ink(0.35)}
             cursorColor={colors.accentStrong}
             selectionHandleColor={colors.accentStrong}
-            keyboardAppearance="dark"
+            keyboardAppearance={currentScheme()}
             style={[styles.input, canAttach && styles.inputAfterClip]}
             accessibilityLabel={t('chat.placeholder', { name: bot.name })}
           />
@@ -388,39 +388,41 @@ export function Composer({ bot, onSend, onSendVoice }: Props) {
 
 const SIZE = isAndroid ? 40 : 36;
 
-const styles = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingLeft: 6,
-    paddingRight: 6,
-    paddingVertical: 6,
-    minHeight: SIZE + 12,
-  },
-  input: {
-    ...type.body,
-    flex: 1,
-    color: colors.text,
-    maxHeight: 150,
-    paddingHorizontal: 12,
-    paddingTop: isIOS ? 8 : 6,
-    paddingBottom: isIOS ? 8 : 6,
-    textAlignVertical: 'center',
-  },
-  action: { height: SIZE, justifyContent: 'center' },
-  round: {
-    width: SIZE,
-    height: SIZE,
-    // Material 3: a small square-ish FAB shape; iOS: a circle.
-    borderRadius: isAndroid ? 14 : SIZE / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  send: { backgroundColor: colors.accentStrong },
-  attach: { backgroundColor: 'transparent' },
-  inputAfterClip: { paddingLeft: 4 },
-  sendIdle: { backgroundColor: 'rgba(243, 244, 246, 0.35)' },
-  done: { paddingHorizontal: 12, paddingBottom: 8 },
-  stop: { borderWidth: 1, borderColor: colors.borderStrong },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    bar: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      paddingLeft: 6,
+      paddingRight: 6,
+      paddingVertical: 6,
+      minHeight: SIZE + 12,
+    },
+    input: {
+      ...type.body,
+      flex: 1,
+      color: colors.text,
+      maxHeight: 150,
+      paddingHorizontal: 12,
+      paddingTop: isIOS ? 8 : 6,
+      paddingBottom: isIOS ? 8 : 6,
+      textAlignVertical: 'center',
+    },
+    action: { height: SIZE, justifyContent: 'center' },
+    round: {
+      width: SIZE,
+      height: SIZE,
+      // Material 3: a small square-ish FAB shape; iOS: a circle.
+      borderRadius: isAndroid ? 14 : SIZE / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    send: { backgroundColor: colors.accentStrong },
+    attach: { backgroundColor: 'transparent' },
+    inputAfterClip: { paddingLeft: 4 },
+    sendIdle: { backgroundColor: tint.accent(0.35) },
+    done: { paddingHorizontal: 12, paddingBottom: 8 },
+    stop: { borderWidth: 1, borderColor: colors.borderStrong },
+  }),
+);

@@ -303,6 +303,11 @@ export const fr = {
     en: 'English',
   },
   settings: {
+    theme: 'Apparence',
+    themeSystem: 'Auto',
+    themeSystemHint: 'Suit le téléphone : clair le jour, sombre le soir si tu l’as réglé ainsi.',
+    themeLight: 'Clair',
+    themeDark: 'Sombre',
     language: 'Langue',
     languageSystem: 'Auto',
     languageSystemHint: 'Suit la langue du téléphone.',

@@ -15,7 +15,7 @@ import { Keyboard, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import { CTRL_C, KEYS, type KeyPress, keysForEdit } from '../../lib/keysyms';
 import { isAndroid, isIOS } from '../../lib/platform';
-import { colors, shape, spacing, type } from '../../theme';
+import { colors, currentScheme, shape, spacing, themed, tint, type } from '../../theme';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 
@@ -100,9 +100,9 @@ export function KeyboardBar({ onKeys, onCombo, onPaste }: Props) {
           placeholder={t('pcView.keyboard.placeholder')}
           accessibilityLabel={t('pcView.keyboard.placeholder')}
           placeholderTextColor={colors.textFaint}
-          selectionColor={isIOS ? colors.accentStrong : 'rgba(255, 255, 255, 0.35)'}
+          selectionColor={isIOS ? colors.accentStrong : tint.ink(0.35)}
           cursorColor={colors.accentStrong}
-          keyboardAppearance="dark"
+          keyboardAppearance={currentScheme()}
           autoCapitalize="none"
           autoCorrect={false}
           autoComplete="off"
@@ -173,52 +173,54 @@ export function KeyboardBar({ onKeys, onCombo, onPaste }: Props) {
 const KEY_HEIGHT = 38;
 const FIELD_HEIGHT = isAndroid ? 48 : 44;
 
-const styles = StyleSheet.create({
-  root: { gap: spacing.sm },
-  fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  input: {
-    ...type.body,
-    flex: 1,
-    color: colors.text,
-    height: FIELD_HEIGHT,
-    paddingVertical: 0,
-    paddingHorizontal: 14,
-    borderRadius: shape.field,
-    borderCurve: 'continuous',
-  },
-  filled: {
-    backgroundColor: colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-  },
-  outlined: { borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.22)' },
-  hide: {
-    width: FIELD_HEIGHT,
-    height: FIELD_HEIGHT,
-    borderRadius: FIELD_HEIGHT / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    overflow: 'hidden',
-  },
-  keys: { gap: spacing.sm, paddingHorizontal: spacing.lg },
-  key: {
-    height: KEY_HEIGHT,
-    minWidth: 48,
-    paddingHorizontal: 14,
-    borderRadius: KEY_HEIGHT / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: isAndroid ? colors.surfaceContainerHigh : colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    overflow: 'hidden',
-  },
-  keyLabel: { fontWeight: '600' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { gap: spacing.sm },
+    fieldRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+    },
+    input: {
+      ...type.body,
+      flex: 1,
+      color: colors.text,
+      height: FIELD_HEIGHT,
+      paddingVertical: 0,
+      paddingHorizontal: 14,
+      borderRadius: shape.field,
+      borderCurve: 'continuous',
+    },
+    filled: {
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+    },
+    outlined: { borderWidth: 1, borderColor: tint.ink(0.22) },
+    hide: {
+      width: FIELD_HEIGHT,
+      height: FIELD_HEIGHT,
+      borderRadius: FIELD_HEIGHT / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      overflow: 'hidden',
+    },
+    keys: { gap: spacing.sm, paddingHorizontal: spacing.lg },
+    key: {
+      height: KEY_HEIGHT,
+      minWidth: 48,
+      paddingHorizontal: 14,
+      borderRadius: KEY_HEIGHT / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isAndroid ? colors.surfaceContainerHigh : colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      overflow: 'hidden',
+    },
+    keyLabel: { fontWeight: '600' },
+  }),
+);

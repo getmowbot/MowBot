@@ -6,7 +6,7 @@ import type { TakeoverRequestPart } from '../../lib/activity';
 import { alertError } from '../../lib/options-menu';
 import { useComputer, useComputerAction } from '../../lib/pc-queries';
 import { useMe } from '../../lib/queries';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { Pill } from '../board/pill';
 import { Surface } from '../ui/surface';
 import { T } from '../ui/text';
@@ -102,32 +102,34 @@ export function TakeoverRequest({ part, botName }: { part: TakeoverRequestPart; 
   );
 }
 
-const styles = StyleSheet.create({
-  card: { padding: 14, gap: 12 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  icon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  headText: { flex: 1, minWidth: 0, gap: 1 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  answered: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    overflow: 'hidden',
-  },
-  shrink: { flexShrink: 1 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    card: { padding: 14, gap: 12 },
+    head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    icon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tint.ink(0.08),
+    },
+    headText: { flex: 1, minWidth: 0, gap: 1 },
+    actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    answered: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      maxWidth: '100%',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 14,
+      borderCurve: 'continuous',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      overflow: 'hidden',
+    },
+    shrink: { flexShrink: 1 },
+  }),
+);

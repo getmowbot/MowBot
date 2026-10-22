@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { ActivityIndicator, type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import { isAndroid } from '../../lib/platform';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { Surface } from './surface';
 import { T } from './text';
 import { Touchable } from './touchable';
@@ -98,20 +98,22 @@ export function IconButton({
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    minHeight: isAndroid ? 48 : 50,
-    paddingHorizontal: 22,
-    borderRadius: 9999,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    overflow: 'hidden',
-  },
-  primary: { backgroundColor: colors.accentStrong },
-  outline: { borderWidth: 1, borderColor: colors.borderStrong },
-  danger: { borderColor: 'rgba(255, 107, 133, 0.35)' },
-  disabled: { opacity: 0.45 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    button: {
+      minHeight: isAndroid ? 48 : 50,
+      paddingHorizontal: 22,
+      borderRadius: 9999,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      overflow: 'hidden',
+    },
+    primary: { backgroundColor: colors.accentStrong },
+    outline: { borderWidth: 1, borderColor: colors.borderStrong },
+    danger: { borderColor: tint.danger(0.35) },
+    disabled: { opacity: 0.45 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  }),
+);

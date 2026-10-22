@@ -9,6 +9,8 @@ const KEYS = {
   hubUrl: 'mowbot.hubUrl',
   refreshToken: 'mowbot.refreshToken',
   language: 'mowbot.language',
+  theme: 'mowbot.theme',
+  collapsedTeams: 'mowbot.collapsedTeams',
   push: 'mowbot.push',
 } as const;
 

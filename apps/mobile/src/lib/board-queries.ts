@@ -133,6 +133,18 @@ export function useQuestions() {
   });
 }
 
+/** Sets a question aside without answering it (the bot is not told). */
+export function useDismissQuestion() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      data(api().POST('/api/v1/questions/{id}/dismiss', { params: { path: { id } } })),
+    onMutate: (id) =>
+      client.setQueryData<Question[]>(keys.questions, (list) => list?.filter((q) => q.id !== id)),
+    onError: () => void client.invalidateQueries({ queryKey: keys.questions }),
+  });
+}
+
 export function useAnswerQuestion() {
   const client = useQueryClient();
   return useMutation({

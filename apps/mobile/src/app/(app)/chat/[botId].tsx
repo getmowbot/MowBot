@@ -41,7 +41,7 @@ import {
   useSendMessage,
   useSendVoice,
 } from '../../../lib/queries';
-import { colors } from '../../../theme';
+import { colors, themed } from '../../../theme';
 
 /** Under the message field: above the home indicator, and above the keyboard once open. */
 const DOCK_GAP = 8;
@@ -285,21 +285,23 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  center: { alignItems: 'center', justifyContent: 'center' },
-  missing: { alignItems: 'center', gap: 16 },
-  content: { flexGrow: 1, paddingHorizontal: 16 },
-  separator: { height: 22 },
-  runSeparator: { height: 8 },
-  top: { alignItems: 'center', paddingBottom: 12 },
-  empty: { flex: 1, justifyContent: 'center', paddingVertical: 24 },
-  dock: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  // From a little above the field down to the screen's edge: what scrolls under it blurs away.
-  dockFade: { position: 'absolute', top: -20, left: 0, right: 0, bottom: 0 },
-  dockInner: { paddingHorizontal: 12, gap: 8 },
-  notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
-  noticeText: { flex: 1 },
-  error: { paddingHorizontal: 8 },
-  sending: { fontSize: 13, lineHeight: 18, paddingHorizontal: 8 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
+    center: { alignItems: 'center', justifyContent: 'center' },
+    missing: { alignItems: 'center', gap: 16 },
+    content: { flexGrow: 1, paddingHorizontal: 16 },
+    separator: { height: 22 },
+    runSeparator: { height: 8 },
+    top: { alignItems: 'center', paddingBottom: 12 },
+    empty: { flex: 1, justifyContent: 'center', paddingVertical: 24 },
+    dock: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+    // From a little above the field down to the screen's edge: what scrolls under it blurs away.
+    dockFade: { position: 'absolute', top: -20, left: 0, right: 0, bottom: 0 },
+    dockInner: { paddingHorizontal: 12, gap: 8 },
+    notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
+    noticeText: { flex: 1 },
+    error: { paddingHorizontal: 8 },
+    sending: { fontSize: 13, lineHeight: 18, paddingHorizontal: 8 },
+  }),
+);

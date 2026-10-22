@@ -38,7 +38,7 @@ import {
 import { alertError, confirm } from '../../../../lib/options-menu';
 import { isAndroid, isIOS } from '../../../../lib/platform';
 import { botsById, keys, useBots, useMe, useSendMessage } from '../../../../lib/queries';
-import { colors, shape, spacing, type } from '../../../../theme';
+import { colors, currentScheme, shape, spacing, themed, tint, type } from '../../../../theme';
 
 const HOME_QUERIES = [
   keys.me,
@@ -246,10 +246,10 @@ function AskChef({ chef }: { chef: Bot }) {
         maxLength={20_000}
         placeholder={t('board.askChef')}
         placeholderTextColor={colors.textFaint}
-        selectionColor={isIOS ? colors.accentStrong : 'rgba(255, 255, 255, 0.35)'}
+        selectionColor={isIOS ? colors.accentStrong : tint.ink(0.35)}
         cursorColor={colors.accentStrong}
         selectionHandleColor={colors.accentStrong}
-        keyboardAppearance="dark"
+        keyboardAppearance={currentScheme()}
         accessibilityLabel={t('board.askChef')}
         style={styles.askInput}
       />
@@ -407,57 +407,64 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.xl },
-  flex: { flex: 1, minWidth: 0 },
-  stack: { gap: spacing.md },
-  centered: { textAlign: 'center' },
-  // Status
-  status: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: 14 },
-  crew: { flexDirection: 'row' },
-  crewOverlap: { marginLeft: -14 },
-  paused: { padding: 14, gap: 14 },
-  pausedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  // Ask the Chef
-  ask: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingLeft: 12,
-    paddingRight: 6,
-    paddingVertical: 6,
-    borderRadius: shape.bar,
-  },
-  askInput: {
-    ...type.callout,
-    flex: 1,
-    color: colors.text,
-    minHeight: SEND,
-    paddingVertical: isIOS ? 8 : 4,
-  },
-  send: {
-    width: SEND,
-    height: SEND,
-    borderRadius: isAndroid ? 14 : SEND / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    backgroundColor: colors.accentStrong,
-  },
-  sendIdle: { backgroundColor: 'rgba(243, 244, 246, 0.35)' },
-  // Canvases
-  empty: {
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingVertical: 28,
-    borderRadius: shape.card,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.borderStrong,
-  },
-  hiddenToggle: { alignSelf: 'center', paddingVertical: 4 },
-  link: { fontWeight: '600' },
-  failed: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingLeft: spacing.xs },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
+    content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.xl },
+    flex: { flex: 1, minWidth: 0 },
+    stack: { gap: spacing.md },
+    centered: { textAlign: 'center' },
+    // Status
+    status: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: 14 },
+    crew: { flexDirection: 'row' },
+    crewOverlap: { marginLeft: -14 },
+    paused: { padding: 14, gap: 14 },
+    pausedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    // Ask the Chef
+    ask: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingLeft: 12,
+      paddingRight: 6,
+      paddingVertical: 6,
+      borderRadius: shape.bar,
+    },
+    askInput: {
+      ...type.callout,
+      flex: 1,
+      color: colors.text,
+      minHeight: SEND,
+      paddingVertical: isIOS ? 8 : 4,
+    },
+    send: {
+      width: SEND,
+      height: SEND,
+      borderRadius: isAndroid ? 14 : SEND / 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      backgroundColor: colors.accentStrong,
+    },
+    sendIdle: { backgroundColor: tint.accent(0.35) },
+    // Canvases
+    empty: {
+      gap: 6,
+      paddingHorizontal: 20,
+      paddingVertical: 28,
+      borderRadius: shape.card,
+      borderCurve: 'continuous',
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.borderStrong,
+    },
+    hiddenToggle: { alignSelf: 'center', paddingVertical: 4 },
+    link: { fontWeight: '600' },
+    failed: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingLeft: spacing.xs,
+    },
+  }),
+);

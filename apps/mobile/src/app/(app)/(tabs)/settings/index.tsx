@@ -41,7 +41,12 @@ import { urlLabel } from '../../../../lib/provider-form';
 import { useMe, useProviders } from '../../../../lib/queries';
 import { deviceName, signOut, useSession } from '../../../../lib/session';
 import { useVault } from '../../../../lib/vault-queries';
-import { colors } from '../../../../theme';
+import {
+  colors,
+  type SchemePreference,
+  setSchemePreference,
+  useSchemePreference,
+} from '../../../../theme';
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
@@ -57,6 +62,7 @@ export default function SettingsScreen() {
   const projects = useProjects();
   const updateMe = useUpdateMe();
   const [language, setLanguage] = useState<LanguagePreference>(storedPreference);
+  const scheme = useSchemePreference();
 
   const chooseLanguage = (preference: LanguagePreference) => {
     setLanguage(preference);
@@ -208,6 +214,24 @@ export default function SettingsScreen() {
               me.data ? (me.data.device.push.enabled ? t('push.on') : t('push.off')) : undefined
             }
             onPress={() => router.push('/notifications')}
+          />
+        </ListCard>
+      </Section>
+
+      <Section title={t('settings.theme')}>
+        <ListCard inset={ROW_INSET}>
+          <ChoiceRows<SchemePreference>
+            options={[
+              {
+                value: 'system',
+                label: t('settings.themeSystem'),
+                hint: t('settings.themeSystemHint'),
+              },
+              { value: 'light', label: t('settings.themeLight') },
+              { value: 'dark', label: t('settings.themeDark') },
+            ]}
+            value={scheme}
+            onChange={(next) => void setSchemePreference(next)}
           />
         </ListCard>
       </Section>

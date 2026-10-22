@@ -19,7 +19,7 @@ import { formatSize } from '../../lib/files';
 import { useFileHead } from '../../lib/files-queries';
 import { problemCode } from '../../lib/hub-url';
 import { isIOS } from '../../lib/platform';
-import { colors, fonts } from '../../theme';
+import { colors, fonts, themed, tint } from '../../theme';
 import { iconFor } from '../files/file-row';
 import { useShareEntry } from '../files/use-file-actions';
 import { Markdown } from '../markdown';
@@ -32,7 +32,8 @@ type FileCanvas = Extract<CanvasContent, { kind: 'file' }>;
 
 const ShareIcon = isIOS ? Share : Share2;
 /** The inset well a text shows in (solid, so the fade blends into it). */
-const WELL = colors.background;
+/** The well the file sits in (read when used: it follows the look). */
+const well = () => colors.background;
 const WELL_PADDING = 12;
 
 interface Props {
@@ -144,7 +145,7 @@ function TextPeek({
         )}
       </View>
       {faded && (
-        <LinearGradient colors={[`${WELL}00`, WELL]} style={styles.fade} pointerEvents="none" />
+        <LinearGradient colors={[`${well()}00`, well()]} style={styles.fade} pointerEvents="none" />
       )}
     </View>
   );
@@ -255,34 +256,36 @@ export function FileBody({ content, workspaceId, version }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { gap: 14 },
-  main: { gap: 12, borderRadius: 12 },
-  picture: { width: '100%', borderRadius: 12, borderCurve: 'continuous' },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  icon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  titles: { flex: 1, minWidth: 0, gap: 1 },
-  well: {
-    maxHeight: FILE_PREVIEW_HEIGHT,
-    overflow: 'hidden',
-    padding: WELL_PADDING,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: WELL,
-  },
-  loading: { height: 64, alignItems: 'center', justifyContent: 'center' },
-  markdown: { fontSize: 14, lineHeight: 20 },
-  mono: { fontFamily: fonts.mono, fontSize: 12, lineHeight: 18, color: colors.text },
-  fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 56 },
-  buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { gap: 14 },
+    main: { gap: 12, borderRadius: 12 },
+    picture: { width: '100%', borderRadius: 12, borderCurve: 'continuous' },
+    head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    icon: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      borderCurve: 'continuous',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tint.ink(0.06),
+    },
+    titles: { flex: 1, minWidth: 0, gap: 1 },
+    well: {
+      maxHeight: FILE_PREVIEW_HEIGHT,
+      overflow: 'hidden',
+      padding: WELL_PADDING,
+      borderRadius: 12,
+      borderCurve: 'continuous',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: well(),
+    },
+    loading: { height: 64, alignItems: 'center', justifyContent: 'center' },
+    markdown: { fontSize: 14, lineHeight: 20 },
+    mono: { fontFamily: fonts.mono, fontSize: 12, lineHeight: 18, color: colors.text },
+    fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 56 },
+    buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  }),
+);

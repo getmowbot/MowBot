@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import type { PendingAttachment } from '../../lib/attachments';
 import { formatSize } from '../../lib/files';
-import { colors } from '../../theme';
+import { colors, themed } from '../../theme';
 import { iconFor } from '../files/file-row';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
@@ -71,43 +71,45 @@ export function AttachmentStrip({
   );
 }
 
-const styles = StyleSheet.create({
-  row: { gap: 10, paddingHorizontal: 4, paddingTop: 8, paddingBottom: 4 },
-  item: { paddingTop: 6, paddingRight: 6 },
-  thumb: {
-    width: THUMB,
-    height: THUMB,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    backgroundColor: colors.surfaceContainerHigh,
-  },
-  file: {
-    height: THUMB,
-    width: 168,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceContainer,
-  },
-  titles: { flex: 1, minWidth: 0 },
-  name: { fontWeight: '600' },
-  remove: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceContainerHighest,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    overflow: 'hidden',
-  },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    row: { gap: 10, paddingHorizontal: 4, paddingTop: 8, paddingBottom: 4 },
+    item: { paddingTop: 6, paddingRight: 6 },
+    thumb: {
+      width: THUMB,
+      height: THUMB,
+      borderRadius: 12,
+      borderCurve: 'continuous',
+      backgroundColor: colors.surfaceContainerHigh,
+    },
+    file: {
+      height: THUMB,
+      width: 168,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 10,
+      borderRadius: 12,
+      borderCurve: 'continuous',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      backgroundColor: colors.surfaceContainer,
+    },
+    titles: { flex: 1, minWidth: 0 },
+    name: { fontWeight: '600' },
+    remove: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surfaceContainerHighest,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      overflow: 'hidden',
+    },
+  }),
+);

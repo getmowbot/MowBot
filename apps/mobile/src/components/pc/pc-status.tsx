@@ -3,18 +3,18 @@ import { CircleAlert, Hand, MonitorSmartphone, Play, PowerOff } from 'lucide-rea
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { DEFAULT_ASPECT } from '../../lib/desktop';
-import { colors, fonts, spacing } from '../../theme';
+import { colors, fonts, spacing, themed } from '../../theme';
 import { Button } from '../ui/button';
 import { Surface } from '../ui/surface';
 import { T } from '../ui/text';
 
-const STATUS_COLORS: Record<Computer['status'], string> = {
+const STATUS_COLORS: Record<Computer['status'], string> = themed(() => ({
   running: colors.accentStrong,
   starting: colors.warning,
   stopping: colors.warning,
   stopped: colors.textFaint,
   error: colors.danger,
-};
+}));
 
 /** "● On · Bob, Alice": the PC's state and who works on it. */
 export function StatusLine({ computer, botNames }: { computer: Computer; botNames: string[] }) {
