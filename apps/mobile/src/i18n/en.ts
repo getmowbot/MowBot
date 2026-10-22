@@ -98,8 +98,7 @@ export const en: Catalog = {
     stopped: 'Stopped.',
     stepLimit: 'Step limit reached',
     continue: 'Continue',
-    steered: 'Taken into account mid-answer',
-    steeredShort: 'taken in',
+    read: 'Read',
     readMore: 'Read more',
     readLess: 'Show less',
     vaultRequest: {

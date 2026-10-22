@@ -217,8 +217,7 @@ export const fr = {
     viewPc: 'Voir le PC',
     noModel: 'Connecte un modèle (Command Code, OpenAI ou compatible) pour réveiller {{name}}.',
     connectModel: 'Connecter un modèle',
-    steered: 'Pris en compte en cours de route',
-    steeredShort: 'pris en compte',
+    read: 'Lu',
     readMore: 'Lire la suite',
     readLess: 'Replier',
     /** Above messages from other bots, before their names: « Messages de Nova et Iris ». */

@@ -1,6 +1,6 @@
 import type { Bot } from '@mowbot/contract';
 import { Link } from '@tanstack/react-router';
-import { MessageSquareText } from 'lucide-react';
+import { CheckCheck, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ChipBot } from '../lib/incoming';
 import { cn, timeAgo } from '../lib/utils';
@@ -29,7 +29,7 @@ export function TalkLine({
   line,
   bot,
   summary,
-  note,
+  read = false,
   onOpen,
   className,
 }: {
@@ -37,8 +37,8 @@ export function TalkLine({
   bot: ChipBot;
   /** What it says in a few words: on hover, the line itself stays short. */
   summary: string;
-  /** A quiet addition after it ("pris en compte"). */
-  note?: string;
+  /** It reached the bot while it worked, which read it into its answer: two small checks. */
+  read?: boolean;
   onOpen(): void;
   className?: string;
 }) {
@@ -53,7 +53,8 @@ export function TalkLine({
       )}
     >
       <BotAvatar seed={bot.avatarSeed} size={14} className="shrink-0" />
-      <span className="min-w-0 truncate">{note ? `${line} · ${note}` : line}</span>
+      <span className="min-w-0 truncate">{line}</span>
+      {read && <CheckCheck className="size-3 shrink-0" strokeWidth={2.2} />}
     </button>
   );
 }

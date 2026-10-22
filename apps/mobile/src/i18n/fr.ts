@@ -98,8 +98,7 @@ export const fr = {
     stopped: 'Interrompu.',
     stepLimit: 'Étapes max atteintes',
     continue: 'Continuer',
-    steered: 'Pris en compte en cours de route',
-    steeredShort: 'pris en compte',
+    read: 'Lu',
     readMore: 'Lire la suite',
     readLess: 'Replier',
     vaultRequest: {

@@ -1,6 +1,6 @@
 import type { Bot } from '@mowbot/contract';
 import { router } from 'expo-router';
-import { MessageSquareText, X } from 'lucide-react-native';
+import { CheckCheck, MessageSquareText, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,15 +37,15 @@ export function TalkLine({
   line,
   bot,
   summary,
-  note,
+  read = false,
   onPress,
 }: {
   line: string;
   bot: ChipBot;
   /** What it says in a few words: for screen readers, the line itself stays short. */
   summary: string;
-  /** A quiet addition after it ("pris en compte"). */
-  note?: string;
+  /** It reached the bot while it worked, which read it into its answer: two small checks. */
+  read?: boolean;
   onPress(): void;
 }) {
   return (
@@ -58,8 +58,9 @@ export function TalkLine({
     >
       <BotAvatar seed={bot.avatarSeed} size={16} still />
       <T variant="caption" tone="faint" numberOfLines={1} style={styles.lineText}>
-        {note ? `${line} · ${note}` : line}
+        {line}
       </T>
+      {read && <CheckCheck size={12} color={colors.textFaint} strokeWidth={2.2} />}
     </Touchable>
   );
 }

@@ -1,8 +1,9 @@
 import type { Bot, Message } from '@mowbot/contract';
 import { router } from 'expo-router';
+import { CheckCheck } from 'lucide-react-native';
 import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, type TextStyle, View } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { segments } from '../../lib/activity';
 import { userMedia } from '../../lib/attachments';
 import { moodOf } from '../../lib/bot-mood';
@@ -31,14 +32,14 @@ import { TakeoverRequest } from './takeover-request';
 import { VaultRequest } from './vault-request';
 import { VoiceMessage } from './voice-message';
 
-/** Under a message that reached the bot while it worked: taken into its ongoing answer. */
-function Steered({ message, style }: { message: Message; style?: TextStyle }) {
+/** Under a message that reached the bot while it worked: two small checks, read. */
+function Steered({ message, style }: { message: Message; style?: ViewStyle }) {
   const { t } = useTranslation();
   if (!message.steered) return null;
   return (
-    <T variant="caption" tone="faint" style={[styles.steered, style]}>
-      {t('chat.steered')}
-    </T>
+    <View accessible accessibilityLabel={t('chat.read')} style={[styles.steered, style]}>
+      <CheckCheck size={13} color={colors.textFaint} strokeWidth={2.2} />
+    </View>
   );
 }
 
@@ -168,7 +169,7 @@ function FromBotMessage({ message, bots }: { message: Message; bots: Bot[] | und
         line={t(`chat.talk.line.${message.kind}`, { name: bot.name })}
         bot={bot}
         summary={summaryOf(message)}
-        note={message.steered ? t('chat.steeredShort') : undefined}
+        read={message.steered}
         onPress={() => setOpen(true)}
       />
       <TalkSheet talk={talk} chips={chips} visible={open} onClose={() => setOpen(false)} />
@@ -353,7 +354,7 @@ const styles = themed(() =>
   StyleSheet.create({
     sent: { gap: 5 },
     right: { flexDirection: 'row', justifyContent: 'flex-end' },
-    steered: { textAlign: 'right', paddingHorizontal: 6 },
+    steered: { alignSelf: 'flex-end', paddingHorizontal: 6 },
     bubble: {
       maxWidth: '85%',
       borderRadius: 20,
@@ -378,7 +379,7 @@ const styles = themed(() =>
       backgroundColor: tint.ink(0.055),
     },
     incomingText: { fontSize: 14, lineHeight: 21, color: tint.text(0.88) },
-    centered: { textAlign: 'center' },
+    centered: { alignSelf: 'center' },
     bot: { flexDirection: 'row', gap: 12 },
     botBody: { flex: 1, minWidth: 0, gap: 10, paddingTop: 3 },
     thinking: { fontSize: 15, lineHeight: 23 },
