@@ -52,7 +52,7 @@ export function Choice<T extends string>({
               'relative rounded-xl border px-3 py-2.5 text-left transition-colors duration-200',
               selected
                 ? 'border-primary/50'
-                : 'border-border-strong text-muted-foreground hover:border-white/20',
+                : 'border-border-strong text-muted-foreground hover:border-ink/20',
             )}
           >
             {selected && (
@@ -94,7 +94,7 @@ export function Chip({
         'flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-xs transition-colors duration-200',
         selected
           ? 'border-primary/50 bg-primary/[0.08] text-foreground'
-          : 'border-border-strong text-muted-foreground hover:border-white/20',
+          : 'border-border-strong text-muted-foreground hover:border-ink/20',
       )}
     >
       {children}

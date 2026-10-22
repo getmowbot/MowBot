@@ -34,9 +34,7 @@ import { useBots, useTeams } from '../lib/queries';
 import { cn, timeAgo } from '../lib/utils';
 
 const Dot = ({ on }: { on: boolean }) => (
-  <span
-    className={cn('inline-block size-1.5 rounded-full', on ? 'bg-emerald-400' : 'bg-white/25')}
-  />
+  <span className={cn('inline-block size-1.5 rounded-full', on ? 'bg-emerald-400' : 'bg-ink/25')} />
 );
 
 const folderName = (path: string) => path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
@@ -74,7 +72,7 @@ function ThisComputer() {
   const data = status.data;
   return (
     <Reveal className="glass flex flex-wrap items-center gap-3 rounded-2xl p-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.05]">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink/[0.05]">
         <Laptop className="size-5 text-muted-foreground" />
       </span>
       <div className="min-w-0 flex-1">
@@ -205,7 +203,7 @@ function ProjectCard({
   return (
     <motion.li variants={reveal} className="glass rounded-2xl p-4">
       <div className="flex items-start gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/[0.05]">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-ink/[0.05]">
           <FolderGit2 className="size-4 text-muted-foreground" />
         </span>
         <div className="min-w-0 flex-1">
@@ -264,7 +262,7 @@ function ProjectCard({
         {project.mirrors.map((mirror) => (
           <div
             key={mirror.workspaceId}
-            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-white/[0.03] px-2.5 py-1.5 text-xs"
+            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-ink/[0.03] px-2.5 py-1.5 text-xs"
           >
             <FolderSync className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="text-muted-foreground">

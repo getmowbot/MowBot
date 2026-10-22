@@ -1,9 +1,13 @@
 import type { Bot, Message, MessageKind } from '@mowbot/contract';
 
-/** Sent by another bot, a task notice or a routine, rather than typed by the user in the chat. */
+/**
+ * Sent by another bot, a task notice or a routine, rather than typed by the user in the chat.
+ * The hub's own « go on » after the step limit is neither: a line of its own.
+ */
 export function isIncoming(message: Message): boolean {
   return (
     message.role === 'user' &&
+    !message.resume &&
     (message.fromBotId !== null || message.fromName !== null || message.kind !== 'chat')
   );
 }

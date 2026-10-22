@@ -152,10 +152,10 @@ function useOriginLabel(server: McpServer): string | null {
 }
 
 const COMPUTER_DOT: Record<McpComputer['status'], string> = {
-  stopped: 'bg-white/25',
+  stopped: 'bg-ink/25',
   starting: 'bg-warning animate-pulse',
   running: 'bg-primary',
-  stopping: 'bg-white/25 animate-pulse',
+  stopping: 'bg-ink/25 animate-pulse',
   error: 'bg-destructive',
 };
 
@@ -180,7 +180,7 @@ function McpComputerBar() {
   const moving = state.status === 'starting' || state.status === 'stopping';
   return (
     <Reveal delay={0.05} className="glass flex items-center gap-3 rounded-2xl px-4 py-3">
-      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/[0.05]">
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-ink/[0.05]">
         <Server className="size-4 text-muted-foreground" />
       </span>
       <div className="min-w-0 flex-1">
@@ -671,7 +671,7 @@ function Disclosure({
       aria-expanded={open}
       onClick={onToggle}
       disabled={disabled}
-      className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground disabled:pointer-events-none disabled:text-faint"
+      className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-ink/[0.06] hover:text-foreground disabled:pointer-events-none disabled:text-faint"
     >
       {children}
       {!disabled && (
@@ -759,7 +759,7 @@ function CallList({ serverId }: { serverId: string }) {
             {call.botId ? (
               <BotAvatar seed={bot?.avatarSeed ?? call.botId} size={16} />
             ) : (
-              <span className="mx-[5px] mt-1.5 size-1.5 shrink-0 rounded-full bg-white/25" />
+              <span className="mx-[5px] mt-1.5 size-1.5 shrink-0 rounded-full bg-ink/25" />
             )}
             <span className="min-w-0 flex-1">
               <span className="flex min-w-0 items-baseline gap-1.5">
@@ -871,7 +871,7 @@ function ServerCard({ server, onEdit }: { server: McpServer; onEdit(): void }) {
       <div className="flex items-start gap-3">
         <span
           className={cn(
-            'grid size-9 shrink-0 place-items-center rounded-xl bg-white/[0.05]',
+            'grid size-9 shrink-0 place-items-center rounded-xl bg-ink/[0.05]',
             !server.enabled && 'opacity-60',
           )}
         >
@@ -1037,7 +1037,7 @@ function EmptyMcp({ onPick }: { onPick(template: Template): void }) {
               key={id}
               type="button"
               onClick={() => onPick(template)}
-              className="min-w-0 rounded-xl border border-border-strong px-4 py-3 text-left transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.03]"
+              className="min-w-0 rounded-xl border border-border-strong px-4 py-3 text-left transition-colors duration-200 hover:border-ink/20 hover:bg-ink/[0.03]"
             >
               <span className="flex items-center gap-2 text-sm font-medium">
                 <Icon className="size-4 shrink-0 text-muted-foreground" />

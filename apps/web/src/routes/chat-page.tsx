@@ -10,7 +10,16 @@ import type {
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { Hand, Maximize2, Monitor, PanelRightClose, Power, Sparkles, Undo2 } from 'lucide-react';
+import {
+  Hand,
+  Maximize2,
+  Monitor,
+  PanelRightClose,
+  Power,
+  RotateCw,
+  Sparkles,
+  Undo2,
+} from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Fragment,
@@ -39,6 +48,7 @@ import {
   MessageAttachments,
   VoiceMessage,
 } from '../components/message-attachments';
+import { MissionBar, PlanCard } from '../components/mission';
 import { QuestionCard } from '../components/question-card';
 import { TakeoverCard } from '../components/takeover-card';
 import { Button } from '../components/ui/button';
@@ -113,12 +123,12 @@ function SteeredHint() {
   return <p className="px-1 text-[11px] text-faint">{t('chat.steered')}</p>;
 }
 
-/** Under an answer cut by the step limit; the last one can be resumed. */
-function StepLimitHint({ onContinue }: { onContinue?: () => void }) {
+/** Under an answer cut by the step limit; it goes on by itself, or the user resumes it. */
+function StepLimitHint({ onContinue, resumed }: { onContinue?: () => void; resumed: boolean }) {
   const { t } = useTranslation();
   return (
     <p className="flex items-center gap-2 text-xs text-faint">
-      {t('chat.stepLimit')}
+      {resumed ? t('chat.stepLimitResumes') : t('chat.stepLimit')}
       {onContinue && (
         <button
           type="button"
@@ -128,6 +138,16 @@ function StepLimitHint({ onContinue }: { onContinue?: () => void }) {
           {t('chat.continue')}
         </button>
       )}
+    </p>
+  );
+}
+
+/** The hub telling the bot to go on after the step limit: a quiet line, not a message. */
+function ResumeLine({ count }: { count: number }) {
+  const { t } = useTranslation();
+  return (
+    <p className="flex items-center justify-center gap-1.5 text-xs text-faint">
+      <RotateCw className="size-3" /> {t('chat.resumed', { count })}
     </p>
   );
 }
@@ -218,7 +238,7 @@ function IncomingMessage({ message, place }: { message: Message; place: Incoming
   return (
     <div className="flex flex-col items-center gap-1.5">
       {place.run && <IncomingLine run={place.run} />}
-      <div className="max-w-[92%] rounded-2xl bg-white/[0.055] px-4 py-2.5">
+      <div className="max-w-[92%] rounded-2xl bg-ink/[0.055] px-4 py-2.5">
         <Markdown text={text} bots={chips} className="text-[14px] text-foreground/85" />
       </div>
       {message.steered && <SteeredHint />}
@@ -336,6 +356,7 @@ type Segment =
   | { kind: 'canvas'; part: CanvasPart; index: number }
   | { kind: 'vault'; part: Extract<MessagePart, { type: 'vault_request' }>; index: number }
   | { kind: 'takeover'; part: Extract<MessagePart, { type: 'takeover_request' }>; index: number }
+  | { kind: 'plan'; teamId: string; index: number }
   | { kind: 'activity'; parts: ActivityPart[]; index: number };
 
 /**
@@ -361,6 +382,11 @@ function segments(parts: MessagePart[]): Segment[] {
       out.push({ kind: 'takeover', part, index });
       return;
     }
+    // The plan the bot showed: drawn live from its team (the call's output).
+    if (part.type === 'tool' && part.toolName === 'show_plan' && part.state === 'done') {
+      if (part.output) out.push({ kind: 'plan', teamId: part.output, index });
+      return;
+    }
     // What the user sends; never in an answer.
     if (part.type === 'attachment' || part.type === 'audio') return;
     const tail = out.at(-1);
@@ -370,15 +396,24 @@ function segments(parts: MessagePart[]): Segment[] {
   return out;
 }
 
+/** An earlier answer to the user longer than this folds to its first sentence. */
+const LONG_ANSWER = 900;
+
 function BotMessage({
   message,
   bot,
+  latest,
+  resumed,
   onAnswer,
   onShowPc,
   onContinue,
 }: {
   message: Message;
   bot: Bot;
+  /** The last answer: never folded, the user reads it. */
+  latest: boolean;
+  /** Cut by the step limit, and the hub told the bot to go on. */
+  resumed: boolean;
   /** The user pressed a card's button or answered a vault request: their answer follows. */
   onAnswer(): void;
   /** Opens the PC panel (to take control from a takeover card). */
@@ -391,9 +426,11 @@ function BotMessage({
   const streaming = message.status === 'streaming';
   const blocks = segments(message.parts);
   const empty = blocks.length === 0;
-  // An answer to other bots or a routine: its first sentence, the rest a click away.
+  // An answer to other bots or a routine, or an earlier long one: its first sentence, the rest
+  // a click away.
   const said = blocks.flatMap((b) => (b.kind === 'text' ? [b.text] : [])).join('\n\n');
-  const gist = message.autonomous && !streaming ? shortSummary(said) : '';
+  const long = !latest && said.length > LONG_ANSWER;
+  const gist = (message.autonomous || long) && !streaming ? shortSummary(said) : '';
   const foldable = gist !== '' && said.trim().length > gist.length + 40;
   const folded = foldable && !unfolded;
   const firstText = blocks.findIndex((b) => b.kind === 'text');
@@ -448,6 +485,9 @@ function BotMessage({
               />
             );
           }
+          if (block.kind === 'plan') {
+            return <PlanCard key={`plan-${block.index}`} teamId={block.teamId} />;
+          }
           if (block.kind === 'activity') {
             return (
               <ActivityGroup
@@ -494,7 +534,7 @@ function BotMessage({
         )}
         {message.status === 'stopped' && <p className="text-xs text-faint">{t('chat.stopped')}</p>}
         {message.status === 'done' && message.stepLimit && (
-          <StepLimitHint onContinue={onContinue} />
+          <StepLimitHint onContinue={resumed ? undefined : onContinue} resumed={resumed} />
         )}
       </div>
     </div>
@@ -526,7 +566,7 @@ function EmptyState({ bot, onPick }: { bot: Bot; onPick(text: string): void }) {
             key={key}
             type="button"
             onClick={() => onPick(t(key))}
-            className="rounded-full border border-border-strong bg-white/[0.02] px-3.5 py-1.5 text-[13px] text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.06] hover:text-foreground"
+            className="rounded-full border border-border-strong bg-ink/[0.02] px-3.5 py-1.5 text-[13px] text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.06] hover:text-foreground"
           >
             {t(key)}
           </button>
@@ -536,13 +576,21 @@ function EmptyState({ bot, onPick }: { bot: Bot; onPick(text: string): void }) {
   );
 }
 
+/**
+ * The third panel, right of the conversation: the bot's PC live and small (its screen, or its
+ * own browser window), to watch it work or take control, then the team's mission. Docked on
+ * wide screens, over the conversation on the others.
+ */
 function ComputerPanel({
   computerId,
   bot,
+  teamId,
   onClose,
 }: {
   computerId: string;
   bot: { id: string; name: string };
+  /** The bot's team, whose mission shows under the PC. */
+  teamId: string | null;
   onClose(): void;
 }) {
   const { t } = useTranslation();
@@ -552,8 +600,8 @@ function ComputerPanel({
   const me = useMe();
   const control = pc?.control;
   const inControl = Boolean(control && control.deviceId === me.data?.device.id);
-  // The bot browses in its own window, which the screen doesn't show.
-  const [shown, setShown] = useState<'bot' | 'screen'>('bot');
+  // The desktop first; the bot browses in its own window, which the screen doesn't show.
+  const [shown, setShown] = useState<'bot' | 'screen'>('screen');
   const takeOver = () => {
     action.mutate('takeover');
     setShown('screen');
@@ -568,13 +616,28 @@ function ComputerPanel({
       animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
       exit={{ opacity: 0, x: 24, filter: 'blur(8px)' }}
       transition={springs.soft}
-      className="glass fixed inset-x-3 bottom-3 top-16 z-40 flex flex-col gap-3 rounded-2xl p-3 lg:static lg:inset-auto lg:z-auto lg:w-[46%] lg:max-w-3xl lg:rounded-none lg:border-y-0 lg:border-r-0 lg:p-4"
+      className="glass fixed inset-x-3 bottom-3 top-16 z-40 flex flex-col gap-3 overflow-y-auto rounded-2xl p-3 xl:static xl:inset-auto xl:z-auto xl:w-[24rem] xl:shrink-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:p-4 2xl:w-[28rem]"
     >
       <div className="flex items-center gap-2">
         <Monitor className="size-4 text-muted-foreground" />
         <span className="flex-1 truncate text-sm font-medium">{pc?.name ?? 'PC'}</span>
         {pc && <StatusBadge status={pc.status} />}
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label={t('chat.closePc')}>
+        <Link
+          to="/computers/$computerId"
+          params={{ computerId }}
+          className="grid size-9 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-ink/[0.06] hover:text-foreground"
+          title={t('chat.openFull')}
+          aria-label={t('chat.openFull')}
+        >
+          <Maximize2 className="size-4" />
+        </Link>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          aria-label={t('chat.panel.hide')}
+          title={t('chat.panel.hide')}
+        >
           <PanelRightClose className="size-4" />
         </Button>
       </div>
@@ -622,24 +685,50 @@ function ComputerPanel({
               <Hand className="size-3.5" /> {t('desktop.takeover')}
             </Button>
           )}
-          <Link
-            to="/computers/$computerId"
-            params={{ computerId }}
-            className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Maximize2 className="size-3.5" /> {t('chat.openFull')}
-          </Link>
+          <p className="min-w-0 flex-1 text-xs text-faint">
+            {inControl
+              ? t('desktop.inControl')
+              : control
+                ? t('desktop.otherDevice')
+                : t('chat.readOnly')}
+          </p>
         </div>
       )}
-      <p className="text-xs text-faint">
-        {inControl
-          ? t('desktop.inControl')
-          : control
-            ? t('desktop.otherDevice')
-            : t('chat.readOnly')}
-      </p>
+      {teamId && <PlanCard teamId={teamId} optional className="mt-2 max-w-none" />}
     </motion.aside>
   );
+}
+
+/** Where the third panel docks: wide screens (Tailwind's xl). */
+const WIDE = '(min-width: 1280px)';
+const PANEL_KEY = 'mowbot.desktopPanel';
+
+function useWide(): boolean {
+  const [wide, setWide] = useState(() => matchMedia(WIDE).matches);
+  useEffect(() => {
+    const query = matchMedia(WIDE);
+    const onChange = () => setWide(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+  return wide;
+}
+
+/** Docked unless the user hid it (kept on this device). */
+function panelDocked(): boolean {
+  try {
+    return localStorage.getItem(PANEL_KEY) !== 'hidden';
+  } catch {
+    return true;
+  }
+}
+
+function dockPanel(shown: boolean): void {
+  try {
+    localStorage.setItem(PANEL_KEY, shown ? 'shown' : 'hidden');
+  } catch {
+    // Kept for this visit only.
+  }
 }
 
 /** Conversation with a bot: the Chef on `/`, any bot on `/bots/$botId`. */
@@ -664,7 +753,17 @@ export function ChatPage() {
   const scroller = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const hydrated = useRef(false);
-  const [showPc, setShowPc] = useState(false);
+  const wide = useWide();
+  const [docked, setDocked] = useState(panelDocked);
+  const [overlay, setOverlay] = useState(false);
+  const showPc = wide ? docked : overlay;
+  const setShowPc = (next: boolean | ((shown: boolean) => boolean)) => {
+    const value = typeof next === 'function' ? next(showPc) : next;
+    if (wide) {
+      setDocked(value);
+      dockPanel(value);
+    } else setOverlay(value);
+  };
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -806,6 +905,7 @@ export function ChatPage() {
   }
 
   const live = items.at(-1)?.status === 'streaming' ? items.at(-1) : undefined;
+  const latestAnswer = items.findLast((m) => m.role === 'assistant')?.id;
   const mood = moodOf(bot, live);
   const noModel = providers.isSuccess && (providers.data.length === 0 || !bot.model);
   // What it is doing · its role · its team (the model is in its settings).
@@ -856,6 +956,7 @@ export function ChatPage() {
           )}
           <BotMenu bot={bot} onRename={() => setRenamingId(bot.id)} />
         </header>
+        {team && <MissionBar team={team} />}
 
         <div
           ref={scroller}
@@ -906,7 +1007,9 @@ export function ChatPage() {
                     // Further down a run of incoming messages: close to the one before.
                     className={cn(place && !place.run && '-mt-4')}
                   >
-                    {message.role === 'user' ? (
+                    {message.resume ? (
+                      <ResumeLine count={message.resume} />
+                    ) : message.role === 'user' ? (
                       place ? (
                         <IncomingMessage message={message} place={place} />
                       ) : (
@@ -916,6 +1019,8 @@ export function ChatPage() {
                       <BotMessage
                         message={message}
                         bot={bot}
+                        latest={message.id === latestAnswer}
+                        resumed={Boolean(items[index + 1]?.resume)}
                         onAnswer={() => {
                           stickToBottom.current = true;
                         }}
@@ -960,6 +1065,7 @@ export function ChatPage() {
             key="pc"
             computerId={bot.computerId}
             bot={bot}
+            teamId={bot.teamId}
             onClose={() => setShowPc(false)}
           />
         )}

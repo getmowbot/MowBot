@@ -1,5 +1,5 @@
 import type { BotActivity, MessagePart } from '@mowbot/contract';
-import { springs } from '@mowbot/design';
+import { reasoningHeadline, springs } from '@mowbot/design';
 import {
   AlarmClock,
   AppWindow,
@@ -357,6 +357,11 @@ const TOOLS: Record<string, ToolMeta> = {
     title: () => i18n.t('activity.planShow'),
     kind: () => null,
   },
+  show_plan: {
+    icon: () => ListOrdered,
+    title: () => i18n.t('activity.showPlan'),
+    kind: () => null,
+  },
   create_team: {
     icon: () => Users,
     title: (i) => i18n.t('activity.createTeam', { name: str(i.name) }),
@@ -572,7 +577,7 @@ function Screenshot({ workspaceId, path }: { workspaceId: string; path: string }
   const { t } = useTranslation();
   const image = useWorkspaceFileUrl(workspaceId, path);
   if (!image.url)
-    return <div className="aspect-[16/10] w-full animate-pulse rounded-lg bg-white/[0.04]" />;
+    return <div className="aspect-[16/10] w-full animate-pulse rounded-lg bg-ink/[0.04]" />;
   return (
     <img
       src={image.url}
@@ -685,7 +690,7 @@ function ToolStep({ part }: { part: ToolPart }) {
                 <Screenshot workspaceId={part.image.workspaceId} path={part.image.path} />
               )}
               {part.output && !part.image && (
-                <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-white/[0.03] p-2.5 font-mono text-[12px] leading-relaxed text-muted-foreground">
+                <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-ink/[0.03] p-2.5 font-mono text-[12px] leading-relaxed text-muted-foreground">
                   {part.output}
                 </pre>
               )}
@@ -715,6 +720,12 @@ function ReasoningStep({ part }: { part: ReasoningPart }) {
   );
 }
 
+/** The latest headline of the reasoning in a run ('' when it has none yet). */
+function lastThought(parts: ActivityPart[]): string {
+  const last = parts.at(-1);
+  return last?.type === 'reasoning' ? reasoningHeadline(last.text) : '';
+}
+
 /**
  * A run of actions as one grey line, quieter than what the bot says: what it is doing right
  * now while it works, a summary once done. Opens on the history, each step expandable.
@@ -728,10 +739,14 @@ export function ActivityGroup({ parts, live }: { parts: ActivityPart[]; live: bo
 
   const running = tools.findLast((p) => p.state === 'running');
   const errors = tools.filter((p) => p.state === 'error').length;
+  // While it thinks: what about, from the latest headline of its reasoning.
+  const thought = live && !running ? lastThought(parts) : '';
   const title = live
     ? running
       ? toolTitle(running)
-      : t('activity.thinking')
+      : thought
+        ? t('activity.thinkingAbout', { what: thought })
+        : t('activity.thinking')
     : tools.length > 0
       ? summarize(tools)
       : t('activity.reasoning');

@@ -20,14 +20,14 @@ export function Switch({
       onClick={onChange}
       className={cn(
         'relative h-5 w-9 shrink-0 rounded-full border transition-colors duration-200',
-        checked ? 'border-primary bg-primary' : 'border-border-strong bg-white/[0.04]',
+        checked ? 'border-primary bg-primary' : 'border-border-strong bg-ink/[0.04]',
       )}
     >
       <motion.span
         layout
         className={cn(
           'absolute top-0.5 size-3.5 rounded-full',
-          checked ? 'right-0.5 bg-primary-foreground' : 'left-0.5 bg-white/50',
+          checked ? 'right-0.5 bg-primary-foreground' : 'left-0.5 bg-ink/50',
         )}
       />
     </button>

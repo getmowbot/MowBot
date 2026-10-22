@@ -56,7 +56,7 @@ export function WindowControls() {
         type="button"
         aria-label={t('window.minimize')}
         onClick={() => void win.minimize()}
-        className={cn(button, 'hover:bg-white/[0.07]')}
+        className={cn(button, 'hover:bg-ink/[0.07]')}
       >
         <Minus className="size-4" strokeWidth={1.5} />
       </button>
@@ -64,7 +64,7 @@ export function WindowControls() {
         type="button"
         aria-label={maximized ? t('window.restore') : t('window.maximize')}
         onClick={() => void win.toggleMaximize()}
-        className={cn(button, 'hover:bg-white/[0.07]')}
+        className={cn(button, 'hover:bg-ink/[0.07]')}
       >
         {maximized ? (
           <Copy className="size-3.5 -scale-x-100" strokeWidth={1.5} />

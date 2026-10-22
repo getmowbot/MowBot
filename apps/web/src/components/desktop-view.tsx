@@ -250,7 +250,7 @@ export const DesktopView = forwardRef<DesktopViewHandle, Props>(function Desktop
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 placeholder={t('desktop.clipboard.placeholder')}
-                className="h-8 min-w-0 flex-1 rounded-md border border-border-strong bg-transparent px-2.5 text-sm text-foreground outline-none focus:border-white/40"
+                className="h-8 min-w-0 flex-1 rounded-md border border-border-strong bg-transparent px-2.5 text-sm text-foreground outline-none focus:border-ink/40"
               />
               <Button type="submit" size="sm" disabled={!text}>
                 <Send className="size-3.5" /> {t('desktop.clipboard.send')}

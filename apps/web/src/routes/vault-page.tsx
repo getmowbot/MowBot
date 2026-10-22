@@ -88,7 +88,7 @@ function PlaceholderChip({ item, field }: { item: VaultItem; field: VaultField }
       }
       title={t('vault.copy')}
       aria-label={t('vault.copyNamed', { placeholder: text })}
-      className="flex max-w-full items-center gap-1.5 rounded-full border border-border-strong px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground"
+      className="flex max-w-full items-center gap-1.5 rounded-full border border-border-strong px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:border-ink/20 hover:text-foreground"
     >
       <span className="shrink-0 text-foreground/90">{t(`vault.fields.${field}`)}</span>
       <code className="truncate font-mono text-faint">{text}</code>
@@ -128,7 +128,7 @@ function VaultRow({ item, onOpen }: { item: VaultItem; onOpen(): void }) {
         onClick={onOpen}
         className="group flex w-full items-start gap-3 text-left"
       >
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/[0.05]">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-ink/[0.05]">
           <Icon className="size-4 text-muted-foreground" />
         </span>
         <span className="min-w-0 flex-1">
@@ -435,7 +435,7 @@ function History({ item }: { item: VaultItem }) {
                 {event.botId ? (
                   <BotAvatar seed={bot?.avatarSeed ?? event.botId} size={16} />
                 ) : (
-                  <span className="mx-[5px] mt-1.5 size-1.5 shrink-0 rounded-full bg-white/25" />
+                  <span className="mx-[5px] mt-1.5 size-1.5 shrink-0 rounded-full bg-ink/25" />
                 )}
                 <span className="min-w-0 flex-1">
                   <span
@@ -759,7 +759,7 @@ function NewSessionForm({ onDone }: { onDone(): void }) {
                         'relative flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors duration-200',
                         site === entry.site
                           ? 'border-primary/50'
-                          : 'border-border-strong text-muted-foreground hover:border-white/20',
+                          : 'border-border-strong text-muted-foreground hover:border-ink/20',
                       )}
                     >
                       {site === entry.site && (
@@ -849,7 +849,7 @@ function AddVaultItem({ onDone }: { onDone(): void }) {
                 'relative rounded-xl border px-3 py-2.5 text-left transition-colors duration-200',
                 kind === option
                   ? 'border-primary/50'
-                  : 'border-border-strong text-muted-foreground hover:border-white/20',
+                  : 'border-border-strong text-muted-foreground hover:border-ink/20',
               )}
             >
               {kind === option && (

@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 
 const field =
-  'w-full rounded-xl border border-border-strong bg-black/30 px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-faint hover:border-white/20 focus:border-white/50';
+  'w-full rounded-xl border border-border-strong bg-sunken px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-faint hover:border-ink/20 focus:border-ink/50';
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(field, 'h-10', className)} {...props} />;

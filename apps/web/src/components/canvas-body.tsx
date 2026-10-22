@@ -25,6 +25,7 @@ import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from 're
 import { useTranslation } from 'react-i18next';
 import { client, problemMessage } from '../lib/auth';
 import { downloadWorkspacePath, formatSize, IMAGE, MARKDOWN, PDF, TEXT } from '../lib/files';
+import { useTheme } from '../lib/theme';
 import { cn } from '../lib/utils';
 import { Markdown } from './markdown';
 import { WorkspaceImage } from './markdown-document';
@@ -64,7 +65,7 @@ function CanvasImage({
   const fallback = (
     <span
       className={cn(
-        'grid place-items-center bg-white/[0.04] text-faint',
+        'grid place-items-center bg-ink/[0.04] text-faint',
         placeholderClassName ?? className,
       )}
     >
@@ -111,7 +112,7 @@ function Logo({
 }) {
   if (!path || !workspaceId) {
     return (
-      <span className="grid size-12 place-items-center rounded-full bg-white/[0.06] text-lg font-semibold">
+      <span className="grid size-12 place-items-center rounded-full bg-ink/[0.06] text-lg font-semibold">
         {name.slice(0, 1).toUpperCase()}
       </span>
     );
@@ -155,7 +156,7 @@ function Score({
           <p className="text-4xl font-semibold tabular-nums tracking-tight">
             {played ? `${content.homeScore} – ${content.awayScore}` : '–'}
           </p>
-          <p className="mt-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-muted-foreground">
+          <p className="mt-1 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[11px] text-muted-foreground">
             {content.status}
           </p>
         </div>
@@ -198,7 +199,7 @@ function Checklist({
             'grid size-[18px] shrink-0 place-items-center rounded-full border transition-colors duration-200',
             item.done
               ? 'border-primary bg-primary text-primary-foreground'
-              : cn('border-border-strong', actions && 'hover:border-white/40'),
+              : cn('border-border-strong', actions && 'hover:border-ink/40'),
           );
           return (
             <li key={item.id} className="group flex items-center gap-2.5 rounded-lg py-1">
@@ -279,10 +280,13 @@ const FRAME_HEIGHT: Record<CanvasSize, number> = { s: 200, m: 260, l: 360 };
  * frame (a page written by a bot must not be able to show something else in its place).
  */
 function HtmlFrame({ html, size }: { html: string; size: CanvasSize }) {
+  // In the page's look: its text color, and the browser's controls.
+  const { theme } = useTheme();
+  const ink = theme === 'light' ? '#10131a' : '#e8e9ec';
   const page = [
     '<!doctype html><html><head><meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">`,
-    '<style>:root{color-scheme:dark}html,body{margin:0;background:transparent;color:#e8e9ec;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}</style>',
+    `<style>:root{color-scheme:${theme}}html,body{margin:0;background:transparent;color:${ink};font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}</style>`,
     '</head><body>',
     // A refresh would navigate the frame elsewhere.
     html.replace(/<meta[^>]*http-equiv\s*=\s*["']?refresh[^>]*>/gi, ''),
@@ -330,7 +334,7 @@ function Card({
     // With a link, the title covers the whole card; the buttons and the text's links stay on top.
     <div className="group relative space-y-3">
       {content.image && (
-        <div className="aspect-video overflow-hidden rounded-xl bg-white/[0.04]">
+        <div className="aspect-video overflow-hidden rounded-xl bg-ink/[0.04]">
           <CanvasImage
             src={content.image}
             alt={content.title}
@@ -351,7 +355,7 @@ function Card({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="min-w-0 outline-none decoration-white/30 underline-offset-2 after:absolute after:inset-0 after:rounded-xl group-hover:underline focus-visible:after:ring-2 focus-visible:after:ring-ring/60"
+              className="min-w-0 outline-none decoration-ink/30 underline-offset-2 after:absolute after:inset-0 after:rounded-xl group-hover:underline focus-visible:after:ring-2 focus-visible:after:ring-ring/60"
             >
               {content.title}
             </a>
@@ -450,7 +454,7 @@ function Gallery({
               onClick={() => (image.url ? openLink(image.url) : setOpen(index))}
               aria-label={image.caption ?? t('canvas.enlarge')}
               className={cn(
-                'group relative block w-full overflow-hidden rounded-xl border border-border bg-white/[0.04] outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'group relative block w-full overflow-hidden rounded-xl border border-border bg-ink/[0.04] outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 count === 1 ? 'aspect-video' : 'aspect-[4/3]',
               )}
             >
@@ -484,7 +488,7 @@ function Gallery({
       >
         {shown && open !== null && (
           <div className="space-y-3">
-            <div className="grid place-items-center overflow-hidden rounded-xl bg-black/30">
+            <div className="grid place-items-center overflow-hidden rounded-xl bg-sunken">
               <CanvasImage
                 key={open}
                 src={shown.src}
@@ -607,7 +611,7 @@ function ImagePeek({
       type="button"
       onClick={onOpen}
       aria-label={t('canvas.openFile', { name: content.name })}
-      className="group grid w-full place-items-center overflow-hidden rounded-xl border border-border bg-black/25 outline-none transition-colors duration-200 hover:border-border-strong focus-visible:ring-2 focus-visible:ring-ring/60"
+      className="group grid w-full place-items-center overflow-hidden rounded-xl border border-border bg-sunken outline-none transition-colors duration-200 hover:border-border-strong focus-visible:ring-2 focus-visible:ring-ring/60"
     >
       <WorkspaceImage
         workspaceId={workspaceId}
@@ -667,13 +671,13 @@ function TextPeek({
   if (head.isError || (text !== undefined && !text.trim())) return null;
   return (
     <div className="group relative">
-      <div className="rounded-xl border border-border bg-black/25 px-3.5 py-3 transition-colors duration-200 group-hover:border-border-strong">
+      <div className="rounded-xl border border-border bg-sunken px-3.5 py-3 transition-colors duration-200 group-hover:border-border-strong">
         {text === undefined ? (
           <div className="space-y-2 py-0.5">
             {['w-3/4', 'w-full', 'w-5/6', 'w-2/3'].map((width) => (
               <span
                 key={width}
-                className={cn('block h-2.5 animate-pulse rounded-full bg-white/[0.06]', width)}
+                className={cn('block h-2.5 animate-pulse rounded-full bg-ink/[0.06]', width)}
               />
             ))}
           </div>
@@ -743,7 +747,7 @@ function WorkspaceFile({
       <div className="flex items-center gap-3">
         <span
           className={cn(
-            'grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.06]',
+            'grid size-10 shrink-0 place-items-center rounded-xl bg-ink/[0.05] ring-1 ring-inset ring-ink/[0.06]',
             tone,
           )}
         >

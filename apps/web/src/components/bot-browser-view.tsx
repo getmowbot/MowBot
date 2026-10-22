@@ -26,7 +26,7 @@ export function ViewSwitch<T extends string>({
           className={cn(
             'shrink-0 rounded-md px-2.5 py-1 transition-colors duration-200',
             option.value === value
-              ? 'bg-white/10 text-foreground'
+              ? 'bg-ink/10 text-foreground'
               : 'text-muted-foreground hover:text-foreground',
           )}
         >

@@ -117,9 +117,9 @@ function useModels(providerId: string | null | undefined) {
   });
 }
 
-/** ChatGPT's own button style (white, "Sign in with ChatGPT"). */
+/** ChatGPT's own button style ("Sign in with ChatGPT"): plain, in the page's ink. */
 const CHATGPT_BUTTON =
-  'border-white bg-white text-black hover:border-white/90 hover:bg-white/90 hover:text-black';
+  'border-primary bg-primary text-primary-foreground hover:border-primary/90 hover:bg-primary/90';
 
 function ManageUsage({ className }: { className?: string }) {
   const { t } = useTranslation();
@@ -142,13 +142,13 @@ function ManageUsage({ className }: { className?: string }) {
 function DesktopOnly({ text }: { text: string }) {
   const { t } = useTranslation();
   return (
-    <div className="space-y-3 rounded-xl border border-border-strong bg-white/[0.02] p-4">
+    <div className="space-y-3 rounded-xl border border-border-strong bg-ink/[0.02] p-4">
       <p className="text-[13px] text-muted-foreground">{text}</p>
       <a
         href={DESKTOP_DOWNLOAD_URL}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex h-8 items-center gap-2 rounded-lg border border-border-strong px-3 text-xs font-medium transition-colors hover:border-white/20 hover:bg-white/[0.06]"
+        className="inline-flex h-8 items-center gap-2 rounded-lg border border-border-strong px-3 text-xs font-medium transition-colors hover:border-ink/20 hover:bg-ink/[0.06]"
       >
         <Download className="size-3.5" /> {t('models.chatgpt.download')}
       </a>
@@ -340,7 +340,7 @@ function ChatgptAccount({ provider }: { provider: Provider }) {
   }
   if (account.status === 'usage_limited') {
     return (
-      <div className="basis-full space-y-1.5 rounded-xl border border-border-strong bg-white/[0.02] p-3">
+      <div className="basis-full space-y-1.5 rounded-xl border border-border-strong bg-ink/[0.02] p-3">
         <p className="text-[13px] font-medium">{t('models.chatgpt.limited')}</p>
         <p className="text-xs text-muted-foreground">{t('models.chatgpt.limitedBody')}</p>
         <ManageUsage />
@@ -450,7 +450,7 @@ function HeadersEditor({
               'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors duration-200',
               zdr
                 ? 'border-primary/50 bg-primary/[0.08] text-foreground'
-                : 'border-border-strong text-muted-foreground hover:border-white/20',
+                : 'border-border-strong text-muted-foreground hover:border-ink/20',
             )}
           >
             {zdr ? <Check className="size-3" /> : <ShieldCheck className="size-3" />}
@@ -605,7 +605,7 @@ function AddProvider({ onDone }: { onDone(): void }) {
                 'relative flex items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-[13px] transition-colors duration-200 sm:gap-3 sm:px-3 sm:py-2.5 sm:text-sm',
                 on
                   ? 'border-primary/50 text-foreground'
-                  : 'border-border-strong text-muted-foreground hover:border-white/20 hover:text-foreground',
+                  : 'border-border-strong text-muted-foreground hover:border-ink/20 hover:text-foreground',
               )}
             >
               {on && (
@@ -615,7 +615,7 @@ function AddProvider({ onDone }: { onDone(): void }) {
                   className="absolute inset-0 rounded-xl bg-primary/[0.08]"
                 />
               )}
-              <span className="relative grid size-7 shrink-0 place-items-center rounded-lg bg-white/[0.05] sm:size-8">
+              <span className="relative grid size-7 shrink-0 place-items-center rounded-lg bg-ink/[0.05] sm:size-8">
                 <ProviderMark kind={option.kind} baseUrl={option.baseUrl} />
               </span>
               <span className="relative line-clamp-2 min-w-0 font-medium leading-snug">
@@ -760,7 +760,7 @@ function ProviderRow({ provider }: { provider: Provider }) {
   const account = provider.chatgpt;
   return (
     <div className="flex flex-wrap items-center gap-3 py-3">
-      <span className="grid size-9 place-items-center rounded-xl bg-white/[0.05] text-foreground/85">
+      <span className="grid size-9 place-items-center rounded-xl bg-ink/[0.05] text-foreground/85">
         <ProviderMark kind={provider.kind} baseUrl={provider.baseUrl} className="size-[18px]" />
       </span>
       {/* At least 10rem: on a phone the buttons go to the next line rather than squeeze it. */}

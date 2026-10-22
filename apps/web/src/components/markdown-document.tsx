@@ -80,7 +80,7 @@ export function WorkspaceImage({
     return (
       <span
         className={cn(
-          'block aspect-video w-full animate-pulse rounded-lg bg-white/[0.04]',
+          'block aspect-video w-full animate-pulse rounded-lg bg-ink/[0.04]',
           placeholderClassName,
         )}
       />
@@ -191,7 +191,11 @@ export function MarkdownDocument({
       <li className="leading-7 [&>ol]:mt-1.5 [&>ul]:mt-1.5" {...props} />
     ),
     input: ({ node: _, ...props }) => (
-      <input {...props} disabled className="mr-2 size-3.5 translate-y-0.5 accent-white" />
+      <input
+        {...props}
+        disabled
+        className="mr-2 size-3.5 translate-y-0.5 accent-[var(--primary)]"
+      />
     ),
     blockquote: ({ node: _, ...props }) => (
       <blockquote
@@ -206,16 +210,13 @@ export function MarkdownDocument({
           {children}
         </code>
       ) : (
-        <code
-          className="rounded-md bg-white/[0.07] px-1.5 py-0.5 font-mono text-[0.86em]"
-          {...props}
-        >
+        <code className="rounded-md bg-ink/[0.07] px-1.5 py-0.5 font-mono text-[0.86em]" {...props}>
           {children}
         </code>
       ),
     pre: ({ node: _, ...props }) => (
       <pre
-        className="mb-4 overflow-x-auto rounded-xl border border-border bg-black/40 p-4 text-[13px] leading-relaxed last:mb-0"
+        className="mb-4 overflow-x-auto rounded-xl border border-border bg-sunken p-4 text-[13px] leading-relaxed last:mb-0"
         {...props}
       />
     ),

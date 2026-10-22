@@ -29,6 +29,7 @@ import { BotAvatar, TeamAvatar } from '../components/bot-avatar';
 import { StatusDot } from '../components/computer-status';
 import { LanguageMenu } from '../components/language-menu';
 import { OrgDialogsProvider, useOrgDialogs } from '../components/org-dialogs';
+import { ThemeMenu } from '../components/theme-menu';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../lib/auth';
 import { botLine, isBusy, moodOf } from '../lib/bot-mood';
@@ -71,7 +72,7 @@ function NavItem({
             <motion.span
               layoutId="nav-active"
               transition={springs.soft}
-              className="absolute inset-0 rounded-xl border border-white/[0.06] bg-white/[0.06]"
+              className="absolute inset-0 rounded-xl border border-ink/[0.06] bg-ink/[0.06]"
             />
           )}
           <span
@@ -123,7 +124,7 @@ function SectionButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="grid size-6 place-items-center rounded-md text-faint transition-colors hover:bg-white/[0.06] hover:text-foreground"
+      className="grid size-6 place-items-center rounded-md text-faint transition-colors hover:bg-ink/[0.06] hover:text-foreground"
     >
       {children}
     </button>
@@ -226,7 +227,7 @@ function TeamNav({
           onClick={onToggle}
           aria-expanded={!folded}
           aria-label={t(folded ? 'shell.expand' : 'shell.collapse', { name: team.name })}
-          className="grid size-7 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-white/[0.06] hover:text-foreground"
+          className="grid size-7 shrink-0 place-items-center rounded-lg text-faint transition-colors hover:bg-ink/[0.06] hover:text-foreground"
         >
           <ChevronDown
             className={cn('size-3.5 transition-transform duration-300', folded && '-rotate-90')}
@@ -392,11 +393,12 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
             className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1 transition-colors duration-150 hover:text-foreground"
             aria-label={t('shell.profile')}
           >
-            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/[0.07] text-xs font-semibold">
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-ink/[0.07] text-xs font-semibold">
               {me.data?.owner.displayName.slice(0, 1).toUpperCase() ?? '·'}
             </span>
             <span className="flex-1 truncate text-sm">{me.data?.owner.displayName ?? '…'}</span>
           </Link>
+          <ThemeMenu />
           <LanguageMenu />
           <Button
             variant="ghost"

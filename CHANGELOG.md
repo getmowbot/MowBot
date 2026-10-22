@@ -6,6 +6,23 @@ The release workflow publishes the section of the version it builds as the relea
 
 ## Unreleased
 
+### See the mission, not the chatter (web app)
+- **A mission board per team:** the goal, a progress bar, who works on which step right now (with what they do this very moment), every step with what it delivers, and the deliverables, delivered and coming, with links to open them (a file of the team, a preview).
+- **Deliverables in the plan.** The lead names what each step delivers; a bot that finishes a step says what it delivered and where. A finished task fills its step on its own.
+- **"What's the plan?"** gets the plan itself in the conversation, a card that stays up to date, and a sentence or two instead of a wall of text.
+- The mission in one line under the chat header of a team's bots.
+- Bots keep their answers to five lines unless you ask for details, and start long ones with a sentence that sums them up; earlier long answers fold to it.
+
+### Bots that keep going
+- **No more "Continue".** A bot that reaches its step limit goes on by itself, up to 5 times in a row. Past that, its lead (or the Chef) is told and decides: tell it to go on, help it, split its work or stop it. Nothing goes on while the bots are paused.
+- **See what a bot thinks about.** OpenAI models (API key or ChatGPT plan) now share a short summary of their reasoning: "Thinking · Comparing the two layouts", in the conversation and next to the bot's name. Bots are told not to think for long without acting.
+
+### A new look (web app)
+- **Light and dark themes**, or the system's, from the sidebar.
+- **Three panels:** the bots, the conversation, and the bot's PC live and small on the right, to watch it or take control, with the team's mission under it. Docked on wide screens (hide it if you like), over the conversation on smaller ones.
+- Primary buttons are white pebbles, lit from above, with a reflection on hover (ink on the light theme); the send button is round.
+- The message box is a pill of glass, bulging, with a slow light along its edge.
+
 ### More model providers
 - **Anthropic**, with an API key from the Claude Console: Claude's Messages API with prompt caching, and refusals rerun on another Claude model. A Claude Pro/Max subscription can't be used: Anthropic keeps it for its own apps.
 - **OpenRouter, Google Gemini, xAI (Grok), DeepSeek, Mistral, Groq and Ollama** ready to pick, their address filled in.

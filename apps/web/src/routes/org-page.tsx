@@ -20,7 +20,7 @@ function BotLine({ bot, lead }: { bot: Bot; lead?: boolean }) {
     <Link
       to={bot.isChef ? '/chef' : '/bots/$botId'}
       params={{ botId: bot.id }}
-      className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05]"
+      className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-ink/[0.05]"
     >
       <BotAvatar seed={bot.avatarSeed} size={30} mood={mood} />
       <span className="min-w-0 flex-1">
@@ -60,7 +60,7 @@ function TeamNode({ team, members }: { team: Team; members: Bot[] }) {
       <Link
         to="/teams/$teamId"
         params={{ teamId: team.id }}
-        className="flex items-center gap-2.5 rounded-xl px-1 py-1 transition-colors hover:bg-white/[0.04]"
+        className="flex items-center gap-2.5 rounded-xl px-1 py-1 transition-colors hover:bg-ink/[0.04]"
       >
         <TeamAvatar seeds={members.map((b) => b.avatarSeed)} size={34} />
         <span className="min-w-0 flex-1">

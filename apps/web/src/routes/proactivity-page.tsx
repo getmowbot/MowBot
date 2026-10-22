@@ -63,7 +63,7 @@ function GlobalSettings() {
             type="checkbox"
             name="quiet"
             defaultChecked={Boolean(settings.quietHours)}
-            className="size-4 accent-white"
+            className="size-4 accent-[var(--primary)]"
           />
           {t('proactivity.quietHours')}
         </label>

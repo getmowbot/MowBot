@@ -43,7 +43,7 @@ export function TalkLine({
       type="button"
       onClick={onOpen}
       className={cn(
-        'group flex max-w-full items-center gap-2 rounded-full bg-white/[0.04] py-1 pl-1.5 pr-3 text-left text-[13px] transition-colors duration-200 hover:bg-white/[0.08]',
+        'group flex max-w-full items-center gap-2 rounded-full bg-ink/[0.04] py-1 pl-1.5 pr-3 text-left text-[13px] transition-colors duration-200 hover:bg-ink/[0.08]',
         className,
       )}
     >
