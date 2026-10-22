@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { BotAvatar, TeamAvatar } from '../components/bot-avatar';
 import { StatusBadge } from '../components/computer-status';
 import { useOrgDialogs } from '../components/org-dialogs';
+import { TeamPlan } from '../components/team-plan';
 import { Button } from '../components/ui/button';
 import { Card, FormError, Input, Label, Select, Textarea } from '../components/ui/form';
 import { api, problemMessage } from '../lib/auth';
@@ -228,7 +229,7 @@ function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
   );
 }
 
-/** A team: its members, its PC and files, its settings. */
+/** A team: its PC and files, its plan of attack, its members, its settings. */
 export function TeamPage() {
   const { t } = useTranslation();
   const { teamId } = useParams({ strict: false }) as { teamId?: string };
@@ -279,6 +280,10 @@ export function TeamPage() {
         >
           <FolderOpen className="size-4 text-muted-foreground" /> {t('common.files')}
         </Link>
+      </Reveal>
+
+      <Reveal delay={0.06}>
+        <TeamPlan team={current} bots={bots.data ?? []} />
       </Reveal>
 
       <section className="space-y-3">

@@ -30,6 +30,20 @@ export function useTeam(teamId: string | undefined) {
   return { ...teams, data: teams.data?.find((team) => team.id === teamId) };
 }
 
+/** A team's plan of attack (null: none yet), kept current by `plan.updated` events. */
+export function usePlan(teamId: string) {
+  return useQuery({
+    queryKey: ['plan', teamId],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/teams/{id}/plan', {
+        params: { path: { id: teamId } },
+      });
+      if (error || !data) throw error;
+      return data.plan;
+    },
+  });
+}
+
 export function useComputers() {
   return useQuery({
     queryKey: ['computers'],

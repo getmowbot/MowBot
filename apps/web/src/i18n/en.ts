@@ -349,6 +349,9 @@ export const en: Catalog = {
       cancelled: 'cancelled',
     },
     listTasks: 'Reviewing its tasks',
+    planSet: 'Writing the team’s plan',
+    planUpdate: 'Updating the team’s plan',
+    planShow: 'Reading the team’s plan',
     createTeam: 'Creating the {{name}} team',
     createBot: 'Creating {{name}}',
     updateBot: 'Updating {{name}}',
@@ -514,9 +517,26 @@ export const en: Catalog = {
     notDeleted: 'Team not deleted.',
     clear: 'Clear conversations',
     confirmClear:
-      'Clear the conversations of every bot in {{name}} ({{bots}})? They stop and start over; their files and tasks stay.',
+      'Clear the conversations of every bot in {{name}} ({{bots}})? They stop and start over, and the team’s plan is cleared; their files and tasks stay.',
     cleared: 'Conversations cleared.',
     notCleared: 'Conversations not cleared.',
+    plan: {
+      title: 'Plan',
+      empty:
+        'No plan yet. The lead (or the Chef) writes one when the team starts on work with several steps.',
+      progress: '{{done}} of {{total}} steps done',
+      project: 'Project {{name}}',
+      nobody: 'Nobody yet',
+      clear: 'Clear the plan',
+      confirmClear: 'Clear the plan of {{name}}? Its tasks stay.',
+      notCleared: 'Plan not cleared.',
+      status: {
+        todo: 'To do',
+        doing: 'In progress',
+        done: 'Done',
+        blocked: 'Blocked',
+      },
+    },
   },
   desktop: {
     notFound: 'Computer not found.',

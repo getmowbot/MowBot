@@ -25,6 +25,7 @@ import {
   KeyRound,
   LayoutDashboard,
   ListChecks,
+  ListOrdered,
   ListPlus,
   Lock,
   LockOpen,
@@ -339,6 +340,21 @@ const TOOLS: Record<string, ToolMeta> = {
   list_tasks: {
     icon: () => ListChecks,
     title: () => i18n.t('activity.listTasks'),
+    kind: () => null,
+  },
+  plan_set: {
+    icon: () => ListOrdered,
+    title: () => i18n.t('activity.planSet'),
+    kind: () => null,
+  },
+  plan_update: {
+    icon: () => ListOrdered,
+    title: () => i18n.t('activity.planUpdate'),
+    kind: () => null,
+  },
+  plan_show: {
+    icon: () => ListOrdered,
+    title: () => i18n.t('activity.planShow'),
     kind: () => null,
   },
   create_team: {
