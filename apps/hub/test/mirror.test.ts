@@ -207,11 +207,15 @@ describe('a project mirrored in the workspace', () => {
     await s.botWrites('dist/out.js', 'built by the bot\n');
     await s.botWrites('node_modules/dep/index.js', 'dep\n');
     await s.botDeletes('README.md');
+    // The changes may cross in several passes (one per batch of file events): wait for all.
     await until(
       async () =>
         (await readFile(s.theirs('src/app.js'), 'utf8').catch(() => '')).includes(
           'Nouveau titre',
-        ) && !(await exists(s.theirs('README.md'))),
+        ) &&
+        (await exists(s.theirs('src/new.js'))) &&
+        (await exists(s.theirs('public/hero.png'))) &&
+        !(await exists(s.theirs('README.md'))),
       'the bot’s work on the computer',
     );
     expect(await readFile(s.theirs('src/new.js'), 'utf8')).toBe('export const x = 1\n');
