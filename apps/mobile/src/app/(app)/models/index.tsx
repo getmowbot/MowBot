@@ -1,10 +1,11 @@
 import type { Bot, Provider } from '@mowbot/contract';
 import { router } from 'expo-router';
-import { KeyRound, Plug, Plus } from 'lucide-react-native';
+import { Plug, Plus } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator } from 'react-native';
 import { LoadError, Loading, Note } from '../../../components/admin/parts';
 import { ListCard } from '../../../components/list-card';
+import { ProviderMark } from '../../../components/provider-mark';
 import { Screen } from '../../../components/screen';
 import { Section } from '../../../components/tab-scroll';
 import { Button, IconButton } from '../../../components/ui/button';
@@ -55,7 +56,14 @@ function ProviderRow({ provider }: { provider: Provider }) {
     .join(' · ');
   return (
     <ListRow
-      icon={KeyRound}
+      leading={
+        <ProviderMark
+          kind={provider.kind}
+          baseUrl={provider.baseUrl}
+          size={20}
+          color={colors.textMuted}
+        />
+      }
       label={provider.name}
       hint={hint}
       accessory={<ConnectionBadge providerId={provider.id} />}

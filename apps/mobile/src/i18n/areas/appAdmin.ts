@@ -58,8 +58,14 @@ export const fr = {
     kinds: {
       commandCodeHint: 'Clé de ton abonnement (Studio → API keys).',
       openaiHint: 'Clé API de platform.openai.com.',
+      anthropicHint:
+        'Clé API de la console Claude (platform.claude.com), facturée à l’usage. Un abonnement Claude Pro ou Max ne marche pas ici : Anthropic le réserve à ses propres apps.',
       compatible: 'Compatible OpenAI',
-      compatibleHint: 'OpenRouter, Ollama, xAI, DeepSeek… : URL de base + clé.',
+      compatibleHint:
+        'Tout autre service compatible OpenAI (vLLM, LM Studio, Together…) : son URL de base, et sa clé s’il en demande une.',
+      presetHint: 'Clé API à créer sur {{site}}.',
+      ollamaHint:
+        'Ton serveur Ollama, sans clé : son adresse vue depuis le hub (pas localhost si le hub tourne dans Docker, mais l’IP de la machine d’Ollama).',
       chatgpt: 'OpenAI (compte ChatGPT)',
       chatgptHint: 'Ton forfait ChatGPT (Plus, Pro…), sans clé API.',
     },
@@ -81,6 +87,7 @@ export const fr = {
     name: 'Nom',
     apiKey: 'Clé API',
     apiKeyPlaceholder: 'Chiffrée sur le hub, jamais réaffichée',
+    apiKeyOptional: 'Facultative · chiffrée sur le hub',
     apiKeyUnchanged: 'Inchangée',
     apiKeyKeepHint: 'Laisse vide pour garder la clé actuelle : elle n’est jamais réaffichée.',
     apiKeyNone: 'Aucune',
@@ -124,6 +131,7 @@ export const fr = {
       name: 'Donne-lui un nom.',
       url: 'L’URL de base doit commencer par http:// ou https://.',
       urlRequired: 'Un fournisseur compatible OpenAI a besoin d’une URL de base.',
+      keyRequired: 'Ce fournisseur a besoin d’une clé API.',
       headerName: 'Nom d’en-tête invalide : lettres, chiffres et tirets, sans espace.',
       headerValue: 'Une valeur d’en-tête tient sur une ligne (2 000 caractères au plus).',
       headerDuplicate: 'Deux en-têtes portent le même nom.',
@@ -463,8 +471,14 @@ export const en: Widen<typeof fr> = {
     kinds: {
       commandCodeHint: 'Your subscription key (Studio → API keys).',
       openaiHint: 'API key from platform.openai.com.',
+      anthropicHint:
+        'API key from the Claude Console (platform.claude.com), billed by usage. A Claude Pro or Max subscription doesn’t work here: Anthropic keeps it for its own apps.',
       compatible: 'OpenAI-compatible',
-      compatibleHint: 'OpenRouter, Ollama, xAI, DeepSeek…: base URL + key.',
+      compatibleHint:
+        'Any other OpenAI-compatible service (vLLM, LM Studio, Together…): its base URL, and its key if it asks for one.',
+      presetHint: 'API key from {{site}}.',
+      ollamaHint:
+        'Your Ollama server, no key: its address as the hub sees it (not localhost when the hub runs in Docker, but the IP of the machine running Ollama).',
       chatgpt: 'OpenAI (ChatGPT account)',
       chatgptHint: 'Your ChatGPT plan (Plus, Pro…), no API key.',
     },
@@ -486,6 +500,7 @@ export const en: Widen<typeof fr> = {
     name: 'Name',
     apiKey: 'API key',
     apiKeyPlaceholder: 'Encrypted on the hub, never shown again',
+    apiKeyOptional: 'Optional · encrypted on the hub',
     apiKeyUnchanged: 'Unchanged',
     apiKeyKeepHint: 'Leave empty to keep the current key: it is never shown again.',
     apiKeyNone: 'None',
@@ -529,6 +544,7 @@ export const en: Widen<typeof fr> = {
       name: 'Give it a name.',
       url: 'The base URL must start with http:// or https://.',
       urlRequired: 'An OpenAI-compatible provider needs a base URL.',
+      keyRequired: 'This provider needs an API key.',
       headerName: 'Invalid header name: letters, digits and dashes, no spaces.',
       headerValue: 'A header value fits on one line (2,000 characters at most).',
       headerDuplicate: 'Two headers have the same name.',

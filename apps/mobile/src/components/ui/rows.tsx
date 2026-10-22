@@ -17,6 +17,8 @@ export const ICON_ROW_INSET = ROW_INSET + 20 + 14;
 interface ListRowProps {
   label: string;
   icon?: LucideIcon;
+  /** Drawn instead of `icon` (a provider's mark…), 20 points wide. */
+  leading?: ReactNode;
   /** Secondary text on the right (current value). */
   value?: string;
   /** Second line under the label. */
@@ -33,6 +35,7 @@ interface ListRowProps {
 export function ListRow({
   label,
   icon: Icon,
+  leading,
   value,
   hint,
   onPress,
@@ -44,7 +47,8 @@ export function ListRow({
   const ink = destructive ? colors.danger : colors.text;
   const content = (
     <>
-      {Icon ? <Icon size={20} color={destructive ? colors.danger : colors.textMuted} /> : null}
+      {leading ??
+        (Icon ? <Icon size={20} color={destructive ? colors.danger : colors.textMuted} /> : null)}
       <View style={styles.text}>
         <T variant="body" numberOfLines={1} style={{ color: ink }}>
           {label}
@@ -112,7 +116,8 @@ export function SwitchRow({ label, hint, value, onChange, disabled = false }: Sw
 }
 
 interface ChoiceRowsProps<V extends string> {
-  options: { value: V; label: string; hint?: string }[];
+  /** `icon`: shown before the label (a provider's mark…). */
+  options: { value: V; label: string; hint?: string; icon?: ReactNode }[];
   value: V | null;
   onChange(value: V): void;
 }
@@ -127,6 +132,7 @@ export function ChoiceRows<V extends string>({ options, value, onChange }: Choic
       onPress={() => onChange(option.value)}
       style={styles.row}
     >
+      {option.icon ? <View style={styles.icon}>{option.icon}</View> : null}
       <View style={styles.text}>
         <T variant="body">{option.label}</T>
         {option.hint ? (
@@ -155,5 +161,13 @@ const styles = StyleSheet.create({
   text: { flex: 1, minWidth: 0, gap: 2 },
   value: { flexShrink: 1, maxWidth: '50%', textAlign: 'right' },
   check: { width: 20, alignItems: 'center' },
+  icon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
   disabled: { opacity: 0.45 },
 });
