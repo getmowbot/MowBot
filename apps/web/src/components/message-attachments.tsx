@@ -47,11 +47,11 @@ function AttachmentCard({ part }: { part: AttachmentPart }) {
         type="button"
         onClick={open}
         aria-label={t('chat.attach.open', { name: part.name })}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left outline-none transition-colors duration-200 hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-ring/60"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left outline-none transition-colors duration-200 hover:bg-ink/[0.04] focus-visible:ring-2 focus-visible:ring-ring/60"
       >
         <span
           className={cn(
-            'grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.05] ring-1 ring-inset ring-white/[0.06]',
+            'grid size-10 shrink-0 place-items-center rounded-xl bg-ink/[0.05] ring-1 ring-inset ring-ink/[0.06]',
             tone,
           )}
         >

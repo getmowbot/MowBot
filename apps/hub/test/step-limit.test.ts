@@ -4,6 +4,7 @@ import { MockLanguageModelV4 } from 'ai/test';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   MAX_AUTONOMOUS_STEPS,
+  MAX_RESUMES,
   MAX_STEPS,
   RECENT_STEPS,
   SHORTENED,
@@ -44,41 +45,76 @@ const longLog = (script: string) => {
   return marker ? { stdout: `${marker}\n${'ligne de journal\n'.repeat(300)}` } : undefined;
 };
 
-/** Works with tools until told it has no step left, then sums up. */
-const untilTheLimit = () =>
+/** The last message of a prompt: what the model answers. */
+const lastSaid = (prompt: string) => prompt.slice(prompt.lastIndexOf('"role":"user"'));
+
+/**
+ * Works with tools until told it has no step left, then sums up; told to go on, it finishes
+ * (`stubborn`: it never does).
+ */
+const untilTheLimit = (stubborn = false) =>
   scriptedBy((prompt, call) => {
-    if (prompt.includes('"text":"Continue"')) return textTurn('Je reprends le rapport.');
-    return prompt.includes('nombre maximum d’étapes')
-      ? textTurn('Fait : les canvases sont listés. Reste : le rapport.')
-      : toolTurn('canvas_list', {}, `call-${call}`);
+    const said = lastSaid(prompt);
+    if (said.includes('nombre maximum d’étapes')) {
+      return textTurn('Fait : les canvases sont listés. Reste : le rapport.');
+    }
+    if (!stubborn && said.includes('Reprise automatique')) {
+      return textTurn('Je reprends le rapport.');
+    }
+    return toolTurn('canvas_list', {}, `call-${call}`);
   });
 
 describe('the step limit', () => {
-  it('ends the turn with a summary instead of a tool call, and marks the answer', async () => {
+  it('ends the turn with a summary instead of a tool call, then goes on by itself', async () => {
     const model = untilTheLimit();
     const { send, transcript } = await start(model);
 
     await send('Fais l’inventaire des canvases');
 
-    expect(model.doStreamCalls).toHaveLength(MAX_STEPS);
-    // Tools are off at the last step only.
-    expect(model.doStreamCalls.at(-2)?.toolChoice).toEqual({ type: 'auto' });
-    expect(model.doStreamCalls.at(-1)?.toolChoice).toEqual({ type: 'none' });
-    const answer = (await transcript()).at(-1);
-    expect(answer).toMatchObject({ role: 'assistant', status: 'done', stepLimit: true });
-    expect(answer?.parts.at(-1)).toEqual({
+    // Tools are off at the last step only; the bot knows it goes on right after.
+    expect(model.doStreamCalls[MAX_STEPS - 2]?.toolChoice).toEqual({ type: 'auto' });
+    expect(model.doStreamCalls[MAX_STEPS - 1]?.toolChoice).toEqual({ type: 'none' });
+    expect(promptOf(model, MAX_STEPS - 1)).toContain('tu reprendras automatiquement');
+    const said = await transcript();
+    const cut = said.find((m) => m.stepLimit);
+    const resume = said.find((m) => m.resume);
+    const after = said.at(-1);
+    expect(cut).toMatchObject({ role: 'assistant', status: 'done', stepLimit: true });
+    expect(cut?.parts.at(-1)).toEqual({
       type: 'text',
       text: 'Fait : les canvases sont listés. Reste : le rapport.',
     });
 
-    // "Continue": the next turn picks up from the summary, and is not marked if it ends early.
-    await send('Continue');
+    // The hub tells it to go on: a quiet line for the user, a note for the bot, who picks up
+    // from its summary, on the user's behalf (not marked autonomous).
+    expect(resume).toMatchObject({
+      role: 'user',
+      kind: 'chat',
+      resume: 1,
+      parts: [
+        { type: 'text', text: `Reprise automatique après la limite d'étapes (1/${MAX_RESUMES})` },
+      ],
+    });
+    expect(model.doStreamCalls).toHaveLength(MAX_STEPS + 1);
     expect(promptOf(model, MAX_STEPS)).toContain('Reste : le rapport.');
-    expect((await transcript()).at(-1)).toMatchObject({
+    expect(after).toMatchObject({
       status: 'done',
       stepLimit: false,
+      autonomous: false,
+      resume: null,
       parts: [{ type: 'text', text: 'Je reprends le rapport.' }],
     });
+  });
+
+  it('stays put while the bots are paused', async () => {
+    const model = untilTheLimit();
+    const { send, transcript, services } = await start(model);
+    await services.system.update({ paused: true });
+
+    await send('Fais l’inventaire des canvases');
+
+    expect(model.doStreamCalls).toHaveLength(MAX_STEPS);
+    expect((await transcript()).at(-1)).toMatchObject({ role: 'assistant', stepLimit: true });
   });
 
   it('is lower when the bot works on its own', async () => {
@@ -98,8 +134,79 @@ describe('the step limit', () => {
     });
     await services.runtime.settle();
 
-    expect(model.doStreamCalls).toHaveLength(MAX_AUTONOMOUS_STEPS);
-    expect((await transcript()).at(-1)).toMatchObject({ status: 'done', stepLimit: true });
+    expect(model.doStreamCalls[MAX_AUTONOMOUS_STEPS - 1]?.toolChoice).toEqual({ type: 'none' });
+    const said = await transcript();
+    const cut = said.find((m) => m.stepLimit);
+    const resume = said.find((m) => m.resume);
+    const after = said.at(-1);
+    expect(cut).toMatchObject({ status: 'done', stepLimit: true, autonomous: true });
+    // It goes on on its own too.
+    expect(resume).toMatchObject({ role: 'user', kind: 'routine', resume: 1 });
+    expect(after).toMatchObject({ status: 'done', stepLimit: false, autonomous: true });
+    expect(model.doStreamCalls).toHaveLength(MAX_AUTONOMOUS_STEPS + 1);
+  });
+
+  it('goes on at most MAX_RESUMES times, then tells the lead', async () => {
+    const marcoModel = untilTheLimit(true);
+    const leaModel = scriptedBy(() => textTurn('Je regarde ce qui bloque Marco.'));
+    t = await createTestApp({}, undefined, (bot) =>
+      bot.name === 'Marco' ? marcoModel : bot.name === 'Léa' ? leaModel : null,
+    );
+    const { app, services } = t;
+    const auth = bearer((await setupOwner(app)).accessToken);
+    const post = async <T>(url: string, payload: object) =>
+      (await app.inject({ method: 'POST', url, headers: auth, payload })).json() as T;
+    const conversation = async (botId: string) =>
+      (
+        await app.inject({ method: 'GET', url: `/api/v1/bots/${botId}/messages`, headers: auth })
+      ).json().items as Message[];
+    const team = await post<Team>('/api/v1/teams', { name: 'Agence web' });
+    const lea = await post<Bot>('/api/v1/bots', {
+      name: 'Léa',
+      role: 'Cheffe de projet',
+      teamId: team.id,
+      lead: true,
+    });
+    const marco = await post<Bot>('/api/v1/bots', {
+      name: 'Marco',
+      role: 'Développeur',
+      teamId: team.id,
+    });
+
+    await services.runtime.deliver(marco.id, {
+      from: await services.bots.row(lea.id),
+      kind: 'chat',
+      text: 'Fais l’inventaire des canvases',
+    });
+    await services.runtime.settle();
+
+    const turns = MAX_RESUMES + 1;
+    expect(marcoModel.doStreamCalls).toHaveLength(turns * MAX_AUTONOMOUS_STEPS);
+    // The last time, it knows nobody tells it to go on.
+    expect(promptOf(marcoModel, turns * MAX_AUTONOMOUS_STEPS - 1)).toContain(
+      'Tu pourras être relancé',
+    );
+    const marcos = await conversation(marco.id);
+    expect(marcos.flatMap((m) => (m.resume ? [m.resume] : []))).toEqual([1, 2, 3, 4, 5]);
+    expect(marcos.at(-1)).toMatchObject({ role: 'assistant', stepLimit: true });
+
+    // Léa hears about it from the hub, and decides.
+    const leas = await conversation(lea.id);
+    expect(leas.at(-2)).toMatchObject({
+      role: 'user',
+      kind: 'routine',
+      fromBotId: null,
+      parts: [
+        {
+          type: 'text',
+          text: `**Marco tourne en rond** · limite d'étapes atteinte ${turns} fois de suite`,
+        },
+      ],
+    });
+    expect(promptOf(leaModel, 0)).toContain(
+      `[Note du hub] Marco (Développeur, équipe Agence web) a atteint la limite d'étapes ${turns} fois de suite`,
+    );
+    expect(leas.at(-1)).toMatchObject({ role: 'assistant', autonomous: true });
   });
 
   it('leaves answers that finish in time unmarked', async () => {

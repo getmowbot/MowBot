@@ -53,7 +53,7 @@ function MenuItem({
       onClick={onClick}
       className={cn(
         'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors duration-150',
-        danger ? 'text-destructive hover:bg-destructive/10' : 'hover:bg-white/[0.06]',
+        danger ? 'text-destructive hover:bg-destructive/10' : 'hover:bg-ink/[0.06]',
         active && 'text-foreground',
       )}
     >
@@ -131,7 +131,7 @@ function CardMenu({
         aria-label={t('canvas.menu', { title: canvas.title })}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="grid size-7 place-items-center rounded-lg text-faint transition-colors hover:bg-white/[0.06] hover:text-foreground"
+        className="grid size-7 place-items-center rounded-lg text-faint transition-colors hover:bg-ink/[0.06] hover:text-foreground"
       >
         <Ellipsis className="size-4" />
       </button>

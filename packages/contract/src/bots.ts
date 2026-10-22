@@ -34,6 +34,12 @@ export const botActivitySchema = z.object({
 });
 export type BotActivity = z.infer<typeof botActivitySchema>;
 
+/**
+ * The activity of a bot thinking it over (no tool runs): `input.intent` is what it thinks
+ * about, from the latest headline of its reasoning.
+ */
+export const REASONING_ACTIVITY = 'reasoning';
+
 export const botSchema = z.object({
   id: z.uuid(),
   name: z.string(),
@@ -274,6 +280,11 @@ export const messageSchema = z.object({
   status: z.enum(['streaming', 'done', 'error', 'stopped']),
   /** The bot ran out of steps before finishing: it summed up what is left, and can be told to continue. */
   stepLimit: z.boolean(),
+  /**
+   * The hub's own "go on" after an answer cut by the step limit: how many in a row (null: not
+   * one). Clients show it as a quiet line, not as the user's message.
+   */
+  resume: z.number().int().nullable(),
   /** Why the answer failed, for clients to word it; `error` keeps the technical detail. */
   errorCode: z.enum(['no_model', 'hub_restart', 'run_failed']).nullable(),
   error: z.string().nullable(),

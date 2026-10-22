@@ -200,7 +200,7 @@ function PendingFiles({ files, onRemove }: { files: PendingFile[]; onRemove(id: 
                 className="size-16 rounded-xl border border-border object-cover"
               />
             ) : (
-              <div className="flex h-16 w-44 items-center gap-2.5 rounded-xl border border-border bg-white/[0.03] px-2.5">
+              <div className="flex h-16 w-44 items-center gap-2.5 rounded-xl border border-border bg-ink/[0.03] px-2.5">
                 <span className={cn('shrink-0', tone)}>
                   <Icon className="size-5" />
                 </span>
@@ -774,7 +774,7 @@ export function ChatComposer({
                       title={option.section === 'models' ? option.model.id : undefined}
                       className={cn(
                         'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-100',
-                        index === active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]',
+                        index === active ? 'bg-ink/[0.08]' : 'hover:bg-ink/[0.04]',
                       )}
                     >
                       {option.section === 'commands' ? (
@@ -856,13 +856,10 @@ export function ChatComposer({
       </div>
       <form
         onSubmit={submit}
-        className={cn(
-          'glass relative rounded-2xl p-2 transition-[border-color] duration-300 focus-within:border-white/30',
-          dragging && 'border-primary/50',
-        )}
+        className={cn('lens relative rounded-[26px] p-1.5', dragging && 'border-primary/50')}
       >
         {dragging && (
-          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl border-2 border-dashed border-primary/60 bg-background/85 text-sm text-foreground">
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-[26px] border-2 border-dashed border-primary/60 bg-background/85 text-sm text-foreground">
             {t('chat.attach.drop')}
           </div>
         )}
@@ -872,7 +869,7 @@ export function ChatComposer({
             <>
               <Button
                 variant="ghost"
-                size="icon"
+                size="round"
                 className="shrink-0"
                 onClick={() => fileInput.current?.click()}
                 aria-label={t('chat.attach.add')}
@@ -897,7 +894,7 @@ export function ChatComposer({
               <RecordingBar elapsed={elapsed} levels={levels} />
               <Button
                 variant="ghost"
-                size="icon"
+                size="round"
                 className="shrink-0"
                 onClick={() => stopRecording(recorder, false)}
                 aria-label={t('chat.voice.cancel')}
@@ -906,7 +903,7 @@ export function ChatComposer({
                 <Trash2 className="size-4" />
               </Button>
               <Button
-                size="icon"
+                size="round"
                 className="shrink-0"
                 onClick={() => stopRecording(recorder, true)}
                 aria-label={t('chat.voice.send')}
@@ -933,16 +930,16 @@ export function ChatComposer({
                 aria-expanded={open}
                 aria-autocomplete="list"
                 placeholder={t('chat.placeholder', { name: bot.name })}
-                className="max-h-[220px] min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-[14.5px] leading-relaxed outline-none placeholder:text-faint"
+                className="max-h-[220px] min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2.5 py-2 text-[14.5px] leading-relaxed outline-none placeholder:text-faint"
               />
               {hasContent ? (
-                <Button type="submit" size="icon" className="shrink-0" aria-label={t('chat.send')}>
+                <Button type="submit" size="round" className="shrink-0" aria-label={t('chat.send')}>
                   <ArrowUp className="size-4" />
                 </Button>
               ) : working ? (
                 <Button
                   type="button"
-                  size="icon"
+                  size="round"
                   variant="outline"
                   className="shrink-0"
                   onClick={() => commands.find((c) => c.name === 'stop')?.run()}
@@ -952,7 +949,7 @@ export function ChatComposer({
                 </Button>
               ) : canAttach ? (
                 <Button
-                  size="icon"
+                  size="round"
                   className="shrink-0"
                   onClick={() => void startRecording()}
                   aria-label={t('chat.voice.record')}
@@ -961,7 +958,7 @@ export function ChatComposer({
                   <Mic className="size-4" />
                 </Button>
               ) : (
-                <Button type="submit" size="icon" disabled aria-label={t('chat.send')}>
+                <Button type="submit" size="round" disabled aria-label={t('chat.send')}>
                   <ArrowUp className="size-4" />
                 </Button>
               )}

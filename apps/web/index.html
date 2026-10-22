@@ -1,12 +1,25 @@
 <!doctype html>
-<html lang="fr" class="dark">
+<html lang="fr" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#06070a" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>MowBot</title>
+    <script>
+      // The look the user picked (src/lib/theme.ts), before the first paint: no flash.
+      try {
+        const saved = localStorage.getItem('mowbot.theme');
+        const light =
+          saved === 'light' ||
+          (saved !== 'dark' && matchMedia('(prefers-color-scheme: light)').matches);
+        if (light) {
+          document.documentElement.dataset.theme = 'light';
+          document.querySelector('meta[name="theme-color"]').content = '#f4f5f8';
+        }
+      } catch {}
+    </script>
   </head>
   <body>
     <div class="app-grain" aria-hidden="true"></div>

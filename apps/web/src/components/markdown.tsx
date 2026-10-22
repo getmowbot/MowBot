@@ -40,13 +40,13 @@ const components: Components = {
         {children}
       </code>
     ) : (
-      <code className="rounded-md bg-white/[0.07] px-1.5 py-0.5 font-mono text-[0.86em]" {...props}>
+      <code className="rounded-md bg-ink/[0.07] px-1.5 py-0.5 font-mono text-[0.86em]" {...props}>
         {children}
       </code>
     ),
   pre: ({ node: _, ...props }) => (
     <pre
-      className="mb-3 overflow-x-auto rounded-xl border border-border bg-black/40 p-3 text-[12.5px] leading-relaxed last:mb-0"
+      className="mb-3 overflow-x-auto rounded-xl border border-border bg-sunken p-3 text-[12.5px] leading-relaxed last:mb-0"
       {...props}
     />
   ),

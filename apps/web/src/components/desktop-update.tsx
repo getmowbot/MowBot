@@ -56,7 +56,7 @@ export function DesktopUpdate() {
           className="glass fixed right-4 bottom-4 z-[60] w-[min(22rem,calc(100vw-2rem))] rounded-2xl p-4"
         >
           <div className="flex items-start gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/[0.06]">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-ink/[0.06]">
               <Download className="size-4" />
             </span>
             <div className="min-w-0 flex-1">
@@ -81,7 +81,7 @@ export function DesktopUpdate() {
             )}
           </div>
           {progress !== null ? (
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink/[0.08]">
               <motion.div
                 className="h-full rounded-full bg-primary"
                 animate={{ width: `${Math.round(progress * 100)}%` }}

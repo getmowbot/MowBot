@@ -171,7 +171,7 @@ function RoutineRow({ routine, bot }: { routine: Routine; bot?: Bot }) {
               <p className="whitespace-pre-wrap text-sm text-foreground/85">{routine.prompt}</p>
               {webhook && (
                 <div className="flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate rounded-lg bg-black/40 px-2 py-1.5 font-mono text-xs">
+                  <code className="min-w-0 flex-1 truncate rounded-lg bg-sunken px-2 py-1.5 font-mono text-xs">
                     {webhook}
                   </code>
                   <Button
@@ -337,7 +337,7 @@ function NewRoutineForm({ bots, onDone }: { bots: Bot[]; onDone(): void }) {
         </div>
       </div>
       <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-        <input type="checkbox" name="notify" className="size-4 accent-white" />
+        <input type="checkbox" name="notify" className="size-4 accent-[var(--primary)]" />
         {t('routines.notify')}
       </label>
       <FormError message={error} />
@@ -448,7 +448,7 @@ function AutomationRow({
           >
             <code
               className={cn(
-                'block rounded-lg bg-black/40 px-2 py-1 font-mono text-[11px] text-muted-foreground',
+                'block rounded-lg bg-sunken px-2 py-1 font-mono text-[11px] text-muted-foreground',
                 expanded ? 'whitespace-pre-wrap break-all' : 'truncate',
               )}
             >

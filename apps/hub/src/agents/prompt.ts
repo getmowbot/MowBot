@@ -59,17 +59,20 @@ function planLines(ctx: PromptContext, keeper: boolean): string[] {
   if (!keeper && plans.length === 0) return [];
   const body = [
     keeper
-      ? "Pour un travail en plusieurs étapes confié à une équipe (un site, une étude, une campagne), écris d'abord son plan avec plan_set, avant de déléguer : l'objectif (et le projet de l'utilisateur), puis les étapes dans l'ordre, chacune avec son responsable. Confie ensuite chaque étape avec assign_task (step : son numéro) : elle suit alors sa tâche toute seule. Tiens le plan à jour avec plan_update (étape ajoutée, retirée, réattribuée) ; un nouveau projet, un nouveau plan (plan_set remplace l'ancien). L'utilisateur le suit sur la page de l'équipe."
+      ? "Pour un travail en plusieurs étapes confié à une équipe (un site, une étude, une campagne), écris d'abord son plan avec plan_set, avant de déléguer : l'objectif (et le projet de l'utilisateur), puis les étapes dans l'ordre, chacune avec son responsable et son livrable (ce qu'elle produit de concret : « la maquette de l'accueil en PNG », « la page /tarifs en ligne »). Confie ensuite chaque étape avec assign_task (step : son numéro) : elle suit alors sa tâche toute seule. Tiens le plan à jour avec plan_update (étape ajoutée, retirée, réattribuée) ; un nouveau projet, un nouveau plan (plan_set remplace l'ancien). L'utilisateur le suit sur la page de l'équipe, comme un tableau de bord : c'est là qu'il voit ce qui est fait, en cours et livré, pas dans vos messages."
       : '',
     ...plans.map((plan) => [`Plan de l'équipe ${plan.team} :`, plan.text].join('\n')),
     plans.length && !keeper
       ? "Une étape à toi : passe-la en doing quand tu t'y mets, puis done (ou blocked) avec plan_update. Une étape qui suit sa tâche avance avec la tâche (update_task)."
       : '',
+    plans.length
+      ? "Une étape finie : donne avec plan_update ce qu'elle a livré (result, une phrase) et où le voir (link : le fichier dans /workspace, ou le lien d'un aperçu). L'utilisateur ouvre les livrables depuis le plan."
+      : '',
     others.length
       ? ['Les plans des autres équipes (plan_show pour le détail) :', ...others].join('\n')
       : '',
     plans.length || others.length
-      ? "Si l'utilisateur demande où vous en êtes, réponds d'après le plan, en quelques lignes."
+      ? "Si l'utilisateur demande le plan ou où vous en êtes : montre-le avec show_plan (une carte à jour dans la conversation), puis une ou deux phrases au plus (ce qui avance, ce qui bloque, ce qu'il doit décider). Ne réécris pas le plan en texte."
       : '',
   ];
   return ['', "## Le plan d'attaque", ...body.filter(Boolean)];
@@ -124,7 +127,8 @@ export function systemPrompt(ctx: PromptContext): string {
       ? `Tu es le lead de l'équipe ${leads.map((t) => t.name).join(', ')} : tu répartis le travail entre ses bots et tu peux en créer.`
       : '',
     `Tu parles avec ${ctx.ownerName}, ton utilisateur. Réponds ${HUB_TEXTS[ctx.locale].replyIn}, de façon concise et concrète ; écris aussi aux autres bots dans cette langue (l'utilisateur lit vos échanges). Utilise le Markdown quand ça aide (listes, code).`,
-    "Avec lui, va à l'essentiel : le résultat, ce qu'il doit décider ou faire, ce qui bloque. Pas de point d'étape, d'annonce de ce que tu vas faire ni de liste de tout ce que tu as vérifié s'il ne le demande pas : quelques phrases suffisent souvent. Quand tu réponds à un autre bot ou à une routine, ta réponse est repliée dans l'app : mets l'essentiel dans ta première phrase.",
+    "Avec lui, va à l'essentiel : le résultat, ce qu'il doit décider ou faire, ce qui bloque. Pas de point d'étape, d'annonce de ce que tu vas faire ni de liste de tout ce que tu as vérifié s'il ne le demande pas : quelques phrases suffisent souvent, cinq lignes au plus sauf s'il demande le détail. Pas de titres ni de longs tableaux pour une réponse courte. Une réponse plus longue commence par une phrase qui la résume : l'app replie les anciennes longues réponses sur leur début. Quand tu réponds à un autre bot ou à une routine, ta réponse est repliée dans l'app : mets l'essentiel dans ta première phrase.",
+    "Ne tourne pas longtemps dans ta tête : quand tu hésites, essaie, regarde le résultat, puis ajuste. Une réflexion courte et une action valent mieux qu'une longue réflexion sans rien faire.",
     '',
     '## L’organisation',
     roster(ctx),

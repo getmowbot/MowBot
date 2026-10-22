@@ -37,6 +37,10 @@ export interface HubTexts {
   budgetAllBody(spent: number, budget: number): string;
   finished(bot: string): string;
   failed(bot: string): string;
+  /** The hub telling a bot to go on after the step limit (the n-th time in a row). */
+  resumed(count: number, max: number): string;
+  /** To a bot's lead: it kept hitting the step limit. */
+  stuck(bot: string, times: number): string;
   needsYou(bot: string): string;
   newNotice(bot: string): string;
   vaultSaved(what: string): string;
@@ -111,6 +115,9 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
       `${spent} jetons dépensés sur ${budget}. Les routines reprendront demain.`,
     finished: (bot) => `${bot} a fini`,
     failed: (bot) => `${bot} n'a pas pu finir`,
+    resumed: (count, max) => `Reprise automatique après la limite d'étapes (${count}/${max})`,
+    stuck: (bot, times) =>
+      `**${bot} tourne en rond** · limite d'étapes atteinte ${times} fois de suite`,
     needsYou: (bot) => `${bot} a besoin de toi`,
     newNotice: (bot) => `${bot} : nouvelle notification`,
     vaultSaved: (what) => `🔒 ${what} rangé dans le coffre`,
@@ -180,6 +187,9 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
       `${spent} tokens spent out of ${budget}. Routines resume tomorrow.`,
     finished: (bot) => `${bot} is done`,
     failed: (bot) => `${bot} couldn't finish`,
+    resumed: (count, max) => `Resumed on its own after the step limit (${count}/${max})`,
+    stuck: (bot, times) =>
+      `**${bot} is going in circles** · step limit reached ${times} times in a row`,
     needsYou: (bot) => `${bot} needs you`,
     newNotice: (bot) => `${bot}: new notification`,
     vaultSaved: (what) => `🔒 ${what} saved in the vault`,

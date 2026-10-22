@@ -53,7 +53,7 @@ function Choice<T extends string>({
             'relative rounded-xl border px-3 py-2.5 text-left transition-colors duration-200',
             value === option.value
               ? 'border-primary/50'
-              : 'border-border-strong text-muted-foreground hover:border-white/20',
+              : 'border-border-strong text-muted-foreground hover:border-ink/20',
           )}
         >
           {value === option.value && (
@@ -88,7 +88,7 @@ function Check({
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 size-4 accent-white"
+        className="mt-0.5 size-4 accent-[var(--primary)]"
       />
       <span>
         <span className="block text-sm">{label}</span>

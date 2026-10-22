@@ -10,14 +10,34 @@ const KEPT_LINES = 8;
 const KEPT_CHARS = 600;
 export const SHORTENED = '[sortie raccourcie]';
 
-/** Shown at the last step, where tools are off: the turn ends with words, not a tool call. */
-export const LAST_STEP_NOTE: ModelMessage = {
-  role: 'user',
-  content:
-    '[Note du système] Tu as atteint le nombre maximum d’étapes pour ce tour : tu ne peux plus ' +
-    'utiliser d’outils. Résume en quelques lignes ce qui est fait et ce qui reste à faire. ' +
-    'L’utilisateur pourra te demander de continuer.',
-};
+/**
+ * A turn cut by the step limit goes on by itself this many times in a row; then the bot's lead
+ * (or the Chef) is told and decides.
+ */
+export const MAX_RESUMES = 5;
+
+/**
+ * Shown at the last step, where tools are off: the turn ends with words, not a tool call.
+ * `resumes`: the hub tells the bot to go on right after.
+ */
+export function lastStepNote(resumes: boolean): ModelMessage {
+  return {
+    role: 'user',
+    content: resumes
+      ? '[Note du système] Tu as atteint le nombre maximum d’étapes pour ce tour : tu ne peux ' +
+        'plus utiliser d’outils. Dis en une ou deux phrases où tu en es : tu reprendras ' +
+        'automatiquement juste après, là où tu t’es arrêté.'
+      : '[Note du système] Tu as atteint le nombre maximum d’étapes pour ce tour : tu ne peux ' +
+        'plus utiliser d’outils. Résume en quelques lignes ce qui est fait et ce qui reste à ' +
+        'faire. Tu pourras être relancé.',
+  };
+}
+
+/** What the bot reads when the hub tells it to go on. */
+export const RESUME_NOTE =
+  '[Note du système] Reprise automatique : ton tour précédent s’est arrêté à la limite ' +
+  'd’étapes. Continue là où tu t’es arrêté, sans refaire ni résumer ce qui est fait. Si le ' +
+  'travail est fini ou que tu es bloqué, dis-le en une phrase et arrête-toi.';
 
 type ToolOutput = ToolResultPart['output'];
 

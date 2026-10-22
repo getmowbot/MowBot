@@ -3493,6 +3493,24 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "deliverable": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "result": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "link": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -3500,7 +3518,10 @@
                                   "title",
                                   "status",
                                   "ownerBotId",
-                                  "taskId"
+                                  "taskId",
+                                  "deliverable",
+                                  "result",
+                                  "link"
                                 ],
                                 "additionalProperties": false
                               }
@@ -3724,6 +3745,39 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "deliverable": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "result": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "link": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -3842,6 +3896,24 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "deliverable": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "result": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "link": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -3849,7 +3921,10 @@
                           "title",
                           "status",
                           "ownerBotId",
-                          "taskId"
+                          "taskId",
+                          "deliverable",
+                          "result",
+                          "link"
                         ],
                         "additionalProperties": false
                       }
@@ -12495,6 +12570,18 @@
                           "stepLimit": {
                             "type": "boolean"
                           },
+                          "resume": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "errorCode": {
                             "anyOf": [
                               {
@@ -12561,6 +12648,7 @@
                           "mentions",
                           "status",
                           "stepLimit",
+                          "resume",
                           "errorCode",
                           "error",
                           "usage",
@@ -13778,6 +13866,18 @@
                     "stepLimit": {
                       "type": "boolean"
                     },
+                    "resume": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "errorCode": {
                       "anyOf": [
                         {
@@ -13844,6 +13944,7 @@
                     "mentions",
                     "status",
                     "stepLimit",
+                    "resume",
                     "errorCode",
                     "error",
                     "usage",
@@ -15251,6 +15352,18 @@
                     "stepLimit": {
                       "type": "boolean"
                     },
+                    "resume": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "errorCode": {
                       "anyOf": [
                         {
@@ -15317,6 +15430,7 @@
                     "mentions",
                     "status",
                     "stepLimit",
+                    "resume",
                     "errorCode",
                     "error",
                     "usage",
@@ -16410,6 +16524,18 @@
                     "stepLimit": {
                       "type": "boolean"
                     },
+                    "resume": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "errorCode": {
                       "anyOf": [
                         {
@@ -16476,6 +16602,7 @@
                     "mentions",
                     "status",
                     "stepLimit",
+                    "resume",
                     "errorCode",
                     "error",
                     "usage",
@@ -17595,6 +17722,18 @@
                     "stepLimit": {
                       "type": "boolean"
                     },
+                    "resume": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "errorCode": {
                       "anyOf": [
                         {
@@ -17661,6 +17800,7 @@
                     "mentions",
                     "status",
                     "stepLimit",
+                    "resume",
                     "errorCode",
                     "error",
                     "usage",
@@ -18798,6 +18938,18 @@
                     "stepLimit": {
                       "type": "boolean"
                     },
+                    "resume": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "errorCode": {
                       "anyOf": [
                         {
@@ -18864,6 +19016,7 @@
                     "mentions",
                     "status",
                     "stepLimit",
+                    "resume",
                     "errorCode",
                     "error",
                     "usage",
@@ -21745,6 +21898,18 @@
                           "stepLimit": {
                             "type": "boolean"
                           },
+                          "resume": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "errorCode": {
                             "anyOf": [
                               {
@@ -21816,6 +21981,7 @@
                           "mentions",
                           "status",
                           "stepLimit",
+                          "resume",
                           "errorCode",
                           "error",
                           "usage",

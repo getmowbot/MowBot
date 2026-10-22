@@ -1,4 +1,5 @@
-import type { Bot, Message } from '@mowbot/contract';
+import { type Bot, type Message, REASONING_ACTIVITY } from '@mowbot/contract';
+import { reasoningHeadline } from '@mowbot/design';
 import { actionTitle } from '../components/activity';
 import type { BotMood } from '../components/bot-avatar';
 import { i18n } from '../i18n';
@@ -13,7 +14,17 @@ export function currentAction(
 ): { toolName: string; input: unknown } | null {
   if (bot.status !== 'working') return null;
   const running = live?.parts.findLast((p) => p.type === 'tool' && p.state === 'running');
-  return running?.type === 'tool' ? running : bot.activity;
+  if (running?.type === 'tool') return running;
+  // Thinking it over is no action (see `thoughtOf`).
+  return bot.activity?.toolName === REASONING_ACTIVITY ? null : bot.activity;
+}
+
+/** What the bot thinks about while no tool runs: its reasoning's latest headline, if any. */
+export function thoughtOf(bot: Pick<Bot, 'activity'>, live?: Live): string {
+  const last = live?.parts.at(-1);
+  if (last?.type === 'reasoning') return reasoningHeadline(last.text);
+  const intent = bot.activity?.toolName === REASONING_ACTIVITY ? bot.activity.input.intent : '';
+  return typeof intent === 'string' ? intent : '';
 }
 
 /** Expression of a bot's character from its status and what it is doing right now. */
@@ -49,7 +60,9 @@ export function statusLabel(
   switch (bot.status) {
     case 'working': {
       const action = currentAction(bot, live);
-      return action ? actionTitle(action) : t('mood.thinking');
+      if (action) return actionTitle(action);
+      const thought = thoughtOf(bot, live);
+      return thought ? t('mood.thinkingAbout', { what: thought }) : t('mood.thinking');
     }
     // statusDetail is the name of the bot whose answer it waits for.
     case 'waiting_bot':

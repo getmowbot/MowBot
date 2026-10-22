@@ -39,7 +39,7 @@ const Dot = ({ on }: { on: boolean }) => (
     aria-hidden
     className={cn(
       'inline-block size-1.5 shrink-0 rounded-full',
-      on ? 'bg-emerald-400' : 'bg-white/25',
+      on ? 'bg-emerald-400' : 'bg-ink/25',
     )}
   />
 );
@@ -64,7 +64,7 @@ function Choice({
       aria-checked={checked}
       data-checked={checked || undefined}
       onClick={onPick}
-      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-150 hover:bg-white/[0.06] focus-visible:bg-white/[0.06] focus-visible:outline-none"
+      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-150 hover:bg-ink/[0.06] focus-visible:bg-ink/[0.06] focus-visible:outline-none"
     >
       <span className="grid size-[22px] shrink-0 place-items-center text-muted-foreground">
         {icon}
@@ -81,7 +81,7 @@ function Choice({
 }
 
 const itemClass =
-  'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground focus-visible:bg-white/[0.06] focus-visible:outline-none';
+  'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-ink/[0.06] hover:text-foreground focus-visible:bg-ink/[0.06] focus-visible:outline-none';
 
 /**
  * Away from the computer (browser, another device): a folder is added from its desktop app, which
@@ -278,7 +278,7 @@ export function ProjectChip({
             : undefined
         }
         className={cn(
-          'flex max-w-full items-center gap-1.5 rounded-full border border-border-strong bg-white/[0.02] px-2.5 py-1 text-xs transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.06]',
+          'flex max-w-full items-center gap-1.5 rounded-full border border-border-strong bg-ink/[0.02] px-2.5 py-1 text-xs transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.06]',
           current ? 'text-foreground/90' : 'text-muted-foreground',
         )}
       >
@@ -311,7 +311,7 @@ export function ProjectChip({
               {t('chat.project.title')}
             </p>
             {current && mirror && (
-              <div className="mx-1 mb-1 flex items-start gap-2 rounded-lg bg-white/[0.03] px-2 py-1.5 text-xs">
+              <div className="mx-1 mb-1 flex items-start gap-2 rounded-lg bg-ink/[0.03] px-2 py-1.5 text-xs">
                 <FolderSync className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
                   <p className="truncate font-mono text-[11px] text-muted-foreground">

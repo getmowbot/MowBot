@@ -425,7 +425,7 @@ describe('team plans', () => {
     const prompt = promptOf(chefModel, 0);
     expect(prompt).toContain("## Le plan d'attaque");
     expect(prompt).toContain('- Agence web : Refaire le site — 1/3, 1 bloquée');
-    expect(prompt).toContain("Si l'utilisateur demande où vous en êtes");
+    expect(prompt).toContain("Si l'utilisateur demande le plan ou où vous en êtes");
     expect(prompt).not.toContain('1. [fait] Maquettes');
     const call = (await conversation(chef.id)).at(-1)?.parts.find((p) => p.type === 'tool');
     expect(call?.type === 'tool' && call.output).toContain('1. [fait] Maquettes — Léa');
@@ -450,5 +450,111 @@ describe('team plans', () => {
     expect(prompt).toContain('1. [à faire] Intégration — Marco (toi)');
     // A member does not get the keeper's instructions.
     expect(prompt).not.toContain("écris d'abord son plan avec plan_set");
+  });
+
+  it('names what each step delivers, then what it delivered and where', async () => {
+    const marcoModel = scriptedBy((prompt, call) =>
+      call === 0
+        ? toolTurn('plan_update', {
+            steps: [
+              {
+                step: 2,
+                status: 'done',
+                result: 'La page est en ligne sur l’aperçu.',
+                link: 'https://preview.example/abc',
+              },
+            ],
+          })
+        : call === 1
+          ? toolTurn(
+              'update_task',
+              { id: TASK_ID.exec(prompt)?.[1], status: 'done', result: '3 maquettes PNG' },
+              'call-2',
+            )
+          : textTurn('Fini.'),
+    );
+    const { services, team, lea, marco, row, say, plan } = await start({
+      Léa: scripted([
+        toolTurn('plan_set', {
+          goal: 'Le site',
+          steps: [
+            { title: 'Maquettes', owner: 'Marco', deliverable: "3 maquettes de l'accueil" },
+            { title: 'Intégration', owner: 'Marco', deliverable: "La page d'accueil en ligne" },
+          ],
+        }),
+        textTurn('Plan écrit.'),
+      ]),
+      Marco: marcoModel,
+    });
+    await say(lea.id, 'On refait le site');
+    expect((await plan())?.steps.map((s) => s.deliverable)).toEqual([
+      "3 maquettes de l'accueil",
+      "La page d'accueil en ligne",
+    ]);
+
+    // Marco says what his step delivered and where; a task's result fills its step.
+    await services.tasks.create(
+      { assignee: await row(marco.id), title: 'Maquettes', step: { teamId: team.id, number: 1 } },
+      await row(lea.id),
+    );
+    await say(marco.id, 'Finis l’intégration');
+    const steps = (await plan())?.steps;
+    expect(steps?.[0]).toMatchObject({ status: 'done', result: '3 maquettes PNG', link: null });
+    expect(steps?.[1]).toMatchObject({
+      status: 'done',
+      result: 'La page est en ligne sur l’aperçu.',
+      link: 'https://preview.example/abc',
+    });
+    const text = promptOf(marcoModel, 2);
+    expect(text).toContain("Livrable : La page d'accueil en ligne");
+    expect(text).toContain(
+      'Livré : La page est en ligne sur l’aperçu. (https://preview.example/abc)',
+    );
+
+    // A file of the workspace is kept relative to it; anything else is refused.
+    const leaRow = await row(lea.id);
+    const file = await services.plans.update(
+      team.id,
+      { steps: [{ step: 1, link: '/workspace/outputs/maquettes.png' }] },
+      leaRow,
+    );
+    expect(file.steps[0]?.link).toBe('outputs/maquettes.png');
+    expect(
+      await rejection(
+        services.plans.update(team.id, { steps: [{ step: 1, link: '../../etc/passwd' }] }, leaRow),
+      ),
+    ).toEqual({ status: 400, code: 'bad_link' });
+    // A member says what it delivered, but not what a step should deliver.
+    expect(
+      await rejection(
+        services.plans.update(
+          team.id,
+          { steps: [{ step: 1, deliverable: 'Autre chose' }] },
+          await row(marco.id),
+        ),
+      ),
+    ).toEqual({ status: 403, code: 'not_plan_keeper' });
+  });
+
+  it('shows the plan in the conversation as the team, for the apps to draw', async () => {
+    const chefModel = scripted([
+      toolTurn('show_plan', { team: 'Agence web' }),
+      textTurn('La maquette avance.'),
+    ]);
+    const { services, team, chef, marco, row, say, conversation } = await start({
+      Chef: chefModel,
+    });
+    await services.plans.set(
+      team.id,
+      { goal: 'Le site', steps: [{ title: 'Maquettes', ownerBotId: marco.id }] },
+      await row(chef.id),
+    );
+    await say(chef.id, "C'est quoi le plan ?");
+
+    const call = (await conversation(chef.id)).at(-1)?.parts.find((p) => p.type === 'tool');
+    expect(call).toMatchObject({ toolName: 'show_plan', state: 'done', output: team.id });
+    // The bot knows what the user now sees.
+    expect(promptOf(chefModel, 1)).toContain('1. [à faire] Maquettes — Marco');
+    expect(promptOf(chefModel, 0)).toContain('montre-le avec show_plan');
   });
 });

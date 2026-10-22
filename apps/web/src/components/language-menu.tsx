@@ -65,7 +65,7 @@ export function LanguageMenu() {
                   setOpen(false);
                   if (locale !== current) change.mutate(locale);
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-foreground/90 transition-colors duration-150 hover:bg-white/[0.06]"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-foreground/90 transition-colors duration-150 hover:bg-ink/[0.06]"
               >
                 <span className="flex-1">{LOCALE_NAMES[locale]}</span>
                 {locale === current && <Check className="size-4 shrink-0 text-muted-foreground" />}

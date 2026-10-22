@@ -27,7 +27,7 @@ import { cn, timeAgo } from '../lib/utils';
 const PRIORITY_DOT: Record<Notification['priority'], string> = {
   urgent: 'bg-destructive',
   normal: 'bg-primary',
-  digest: 'bg-white/25',
+  digest: 'bg-ink/25',
 };
 
 function AskChef() {
@@ -52,7 +52,7 @@ function AskChef() {
   return (
     <form
       onSubmit={submit}
-      className="glass flex items-center gap-2 rounded-2xl p-1.5 pl-2 transition-[border-color] duration-300 focus-within:border-white/30"
+      className="lens relative flex items-center gap-2 rounded-full p-1.5 pl-2"
     >
       {chef.data && <BotAvatar seed={chef.data.avatarSeed} size={28} />}
       <input
@@ -64,7 +64,7 @@ function AskChef() {
       />
       <Button
         type="submit"
-        size="icon"
+        size="round"
         disabled={!text.trim() || send.isPending}
         aria-label={t('home.send')}
       >
@@ -131,7 +131,7 @@ function Notifications() {
                 key={item.id}
                 className={cn(
                   'flex gap-2.5 rounded-xl px-2 py-2 transition-colors',
-                  !item.readAt && item.priority !== 'digest' && 'bg-white/[0.04]',
+                  !item.readAt && item.priority !== 'digest' && 'bg-ink/[0.04]',
                 )}
               >
                 <span
@@ -238,7 +238,7 @@ export function HomePage() {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/20 bg-white/[0.04] px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-ink/20 bg-ink/[0.04] px-4 py-3">
               <Pause className="size-4 shrink-0" />
               <p className="min-w-0 flex-1 text-sm">{t('home.paused')}</p>
               <Button size="sm" onClick={() => updateSystem.mutate({ paused: false })}>

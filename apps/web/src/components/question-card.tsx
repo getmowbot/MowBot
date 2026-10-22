@@ -41,7 +41,7 @@ export function QuestionCard({
       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       exit={{ opacity: 0, y: -6, filter: 'blur(6px)' }}
       className={cn(
-        'space-y-3 rounded-2xl border border-border-strong bg-white/[0.03] p-3.5',
+        'space-y-3 rounded-2xl border border-border-strong bg-ink/[0.03] p-3.5',
         className,
       )}
     >

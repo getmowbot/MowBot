@@ -105,7 +105,7 @@ export function VaultRequestCard({
   return (
     <form onSubmit={submit} className="glass max-w-md space-y-4 rounded-2xl p-4">
       <div className="flex items-start gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/[0.06]">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-ink/[0.06]">
           <LockKeyhole className="size-4" />
         </span>
         <div className="min-w-0 space-y-0.5">

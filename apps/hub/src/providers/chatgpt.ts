@@ -764,6 +764,8 @@ export class ChatgptService {
               ...params.providerOptions?.openai,
               store: false,
               systemMessageMode: 'developer',
+              // What it thinks about, in short: the apps show it while it thinks.
+              reasoningSummary: 'auto',
             },
           },
         }),

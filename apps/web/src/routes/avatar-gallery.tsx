@@ -50,7 +50,7 @@ export function AvatarGallery() {
           {SEEDS.slice(0, 5).map((seed, i) => (
             <div
               key={seed}
-              className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/[0.05]"
+              className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-ink/[0.05]"
             >
               <BotAvatar
                 seed={seed}

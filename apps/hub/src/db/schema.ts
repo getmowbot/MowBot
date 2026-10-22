@@ -323,6 +323,8 @@ export interface MessageMeta {
   autonomous?: boolean;
   /** On an answer: cut by the step limit (the bot summed up what is left). */
   stepLimit?: boolean;
+  /** The hub telling the bot to go on after the step limit: how many times in a row. */
+  resume?: number;
   /** Arrived while the bot was working and joined that answer (id): already handled. */
   steeredInto?: string;
   /** Context only (e.g. "stopped by …"): does not call for an answer. */
@@ -731,6 +733,10 @@ export const planSteps = pgTable(
     status: text('status').$type<PlanStepStatus>().notNull().default('todo'),
     ownerBotId: uuid('owner_bot_id').references(() => bots.id, { onDelete: 'set null' }),
     taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+    /** What it will deliver; what it delivered (once done) and where that is. */
+    deliverable: text('deliverable'),
+    result: text('result'),
+    link: text('link'),
   },
   (t) => [
     index('plan_steps_team_idx').on(t.teamId, t.position),

@@ -30,7 +30,7 @@ function MenuItem({
         'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-150',
         danger
           ? 'text-destructive hover:bg-destructive/10'
-          : 'text-foreground/90 hover:bg-white/[0.06]',
+          : 'text-foreground/90 hover:bg-ink/[0.06]',
       )}
     >
       <Icon className="size-4 shrink-0" />
@@ -191,8 +191,8 @@ export function RenameField({ bot, onDone }: { bot: Bot; onDone(): void }) {
       }}
       onBlur={(event) => submit(event.currentTarget.value)}
       className={cn(
-        '-mx-1.5 w-full max-w-64 rounded-md bg-white/[0.06] px-1.5 font-semibold leading-tight outline-none ring-1',
-        error ? 'ring-destructive/60' : 'ring-white/30',
+        '-mx-1.5 w-full max-w-64 rounded-md bg-ink/[0.06] px-1.5 font-semibold leading-tight outline-none ring-1',
+        error ? 'ring-destructive/60' : 'ring-ink/30',
       )}
     />
   );

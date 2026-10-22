@@ -181,7 +181,7 @@ function TeamSettings({ team, members }: { team: Team; members: Bot[] }) {
               setIsolated(event.target.checked);
               setSaved(false);
             }}
-            className="mt-0.5 size-4 accent-white"
+            className="mt-0.5 size-4 accent-[var(--primary)]"
           />
           <span>
             <span className="block text-sm">{t('common.isolated')}</span>
@@ -268,7 +268,7 @@ export function TeamPage() {
         <Link
           to="/teams/$teamId/desktop"
           params={{ teamId: current.id }}
-          className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors hover:border-white/20"
+          className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors hover:border-ink/20"
         >
           <Monitor className="size-4 text-muted-foreground" /> {t('common.teamPc')}
           {pc && <StatusBadge status={pc.status} />}
@@ -276,7 +276,7 @@ export function TeamPage() {
         <Link
           to="/teams/$teamId/files"
           params={{ teamId: current.id }}
-          className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors hover:border-white/20"
+          className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors hover:border-ink/20"
         >
           <FolderOpen className="size-4 text-muted-foreground" /> {t('common.files')}
         </Link>
