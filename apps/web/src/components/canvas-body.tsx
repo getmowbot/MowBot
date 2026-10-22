@@ -45,7 +45,7 @@ export function openLink(url: string) {
 }
 
 /** A picture of a canvas: a web address, or a path in the bot's workspace. */
-function CanvasImage({
+export function CanvasImage({
   src,
   alt,
   workspaceId,

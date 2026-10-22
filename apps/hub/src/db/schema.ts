@@ -432,6 +432,10 @@ export const questions = pgTable(
       .references(() => bots.id, { onDelete: 'cascade' }),
     question: text('question').notNull(),
     options: jsonb('options').$type<string[]>().notNull(),
+    /** What helps decide: a few lines, a picture (workspace path or web address), a link. */
+    details: text('details'),
+    image: text('image'),
+    link: jsonb('link').$type<{ label: string; url: string }>(),
     status: text('status').$type<QuestionStatus>().notNull().default('open'),
     answer: text('answer'),
     answeredAt: timestamp('answered_at', { withTimezone: true }),

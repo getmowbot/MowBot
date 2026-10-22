@@ -18,6 +18,9 @@ export function toQuestion(row: QuestionRow): Question {
     botId: row.botId,
     question: row.question,
     options: row.options,
+    details: row.details ?? null,
+    image: row.image ?? null,
+    link: row.link ?? null,
     status: row.status,
     answer: row.answer,
     answeredAt: row.answeredAt?.toISOString() ?? null,
@@ -61,7 +64,14 @@ export class QuestionService {
     bot: { id: string; name: string },
     question: string,
     options: string[],
-    about: { vaultItemId?: string; projectCommand?: { projectId: string; command: string } } = {},
+    about: {
+      vaultItemId?: string;
+      projectCommand?: { projectId: string; command: string };
+      /** What helps decide, shown with the question. */
+      details?: string;
+      image?: string;
+      link?: { label: string; url: string };
+    } = {},
   ): Promise<Question> {
     const open = await this.list({ open: true, botId: bot.id });
     if (open.length >= MAX_OPEN_QUESTIONS) {
@@ -77,6 +87,9 @@ export class QuestionService {
         options,
         vaultItemId: about.vaultItemId ?? null,
         projectCommand: about.projectCommand ?? null,
+        details: about.details ?? null,
+        image: about.image ?? null,
+        link: about.link ?? null,
       })
       .returning();
     if (!row) throw new Error('Question insert returned no row');

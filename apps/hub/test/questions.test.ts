@@ -76,6 +76,30 @@ describe('questions to the user', () => {
     expect(again.status).toBe(409);
   });
 
+  it('carries what helps decide: a few lines, a picture, a link', async () => {
+    const model = scripted([
+      toolTurn('ask_user', {
+        question: 'La paire est passée à 89 €. Je la commande ?',
+        options: ['Oui, en 42', 'Non'],
+        details: '**89 €** au lieu de 129 €, livraison demain.',
+        image: '/workspace/outputs/sneakers.png',
+        link: { label: 'Voir sur Amazon', url: 'https://www.amazon.fr/dp/B0TEST' },
+      }),
+      textTurn('Je te laisse décider.'),
+    ]);
+    const { say, open } = await start(model);
+    await say('Surveille le prix de ces sneakers');
+
+    const [asked] = await open();
+    expect(asked).toMatchObject({
+      question: 'La paire est passée à 89 €. Je la commande ?',
+      details: '**89 €** au lieu de 129 €, livraison demain.',
+      // Kept relative to the bot's workspace, as the apps read it.
+      image: 'outputs/sneakers.png',
+      link: { label: 'Voir sur Amazon', url: 'https://www.amazon.fr/dp/B0TEST' },
+    });
+  });
+
   it('can be set aside without answering, and the bot is not told', async () => {
     const model = scripted([toolTurn('ask_user', question), textTurn('Je te laisse choisir.')]);
     const { inject, say, open, transcript } = await start(model);

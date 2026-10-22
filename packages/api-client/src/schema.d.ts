@@ -8220,6 +8220,13 @@ export interface operations {
                             botId: string;
                             question: string;
                             options: string[];
+                            details: string | null;
+                            image: string | null;
+                            link: {
+                                label: string;
+                                /** Format: uri */
+                                url: string;
+                            } | null;
                             /** @enum {string} */
                             status: "open" | "answered" | "closed";
                             answer: string | null;
@@ -8300,6 +8307,13 @@ export interface operations {
                         botId: string;
                         question: string;
                         options: string[];
+                        details: string | null;
+                        image: string | null;
+                        link: {
+                            label: string;
+                            /** Format: uri */
+                            url: string;
+                        } | null;
                         /** @enum {string} */
                         status: "open" | "answered" | "closed";
                         answer: string | null;
@@ -8373,6 +8387,13 @@ export interface operations {
                         botId: string;
                         question: string;
                         options: string[];
+                        details: string | null;
+                        image: string | null;
+                        link: {
+                            label: string;
+                            /** Format: uri */
+                            url: string;
+                        } | null;
                         /** @enum {string} */
                         status: "open" | "answered" | "closed";
                         answer: string | null;

@@ -23006,6 +23006,45 @@
                               "type": "string"
                             }
                           },
+                          "details": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "image": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "link": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 60
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "url"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -23043,6 +23082,9 @@
                           "botId",
                           "question",
                           "options",
+                          "details",
+                          "image",
+                          "link",
                           "status",
                           "answer",
                           "answeredAt",
@@ -23242,6 +23284,45 @@
                         "type": "string"
                       }
                     },
+                    "details": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "image": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "link": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 2000,
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -23279,6 +23360,9 @@
                     "botId",
                     "question",
                     "options",
+                    "details",
+                    "image",
+                    "link",
                     "status",
                     "answer",
                     "answeredAt",
@@ -23451,6 +23535,45 @@
                         "type": "string"
                       }
                     },
+                    "details": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "image": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "link": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 2000,
+                              "format": "uri"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "url"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -23488,6 +23611,9 @@
                     "botId",
                     "question",
                     "options",
+                    "details",
+                    "image",
+                    "link",
                     "status",
                     "answer",
                     "answeredAt",

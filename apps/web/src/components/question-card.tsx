@@ -1,13 +1,16 @@
 import type { Bot, Question } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
-import { ArrowUp, MessageCircleQuestion, PenLine, X } from 'lucide-react';
+import { ArrowUp, ExternalLink, MessageCircleQuestion, PenLine, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { problemMessage } from '../lib/auth';
 import { useAnswerQuestion, useDismissQuestion } from '../lib/proactivity';
+import { useBots } from '../lib/queries';
 import { cn, timeAgo } from '../lib/utils';
 import { BotAvatar } from './bot-avatar';
+import { CanvasImage } from './canvas-body';
+import { Markdown } from './markdown';
 import { Button } from './ui/button';
 
 /** A suggested answer: a pill, one click away. */
@@ -31,6 +34,9 @@ export function QuestionCard({
   const { t } = useTranslation();
   const answer = useAnswerQuestion();
   const dismiss = useDismissQuestion();
+  // Its picture may be a file of the asking bot's workspace.
+  const bots = useBots();
+  const asker = bot ?? bots.data?.find((b) => b.id === question.botId);
   const [writing, setWriting] = useState(question.options.length === 0);
   const [text, setText] = useState('');
   const busy = answer.isPending || dismiss.isPending;
@@ -83,6 +89,29 @@ export function QuestionCard({
         <p className="whitespace-pre-wrap break-words text-[15px] font-medium leading-snug">
           {question.question}
         </p>
+        {question.image && (
+          <CanvasImage
+            src={question.image}
+            alt={question.question}
+            workspaceId={asker?.workspaceId ?? null}
+            version={question.id}
+            className="max-h-64 w-full rounded-xl object-cover"
+            placeholderClassName="h-40 w-full rounded-xl"
+          />
+        )}
+        {question.details && (
+          <Markdown text={question.details} className="text-sm text-muted-foreground" />
+        )}
+        {question.link && (
+          <a
+            href={question.link.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground/90 underline-offset-2 hover:underline"
+          >
+            <ExternalLink className="size-3.5" /> {question.link.label}
+          </a>
+        )}
         <div className="flex flex-wrap gap-2">
           {question.options.map((option) => (
             <motion.button

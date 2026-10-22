@@ -21,7 +21,7 @@ interface SpeechPipeline {
 const IDLE_UNLOAD_MS = 10 * 60_000;
 
 /** Waits between tries of a download cut short (then it gives up). */
-const RETRY_DELAYS_MS = [500, 1_500, 4_000, 8_000];
+const RETRY_DELAYS_MS = [500, 1_000, 2_000, 3_000, 5_000, 8_000, 13_000];
 
 /**
  * Downloads that survive a flaky network: a connection reset (before or during the body) is
