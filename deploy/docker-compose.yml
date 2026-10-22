@@ -61,6 +61,9 @@ services:
       MOWBOT_COMPUTER_IDLE_MINUTES: ${MOWBOT_COMPUTER_IDLE_MINUTES:-30}
       MOWBOT_WHISPER_MODEL: ${MOWBOT_WHISPER_MODEL:-onnx-community/whisper-base}
       MOWBOT_WHISPER_LANGUAGE: ${MOWBOT_WHISPER_LANGUAGE:-}
+      # The bots' web previews: the hub listens on these ports, Caddy publishes them.
+      MOWBOT_PREVIEW_PORTS: ${MOWBOT_PREVIEW_PORTS:-8800-8819}
+      MOWBOT_PUBLIC_URL: ${MOWBOT_PUBLIC_URL:-}
     volumes:
       - workspaces:/data/workspaces
       # Whisper, downloaded at the first voice message.
@@ -93,10 +96,14 @@ services:
     depends_on: [hub]
     environment:
       MOWBOT_DOMAIN: ${MOWBOT_DOMAIN:-localhost}
+      MOWBOT_PREVIEW_PORTS: ${MOWBOT_PREVIEW_PORTS:-8800-8819}
     ports:
       - "${MOWBOT_HTTP_PORT:-80}:80"
       - "${MOWBOT_HTTPS_PORT:-443}:443"
       - "${MOWBOT_HTTPS_PORT:-443}:443/udp"
+      # The bots' web previews (same address as the app, one port each), HTTP/3 included.
+      - "${MOWBOT_PREVIEW_PORTS:-8800-8819}:${MOWBOT_PREVIEW_PORTS:-8800-8819}"
+      - "${MOWBOT_PREVIEW_PORTS:-8800-8819}:${MOWBOT_PREVIEW_PORTS:-8800-8819}/udp"
     volumes:
       - caddy-data:/data
       - caddy-config:/config

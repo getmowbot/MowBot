@@ -552,6 +552,18 @@ export const en: Catalog = {
     },
     botPage: 'Page open by {{name}}',
   },
+  previews: {
+    title: 'Previews',
+    hint: 'Web pages the bots are building on this PC. The link is private: it works on your phone as well as here, and stops when the PC turns off or goes to sleep.',
+    meta: 'Port {{port}} · until {{until}}',
+    metaBot: 'Port {{port}} · {{bot}} · until {{until}}',
+    open: 'Open',
+    copy: 'Copy link',
+    copied: 'Copied',
+    copyPrompt: 'Link to the preview:',
+    stop: 'Stop',
+    confirmStop: 'Stop the preview “{{title}}”? Its link will stop working.',
+  },
   files: {
     trash: 'Trash',
     units: { b: 'B', kb: 'KB', mb: 'MB', gb: 'GB', tb: 'TB' },

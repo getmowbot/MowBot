@@ -1,5 +1,20 @@
+import http from 'node:http';
+import type net from 'node:net';
 import WebSocket from 'ws';
 import type { AgentEndpoint } from './runtime';
+
+/** mow-agent's raw relay upgrade (see /tcp in apps/agent). */
+const TCP_UPGRADE = 'mowbot-tcp';
+
+/** Nothing listens on that port of the computer, or the agent refused it. */
+export class TunnelRefusedError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 export interface AgentHealth {
   ok: boolean;
@@ -111,6 +126,51 @@ export class AgentClient {
       url: this.url('/cdp', 'ws'),
       headers: { authorization: `Bearer ${this.token}` },
     };
+  }
+
+  /**
+   * A raw connection to a port of the computer's loopback (a dev server), relayed by the
+   * agent: speak HTTP over it. Fails with `TunnelRefusedError` when nothing listens there.
+   */
+  openTunnel(port: number, timeoutMs = 10_000): Promise<net.Socket> {
+    return new Promise((resolve, reject) => {
+      const request = http.request({
+        host: this.endpoint.host,
+        port: this.endpoint.port,
+        path: `/tcp?port=${port}`,
+        headers: {
+          authorization: `Bearer ${this.token}`,
+          connection: 'Upgrade',
+          upgrade: TCP_UPGRADE,
+        },
+        timeout: timeoutMs,
+      });
+      request.once('upgrade', (_res, socket, head) => {
+        socket.setTimeout(0);
+        if (head.length > 0) socket.unshift(head);
+        resolve(socket);
+      });
+      request.once('response', (res) => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk: string) => {
+          body += chunk;
+        });
+        res.on('end', () => {
+          const error = (() => {
+            try {
+              return (JSON.parse(body) as { error?: string }).error;
+            } catch {
+              return undefined;
+            }
+          })();
+          reject(new TunnelRefusedError(res.statusCode ?? 502, error ?? `HTTP ${res.statusCode}`));
+        });
+      });
+      request.once('timeout', () => request.destroy(new Error('mow-agent did not answer')));
+      request.once('error', reject);
+      request.end();
+    });
   }
 
   /** A long-lived process on the computer, its stdio over a WebSocket (MCP servers). */

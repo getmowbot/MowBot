@@ -16,6 +16,7 @@ import { ownerExists } from '../auth/setup';
 import { isUniqueViolation } from '../db/errors';
 import { owner } from '../db/schema';
 import { authOf, bearerSecurity, requireAuth } from '../http/auth-hook';
+import { cookieValues } from '../http/cookies';
 import { errorResponses, HttpProblem, unauthorized } from '../http/problems';
 
 export const REFRESH_COOKIE = 'mowbot_refresh';
@@ -157,17 +158,29 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      const raw = request.body.refreshToken ?? request.cookies[REFRESH_COOKIE];
-      if (!raw) throw unauthorized('Missing refresh token');
-      try {
-        const { session, device } = await sessions.refresh(raw, requestContext(request));
-        return sendSession(reply, device, session);
-      } catch (error) {
-        if (error instanceof HttpProblem && error.code !== 'refresh_token_race') {
-          clearRefreshCookie(reply);
+      const { refreshToken } = request.body;
+      // Every cookie of that name: a page on another port of this host (a bot's preview) can
+      // set one with a longer path, sent first. It never knows the real one, which follows.
+      const candidates = refreshToken
+        ? [refreshToken]
+        : [...new Set(cookieValues(request.headers.cookie, REFRESH_COOKIE))].slice(0, 5);
+      if (candidates.length === 0) throw unauthorized('Missing refresh token');
+      let failure: unknown;
+      for (const raw of candidates) {
+        try {
+          const { session, device } = await sessions.refresh(raw, requestContext(request));
+          return sendSession(reply, device, session);
+        } catch (error) {
+          failure = error;
+          // Unknown to the hub: perhaps a decoy, try the next one.
+          if (error instanceof HttpProblem && error.code === 'unauthorized') continue;
+          break;
         }
-        throw error;
       }
+      if (failure instanceof HttpProblem && failure.code !== 'refresh_token_race') {
+        clearRefreshCookie(reply);
+      }
+      throw failure;
     },
   );
 

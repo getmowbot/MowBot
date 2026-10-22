@@ -62,7 +62,36 @@ const envSchema = z.object({
   MOWBOT_WHISPER_LANGUAGE: z.string().min(2).max(20).optional(),
   /** ffmpeg binary, to decode recordings (webm, m4a…) and make them playable everywhere. */
   MOWBOT_FFMPEG: z.string().default('ffmpeg'),
+  /**
+   * Ports the hub serves the bots' web previews on (`8800-8819`), next to its own address;
+   * `off` disables previews. Behind Caddy, the same range is published (deploy/).
+   */
+  MOWBOT_PREVIEW_PORTS: z
+    .string()
+    .trim()
+    .regex(/^(off|\d{1,5}(-\d{1,5})?)$/, 'a port, a range like 8800-8819, or off')
+    .default('8800-8819'),
+  /**
+   * Address users reach the hub at (`https://mowbot.example.com`), for links bots give
+   * (previews). Unset: the address of the apps' latest request.
+   */
+  MOWBOT_PUBLIC_URL: z.url({ protocol: /^https?$/ }).optional(),
 });
+
+export interface PortRange {
+  first: number;
+  last: number;
+}
+
+/** `8800-8819` → { first: 8800, last: 8819 }; `off` → null. */
+export function parsePortRange(value: string): PortRange | null {
+  if (value === 'off') return null;
+  const [first, last = first] = value.split('-').map(Number) as [number, number?];
+  if (!first || !last || first > last || last > 65_535 || last - first >= 1_000) {
+    throw new Error(`MOWBOT_PREVIEW_PORTS: invalid range ${value}`);
+  }
+  return { first, last };
+}
 
 export interface Config {
   env: 'development' | 'test' | 'production';
@@ -100,6 +129,15 @@ export interface Config {
   };
   /** "Sign in with ChatGPT": OpenAI's servers (tests point them to fakes). */
   chatgpt: ChatgptOptions;
+  /** Web pages the bots build on their PCs, shown to the user (previews/). */
+  previews: {
+    /** null: previews are off. */
+    ports: PortRange | null;
+    /** Where links point when no request tells (see MOWBOT_PUBLIC_URL). */
+    publicUrl: string | undefined;
+    /** A preview ends after this long at most (sharing it again restarts the clock). */
+    ttlMs: number;
+  };
 }
 
 export function parseMasterKey(value: string): Buffer {
@@ -157,5 +195,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       ffmpeg: e.MOWBOT_FFMPEG,
     },
     chatgpt: CHATGPT_DEFAULTS,
+    previews: {
+      ports: parsePortRange(e.MOWBOT_PREVIEW_PORTS),
+      publicUrl: e.MOWBOT_PUBLIC_URL,
+      ttlMs: 24 * 60 * 60 * 1000,
+    },
   };
 }

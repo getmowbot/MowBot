@@ -569,6 +569,18 @@ export const fr = {
     },
     botPage: 'Page ouverte par {{name}}',
   },
+  previews: {
+    title: 'Aperçus',
+    hint: 'Les pages web que les bots développent sur ce PC. Le lien est privé : il marche sur ton téléphone comme ici, et s’arrête quand le PC s’éteint ou se met en veille.',
+    meta: 'Port {{port}} · jusqu’à {{until}}',
+    metaBot: 'Port {{port}} · {{bot}} · jusqu’à {{until}}',
+    open: 'Ouvrir',
+    copy: 'Copier le lien',
+    copied: 'Copié',
+    copyPrompt: 'Lien de l’aperçu :',
+    stop: 'Arrêter',
+    confirmStop: 'Arrêter l’aperçu « {{title}} » ? Son lien ne marchera plus.',
+  },
   files: {
     trash: 'Corbeille',
     units: { b: 'o', kb: 'Ko', mb: 'Mo', gb: 'Go', tb: 'To' },

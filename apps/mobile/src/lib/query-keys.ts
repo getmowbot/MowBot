@@ -43,4 +43,6 @@ export const keys = {
   projects: ['projects'] as const,
   /** The user's computers linked through the desktop app. */
   connectors: ['connectors'] as const,
+  /** Web pages bots shared from a PC (refetched on `previews.changed`). */
+  previews: (computerId: string) => ['previews', computerId] as const,
 };

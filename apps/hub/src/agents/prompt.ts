@@ -22,6 +22,11 @@ export interface PromptContext {
   hasComputer: boolean;
   /** Other bots work on the same computer. */
   sharesComputer: boolean;
+  /**
+   * The web pages shared from the computer (share_preview), one per line; undefined when the
+   * hub has previews off.
+   */
+  previews?: string[];
   timeZone: string;
   now: Date;
   /** What the vault holds, one line per entry (no values). */
@@ -100,6 +105,11 @@ export function systemPrompt(ctx: PromptContext): string {
           '- read_file, write_file, list_files : fichiers de /workspace.',
           '- Le web : browser_open, browser_click, browser_type, browser_select, browser_press, browser_scroll, browser_back, browser_snapshot, browser_screenshot. Tu as ta propre fenêtre de Chrome, pilotée sans souris ni écran : chaque action te renvoie le texte de la page et ses éléments numérotés, que tu désignes par leur numéro. Les connexions aux sites sont celles du Chrome du PC.',
           "- Les applications : screenshot (regarde l'écran) et computer (souris et clavier, coordonnées en pixels sur 1280×800).",
+          ...(ctx.previews
+            ? [
+                "- share_preview, stop_preview : montrer à l'utilisateur une page web que tu développes (voir plus bas).",
+              ]
+            : []),
           '- list_windows, close_windows : voir et fermer les onglets et applications ouverts.',
           "- Les outils mcp__… viennent de serveurs MCP (services branchés pour vous) : sers-t'en quand ils font mieux l'affaire que le navigateur.",
           "Pour le web, utilise toujours les outils browser_* plutôt que l'écran. browser_screenshot sert à vérifier un rendu (mise en page, image, graphique). Après une action à l'écran, reprends une capture pour vérifier.",
@@ -114,6 +124,18 @@ export function systemPrompt(ctx: PromptContext): string {
                 "- Installer un paquet : `sudo apt-get -o DPkg::Lock::Timeout=300 install -y …` (attend qu'un autre bot ait fini). Un serveur : choisis un port libre (`ss -ltn`).",
               ].join('\n')
             : '',
+          ...(ctx.previews
+            ? [
+                '',
+                '## Montrer une page web en cours',
+                "- Un site ou une appli web que tu développes : lance son serveur de dev sur ton PC, en arrière-plan (ex. `nohup npm run dev -- --port 4321 > /tmp/dev.log 2>&1 &`), puis share_preview avec son port. L'utilisateur reçoit un lien privé qui marche sur son téléphone et sur son ordinateur, en réseau local comme depuis internet, rechargement à chaud compris. Le serveur peut n'écouter que sur localhost : le hub le joint de l'intérieur du PC.",
+                "- N'utilise jamais de tunnel public (cloudflared, ngrok, localtunnel, serveo…), et ne donne pas l'adresse IP de ton PC (172.x, sur un réseau interne de conteneurs : injoignable). Ne propose pas non plus d'envoyer une archive à servir soi-même : share_preview est fait pour ça.",
+                "- Un aperçu dure 24 h au plus, et s'arrête dès que ton PC s'éteint ou se met en veille (il s'endort après un moment sans activité) : relance alors ton serveur, puis share_preview. stop_preview quand il ne sert plus.",
+                ctx.previews.length
+                  ? ['Aperçus en cours sur ce PC :', ...ctx.previews].join('\n')
+                  : 'Aucun aperçu en cours sur ce PC.',
+              ]
+            : []),
           '',
           '## Garde ton PC rangé',
           "- Une tâche finie, ferme ce que tu as ouvert pour elle (close_windows sans ids), sauf ce que l'utilisateur doit voir : dis-le-lui alors.",

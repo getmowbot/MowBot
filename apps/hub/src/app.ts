@@ -24,6 +24,7 @@ import { eventRoutes } from './routes/events';
 import { fileRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
 import { mcpRoutes } from './routes/mcp';
+import { previewRoutes } from './routes/previews';
 import { proactivityRoutes } from './routes/proactivity';
 import { projectRoutes } from './routes/projects';
 import { providerRoutes } from './routes/providers';
@@ -100,8 +101,17 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
   );
 
   await app.register(fastifyHelmet);
+  // A preview (a bot's page, on a preview port of this very host) never gets to call the API
+  // with the user's credentials, even if listed by mistake.
+  const { ports } = config.previews;
+  const corsOrigins = config.corsOrigins.filter((origin) => {
+    const port = Number(URL.canParse(origin) ? new URL(origin).port : 0);
+    const preview = ports !== null && port >= ports.first && port <= ports.last;
+    if (preview) app.log.warn({ origin }, 'Ignoring a CORS origin on a preview port');
+    return !preview;
+  });
   await app.register(fastifyCors, {
-    origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,
+    origin: corsOrigins.length > 0 ? corsOrigins : false,
     credentials: true,
     // The default leaves out what the API uses to change things.
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
@@ -156,6 +166,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
       await api.register(projectRoutes);
       await api.register(proactivityRoutes);
       await api.register(canvasRoutes);
+      await api.register(previewRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: API_PREFIX },
@@ -167,6 +178,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
   services.push.setLogger(app.log);
   services.automations.setLogger(app.log);
   services.mcp.setLogger(app.log);
+  services.previews.setLogger(app.log);
   services.vault.watchTakeovers();
   services.runtime.watchTakeovers();
   app.addHook('onClose', async () => {
@@ -175,6 +187,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
     await services.mcp.close();
     services.connectors.close();
     services.vault.close();
+    await services.previews.close();
     await services.runtime.close();
     services.bots.close();
     await services.computers.close();

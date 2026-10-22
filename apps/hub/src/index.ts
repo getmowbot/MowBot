@@ -12,6 +12,8 @@ await services.computers.reconcile().catch((error) => {
   app.log.warn({ err: error }, 'Could not reconcile computers with Docker (is Docker reachable?)');
 });
 services.computers.startHibernation();
+// After reconcile: previews of PCs still running are served again.
+await services.previews.start();
 services.scheduler.setLogger(app.log);
 services.scheduler.start();
 services.automations.start();

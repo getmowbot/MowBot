@@ -62,6 +62,14 @@ export interface HubTexts {
     connectedBody: string;
     failed: string;
   };
+  /** The card of a web page a bot shares from its PC (share_preview). */
+  preview: {
+    /** For times ("18:42"). */
+    locale: string;
+    open: string;
+    subtitle(address: string, until: string): string;
+    text: string;
+  };
 }
 
 export const HUB_TEXTS: Record<Locale, HubTexts> = {
@@ -120,6 +128,12 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
       connectedBody: 'Tes bots peuvent utiliser ses outils. Tu peux fermer cette page.',
       failed: 'Connexion impossible',
     },
+    preview: {
+      locale: 'fr-FR',
+      open: 'Ouvrir',
+      subtitle: (address, until) => `Aperçu · ${address} · jusqu'à ${until}`,
+      text: 'Un lien privé, qui marche sur ton téléphone comme sur ton ordinateur. Il s’arrête quand le PC du bot s’éteint ou se met en veille.',
+    },
   },
   en: {
     task: 'Task',
@@ -174,6 +188,12 @@ export const HUB_TEXTS: Record<Locale, HubTexts> = {
       connected: (server) => `Connected to ${server}`,
       connectedBody: 'Your bots can use its tools. You can close this page.',
       failed: 'Could not sign in',
+    },
+    preview: {
+      locale: 'en-GB',
+      open: 'Open',
+      subtitle: (address, until) => `Preview · ${address} · until ${until}`,
+      text: 'A private link that works on your phone as well as your computer. It stops when the bot’s PC turns off or goes to sleep.',
     },
   },
 };

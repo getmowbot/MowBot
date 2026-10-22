@@ -84,7 +84,7 @@ Dans l'app, **Modèles → Ajouter** : Command Code (clé de ton abonnement), Op
 
 ### Depuis le réseau local
 
-`pnpm dev` écoute sur toutes les interfaces : depuis un téléphone ou un autre PC du LAN, ouvre `http://<ip-de-cette-machine>:5173` (Vite affiche les adresses au démarrage). Sous Windows, autorise Node.js dans le pare-feu si une fenêtre le demande.
+`pnpm dev` écoute sur toutes les interfaces : depuis un téléphone ou un autre PC du LAN, ouvre `http://<ip-de-cette-machine>:5173` (Vite affiche les adresses au démarrage). Sous Windows, autorise Node.js dans le pare-feu si une fenêtre le demande. Les aperçus web des bots sont servis par le hub lui-même sur `MOWBOT_PREVIEW_PORTS` (`8800-8819` : `http://localhost:8800`, ou l'IP de cette machine depuis un téléphone).
 
 ### App mobile (Expo Go)
 
@@ -155,6 +155,17 @@ Relancer `install.sh` fait la même chose que `mowbot update`. Les PC des bots p
 Options sans question : `--domain mowbot.example.com`, `--lan`, `--port 8080` (port HTTP en réseau local), `--yes`. Pour un autre emplacement que `/opt/mowbot` avec la version `curl` : `--dir`.
 
 **Sauvegarde `deploy/.env`** : sa clé `MOWBOT_MASTER_KEY` chiffre les secrets ; sans elle, ils sont illisibles.
+
+**Ports à ouvrir** dans le pare-feu : 80 et 443 (TCP, et UDP 443 pour HTTP/3), plus la plage des aperçus web des bots, `MOWBOT_PREVIEW_PORTS` (`8800-8819` par défaut ; s'ils sont pris, le script choisit le bloc de 20 ports libres suivant). Chaque aperçu est servi sur un de ces ports de la même adresse, avec le même certificat.
+
+### Aperçus web
+
+Un bot qui construit un site ou une appli web lance son serveur de dev sur son PC (Vite, Next, Astro…, écouter sur localhost suffit) puis appelle `share_preview`. Une carte avec un bouton **Ouvrir** s'affiche dans la conversation, et la page du PC liste ses aperçus (ouvrir, copier le lien, arrêter). Le hub sert la page sur un port de sa propre adresse et joint le serveur de dev par le `mow-agent` du PC ; les WebSockets (rechargement à chaud) passent aussi. Plus besoin de tunnel public (cloudflared, ngrok).
+
+- Le lien porte un secret : l'ouvrir sur n'importe quel appareil (le navigateur du téléphone, l'ordinateur d'un collègue) pose un cookie pour cet aperçu et retire le secret de l'adresse.
+- Un aperçu s'arrête quand on l'arrête, quand le PC du bot s'éteint ou se met en veille, et au bout de 24 heures (le partager à nouveau relance le délai et garde le lien).
+- Sécurité : la page d'un bot tourne sur l'hôte du hub (autres ports), et les navigateurs partagent les cookies entre ports. Le hub ne transmet jamais ses cookies à un aperçu, ne le laisse ni poser ni effacer les siens (`Set-Cookie` filtrés, `Domain` retiré, `Clear-Site-Data` et HSTS supprimés), refuse les ports d'aperçu comme origines CORS, et l'app refuse d'être affichée dans un cadre.
+- `MOWBOT_PUBLIC_URL` (facultatif) fixe l'adresse des liens que donnent les bots ; par défaut, celle par laquelle tes apps ont joint le hub en dernier.
 
 ### À la main
 

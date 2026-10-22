@@ -6,6 +6,7 @@ import type { AddressInfo } from 'node:net';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import { z } from 'zod';
 
@@ -35,6 +36,11 @@ export interface AgentOptions {
   run?: Runner;
   /** Starts a long-lived process for /stdio (an MCP server), replaced in tests. */
   spawnStdio?: (command: string, env: Record<string, string>) => ChildProcessWithoutNullStreams;
+  /**
+   * Ports /tcp never relays to, besides the agent's own, VNC's, Chrome DevTools' and X11's:
+   * the computer's own services stay behind the agent.
+   */
+  blockedPorts?: number[];
 }
 
 export interface Agent {
@@ -203,7 +209,6 @@ function canConnect(host: string, port: number, timeoutMs = 500): Promise<boolea
   });
 }
 
-/** Pipes an RFB WebSocket to the local VNC server. */
 /** What the hub and a /stdio process exchange, one JSON frame per line of the process. */
 type StdioFrame =
   | { t: 'start'; command: string; env?: Record<string, string> }
@@ -265,6 +270,73 @@ function bridgeStdio(
   });
   ws.on('close', () => child?.kill());
   ws.on('error', () => child?.kill());
+}
+
+/** Upgrade token of /tcp: after the 101, the connection carries raw bytes both ways. */
+export const TCP_UPGRADE = 'mowbot-tcp';
+
+/** X11 displays :0 to :63 (an open display is full control of the desktop). */
+const X11_PORTS = Array.from({ length: 64 }, (_, i) => 6000 + i);
+
+function refuseUpgrade(socket: Duplex, status: string, error: string): void {
+  const body = JSON.stringify({ error });
+  socket.end(
+    `HTTP/1.1 ${status}\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\nConnection: close\r\n\r\n${body}`,
+  );
+}
+
+/** Connects to a port of the computer's loopback: IPv4 first, then IPv6 (`localhost` binds). */
+function connectLoopback(port: number): Promise<net.Socket> {
+  const attempt = (host: string) =>
+    new Promise<net.Socket>((resolve, reject) => {
+      const tcp = net.connect({ host, port });
+      tcp.once('connect', () => {
+        tcp.off('error', reject);
+        resolve(tcp);
+      });
+      tcp.once('error', reject);
+    });
+  return attempt('127.0.0.1').catch(() => attempt('::1'));
+}
+
+/**
+ * Relays an upgraded connection to a TCP port of the computer's loopback (a dev server the
+ * hub previews): the hub speaks HTTP, WebSockets included, over it.
+ */
+async function bridgeTcp(
+  socket: Duplex,
+  head: Buffer,
+  port: number,
+  open: Set<Duplex>,
+): Promise<void> {
+  let tcp: net.Socket;
+  try {
+    tcp = await connectLoopback(port);
+  } catch {
+    refuseUpgrade(socket, '502 Bad Gateway', `Nothing listens on port ${port}`);
+    return;
+  }
+  if (socket.destroyed) {
+    tcp.destroy();
+    return;
+  }
+  open.add(socket);
+  socket.once('close', () => open.delete(socket));
+  socket.write(
+    `HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: ${TCP_UPGRADE}\r\n\r\n`,
+  );
+  if (head.length > 0) tcp.write(head);
+  tcp.setNoDelay(true);
+  socket.pipe(tcp);
+  tcp.pipe(socket);
+  const closeAll = () => {
+    tcp.destroy();
+    socket.destroy();
+  };
+  socket.on('error', closeAll);
+  socket.on('close', closeAll);
+  tcp.on('error', closeAll);
+  tcp.on('close', closeAll);
 }
 
 function bridgeVnc(ws: WebSocket, host: string, port: number): void {
@@ -406,18 +478,43 @@ export function createAgent(options: AgentOptions): Agent {
       );
   });
 
+  const devtoolsUrl = options.devtoolsUrl ?? 'http://127.0.0.1:9222';
+  const blocked = new Set([
+    vncPort,
+    Number(new URL(devtoolsUrl).port || 80),
+    ...X11_PORTS,
+    ...(options.blockedPorts ?? []),
+  ]);
+
   const wss = new WebSocketServer({ noServer: true });
+  const tunnels = new Set<Duplex>();
   server.on('upgrade', (request, socket, head) => {
-    const pathname = new URL(request.url ?? '/', 'http://agent').pathname;
-    const known = pathname === '/vnc' || pathname === '/cdp' || pathname === '/stdio';
+    const url = new URL(request.url ?? '/', 'http://agent');
+    const pathname = url.pathname;
+    const known =
+      pathname === '/vnc' || pathname === '/cdp' || pathname === '/stdio' || pathname === '/tcp';
     if (!known || !authorized(request.headers.authorization)) {
       socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+      return;
+    }
+    if (pathname === '/tcp') {
+      const port = Number(url.searchParams.get('port'));
+      const own = (server.address() as AddressInfo | null)?.port;
+      if (request.headers.upgrade?.toLowerCase() !== TCP_UPGRADE) {
+        refuseUpgrade(socket, '400 Bad Request', `Upgrade to ${TCP_UPGRADE}`);
+      } else if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+        refuseUpgrade(socket, '400 Bad Request', 'Invalid port');
+      } else if (blocked.has(port) || port === own) {
+        refuseUpgrade(socket, '403 Forbidden', `Port ${port} is reserved`);
+      } else {
+        void bridgeTcp(socket, head, port, tunnels);
+      }
       return;
     }
     wss.handleUpgrade(request, socket, head, (ws) => {
       if (pathname === '/vnc') bridgeVnc(ws, vncHost, vncPort);
       else if (pathname === '/stdio') bridgeStdio(ws, spawnStdio);
-      else void bridgeCdp(ws, options.devtoolsUrl ?? 'http://127.0.0.1:9222');
+      else void bridgeCdp(ws, devtoolsUrl);
     });
   });
 
@@ -431,6 +528,7 @@ export function createAgent(options: AgentOptions): Agent {
     close: () =>
       new Promise((resolve) => {
         for (const client of wss.clients) client.terminate();
+        for (const tunnel of tunnels) tunnel.destroy();
         server.closeAllConnections();
         server.close(() => resolve());
       }),

@@ -44,6 +44,8 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('mcp.deleted'), serverId: z.uuid() }),
   /** The MCP computer started, stopped… */
   z.object({ type: z.literal('mcp.computer'), computer: mcpComputerSchema }),
+  /** A preview of a PC was shared, extended or ended: refetch that PC's previews. */
+  z.object({ type: z.literal('previews.changed'), computerId: z.uuid() }),
   z.object({ type: z.literal('connector.updated'), connector: connectorSchema }),
   z.object({ type: z.literal('connector.deleted'), connectorId: z.uuid() }),
   z.object({ type: z.literal('project.updated'), project: projectSchema }),

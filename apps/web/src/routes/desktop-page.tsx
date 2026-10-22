@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { BotBrowserView, ViewSwitch } from '../components/bot-browser-view';
 import { StatusBadge } from '../components/computer-status';
 import type { DesktopViewHandle } from '../components/desktop-view';
+import { PreviewList } from '../components/preview-list';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/form';
 import { problemMessage } from '../lib/auth';
@@ -114,6 +115,8 @@ export function DesktopPage() {
           {inControl ? t('desktop.inControl') : t('desktop.otherDevice')}
         </p>
       )}
+
+      {pc.status === 'running' && <PreviewList computerId={pc.id} />}
 
       {pc.status === 'running' && pcBots.length > 0 && (
         <ViewSwitch

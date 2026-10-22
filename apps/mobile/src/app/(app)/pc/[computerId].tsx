@@ -30,6 +30,7 @@ import { BotWindow } from '../../../components/pc/bot-window';
 import { type DesktopHandle, DesktopView } from '../../../components/pc/desktop-view';
 import { KeyboardBar } from '../../../components/pc/keyboard-bar';
 import { ControlBanner, PcStateCard, StatusLine } from '../../../components/pc/pc-status';
+import { PreviewList } from '../../../components/pc/preview-list';
 import { ViewSwitch } from '../../../components/pc/view-switch';
 import { Screen } from '../../../components/screen';
 import { Button, IconButton } from '../../../components/ui/button';
@@ -264,6 +265,12 @@ export default function PcScreen() {
           <View style={styles.top}>
             <StatusLine computer={pc} botNames={pcBots.map((b) => b.name)} />
             {running && control ? <ControlBanner mine={inControl} /> : null}
+            {running ? (
+              <PreviewList
+                computerId={computerId}
+                botNames={new Map((bots.data ?? []).map((b) => [b.id, b.name]))}
+              />
+            ) : null}
             {running && pcBots.length > 0 ? (
               <ViewSwitch
                 options={viewOptions}

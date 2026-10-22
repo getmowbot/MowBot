@@ -31,6 +31,7 @@ import { hubTexts } from '../i18n';
 import type { McpService } from '../mcp/service';
 import type { OrgService } from '../org/service';
 import { TaskService } from '../org/tasks';
+import type { PreviewService } from '../previews/service';
 import type { AutomationService } from '../proactivity/automations';
 import type { CanvasService } from '../proactivity/canvases';
 import type { NotificationService, SystemService } from '../proactivity/notifications';
@@ -53,6 +54,7 @@ import { buildLocalTools, OFFLINE_HINT, projectPlace } from './local-tools';
 import { buildMcpTools } from './mcp-tools';
 import { resolveMentions } from './mentions';
 import { buildOrgTools } from './org-tools';
+import { buildPreviewTools, previewLines, SHARE_PREVIEW } from './preview-tools';
 import { buildProactiveTools } from './proactive-tools';
 import { systemPrompt } from './prompt';
 import { FileLocks, ScreenLeases } from './shared-pc';
@@ -121,7 +123,7 @@ export interface VoiceDeps {
 }
 
 /** Tools whose result is drawn in the answer itself, not shown as a tool call. */
-const SHOWN_TOOLS = new Set([SHOW_IN_CHAT, VAULT_REQUEST, REQUEST_TAKEOVER]);
+const SHOWN_TOOLS = new Set([SHOW_IN_CHAT, VAULT_REQUEST, REQUEST_TAKEOVER, SHARE_PREVIEW]);
 
 /** A message that came in mid-answer, as the model sees it. */
 function steeredMessages(row: MessageRow): ModelMessage[] {
@@ -154,6 +156,8 @@ export interface RuntimeDeps {
   automations?: AutomationService;
   mcp?: McpService;
   connectors?: ConnectorService;
+  /** Web pages bots show from their PCs (share_preview). */
+  previews?: PreviewService;
   /** Transcribes voice messages; without it, they stay untranscribed. */
   voice?: VoiceDeps;
   finishedPushAfterMs?: number;
@@ -1576,7 +1580,7 @@ export class BotRuntime {
       const showInChat = (content: CanvasContent) =>
         showPart({ type: 'canvas', content, pressed: null });
       // Folders shared from the user's own computer (desktop app).
-      const { connectors } = this.deps;
+      const { connectors, previews } = this.deps;
       const projects: ProjectRow[] = connectors ? await connectors.accessibleTo(bot) : [];
       const machines = connectors ? await connectors.connectorsOf(projects) : new Map();
       const active = projects.find((p) => p.id === bot.projectId);
@@ -1674,6 +1678,17 @@ export class BotRuntime {
               db,
             })
           : {}),
+        ...(computerId && computer && previews?.enabled
+          ? buildPreviewTools({
+              self: bot,
+              computerId,
+              previews,
+              computer,
+              showInChat,
+              db,
+              timeZone: this.deps.routines.timeZone,
+            })
+          : {}),
       });
       const tools = tracked(botId, this.deps.bots.activity, secrets, toolset);
       const system = systemPrompt({
@@ -1684,6 +1699,10 @@ export class BotRuntime {
         bots: allBots,
         hasComputer: Boolean(computerId),
         sharesComputer: allBots.some((b) => b.id !== botId && b.computerId === computerId),
+        previews:
+          computerId && previews?.enabled
+            ? previewLines(await previews.list(computerId), this.deps.routines.timeZone)
+            : undefined,
         timeZone: this.deps.routines.timeZone,
         now: new Date(),
         vault: await this.deps.vault.promptLines(bot),

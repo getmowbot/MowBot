@@ -19,6 +19,8 @@ export function requireAuth(...scopes: Scope[]) {
     const missing = scopes.filter((scope) => !claims.scopes.includes(scope));
     if (missing.length > 0) throw forbidden(`Missing scope: ${missing.join(', ')}`);
     request.auth = claims;
+    // Only the owner's own apps say where the hub is reached (links bots give point there).
+    request.server.services.previews.seen(request.protocol, request.hostname);
   };
 }
 

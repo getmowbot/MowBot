@@ -38,6 +38,7 @@
 - [x] Bureau en direct (noVNC via le hub), prise de contrôle / rendre la main, retour automatique aux bots quand l'appareil qui a la main ferme le bureau
 - [x] Explorateur Fichiers : navigation, aperçu (texte, image, PDF, audio, vidéo), téléchargement fichier ou dossier (zip) par lien à usage unique, import, création de dossier, renommage, corbeille
 - [x] Flux d'événements WebSocket (`computer.updated`, `workspace.changed`)
+- [x] Aperçus web : un serveur de dev du PC d'un bot servi sur un port de l'adresse du hub (`MOWBOT_PREVIEW_PORTS`), lien secret échangé contre un cookie, WebSockets / HMR, cookies du hub cloisonnés, `share_preview` / `stop_preview`, liste dans la page du PC (web, mobile)
 - [x] Vérifié de bout en bout sur Docker Desktop (Windows) : PC allumé en ~3 s, bureau XFCE + Chrome dans l'UI, souris et clavier transmis, fichier créé dans le PC visible dans l'explorateur, arrêt / redémarrage avec home conservé
 - [ ] Reportés : quotas de workspace, upload reprenable, arm64 avec navigateur, limites CPU/RAM par PC, réseau isolé par équipe, journal `provision.sh`
 

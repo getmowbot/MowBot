@@ -62,6 +62,8 @@ export class ComputerService {
   private readonly desktopSessions = new Map<string, Map<string, number>>();
   private readonly lastTouch = new Map<string, number>();
   private readonly boots = new Map<string, Promise<void>>();
+  /** Told before a computer is deleted (what lives on it goes too: previews). */
+  private readonly removalListeners = new Set<(id: string) => Promise<void>>();
   private hibernationTimer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -129,10 +131,21 @@ export class ComputerService {
     }
   }
 
+  /** Calls `listener` before each computer is deleted; returns how to stop. */
+  onRemove(listener: (id: string) => Promise<void>): () => void {
+    this.removalListeners.add(listener);
+    return () => this.removalListeners.delete(listener);
+  }
+
   /** Stops the computer, deletes its container, home volume and row. */
   async remove(id: string): Promise<void> {
     const row = await this.row(id);
     await this.boots.get(id);
+    for (const listener of this.removalListeners) {
+      await listener(id).catch((error) =>
+        this.log.warn({ err: error, computerId: id }, 'Could not clean up a removed computer'),
+      );
+    }
     await this.runtime.remove(row.id);
     this.desktopSessions.delete(id);
     this.lastTouch.delete(id);
