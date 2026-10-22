@@ -208,8 +208,8 @@
 }
 
 /*
- * The composer: a lens of glass, bulging (shine on top, depth under), very round, with a slow
- * light running along its edge; brighter while the user writes.
+ * The composer: a lens of glass, bulging (shine on top, depth under), very round, with one edge
+ * lit from above and a slow light running along it; brighter while the user writes.
  */
 @property --lens-angle {
   syntax: "<angle>";
@@ -222,26 +222,27 @@
   backdrop-filter: blur(22px) saturate(150%);
   border: 1px solid var(--border);
   box-shadow:
-    inset 0 1px 0 var(--lens-rim),
     inset 0 -14px 24px -18px var(--lens-depth),
     var(--lens-shadow);
   transition:
     border-color 0.3s,
     box-shadow 0.3s;
 }
-/* Its shine: a soft highlight across the top, as on a bulging glass. */
+/*
+ * Its shine: a soft highlight across the top, as on a bulging glass. It fades out before its own
+ * bounds, so no shape shows inside the field.
+ */
 .lens::after {
   content: "";
   position: absolute;
-  inset: 1px 8% auto;
-  height: 55%;
+  inset: 0 6% auto;
+  height: 60%;
   z-index: -1;
-  border-radius: 999px;
   pointer-events: none;
-  background: radial-gradient(120% 100% at 50% 0%, var(--lens-shine), transparent 70%);
-  opacity: 0.55;
+  background: radial-gradient(50% 100% at 50% 0%, var(--lens-shine), transparent);
+  opacity: 0.5;
 }
-/* Its edge light. */
+/* Its edge: lit from above, on the border itself (no second line inside), and the light going round. */
 .lens::before {
   content: "";
   position: absolute;
@@ -249,12 +250,14 @@
   border-radius: inherit;
   padding: 1px;
   pointer-events: none;
-  background: conic-gradient(
-    from var(--lens-angle),
-    transparent 0deg 250deg,
-    var(--lens-beam) 310deg,
-    transparent 360deg
-  );
+  background:
+    conic-gradient(
+      from var(--lens-angle),
+      transparent 0deg 250deg,
+      var(--lens-beam) 310deg,
+      transparent 360deg
+    ),
+    linear-gradient(180deg, var(--lens-rim), transparent 50%);
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);

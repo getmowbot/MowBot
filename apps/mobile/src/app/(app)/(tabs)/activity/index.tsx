@@ -36,7 +36,7 @@ import {
   useTasks,
 } from '../../../../lib/queries';
 import { timeAgo } from '../../../../lib/time';
-import { colors } from '../../../../theme';
+import { colors, themed, tint } from '../../../../theme';
 
 type Tab = 'notifications' | 'tasks' | 'exchanges';
 
@@ -397,28 +397,30 @@ export default function ActivityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  head: { gap: 14 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  indent: { paddingHorizontal: 4 },
-  flex: { flex: 1, minWidth: 0 },
-  // Notifications
-  unreadRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4 },
-  readAll: { fontWeight: '600', color: colors.text },
-  failed: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 4 },
-  retry: { minHeight: 40 },
-  list: { gap: 10 },
-  card: { padding: 6, gap: 4 },
-  cardBody: { padding: 8, gap: 8, borderRadius: 12 },
-  cancelled: { textDecorationLine: 'line-through', opacity: 0.6 },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  shrink: { flexShrink: 1 },
-  cancel: { alignSelf: 'flex-start', minHeight: 40, margin: 8, marginTop: 0 },
-  feed: { gap: 20 },
-  feedRow: { flexDirection: 'row', gap: 12 },
-  pair: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingTop: 2 },
-  feedBody: { flex: 1, minWidth: 0, gap: 4 },
-  feedText: { borderRadius: 8 },
-  feedPlain: { color: 'rgba(238, 241, 246, 0.85)' },
-  feedMarkdown: { fontSize: 14.5, lineHeight: 21 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    head: { gap: 14 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    indent: { paddingHorizontal: 4 },
+    flex: { flex: 1, minWidth: 0 },
+    // Notifications
+    unreadRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4 },
+    readAll: { fontWeight: '600', color: colors.text },
+    failed: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 4 },
+    retry: { minHeight: 40 },
+    list: { gap: 10 },
+    card: { padding: 6, gap: 4 },
+    cardBody: { padding: 8, gap: 8, borderRadius: 12 },
+    cancelled: { textDecorationLine: 'line-through', opacity: 0.6 },
+    meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    shrink: { flexShrink: 1 },
+    cancel: { alignSelf: 'flex-start', minHeight: 40, margin: 8, marginTop: 0 },
+    feed: { gap: 20 },
+    feedRow: { flexDirection: 'row', gap: 12 },
+    pair: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingTop: 2 },
+    feedBody: { flex: 1, minWidth: 0, gap: 4 },
+    feedText: { borderRadius: 8 },
+    feedPlain: { color: tint.text(0.85) },
+    feedMarkdown: { fontSize: 14.5, lineHeight: 21 },
+  }),
+);

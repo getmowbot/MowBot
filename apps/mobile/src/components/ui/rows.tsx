@@ -2,7 +2,7 @@ import { Check, ChevronRight, type LucideIcon } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 import { isAndroid, isIOS } from '../../lib/platform';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { T } from './text';
 import { Touchable } from './touchable';
 
@@ -107,9 +107,9 @@ export function SwitchRow({ label, hint, value, onChange, disabled = false }: Sw
         onValueChange={onChange}
         disabled={disabled}
         accessibilityLabel={label}
-        trackColor={{ false: 'rgba(255, 255, 255, 0.16)', true: colors.accentStrong }}
+        trackColor={{ false: tint.ink(0.16), true: colors.accentStrong }}
         thumbColor={isAndroid ? (value ? colors.accentInk : colors.textMuted) : undefined}
-        ios_backgroundColor="rgba(255, 255, 255, 0.16)"
+        ios_backgroundColor={tint.ink(0.16)}
       />
     </View>
   );
@@ -148,26 +148,28 @@ export function ChoiceRows<V extends string>({ options, value, onChange }: Choic
   ));
 }
 
-const styles = StyleSheet.create({
-  row: {
-    minHeight: isIOS ? 52 : 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: ROW_INSET,
-    paddingVertical: 10,
-    overflow: 'hidden',
-  },
-  text: { flex: 1, minWidth: 0, gap: 2 },
-  value: { flexShrink: 1, maxWidth: '50%', textAlign: 'right' },
-  check: { width: 20, alignItems: 'center' },
-  icon: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  disabled: { opacity: 0.45 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    row: {
+      minHeight: isIOS ? 52 : 56,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      paddingHorizontal: ROW_INSET,
+      paddingVertical: 10,
+      overflow: 'hidden',
+    },
+    text: { flex: 1, minWidth: 0, gap: 2 },
+    value: { flexShrink: 1, maxWidth: '50%', textAlign: 'right' },
+    check: { width: 20, alignItems: 'center' },
+    icon: {
+      width: 32,
+      height: 32,
+      borderRadius: 9,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tint.ink(0.05),
+    },
+    disabled: { opacity: 0.45 },
+  }),
+);

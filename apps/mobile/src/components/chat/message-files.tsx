@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { fileCanvasRoute, fileExtension } from '../../lib/board';
 import { formatSize, type SizeUnit } from '../../lib/files';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { GalleryBody } from '../board/gallery-body';
 import { iconFor } from '../files/file-row';
 import { T } from '../ui/text';
@@ -83,28 +83,30 @@ export function MessageFiles({
   );
 }
 
-const styles = StyleSheet.create({
-  stack: { width: '85%', gap: 8 },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 10,
-    borderRadius: 16,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceContainer,
-    overflow: 'hidden',
-  },
-  icon: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  titles: { flex: 1, minWidth: 0, gap: 1 },
-  name: { fontWeight: '600' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    stack: { width: '85%', gap: 8 },
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 10,
+      borderRadius: 16,
+      borderCurve: 'continuous',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      backgroundColor: colors.surfaceContainer,
+      overflow: 'hidden',
+    },
+    icon: {
+      width: 38,
+      height: 38,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tint.ink(0.06),
+    },
+    titles: { flex: 1, minWidth: 0, gap: 1 },
+    name: { fontWeight: '600' },
+  }),
+);

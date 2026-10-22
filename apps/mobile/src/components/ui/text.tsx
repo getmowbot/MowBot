@@ -1,14 +1,17 @@
 import { Text, type TextProps } from 'react-native';
-import { colors, type } from '../../theme';
+import { colors, themed, type } from '../../theme';
 
-const TONES = {
-  default: colors.text,
-  muted: colors.textMuted,
-  faint: colors.textFaint,
-  accent: colors.accentStrong,
-  ink: colors.accentInk,
-  danger: colors.danger,
-} as const;
+const TONES = themed(
+  () =>
+    ({
+      default: colors.text,
+      muted: colors.textMuted,
+      faint: colors.textFaint,
+      accent: colors.accentStrong,
+      ink: colors.accentInk,
+      danger: colors.danger,
+    }) as const,
+);
 
 export type Tone = keyof typeof TONES;
 

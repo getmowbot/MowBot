@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { DEFAULT_ASPECT, fitBox, type Size } from '../../lib/desktop';
-import { colors, shape, spacing } from '../../theme';
+import { colors, shape, spacing, themed } from '../../theme';
 import { Surface } from '../ui/surface';
 import { T } from '../ui/text';
 
@@ -89,26 +89,28 @@ export function BotWindow({ bot, page, loading }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, gap: spacing.md },
-  empty: {
-    width: '100%',
-    aspectRatio: DEFAULT_ASPECT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    padding: spacing.xl,
-  },
-  center: { textAlign: 'center' },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4 },
-  titleText: { flex: 1, minWidth: 0 },
-  title: { fontWeight: '600' },
-  imageArea: { flex: 1, alignItems: 'center' },
-  image: {
-    backgroundColor: '#000',
-    borderRadius: shape.field,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-  },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, gap: spacing.md },
+    empty: {
+      width: '100%',
+      aspectRatio: DEFAULT_ASPECT,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      padding: spacing.xl,
+    },
+    center: { textAlign: 'center' },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4 },
+    titleText: { flex: 1, minWidth: 0 },
+    title: { fontWeight: '600' },
+    imageArea: { flex: 1, alignItems: 'center' },
+    image: {
+      backgroundColor: '#000',
+      borderRadius: shape.field,
+      borderCurve: 'continuous',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+    },
+  }),
+);

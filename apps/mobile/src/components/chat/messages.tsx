@@ -16,7 +16,7 @@ import {
   summaryOf,
 } from '../../lib/incoming';
 import { messageText } from '../../lib/message-cache';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { ActivityLine } from '../activity-line';
 import { BotAvatar } from '../bot-avatar';
 import { BotChip } from '../bot-chip';
@@ -349,54 +349,56 @@ export function BotMessage({
   );
 }
 
-const styles = StyleSheet.create({
-  sent: { gap: 5 },
-  right: { flexDirection: 'row', justifyContent: 'flex-end' },
-  steered: { textAlign: 'right', paddingHorizontal: 6 },
-  bubble: {
-    maxWidth: '85%',
-    borderRadius: 20,
-    borderBottomRightRadius: 6,
-    borderCurve: 'continuous',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-  },
-  userBubble: { backgroundColor: colors.accent },
-  userText: { color: colors.accentInk },
-  // Ink on the light bubble: bolder, on a faint tint.
-  mention: { fontWeight: '600', backgroundColor: 'rgba(7, 8, 10, 0.08)' },
-  incoming: { alignItems: 'center', gap: 6 },
-  line: { textAlign: 'center', lineHeight: 20, paddingHorizontal: 12 },
-  you: { fontWeight: '600' },
-  incomingBubble: {
-    maxWidth: '92%',
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.055)',
-  },
-  incomingText: { fontSize: 14, lineHeight: 21, color: 'rgba(238, 241, 246, 0.88)' },
-  centered: { textAlign: 'center' },
-  bot: { flexDirection: 'row', gap: 12 },
-  botBody: { flex: 1, minWidth: 0, gap: 10, paddingTop: 3 },
-  thinking: { fontSize: 15, lineHeight: 23 },
-  stepLimit: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  readLess: { alignSelf: 'flex-start', paddingVertical: 2 },
-  continue: {
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    overflow: 'hidden',
-  },
-  error: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 133, 0.25)',
-    backgroundColor: 'rgba(255, 107, 133, 0.07)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    sent: { gap: 5 },
+    right: { flexDirection: 'row', justifyContent: 'flex-end' },
+    steered: { textAlign: 'right', paddingHorizontal: 6 },
+    bubble: {
+      maxWidth: '85%',
+      borderRadius: 20,
+      borderBottomRightRadius: 6,
+      borderCurve: 'continuous',
+      paddingHorizontal: 15,
+      paddingVertical: 10,
+    },
+    userBubble: { backgroundColor: colors.accent },
+    userText: { color: colors.accentInk },
+    // Ink on the light bubble: bolder, on a faint tint.
+    mention: { fontWeight: '600', backgroundColor: tint.onAccent(0.08) },
+    incoming: { alignItems: 'center', gap: 6 },
+    line: { textAlign: 'center', lineHeight: 20, paddingHorizontal: 12 },
+    you: { fontWeight: '600' },
+    incomingBubble: {
+      maxWidth: '92%',
+      borderRadius: 18,
+      borderCurve: 'continuous',
+      paddingHorizontal: 15,
+      paddingVertical: 10,
+      backgroundColor: tint.ink(0.055),
+    },
+    incomingText: { fontSize: 14, lineHeight: 21, color: tint.text(0.88) },
+    centered: { textAlign: 'center' },
+    bot: { flexDirection: 'row', gap: 12 },
+    botBody: { flex: 1, minWidth: 0, gap: 10, paddingTop: 3 },
+    thinking: { fontSize: 15, lineHeight: 23 },
+    stepLimit: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    readLess: { alignSelf: 'flex-start', paddingVertical: 2 },
+    continue: {
+      borderRadius: 9999,
+      borderWidth: 1,
+      borderColor: colors.borderStrong,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      overflow: 'hidden',
+    },
+    error: {
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tint.danger(0.25),
+      backgroundColor: tint.danger(0.07),
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+  }),
+);

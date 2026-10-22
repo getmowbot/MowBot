@@ -18,7 +18,7 @@ import {
   type VaultRequestPart,
 } from '../../lib/vault';
 import { useAnswerVaultRequest } from '../../lib/vault-queries';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { Pill } from '../board/pill';
 import { IconButton } from '../ui/button';
 import { Field } from '../ui/field';
@@ -230,34 +230,36 @@ export function VaultRequest({ message, part, index }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { padding: 14, gap: 12 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  lock: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  headText: { flex: 1, minWidth: 0, gap: 1 },
-  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  noteIcon: { marginTop: 1 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  answered: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    overflow: 'hidden',
-  },
-  shrink: { flexShrink: 1 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    card: { padding: 14, gap: 12 },
+    head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    lock: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tint.ink(0.08),
+    },
+    headText: { flex: 1, minWidth: 0, gap: 1 },
+    note: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+    noteIcon: { marginTop: 1 },
+    actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    answered: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      maxWidth: '100%',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 14,
+      borderCurve: 'continuous',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      overflow: 'hidden',
+    },
+    shrink: { flexShrink: 1 },
+  }),
+);

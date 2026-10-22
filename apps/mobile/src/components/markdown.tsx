@@ -2,7 +2,7 @@ import { createContext, Fragment, use, useEffect, useMemo, useState } from 'reac
 import { Linking, ScrollView, StyleSheet, Text, type TextStyle, View } from 'react-native';
 import { type ChipBot, nameSegments } from '../lib/incoming';
 import { type Block, type Inline, isSafeLink, parseMarkdown } from '../lib/markdown';
-import { colors, fonts, type } from '../theme';
+import { colors, currentScheme, fonts, themed, tint, type } from '../theme';
 import { BotChip } from './bot-chip';
 
 /** Bots shown as chips where the text names them (none inside a link). */
@@ -198,64 +198,67 @@ export function Markdown({ text, caret = false, style, bots }: Props) {
   return bots?.length ? <BotsContext value={bots}>{shown}</BotsContext> : shown;
 }
 
-const styles = StyleSheet.create({
-  base: { ...type.body, color: colors.text },
-  blocks: { gap: 10 },
-  strong: { fontWeight: '700' },
-  em: { fontStyle: 'italic' },
-  strike: { textDecorationLine: 'line-through' },
-  link: {
-    color: colors.accentStrong,
-    textDecorationLine: 'underline',
-    textDecorationColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  inlineCode: {
-    fontFamily: fonts.mono,
-    fontSize: 13.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    color: colors.text,
-  },
-  h1: { fontSize: 18, lineHeight: 25, fontWeight: '700', marginTop: 4 },
-  h3: { fontSize: 16.5, lineHeight: 23, fontWeight: '600', marginTop: 2 },
-  list: { gap: 6 },
-  item: { flexDirection: 'row', gap: 8 },
-  bullet: { minWidth: 14, color: colors.textMuted },
-  itemBody: { flex: 1 },
-  quote: {
-    borderLeftWidth: 2,
-    borderLeftColor: 'rgba(255, 255, 255, 0.25)',
-    paddingLeft: 12,
-  },
-  quoteText: { color: colors.textMuted },
-  codeBlock: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  code: {
-    fontFamily: fonts.mono,
-    fontSize: 12.5,
-    lineHeight: 19,
-    color: colors.text,
-    padding: 12,
-  },
-  rule: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.borderStrong,
-    marginVertical: 4,
-  },
-  table: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  headRow: { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
-  cell: { minWidth: 96, maxWidth: 220, paddingHorizontal: 10, paddingVertical: 7, fontSize: 14 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    base: { ...type.body, color: colors.text },
+    blocks: { gap: 10 },
+    strong: { fontWeight: '700' },
+    em: { fontStyle: 'italic' },
+    strike: { textDecorationLine: 'line-through' },
+    link: {
+      color: colors.accentStrong,
+      textDecorationLine: 'underline',
+      textDecorationColor: tint.ink(0.4),
+    },
+    inlineCode: {
+      fontFamily: fonts.mono,
+      fontSize: 13.5,
+      backgroundColor: tint.ink(0.08),
+      color: colors.text,
+    },
+    h1: { fontSize: 18, lineHeight: 25, fontWeight: '700', marginTop: 4 },
+    h3: { fontSize: 16.5, lineHeight: 23, fontWeight: '600', marginTop: 2 },
+    list: { gap: 6 },
+    item: { flexDirection: 'row', gap: 8 },
+    bullet: { minWidth: 14, color: colors.textMuted },
+    itemBody: { flex: 1 },
+    quote: {
+      borderLeftWidth: 2,
+      borderLeftColor: tint.ink(0.25),
+      paddingLeft: 12,
+    },
+    quoteText: { color: colors.textMuted },
+    codeBlock: {
+      borderRadius: 14,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      // A darker well on dark, a light gray one on light.
+      backgroundColor: currentScheme() === 'light' ? tint.ink(0.04) : 'rgba(0, 0, 0, 0.4)',
+    },
+    code: {
+      fontFamily: fonts.mono,
+      fontSize: 12.5,
+      lineHeight: 19,
+      color: colors.text,
+      padding: 12,
+    },
+    rule: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.borderStrong,
+      marginVertical: 4,
+    },
+    table: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      borderRadius: 10,
+      overflow: 'hidden',
+    },
+    row: {
+      flexDirection: 'row',
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    headRow: { backgroundColor: tint.ink(0.04) },
+    cell: { minWidth: 96, maxWidth: 220, paddingHorizontal: 10, paddingVertical: 7, fontSize: 14 },
+  }),
+);

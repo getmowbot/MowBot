@@ -4,7 +4,7 @@ import { Alert, Modal, Pressable, StyleSheet, TextInput, View } from 'react-nati
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import i18n from '../../i18n';
 import { isIOS } from '../../lib/platform';
-import { colors, type } from '../../theme';
+import { colors, currentScheme, themed, tint, type } from '../../theme';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 
@@ -37,7 +37,7 @@ export function useNamePrompt(): { ask(request: NameRequest): void; element: Rea
         'plain-text',
         next.initial ?? '',
         'default',
-        { userInterfaceStyle: 'dark' },
+        { userInterfaceStyle: currentScheme() },
       );
       return;
     }
@@ -91,10 +91,10 @@ function NameDialog({ request, onClose }: { request: NameRequest; onClose(): voi
             accessibilityLabel={request.title}
             placeholder={request.placeholder}
             placeholderTextColor={colors.textFaint}
-            selectionColor="rgba(255, 255, 255, 0.35)"
+            selectionColor={tint.ink(0.35)}
             cursorColor={colors.accentStrong}
             selectionHandleColor={colors.accentStrong}
-            keyboardAppearance="dark"
+            keyboardAppearance={currentScheme()}
             style={styles.input}
           />
           <View style={styles.actions}>
@@ -120,35 +120,37 @@ function NameDialog({ request, onClose }: { request: NameRequest; onClose(): voi
   );
 }
 
-const styles = StyleSheet.create({
-  scrim: { ...StyleSheet.absoluteFill, backgroundColor: colors.scrim },
-  center: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  dialog: {
-    gap: 16,
-    paddingTop: 24,
-    paddingHorizontal: 24,
-    paddingBottom: 12,
-    borderRadius: 28,
-    backgroundColor: colors.surfaceContainerHigh,
-  },
-  title: { fontSize: 22, lineHeight: 28 },
-  input: {
-    ...type.body,
-    color: colors.text,
-    minHeight: 56,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-  },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
-  action: {
-    minHeight: 40,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  actionLabel: { fontWeight: '600' },
-  disabled: { opacity: 0.4 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    scrim: { ...StyleSheet.absoluteFill, backgroundColor: colors.scrim },
+    center: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
+    dialog: {
+      gap: 16,
+      paddingTop: 24,
+      paddingHorizontal: 24,
+      paddingBottom: 12,
+      borderRadius: 28,
+      backgroundColor: colors.surfaceContainerHigh,
+    },
+    title: { fontSize: 22, lineHeight: 28 },
+    input: {
+      ...type.body,
+      color: colors.text,
+      minHeight: 56,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tint.ink(0.6),
+    },
+    actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+    action: {
+      minHeight: 40,
+      paddingHorizontal: 12,
+      borderRadius: 20,
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    actionLabel: { fontWeight: '600' },
+    disabled: { opacity: 0.4 },
+  }),
+);

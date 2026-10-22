@@ -3,7 +3,7 @@ import { GlassView } from 'expo-glass-effect';
 import { useEffect, useState } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewProps, type ViewStyle } from 'react-native';
 import { isAndroid, useLiquidGlass } from '../../lib/platform';
-import { colors, shape } from '../../theme';
+import { colors, currentScheme, shape, themed } from '../../theme';
 
 export interface SurfaceProps extends ViewProps {
   /**
@@ -43,7 +43,7 @@ export function Surface({
           animate: true,
           animationDuration: 0.35,
         }}
-        colorScheme="dark"
+        colorScheme={currentScheme()}
         isInteractive={interactive}
         style={[{ borderRadius: radius }, style]}
       >
@@ -67,7 +67,9 @@ export function Surface({
     return (
       <View {...props} style={[styles.hairline, { borderRadius: radius }, styles.clip, style]}>
         <BlurView
-          tint="systemChromeMaterialDark"
+          tint={
+            currentScheme() === 'light' ? 'systemChromeMaterialLight' : 'systemChromeMaterialDark'
+          }
           intensity={80}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
@@ -87,11 +89,13 @@ export function Surface({
   );
 }
 
-const styles = StyleSheet.create({
-  hairline: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    borderCurve: 'continuous',
-  },
-  clip: { overflow: 'hidden' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    hairline: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      borderCurve: 'continuous',
+    },
+    clip: { overflow: 'hidden' },
+  }),
+);

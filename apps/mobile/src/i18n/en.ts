@@ -300,6 +300,11 @@ export const en: Catalog = {
     en: 'English',
   },
   settings: {
+    theme: 'Appearance',
+    themeSystem: 'Auto',
+    themeSystemHint: 'Follows the phone: light by day, dark at night if it is set that way.',
+    themeLight: 'Light',
+    themeDark: 'Dark',
     language: 'Language',
     languageSystem: 'Auto',
     languageSystemHint: 'Follows the phone’s language.',

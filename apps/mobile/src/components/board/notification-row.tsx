@@ -2,7 +2,7 @@ import type { Bot, Notification } from '@mowbot/contract';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { timeAgo } from '../../lib/time';
-import { colors } from '../../theme';
+import { colors, themed } from '../../theme';
 import { BotAvatar } from '../bot-avatar';
 import { ROW_INSET } from '../ui/rows';
 import { T } from '../ui/text';
@@ -13,11 +13,11 @@ const GAP = 12;
 /** ListCard divider inset for notification rows (past the unread dot, under the text). */
 export const NOTIFICATION_INSET = ROW_INSET + DOT + GAP;
 
-const DOT_COLOR: Record<Notification['priority'], string> = {
+const DOT_COLOR: Record<Notification['priority'], string> = themed(() => ({
   urgent: colors.danger,
   normal: colors.accentStrong,
   digest: colors.textFaint,
-};
+}));
 
 interface Props {
   notification: Notification;

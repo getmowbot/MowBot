@@ -19,7 +19,7 @@ import {
   signIn,
   useSession,
 } from '../lib/session';
-import { colors } from '../theme';
+import { colors, themed } from '../theme';
 
 /** Three characters greet the user (fixed seeds: always the same faces). */
 function Welcome() {
@@ -162,13 +162,15 @@ export default function ConnectScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, gap: 24 },
-  welcome: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 4 },
-  heading: { alignItems: 'center', gap: 6 },
-  centerText: { textAlign: 'center' },
-  card: { padding: 16, gap: 10 },
-  cardTitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  form: { gap: 16 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
+    content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, gap: 24 },
+    welcome: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 4 },
+    heading: { alignItems: 'center', gap: 6 },
+    centerText: { textAlign: 'center' },
+    card: { padding: 16, gap: 10 },
+    cardTitle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    form: { gap: 16 },
+  }),
+);

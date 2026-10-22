@@ -17,7 +17,7 @@ import { StyleSheet, View } from 'react-native';
 import { type McpState, scopeWithKind, type ToolAccess, toggleScopeId } from '../../lib/mcp';
 import { isAndroid } from '../../lib/platform';
 import { type HeaderRow, headerRow } from '../../lib/provider-form';
-import { colors, fonts } from '../../theme';
+import { colors, fonts, themed } from '../../theme';
 import { Note } from '../admin/parts';
 import { TeamAvatar } from '../bot-avatar';
 import { ListCard } from '../list-card';
@@ -29,13 +29,13 @@ import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 import { SECRET_INPUT } from '../vault/parts';
 
-export const STATE_COLORS: Record<McpState, string> = {
+export const STATE_COLORS: Record<McpState, string> = themed(() => ({
   ok: colors.accentStrong,
   error: colors.danger,
   needsAuth: colors.warning,
   pending: colors.textMuted,
   disabled: colors.textFaint,
-};
+}));
 
 export const STATE_ICONS: Record<McpState, LucideIcon> = {
   ok: CircleCheck,
@@ -219,32 +219,34 @@ export function SecretPairs({
   );
 }
 
-const styles = StyleSheet.create({
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 9999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    flexShrink: 0,
-  },
-  row: {
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  rowText: { flex: 1, minWidth: 0 },
-  check: { width: 20, alignItems: 'center' },
-  pair: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  name: { flex: 2, minWidth: 0 },
-  value: { flex: 3, minWidth: 0 },
-  // Centered on the input, not on its label.
-  remove: { height: isAndroid ? 56 : 50, justifyContent: 'center' },
-  mono: { fontFamily: fonts.mono, fontSize: 13.5, paddingHorizontal: 12 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    badge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 9999,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      flexShrink: 0,
+    },
+    row: {
+      minHeight: 56,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+    },
+    rowText: { flex: 1, minWidth: 0 },
+    check: { width: 20, alignItems: 'center' },
+    pair: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    name: { flex: 2, minWidth: 0 },
+    value: { flex: 3, minWidth: 0 },
+    // Centered on the input, not on its label.
+    remove: { height: isAndroid ? 56 : 50, justifyContent: 'center' },
+    mono: { fontFamily: fonts.mono, fontSize: 13.5, paddingHorizontal: 12 },
+  }),
+);

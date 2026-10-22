@@ -20,7 +20,7 @@ import {
   openOptions,
   showInfo,
 } from '../../lib/options-menu';
-import { colors } from '../../theme';
+import { colors, themed } from '../../theme';
 import { BotAvatar } from '../bot-avatar';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
@@ -30,11 +30,11 @@ import { StatusText } from './parts';
 export const AUTOMATION_ROW_INSET = 16 + 32 + 12;
 
 /** White while it runs, amber when its last runs failed, dim when paused or over. */
-const TONE_COLORS: Record<AutomationTone, string> = {
+const TONE_COLORS: Record<AutomationTone, string> = themed(() => ({
   live: colors.accentStrong,
   warning: colors.warning,
   off: colors.textFaint,
-};
+}));
 
 interface Props {
   automation: Automation;
@@ -142,17 +142,19 @@ export function AutomationRow({ automation, bot, canvasTitle }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    overflow: 'hidden',
-  },
-  text: { flex: 1, minWidth: 0, gap: 2 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  name: { flex: 1, minWidth: 0 },
-  warning: { color: colors.warning },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      overflow: 'hidden',
+    },
+    text: { flex: 1, minWidth: 0, gap: 2 },
+    head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    name: { flex: 1, minWidth: 0 },
+    warning: { color: colors.warning },
+  }),
+);

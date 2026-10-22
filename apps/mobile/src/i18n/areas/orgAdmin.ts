@@ -26,6 +26,8 @@ export const fr = {
   tab: {
     add: 'Ajouter une équipe ou un bot',
     openTeam: 'Ouvre l’équipe : membres, PC, fichiers et réglages',
+    fold: 'Replier {{name}}',
+    unfold: 'Déplier {{name}}',
   },
   newTeam: {
     title: 'Nouvelle équipe',
@@ -203,6 +205,8 @@ export const en: Widen<typeof fr> = {
   tab: {
     add: 'Add a team or a bot',
     openTeam: 'Opens the team: members, PC, files and settings',
+    fold: 'Fold {{name}}',
+    unfold: 'Unfold {{name}}',
   },
   newTeam: {
     title: 'New team',

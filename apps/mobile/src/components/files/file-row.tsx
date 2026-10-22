@@ -21,7 +21,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { type FileKind, fileKind, formatSize, TRASH_FOLDER } from '../../lib/files';
 import { isAndroid, isIOS } from '../../lib/platform';
 import { timeAgo } from '../../lib/time';
-import { colors, shape } from '../../theme';
+import { colors, shape, themed } from '../../theme';
 import { IconButton } from '../ui/button';
 import { ICON_ROW_INSET, ROW_INSET } from '../ui/rows';
 import { T } from '../ui/text';
@@ -168,55 +168,57 @@ export function BusyBanner({ label }: { label: string }) {
 
 const hairline = StyleSheet.hairlineWidth;
 
-const styles = StyleSheet.create({
-  slice: {
-    backgroundColor: isAndroid ? colors.surfaceContainer : colors.surface,
-    overflow: 'hidden',
-    borderCurve: 'continuous',
-    ...(!isAndroid && {
-      borderLeftWidth: hairline,
-      borderRightWidth: hairline,
-      borderColor: colors.borderStrong,
-    }),
-  },
-  sliceFirst: {
-    borderTopLeftRadius: shape.card,
-    borderTopRightRadius: shape.card,
-    ...(!isAndroid && { borderTopWidth: hairline }),
-  },
-  sliceLast: {
-    borderBottomLeftRadius: shape.card,
-    borderBottomRightRadius: shape.card,
-    ...(!isAndroid && { borderBottomWidth: hairline }),
-  },
-  divider: {
-    position: 'absolute',
-    top: 0,
-    left: ICON_ROW_INSET,
-    right: 0,
-    height: hairline,
-    backgroundColor: colors.border,
-    zIndex: 1,
-  },
-  row: {
-    minHeight: isIOS ? 60 : 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: ROW_INSET,
-    paddingVertical: 10,
-    overflow: 'hidden',
-  },
-  text: { flex: 1, minWidth: 0, gap: 2 },
-  // The ⋯ glyph lines up with the chevrons of ListRow (its button is wider than the glyph).
-  more: { marginRight: -10 },
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: ROW_INSET,
-    paddingVertical: 10,
-    borderRadius: shape.card,
-    backgroundColor: isAndroid ? colors.surfaceContainer : colors.surface,
-  },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    slice: {
+      backgroundColor: isAndroid ? colors.surfaceContainer : colors.surface,
+      overflow: 'hidden',
+      borderCurve: 'continuous',
+      ...(!isAndroid && {
+        borderLeftWidth: hairline,
+        borderRightWidth: hairline,
+        borderColor: colors.borderStrong,
+      }),
+    },
+    sliceFirst: {
+      borderTopLeftRadius: shape.card,
+      borderTopRightRadius: shape.card,
+      ...(!isAndroid && { borderTopWidth: hairline }),
+    },
+    sliceLast: {
+      borderBottomLeftRadius: shape.card,
+      borderBottomRightRadius: shape.card,
+      ...(!isAndroid && { borderBottomWidth: hairline }),
+    },
+    divider: {
+      position: 'absolute',
+      top: 0,
+      left: ICON_ROW_INSET,
+      right: 0,
+      height: hairline,
+      backgroundColor: colors.border,
+      zIndex: 1,
+    },
+    row: {
+      minHeight: isIOS ? 60 : 64,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      paddingHorizontal: ROW_INSET,
+      paddingVertical: 10,
+      overflow: 'hidden',
+    },
+    text: { flex: 1, minWidth: 0, gap: 2 },
+    // The ⋯ glyph lines up with the chevrons of ListRow (its button is wider than the glyph).
+    more: { marginRight: -10 },
+    banner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: ROW_INSET,
+      paddingVertical: 10,
+      borderRadius: shape.card,
+      backgroundColor: isAndroid ? colors.surfaceContainer : colors.surface,
+    },
+  }),
+);

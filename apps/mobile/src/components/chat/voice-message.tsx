@@ -9,7 +9,7 @@ import { useRetryTranscript } from '../../lib/queries';
 import { hubUrl } from '../../lib/session';
 import { freshAuthHeaders } from '../../lib/uploads';
 import { fitPeaks, formatDuration, playedFraction } from '../../lib/voice';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { ShimmerText } from '../ui/shimmer-text';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
@@ -222,48 +222,50 @@ export function VoiceMessage({ message, part }: { message: Message; part: AudioP
   );
 }
 
-const styles = StyleSheet.create({
-  bubble: {
-    width: 260,
-    maxWidth: '85%',
-    borderRadius: 20,
-    borderBottomRightRadius: 6,
-    borderCurve: 'continuous',
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 9,
-    backgroundColor: colors.accent,
-    gap: 6,
-  },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  play: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(7, 8, 10, 0.08)',
-    overflow: 'hidden',
-  },
-  nudge: { marginLeft: 2 },
-  wave: {
-    flex: 1,
-    height: WAVE_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: BAR_GAP,
-    overflow: 'hidden',
-  },
-  bar: { width: BAR_WIDTH, borderRadius: BAR_WIDTH, backgroundColor: colors.accentInk },
-  time: { color: colors.accentInk, opacity: 0.75, fontVariant: ['tabular-nums'], minWidth: 32 },
-  transcript: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(7, 8, 10, 0.15)',
-    paddingTop: 6,
-    gap: 4,
-  },
-  inline: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
-  note: { color: colors.accentInk, opacity: 0.7, fontSize: 12, lineHeight: 16 },
-  link: { color: colors.accentInk, fontWeight: '600' },
-  text: { color: colors.accentInk, fontSize: 14.5, lineHeight: 21 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    bubble: {
+      width: 260,
+      maxWidth: '85%',
+      borderRadius: 20,
+      borderBottomRightRadius: 6,
+      borderCurve: 'continuous',
+      paddingHorizontal: 12,
+      paddingTop: 10,
+      paddingBottom: 9,
+      backgroundColor: colors.accent,
+      gap: 6,
+    },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    play: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tint.onAccent(0.08),
+      overflow: 'hidden',
+    },
+    nudge: { marginLeft: 2 },
+    wave: {
+      flex: 1,
+      height: WAVE_HEIGHT,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: BAR_GAP,
+      overflow: 'hidden',
+    },
+    bar: { width: BAR_WIDTH, borderRadius: BAR_WIDTH, backgroundColor: colors.accentInk },
+    time: { color: colors.accentInk, opacity: 0.75, fontVariant: ['tabular-nums'], minWidth: 32 },
+    transcript: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: tint.onAccent(0.15),
+      paddingTop: 6,
+      gap: 4,
+    },
+    inline: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+    note: { color: colors.accentInk, opacity: 0.7, fontSize: 12, lineHeight: 16 },
+    link: { color: colors.accentInk, fontWeight: '600' },
+    text: { color: colors.accentInk, fontSize: 14.5, lineHeight: 21 },
+  }),
+);

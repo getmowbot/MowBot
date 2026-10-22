@@ -45,7 +45,7 @@ import {
 } from '../lib/activity';
 import { useBots } from '../lib/queries';
 import { authHeaders, hubUrl } from '../lib/session';
-import { colors, fonts, springs } from '../theme';
+import { colors, fonts, springs, themed, tint } from '../theme';
 import { chipsOf, type Talk, TalkSheet } from './chat/bot-talk';
 import { ShimmerText } from './ui/shimmer-text';
 import { T } from './ui/text';
@@ -257,53 +257,55 @@ export function ActivityLine({ parts, live }: { parts: ActivityPart[]; live: boo
   );
 }
 
-const styles = StyleSheet.create({
-  headline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 3,
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-    borderRadius: 8,
-  },
-  title: { flexShrink: 1 },
-  errors: { color: 'rgba(255, 107, 133, 0.8)' },
-  steps: {
-    marginLeft: 6.5,
-    marginTop: 4,
-    paddingLeft: 12,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: colors.borderStrong,
-    gap: 2,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-    borderRadius: 8,
-  },
-  details: { gap: 8, paddingLeft: 21, paddingBottom: 8, paddingTop: 2 },
-  mono: { fontFamily: fonts.mono },
-  output: {
-    maxHeight: 260,
-    overflow: 'hidden',
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    padding: 10,
-  },
-  screenshot: {
-    width: '100%',
-    aspectRatio: 16 / 10,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  },
-  reasoning: { flexDirection: 'row', gap: 8, paddingVertical: 4, borderRadius: 8 },
-  reasoningIcon: { marginTop: 3 },
-  italic: { fontStyle: 'italic', flexShrink: 1 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    headline: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 3,
+      alignSelf: 'flex-start',
+      maxWidth: '100%',
+      borderRadius: 8,
+    },
+    title: { flexShrink: 1 },
+    errors: { color: tint.danger(0.8) },
+    steps: {
+      marginLeft: 6.5,
+      marginTop: 4,
+      paddingLeft: 12,
+      borderLeftWidth: StyleSheet.hairlineWidth,
+      borderLeftColor: colors.borderStrong,
+      gap: 2,
+    },
+    stepRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 4,
+      alignSelf: 'flex-start',
+      maxWidth: '100%',
+      borderRadius: 8,
+    },
+    details: { gap: 8, paddingLeft: 21, paddingBottom: 8, paddingTop: 2 },
+    mono: { fontFamily: fonts.mono },
+    output: {
+      maxHeight: 260,
+      overflow: 'hidden',
+      borderRadius: 10,
+      backgroundColor: tint.ink(0.03),
+      padding: 10,
+    },
+    screenshot: {
+      width: '100%',
+      aspectRatio: 16 / 10,
+      borderRadius: 10,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: tint.ink(0.03),
+    },
+    reasoning: { flexDirection: 'row', gap: 8, paddingVertical: 4, borderRadius: 8 },
+    reasoningIcon: { marginTop: 3 },
+    italic: { fontStyle: 'italic', flexShrink: 1 },
+  }),
+);

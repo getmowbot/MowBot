@@ -3,6 +3,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import { isIOS } from '../../lib/platform';
+import { currentScheme, tint } from '../../theme';
 
 interface Props {
   /** The screen edge the fade grows toward. */
@@ -36,11 +37,15 @@ export function EdgeFade({ edge, style }: Props) {
             />
           }
         >
-          <BlurView tint="dark" intensity={28} style={StyleSheet.absoluteFill} />
+          <BlurView
+            tint={currentScheme() === 'light' ? 'light' : 'dark'}
+            intensity={28}
+            style={StyleSheet.absoluteFill}
+          />
         </MaskedView>
       )}
       <LinearGradient
-        colors={['rgba(6, 7, 10, 0)', 'rgba(6, 7, 10, 0.55)', 'rgba(6, 7, 10, 0.88)']}
+        colors={[tint.background(0), tint.background(0.55), tint.background(0.88)]}
         locations={[0, 0.55, 1]}
         {...direction}
         style={StyleSheet.absoluteFill}

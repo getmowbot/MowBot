@@ -16,7 +16,7 @@ import { problemMessage } from '../../lib/org-forms';
 import { useClearPlan, usePlan } from '../../lib/org-queries';
 import { planProgress } from '../../lib/plan';
 import { useProjects } from '../../lib/projects-queries';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { BotAvatar } from '../bot-avatar';
 import { openChat } from '../bot-row';
 import { Section } from '../tab-scroll';
@@ -26,12 +26,12 @@ import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 import { FormError } from './form-error';
 
-const STATUS: Record<PlanStepStatus, { icon: LucideIcon; color: string }> = {
+const STATUS: Record<PlanStepStatus, { icon: LucideIcon; color: string }> = themed(() => ({
   todo: { icon: Circle, color: colors.textFaint },
   doing: { icon: CircleDot, color: colors.text },
   done: { icon: CircleCheck, color: colors.textMuted },
   blocked: { icon: CircleAlert, color: colors.warning },
-};
+}));
 
 /** A step: where it stands, what it is, who does it (a tap opens their chat). */
 function StepRow({ step, index, owner }: { step: PlanStep; index: number; owner?: Bot }) {
@@ -183,31 +183,33 @@ export function TeamPlanSection({ team, bots }: { team: Team; bots: Bot[] }) {
   );
 }
 
-const styles = StyleSheet.create({
-  accessory: { flexDirection: 'row', alignItems: 'center', gap: 4, marginVertical: -8 },
-  card: { padding: 14, gap: 12 },
-  goal: { gap: 6 },
-  project: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  track: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  fill: { height: '100%', borderRadius: 2, backgroundColor: colors.text, opacity: 0.7 },
-  step: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginHorizontal: -8,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    borderRadius: 10,
-  },
-  doing: { backgroundColor: 'rgba(255, 255, 255, 0.05)' },
-  number: { width: 14, textAlign: 'right' },
-  title: { flex: 1, minWidth: 0 },
-  current: { fontWeight: '500' },
-  nobody: { width: 22, textAlign: 'center' },
-  indent: { paddingHorizontal: 4 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    accessory: { flexDirection: 'row', alignItems: 'center', gap: 4, marginVertical: -8 },
+    card: { padding: 14, gap: 12 },
+    goal: { gap: 6 },
+    project: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    track: {
+      height: 4,
+      borderRadius: 2,
+      overflow: 'hidden',
+      backgroundColor: tint.ink(0.06),
+    },
+    fill: { height: '100%', borderRadius: 2, backgroundColor: colors.text, opacity: 0.7 },
+    step: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginHorizontal: -8,
+      paddingHorizontal: 8,
+      paddingVertical: 7,
+      borderRadius: 10,
+    },
+    doing: { backgroundColor: tint.ink(0.05) },
+    number: { width: 14, textAlign: 'right' },
+    title: { flex: 1, minWidth: 0 },
+    current: { fontWeight: '500' },
+    nobody: { width: 22, textAlign: 'center' },
+    indent: { paddingHorizontal: 4 },
+  }),
+);

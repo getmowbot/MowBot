@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { ActivityIndicator, type StyleProp, StyleSheet, type ViewStyle } from 'react-native';
 import { isAndroid } from '../../lib/platform';
-import { colors } from '../../theme';
+import { colors, themed } from '../../theme';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
 
@@ -64,21 +64,23 @@ export function Pill({
   );
 }
 
-const styles = StyleSheet.create({
-  pill: {
-    minHeight: PILL_HEIGHT,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 9999,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    overflow: 'hidden',
-  },
-  solid: { backgroundColor: colors.accentStrong },
-  outline: { borderWidth: 1, borderColor: colors.borderStrong },
-  ghost: { paddingHorizontal: 10 },
-  disabled: { opacity: 0.45 },
-  label: { fontWeight: '600', flexShrink: 1 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    pill: {
+      minHeight: PILL_HEIGHT,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 9999,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      overflow: 'hidden',
+    },
+    solid: { backgroundColor: colors.accentStrong },
+    outline: { borderWidth: 1, borderColor: colors.borderStrong },
+    ghost: { paddingHorizontal: 10 },
+    disabled: { opacity: 0.45 },
+    label: { fontWeight: '600', flexShrink: 1 },
+  }),
+);

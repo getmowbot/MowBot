@@ -17,7 +17,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { openOptions } from '../../lib/options-menu';
-import { colors } from '../../theme';
+import { colors, themed } from '../../theme';
 import { T } from '../ui/text';
 
 export const KIND_ICONS: Record<VaultKind, LucideIcon> = {
@@ -85,16 +85,18 @@ export function useVaultAddMenu(): () => void {
     });
 }
 
-const styles = StyleSheet.create({
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 9999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-    flexShrink: 0,
-  },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    badge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 9999,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+      flexShrink: 0,
+    },
+  }),
+);

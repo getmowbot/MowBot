@@ -1,7 +1,7 @@
 import type { Bot, Computer, Team } from '@mowbot/contract';
 import { router, Stack } from 'expo-router';
 import {
-  ChevronRight,
+  ChevronDown,
   Lock,
   MessageCircle,
   Plus,
@@ -12,7 +12,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { BotAvatar, TeamAvatar } from '../../../../components/bot-avatar';
 import { BotRow, BotStatusLine, openChat, useBotMood } from '../../../../components/bot-row';
 import { ListCard } from '../../../../components/list-card';
@@ -23,12 +23,13 @@ import { Button, IconButton } from '../../../../components/ui/button';
 import { Surface } from '../../../../components/ui/surface';
 import { T } from '../../../../components/ui/text';
 import { Touchable } from '../../../../components/ui/touchable';
+import { toggleTeam, useCollapsedTeams } from '../../../../lib/collapsed-teams';
 import { useLiveConnection } from '../../../../lib/events';
 import { openOptions } from '../../../../lib/options-menu';
 import { orgChart } from '../../../../lib/org-forms';
 import { isAndroid, isIOS } from '../../../../lib/platform';
 import { useBots, useComputers, useTeams } from '../../../../lib/queries';
-import { colors, shape } from '../../../../theme';
+import { colors, shape, springs, themed } from '../../../../theme';
 
 /** True once the event stream has been down for a moment (not during the first connect). */
 function useOffline(): boolean {
@@ -89,13 +90,26 @@ function ChefCard({ chef }: { chef: Bot }) {
   );
 }
 
-/** The team's own row: opens the team (settings, PC, files, members). */
+/** The chevron that folds a team: down when its bots show, turned right when folded. */
+function FoldChevron({ folded }: { folded: boolean }) {
+  const style = useAnimatedStyle(() => ({
+    transform: [{ rotate: withSpring(folded ? '-90deg' : '0deg', springs.snappy) }],
+  }));
+  return (
+    <Animated.View style={style}>
+      <ChevronDown size={18} color={colors.textMuted} />
+    </Animated.View>
+  );
+}
+
+/** The team's own row: opens the team (settings, PC, files, members); its chevron folds it. */
 function TeamHeader({
   team,
   members,
   size,
   computer,
   chef,
+  folded,
 }: {
   team: Team;
   members: Bot[];
@@ -103,38 +117,58 @@ function TeamHeader({
   computer: Computer | undefined;
   /** The main team's face when the Chef is alone in it (it is listed apart). */
   chef: Bot | undefined;
+  /** Its bots are hidden. */
+  folded: boolean;
 }) {
   const { t } = useTranslation();
   return (
-    <Touchable
-      accessibilityRole="button"
-      accessibilityHint={t('orgAdmin.tab.openTeam')}
-      onPress={() => router.push(`/team/${team.id}`)}
-      style={styles.teamHeader}
-    >
-      <TeamAvatar
-        seeds={
-          members.length > 0
-            ? members.map((b) => b.avatarSeed)
-            : team.isMain && chef
-              ? [chef.avatarSeed]
-              : []
-        }
-        size={40}
-      />
-      <View style={styles.teamText}>
-        <View style={styles.teamName}>
-          <T variant="headline" numberOfLines={1} style={styles.shrink}>
-            {team.name}
-          </T>
-          {team.isolated && (
-            <Lock size={13} color={colors.textMuted} accessibilityLabel={t('org.isolated')} />
-          )}
+    <View style={styles.teamRow}>
+      <Touchable
+        accessibilityRole="button"
+        accessibilityHint={t('orgAdmin.tab.openTeam')}
+        onPress={() => router.push(`/team/${team.id}`)}
+        style={styles.teamHeader}
+      >
+        <TeamAvatar
+          seeds={
+            members.length > 0
+              ? members.map((b) => b.avatarSeed)
+              : team.isMain && chef
+                ? [chef.avatarSeed]
+                : []
+          }
+          size={40}
+        />
+        <View style={styles.teamText}>
+          <View style={styles.teamName}>
+            <T variant="headline" numberOfLines={1} style={styles.shrink}>
+              {team.name}
+            </T>
+            {team.isolated && (
+              <Lock size={13} color={colors.textMuted} accessibilityLabel={t('org.isolated')} />
+            )}
+          </View>
+          <PcStatus computer={computer} suffix={t('org.members', { count: size })} />
         </View>
-        <PcStatus computer={computer} suffix={t('org.members', { count: size })} />
-      </View>
-      <ChevronRight size={16} color={colors.textFaint} />
-    </Touchable>
+      </Touchable>
+      {members.length > 0 && (
+        <Touchable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: !folded }}
+          accessibilityLabel={
+            folded
+              ? t('orgAdmin.tab.unfold', { name: team.name })
+              : t('orgAdmin.tab.fold', { name: team.name })
+          }
+          onPress={() => toggleTeam(team.id)}
+          hitSlop={8}
+          borderless
+          style={styles.fold}
+        >
+          <FoldChevron folded={folded} />
+        </Touchable>
+      )}
+    </View>
   );
 }
 
@@ -146,6 +180,7 @@ export default function BotsScreen() {
   const computers = useComputers();
   const offline = useOffline();
   const add = useAddMenu();
+  const collapsed = useCollapsedTeams();
 
   const header = (
     <Stack.Screen
@@ -216,10 +251,14 @@ export default function BotsScreen() {
                 size={size}
                 computer={computerOf(team.computerId)}
                 chef={chart.chef}
+                folded={collapsed.has(team.id)}
               />
-              {members.map((bot) => (
-                <BotRow key={bot.id} bot={bot} lead={bot.id === team.leadBotId} />
-              ))}
+              {!collapsed.has(team.id) &&
+                members.map((bot) => (
+                  <Animated.View key={bot.id} entering={reveal()}>
+                    <BotRow bot={bot} lead={bot.id === team.leadBotId} />
+                  </Animated.View>
+                ))}
             </ListCard>
           ))}
         </View>
@@ -247,40 +286,52 @@ export default function BotsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    backgroundColor: colors.background,
-  },
-  offline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    alignSelf: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 9999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderStrong,
-  },
-  chefPress: { borderRadius: shape.card, overflow: isAndroid ? 'hidden' : 'visible' },
-  chef: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 },
-  chefText: { flex: 1, minWidth: 0, gap: 3 },
-  chefCta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  teams: { gap: 14 },
-  teamHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    minHeight: 64,
-  },
-  teamText: { flex: 1, minWidth: 0, gap: 3 },
-  teamName: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  shrink: { flexShrink: 1 },
-  indent: { paddingHorizontal: 4 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 16,
+      backgroundColor: colors.background,
+    },
+    offline: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      alignSelf: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 9999,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderStrong,
+    },
+    chefPress: { borderRadius: shape.card, overflow: isAndroid ? 'hidden' : 'visible' },
+    chef: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 },
+    chefText: { flex: 1, minWidth: 0, gap: 3 },
+    chefCta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+    teams: { gap: 14 },
+    // The team's button, then its fold chevron beside it (not inside: one button each).
+    teamRow: { flexDirection: 'row', alignItems: 'center', paddingRight: 8 },
+    teamHeader: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      minHeight: 64,
+    },
+    teamText: { flex: 1, minWidth: 0, gap: 3 },
+    fold: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    teamName: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    shrink: { flexShrink: 1 },
+    indent: { paddingHorizontal: 4 },
+  }),
+);

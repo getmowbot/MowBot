@@ -1,16 +1,16 @@
 import type { Computer } from '@mowbot/contract';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
-import { colors } from '../../theme';
+import { colors, themed } from '../../theme';
 import { T } from '../ui/text';
 
-const DOTS: Record<Computer['status'], string> = {
+const DOTS: Record<Computer['status'], string> = themed(() => ({
   running: colors.accentStrong,
   starting: colors.warning,
   stopping: colors.warning,
   stopped: colors.textFaint,
   error: colors.danger,
-};
+}));
 
 /** A PC's state as a dot and a word ("PC on", "PC asleep"…), with something after it. */
 export function PcStatus({

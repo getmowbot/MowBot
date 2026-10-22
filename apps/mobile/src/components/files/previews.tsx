@@ -10,7 +10,7 @@ import WebView from 'react-native-webview';
 import { displayName, formatSize, TEXT_PREVIEW_BYTES, textChunks } from '../../lib/files';
 import { downloadToCache, useImageSource } from '../../lib/files-queries';
 import { isIOS } from '../../lib/platform';
-import { colors, fonts, spacing } from '../../theme';
+import { colors, fonts, spacing, themed } from '../../theme';
 import { Markdown } from '../markdown';
 import { Button } from '../ui/button';
 import { T } from '../ui/text';
@@ -213,20 +213,22 @@ export function OpenWith({ entry, onShare }: { entry: FileEntry; onShare(): void
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  state: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    padding: spacing.xl,
-  },
-  titles: { alignItems: 'center', gap: spacing.xs },
-  center: { textAlign: 'center' },
-  text: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  mono: { fontFamily: fonts.mono, fontSize: 12.5, lineHeight: 19, color: colors.text },
-  document: { padding: spacing.lg, paddingTop: spacing.md },
-  note: { marginTop: spacing.lg, textAlign: 'center' },
-  web: { flex: 1, backgroundColor: colors.background },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    state: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.lg,
+      padding: spacing.xl,
+    },
+    titles: { alignItems: 'center', gap: spacing.xs },
+    center: { textAlign: 'center' },
+    text: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+    mono: { fontFamily: fonts.mono, fontSize: 12.5, lineHeight: 19, color: colors.text },
+    document: { padding: spacing.lg, paddingTop: spacing.md },
+    note: { marginTop: spacing.lg, textAlign: 'center' },
+    web: { flex: 1, backgroundColor: colors.background },
+  }),
+);

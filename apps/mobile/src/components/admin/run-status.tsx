@@ -8,17 +8,17 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { colors } from '../../theme';
+import { colors, themed } from '../../theme';
 import { StatusText } from './parts';
 
 /** Run outcomes as lights: white while running, red on failure, dim otherwise. */
-export const RUN_COLORS: Record<RoutineRunStatus, string> = {
+export const RUN_COLORS: Record<RoutineRunStatus, string> = themed(() => ({
   running: colors.accentStrong,
   done: colors.textMuted,
   idle: colors.textFaint,
   skipped: colors.textFaint,
   error: colors.danger,
-};
+}));
 
 /** Run outcomes as row icons (history). */
 export const RUN_ICONS: Record<RoutineRunStatus, LucideIcon> = {

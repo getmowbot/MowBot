@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Linking, StyleSheet, View } from 'react-native';
 import { CARD_IMAGE_RATIO, cardButtonAction, cardButtonState, isWebLink } from '../../lib/board';
 import { alertError } from '../../lib/options-menu';
-import { colors } from '../../theme';
+import { colors, themed, tint } from '../../theme';
 import { Markdown } from '../markdown';
 import { T } from '../ui/text';
 import { Touchable } from '../ui/touchable';
@@ -139,22 +139,24 @@ export function CardBody({ content, workspaceId, version, pressed, onAnswer }: P
   );
 }
 
-const styles = StyleSheet.create({
-  root: { gap: 14 },
-  main: { gap: 12, borderRadius: 12 },
-  image: {
-    width: '100%',
-    aspectRatio: CARD_IMAGE_RATIO,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-  },
-  noImage: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  heading: { gap: 2 },
-  text: { fontSize: 14.5, lineHeight: 21 },
-  buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chosen: { opacity: 1 },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { gap: 14 },
+    main: { gap: 12, borderRadius: 12 },
+    image: {
+      width: '100%',
+      aspectRatio: CARD_IMAGE_RATIO,
+      borderRadius: 12,
+      borderCurve: 'continuous',
+    },
+    noImage: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tint.ink(0.04),
+    },
+    heading: { gap: 2 },
+    text: { fontSize: 14.5, lineHeight: 21 },
+    buttons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chosen: { opacity: 1 },
+  }),
+);

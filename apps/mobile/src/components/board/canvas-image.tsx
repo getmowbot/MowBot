@@ -2,6 +2,7 @@ import { Image, type ImageContentFit } from 'expo-image';
 import { type ReactNode, useState } from 'react';
 import { type ImageStyle, type StyleProp, StyleSheet } from 'react-native';
 import { isWebImage } from '../../lib/board';
+import { themed, tint } from '../../theme';
 import { MissingImage, WorkspaceImage } from './workspace-image';
 
 interface Props {
@@ -63,6 +64,8 @@ export function CanvasImage({
   );
 }
 
-const styles = StyleSheet.create({
-  image: { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    image: { backgroundColor: tint.ink(0.04) },
+  }),
+);

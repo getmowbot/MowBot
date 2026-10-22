@@ -9,7 +9,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { isAndroid } from '../../lib/platform';
-import { colors, springs, type } from '../../theme';
+import { colors, springs, themed, tint, type } from '../../theme';
 import { Surface } from './surface';
 
 interface Option<V extends string> {
@@ -37,12 +37,11 @@ function OptionLabel({
   index: number;
   position: SharedValue<number>;
 }) {
+  // Plain strings for the UI thread (the look's colors are read here, on the JS thread).
+  const ink = colors.accentInk;
+  const muted = colors.textMuted;
   const style = useAnimatedStyle(() => ({
-    color: interpolateColor(
-      Math.min(1, Math.abs(position.get() - index)),
-      [0, 1],
-      [colors.accentInk, colors.textMuted],
-    ),
+    color: interpolateColor(Math.min(1, Math.abs(position.get() - index)), [0, 1], [ink, muted]),
   }));
   return (
     <Animated.Text numberOfLines={1} style={[type.footnote, styles.label, style]}>
@@ -108,24 +107,26 @@ export function Segmented<V extends string>({ options, value, onChange, label }:
   return <Surface radius={HEIGHT / 2 + INSET}>{content}</Surface>;
 }
 
-const styles = StyleSheet.create({
-  outlined: {
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
-    overflow: 'hidden',
-  },
-  track: { flexDirection: 'row', height: HEIGHT + INSET * 2, padding: INSET },
-  pill: {
-    position: 'absolute',
-    borderRadius: 9999,
-    backgroundColor: colors.accentStrong,
-  },
-  option: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  label: { fontWeight: '600' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    outlined: {
+      borderRadius: 9999,
+      borderWidth: 1,
+      borderColor: tint.ink(0.22),
+      overflow: 'hidden',
+    },
+    track: { flexDirection: 'row', height: HEIGHT + INSET * 2, padding: INSET },
+    pill: {
+      position: 'absolute',
+      borderRadius: 9999,
+      backgroundColor: colors.accentStrong,
+    },
+    option: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    label: { fontWeight: '600' },
+  }),
+);

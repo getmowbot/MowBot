@@ -1,4 +1,8 @@
-import { notificationPrioritySchema, type RoutineTrigger } from '@mowbot/contract';
+import {
+  notificationPrioritySchema,
+  questionLinkSchema,
+  type RoutineTrigger,
+} from '@mowbot/contract';
 import { type ToolSet, tool } from 'ai';
 import { and, count, desc, eq, gte, isNotNull, isNull } from 'drizzle-orm';
 import { z } from 'zod';
@@ -211,7 +215,7 @@ export function buildProactiveTools(ctx: ProactiveToolContext): ToolSet {
 
   tools.ask_user = tool({
     description:
-      "Pose une question à l'utilisateur, avec des réponses toutes prêtes qu'il choisit d'un clic (il peut aussi écrire la sienne). Il est prévenu. Sa réponse t'arrive plus tard comme un message : ne l'attends pas, termine ton tour.",
+      "Pose une question à l'utilisateur, avec des réponses toutes prêtes qu'il choisit d'un clic (il peut aussi écrire la sienne). Il est prévenu, et la question s'ouvre comme une fenêtre dans l'app : joins-y ce qui l'aide à décider (details : ce que tu as trouvé ou préparé ; image : la photo du produit, une capture ; link : la page). Sa réponse t'arrive plus tard comme un message : ne l'attends pas, termine ton tour.",
     inputSchema: z.object({
       question: z.string().trim().min(1).max(500),
       options: z
@@ -219,9 +223,32 @@ export function buildProactiveTools(ctx: ProactiveToolContext): ToolSet {
         .max(6)
         .default([])
         .describe('2 à 4 réponses courtes quand c’est possible (ex. « Oui », « Non, plus tard »)'),
+      details: z
+        .string()
+        .trim()
+        .max(1_000)
+        .optional()
+        .describe(
+          'Quelques lignes en Markdown : ce que tu as trouvé ou préparé (prix, date, résumé)',
+        ),
+      image: z
+        .string()
+        .trim()
+        .max(2_000)
+        .optional()
+        .describe('Une image : un fichier de /workspace (outputs/produit.png) ou une adresse web'),
+      link: questionLinkSchema
+        .optional()
+        .describe('La page à voir avant de répondre (le produit, le formulaire)'),
     }),
-    execute: async ({ question, options }) => {
-      await ctx.questions.ask(self, question, [...new Set(options)]).catch(toolError);
+    execute: async ({ question, options, details, image, link }) => {
+      await ctx.questions
+        .ask(self, question, [...new Set(options)], {
+          ...(details ? { details } : {}),
+          ...(image ? { image: image.replace(/^\/?workspace\//, '') } : {}),
+          ...(link ? { link } : {}),
+        })
+        .catch(toolError);
       return `Question posée à ${ctx.ownerName}. Sa réponse t'arrivera comme un message : termine ton tour maintenant (en une phrase, sans répéter la question), ou avance sur ce qui n'en dépend pas.`;
     },
   });

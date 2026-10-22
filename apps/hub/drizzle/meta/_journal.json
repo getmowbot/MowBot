@@ -183,6 +183,13 @@
       "when": 1792689194360,
       "tag": "0025_computer_systems",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792692816348,
+      "tag": "0026_question_details",
+      "breakpoints": true
     }
   ]
 }

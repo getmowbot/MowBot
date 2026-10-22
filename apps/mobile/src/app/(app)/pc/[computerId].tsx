@@ -48,7 +48,7 @@ import {
 } from '../../../lib/pc-queries';
 import { isAndroid } from '../../../lib/platform';
 import { useBots, useMe } from '../../../lib/queries';
-import { colors, spacing } from '../../../theme';
+import { colors, spacing, themed } from '../../../theme';
 
 const SCREEN = 'screen';
 
@@ -391,60 +391,62 @@ export default function PcScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    padding: spacing.xl,
-  },
-  body: { flex: 1 },
-  top: {
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  area: { flex: 1 },
-  inset: { paddingHorizontal: spacing.lg },
-  // Views of the PC stacked in the area, lined up with the content above.
-  layer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: spacing.lg,
-    right: spacing.lg,
-  },
-  // Kept connected but out of sight (and out of reach of touches).
-  hidden: { opacity: 0, pointerEvents: 'none' },
-  fill: { flex: 1 },
-  fullscreen: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000',
-  },
-  exit: { position: 'absolute', top: spacing.md, right: spacing.md },
-  dock: { gap: spacing.md, paddingTop: spacing.md },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  grow: { flex: 1 },
-  round: {
-    width: ACTION_HEIGHT,
-    height: ACTION_HEIGHT,
-    borderRadius: ACTION_HEIGHT / 2,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  roundFloating: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  clipNote: { textAlign: 'center' },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.lg,
+      padding: spacing.xl,
+    },
+    body: { flex: 1 },
+    top: {
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.md,
+    },
+    area: { flex: 1 },
+    inset: { paddingHorizontal: spacing.lg },
+    // Views of the PC stacked in the area, lined up with the content above.
+    layer: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      left: spacing.lg,
+      right: spacing.lg,
+    },
+    // Kept connected but out of sight (and out of reach of touches).
+    hidden: { opacity: 0, pointerEvents: 'none' },
+    fill: { flex: 1 },
+    fullscreen: {
+      ...StyleSheet.absoluteFill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#000',
+    },
+    exit: { position: 'absolute', top: spacing.md, right: spacing.md },
+    dock: { gap: spacing.md, paddingTop: spacing.md },
+    actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    grow: { flex: 1 },
+    round: {
+      width: ACTION_HEIGHT,
+      height: ACTION_HEIGHT,
+      borderRadius: ACTION_HEIGHT / 2,
+      borderWidth: 1,
+      borderColor: colors.borderStrong,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    roundFloating: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: StyleSheet.hairlineWidth,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    },
+    clipNote: { textAlign: 'center' },
+  }),
+);

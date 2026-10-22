@@ -3,7 +3,7 @@ import { type ReactNode, useState } from 'react';
 import { RefreshControl, type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing } from '../theme';
+import { colors, spacing, themed } from '../theme';
 
 interface ScreenProps {
   /** Shown in the native header (with its back button). */
@@ -86,8 +86,10 @@ export function FormActions({ children }: { children: ReactNode }) {
   return <View style={styles.actions}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.xl },
-  actions: { gap: spacing.md },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
+    content: { padding: spacing.lg, gap: spacing.xl },
+    actions: { gap: spacing.md },
+  }),
+);

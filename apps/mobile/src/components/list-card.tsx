@@ -1,6 +1,6 @@
 import { Children, Fragment, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { colors } from '../theme';
+import { colors, themed } from '../theme';
 import { Surface } from './ui/surface';
 
 /** Rows grouped on one surface, separated by hairlines inset past the avatar. */
@@ -18,6 +18,8 @@ export function ListCard({ children, inset = 64 }: { children: ReactNode; inset?
   );
 }
 
-const styles = StyleSheet.create({
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-});
+const styles = themed(() =>
+  StyleSheet.create({
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  }),
+);

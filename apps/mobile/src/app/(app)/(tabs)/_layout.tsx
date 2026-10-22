@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { badgeText } from '../../../lib/board';
 import { useNotifications } from '../../../lib/board-queries';
 import { isAndroid } from '../../../lib/platform';
-import { colors } from '../../../theme';
+import { colors, currentScheme } from '../../../theme';
 
 /**
  * System tab bar: Liquid Glass on iOS 26 (blur on older iOS), Material 3 navigation bar on
@@ -25,11 +25,13 @@ export default function TabsLayout() {
         selected: { color: colors.text },
       }}
       backgroundColor={isAndroid ? colors.surfaceContainer : undefined}
-      blurEffect="systemChromeMaterialDark"
+      blurEffect={
+        currentScheme() === 'light' ? 'systemChromeMaterialLight' : 'systemChromeMaterialDark'
+      }
       indicatorColor={colors.accentStrong}
       rippleColor={colors.ripple}
       badgeBackgroundColor={colors.error}
-      badgeTextColor={colors.accentStrong}
+      badgeTextColor="#ffffff"
       labelVisibilityMode="labeled"
       minimizeBehavior="onScrollDown"
     >

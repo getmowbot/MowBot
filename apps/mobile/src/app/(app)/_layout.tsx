@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { isAndroid } from '../../lib/platform';
 import { usePushNotifications } from '../../lib/push';
 import { colors } from '../../theme';
 
@@ -25,7 +26,23 @@ export default function AppLayout() {
           headerBackButtonDisplayMode: 'minimal',
           contentStyle: { backgroundColor: colors.background },
         }}
-      />
+      >
+        {/* The tabs first: the stack starts on them. */}
+        <Stack.Screen name="(tabs)" />
+        {/* A bot's question: a native sheet, as tall as it needs, over whatever is open. */}
+        <Stack.Screen
+          name="question/[id]"
+          options={{
+            presentation: 'formSheet',
+            sheetAllowedDetents: 'fitToContents',
+            sheetGrabberVisible: true,
+            sheetCornerRadius: 28,
+            contentStyle: {
+              backgroundColor: isAndroid ? colors.surfaceContainerLow : colors.surface,
+            },
+          }}
+        />
+      </Stack>
       <PushNotifications />
     </>
   );
