@@ -13,3 +13,6 @@ coverage/
 # Desktop app (Tauri) build output
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
+
+# Claude Code: local settings, scripts and worktrees (never part of the project)
+.claude/
