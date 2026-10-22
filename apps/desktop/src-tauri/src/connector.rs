@@ -1,6 +1,7 @@
 //! The connector: an outgoing WebSocket to the hub (`/api/v1/connectors/ws`) that announces the
 //! shared folders and answers the hub's requests on them (docs/DESKTOP.md).
 
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
@@ -17,6 +18,7 @@ use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
 use crate::hub;
 use crate::state::{emit_status, AppState, Link};
+use crate::watch::{debounce, WatchSet, MAX_WAIT, QUIET};
 
 /// Close code of the hub when the token is revoked (the connector was deleted).
 const REVOKED_CLOSE_CODE: u16 = 4401;
@@ -39,6 +41,17 @@ struct Request {
     #[serde(default)]
     args: Value,
 }
+
+/// The hub's list of projects to watch (the mirrored ones).
+#[derive(Deserialize)]
+struct WatchRequest {
+    projects: Vec<String>,
+    #[serde(default)]
+    exclude: Vec<String>,
+}
+
+/// What a session keeps for the hub's `watch`: the watchers, sending their changes on.
+type Watches = Arc<Mutex<WatchSet>>;
 
 /// How a connection ended.
 enum End {
@@ -159,13 +172,21 @@ async fn session(app: &AppHandle, link: &Link, links: &mut watch::Receiver<Optio
     state.connection.lock().unwrap().outbox = Some(outbox.clone());
     set_connection(app, true, None);
 
+    // Changes in the mirrored projects, gathered then sent while this connection lasts.
+    let (changes, gathered) = mpsc::unbounded_channel();
+    let watches: Watches = Arc::new(Mutex::new(WatchSet::new(changes)));
+    let changed_out = outbox.clone();
+    let forwarding = tauri::async_runtime::spawn(debounce(gathered, QUIET, MAX_WAIT, move |m| {
+        let _ = changed_out.send(m);
+    }));
+
     let mut deadline = Instant::now() + SILENCE_TIMEOUT;
     let end = loop {
         tokio::select! {
             incoming = stream.next() => {
                 deadline = Instant::now() + SILENCE_TIMEOUT;
                 match incoming {
-                    Some(Ok(Message::Text(text))) => handle(app, text.as_str(), &outbox),
+                    Some(Ok(Message::Text(text))) => handle(app, text.as_str(), &outbox, &watches),
                     Some(Ok(Message::Close(frame))) => {
                         let code = frame.as_ref().map(|f| u16::from(f.code));
                         if code == Some(REVOKED_CLOSE_CODE) {
@@ -202,6 +223,9 @@ async fn session(app: &AppHandle, link: &Link, links: &mut watch::Receiver<Optio
         }
     };
     state.connection.lock().unwrap().outbox = None;
+    // The hub reconciles everything when the app connects again: no watching meanwhile.
+    watches.lock().unwrap().set(Vec::new(), Vec::new());
+    forwarding.abort();
     end
 }
 
@@ -234,12 +258,25 @@ fn connect_error(error: &WsError) -> String {
 }
 
 /// A message from the hub: requests are answered concurrently, each in its own task.
-fn handle(app: &AppHandle, text: &str, outbox: &mpsc::UnboundedSender<String>) {
+fn handle(app: &AppHandle, text: &str, outbox: &mpsc::UnboundedSender<String>, watches: &Watches) {
     let Ok(value) = serde_json::from_str::<Value>(text) else {
         return;
     };
-    if value.get("t").and_then(Value::as_str) != Some("req") {
-        return;
+    match value.get("t").and_then(Value::as_str) {
+        Some("req") => {}
+        Some("watch") => {
+            if let Ok(wanted) = serde_json::from_value::<WatchRequest>(value) {
+                set_watches(app, wanted, watches.clone());
+            }
+            return;
+        }
+        Some("pick") => {
+            if let Some(id) = value.get("id").and_then(Value::as_str) {
+                pick(app, id.to_string(), outbox.clone());
+            }
+            return;
+        }
+        _ => return,
     }
     let Ok(request) = serde_json::from_value::<Request>(value) else {
         return;
@@ -259,10 +296,53 @@ fn handle(app: &AppHandle, text: &str, outbox: &mpsc::UnboundedSender<String>) {
                 request.project
             )),
         };
-        let response = match result {
-            Ok(data) => json!({ "t": "res", "id": request.id, "ok": true, "data": data }),
-            Err(error) => json!({ "t": "res", "id": request.id, "ok": false, "error": error }),
+        let _ = outbox.send(response(&request.id, result));
+    });
+}
+
+fn response(id: &str, result: Result<Value, String>) -> String {
+    match result {
+        Ok(data) => json!({ "t": "res", "id": id, "ok": true, "data": data }),
+        Err(error) => json!({ "t": "res", "id": id, "ok": false, "error": error }),
+    }
+    .to_string()
+}
+
+/// Watches the shared folders the hub mirrors (watching a big tree can take a moment: aside).
+fn set_watches(app: &AppHandle, wanted: WatchRequest, watches: Watches) {
+    let shared = app.state::<AppState>().projects();
+    let roots: Vec<(String, std::path::PathBuf)> = wanted
+        .projects
+        .iter()
+        .filter_map(|key| shared.iter().find(|p| &p.key == key))
+        .filter_map(|p| {
+            crate::ops::paths::project_root(&p.path)
+                .ok()
+                .map(|root| (p.key.clone(), root))
+        })
+        .collect();
+    tauri::async_runtime::spawn_blocking(move || {
+        for error in watches.lock().unwrap().set(roots, wanted.exclude) {
+            eprintln!("[mowbot] dossier non surveillé : {error}");
+        }
+    });
+}
+
+/// The hub asks to add a folder from this computer (the user asked from another device): the
+/// folder picker opens here, and only what the user picks is shared.
+fn pick(app: &AppHandle, id: String, outbox: mpsc::UnboundedSender<String>) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        hub::show_main(&app);
+        let result = match crate::commands::pick_folder(&app, "Dossier à partager avec les bots")
+            .await
+        {
+            Ok(Some(path)) => crate::commands::share_picked(&app, &path).map(
+                |project| json!({ "key": project.key, "name": project.name, "path": project.path }),
+            ),
+            Ok(None) => Ok(Value::Null),
+            Err(error) => Err(error),
         };
-        let _ = outbox.send(response.to_string());
+        let _ = outbox.send(response(&id, result));
     });
 }
