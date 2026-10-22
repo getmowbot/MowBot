@@ -6,6 +6,9 @@ The release workflow publishes the section of the version it builds as the relea
 
 ## Unreleased
 
+### Fixes
+- **Voice messages** transcribe on a network that cuts connections: once the Whisper model is on the hub, it loads from the disk without asking Hugging Face anything (it used to check its files online at every load, and failed with "Transcription impossible").
+
 ### One memory for all your bots
 - **What you tell one bot, every bot knows.** Your email, your birthday, the artists you like, the app you listen to music in, a competition on Saturday: a bot keeps it as soon as you mention it, without asking or saying so, and every other bot finds it in its prompt. A fact that changes replaces the old one; passwords and codes go to the vault, never to the memory.
 - **Bots work on their own.** Before asking you something, a bot looks for the answer: what it knows of you, the vault, your files, your connected services, the web. It asks only what it truly cannot find, never makes things up, and keeps working on what doesn't depend on your answer.
