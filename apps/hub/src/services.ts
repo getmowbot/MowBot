@@ -16,6 +16,7 @@ import { bots as botsTable } from './db/schema';
 import { EventBus } from './events';
 import { TicketService } from './http/tickets';
 import { McpService } from './mcp/service';
+import { PlanService } from './org/plans';
 import { OrgService } from './org/service';
 import type { TaskService } from './org/tasks';
 import { PreviewService } from './previews/service';
@@ -46,6 +47,7 @@ export interface Services {
   bots: BotService;
   org: OrgService;
   tasks: TaskService;
+  plans: PlanService;
   runtime: BotRuntime;
   routines: RoutineService;
   notifications: NotificationService;
@@ -112,6 +114,7 @@ export async function createServices(
   const bots = new BotService(db, events);
   await bots.watchTasks();
   const org = new OrgService(db, files, computers, events, config.masterKey);
+  const plans = new PlanService(db, events);
   const browser = new BrowserHub();
   const vault = new VaultService({
     db,
@@ -147,6 +150,7 @@ export async function createServices(
     computers,
     files,
     org,
+    plans,
     routines,
     notifications,
     system,
@@ -185,6 +189,7 @@ export async function createServices(
     bots,
     org,
     tasks: runtime.tasks,
+    plans,
     runtime,
     routines,
     notifications,

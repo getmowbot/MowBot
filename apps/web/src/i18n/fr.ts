@@ -362,6 +362,9 @@ export const fr = {
       cancelled: 'annulée',
     },
     listTasks: 'Revoit ses tâches',
+    planSet: 'Écrit le plan de l’équipe',
+    planUpdate: 'Met à jour le plan de l’équipe',
+    planShow: 'Lit le plan de l’équipe',
     createTeam: 'Crée l’équipe {{name}}',
     createBot: 'Crée {{name}}',
     updateBot: 'Met à jour {{name}}',
@@ -530,9 +533,26 @@ export const fr = {
     notDeleted: 'Équipe non supprimée.',
     clear: 'Vider les conversations',
     confirmClear:
-      'Vider les conversations de tous les bots de {{name}} ({{bots}}) ? Ils s’arrêtent et repartent de zéro ; leurs fichiers et leurs tâches restent.',
+      'Vider les conversations de tous les bots de {{name}} ({{bots}}) ? Ils s’arrêtent et repartent de zéro, et le plan de l’équipe est effacé ; leurs fichiers et leurs tâches restent.',
     cleared: 'Conversations vidées.',
     notCleared: 'Conversations non vidées.',
+    plan: {
+      title: 'Plan',
+      empty:
+        'Pas encore de plan. Le lead (ou le Chef) l’écrit quand l’équipe se lance dans un travail en plusieurs étapes.',
+      progress: '{{done}} sur {{total}} étapes faites',
+      project: 'Projet {{name}}',
+      nobody: 'Personne pour l’instant',
+      clear: 'Effacer le plan',
+      confirmClear: 'Effacer le plan de {{name}} ? Les tâches restent.',
+      notCleared: 'Plan non effacé.',
+      status: {
+        todo: 'À faire',
+        doing: 'En cours',
+        done: 'Fait',
+        blocked: 'Bloqué',
+      },
+    },
   },
   desktop: {
     notFound: 'Ordinateur introuvable.',

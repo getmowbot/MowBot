@@ -13,6 +13,7 @@ import type {
   MessagePart,
   ModelRef,
   Question,
+  Team,
   VaultField,
   VaultRequestAnswer,
 } from '@mowbot/contract';
@@ -29,6 +30,7 @@ import type { EventBus } from '../events';
 import { HttpProblem, notFound } from '../http/problems';
 import { hubTexts } from '../i18n';
 import type { McpService } from '../mcp/service';
+import type { PlanService } from '../org/plans';
 import type { OrgService } from '../org/service';
 import { TaskService } from '../org/tasks';
 import type { PreviewService } from '../previews/service';
@@ -54,9 +56,10 @@ import { buildLocalTools, OFFLINE_HINT, projectPlace } from './local-tools';
 import { buildMcpTools } from './mcp-tools';
 import { resolveMentions } from './mentions';
 import { buildOrgTools } from './org-tools';
+import { buildPlanTools } from './plan-tools';
 import { buildPreviewTools, previewLines, SHARE_PREVIEW } from './preview-tools';
 import { buildProactiveTools } from './proactive-tools';
-import { systemPrompt } from './prompt';
+import { type PromptContext, systemPrompt } from './prompt';
 import { FileLocks, ScreenLeases } from './shared-pc';
 import { LAST_STEP_NOTE, MAX_AUTONOMOUS_STEPS, MAX_STEPS, shortenOldOutputs } from './step-budget';
 import { buildTakeoverTools, REQUEST_TAKEOVER } from './takeover-tools';
@@ -145,6 +148,8 @@ export interface RuntimeDeps {
   computers: ComputerService;
   files: WorkspaceFiles;
   org: OrgService;
+  /** Each team's plan of attack, which tasks can carry steps of. */
+  plans: PlanService;
   routines: RoutineService;
   notifications: NotificationService;
   system: SystemService;
@@ -330,14 +335,18 @@ export class BotRuntime {
 
   constructor(private readonly deps: RuntimeDeps) {
     this.browser = deps.browser ?? new BrowserHub();
-    this.tasks = new TaskService(deps.db, deps.events, (notice) =>
-      this.deliver(notice.to.id, {
-        from: notice.from,
-        kind: 'task',
-        text: notice.text,
-        display: notice.display,
-        meta: { taskId: notice.task.id, depth: notice.depth, summary: notice.summary },
-      }),
+    this.tasks = new TaskService(
+      deps.db,
+      deps.events,
+      (notice) =>
+        this.deliver(notice.to.id, {
+          from: notice.from,
+          kind: 'task',
+          text: notice.text,
+          display: notice.display,
+          meta: { taskId: notice.task.id, depth: notice.depth, summary: notice.summary },
+        }),
+      deps.plans,
     );
   }
 
@@ -1155,7 +1164,10 @@ export class BotRuntime {
     }
   }
 
-  /** Starts every conversation of a team over (but `keep`'s, the bot asking for it). */
+  /**
+   * Starts every conversation of a team over (but `keep`'s, the bot asking for it), for a new
+   * project: the previous one's plan goes too.
+   */
   async clearTeam(teamId: string, keep?: string): Promise<string[]> {
     await this.deps.org.team(teamId);
     const members = await this.deps.db.select().from(bots).where(eq(bots.teamId, teamId));
@@ -1165,7 +1177,31 @@ export class BotRuntime {
       await this.clear(bot.id);
       cleared.push(bot.name);
     }
+    await this.deps.plans.clear(teamId);
     return cleared;
+  }
+
+  /**
+   * The plans a bot reads in its prompt: its team's in full (the Chef: those of the teams
+   * without a lead too, which it keeps), the others' in a line for the Chef.
+   */
+  private async planContext(
+    bot: BotRow,
+    teams: Team[],
+  ): Promise<Pick<PromptContext, 'plans' | 'otherPlans'>> {
+    const { plans } = this.deps;
+    const full: NonNullable<PromptContext['plans']> = [];
+    const others: string[] = [];
+    for (const plan of await plans.all()) {
+      const team = teams.find((t) => t.id === plan.teamId);
+      if (!team) continue;
+      if (team.id === bot.teamId || (bot.isChef && !team.leadBotId)) {
+        full.push({ team: team.name, text: await plans.text(plan, bot.id) });
+      } else if (bot.isChef) {
+        others.push(`- ${team.name} : ${plans.summary(plan)}`);
+      }
+    }
+    return { plans: full, otherPlans: others };
   }
 
   /** Deletes a team with its bots: each stops (whoever waits on one hears it), then goes. */
@@ -1566,6 +1602,7 @@ export class BotRuntime {
         runtime: this,
         org: this.deps.org,
         tasks: this.tasks,
+        plans: this.deps.plans,
         bots: this.deps.bots,
         files: this.deps.files,
         events,
@@ -1621,6 +1658,14 @@ export class BotRuntime {
             })
           : {}),
         ...(await buildOrgTools(orgContext)),
+        ...(await buildPlanTools({
+          self: bot,
+          plans: this.deps.plans,
+          org: this.deps.org,
+          bots: this.deps.bots,
+          db,
+          connectors,
+        })),
         ...buildProactiveTools({
           self: bot,
           routines: this.deps.routines,
@@ -1719,6 +1764,7 @@ export class BotRuntime {
               online: activeOnline,
             }
           : null,
+        ...(await this.planContext(bot, allTeams)),
       });
       const history = await this.history(
         botId,

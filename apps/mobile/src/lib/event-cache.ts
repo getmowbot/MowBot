@@ -46,6 +46,7 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
       for (const key of [
         'bots',
         'teams',
+        'plan',
         'computers',
         'messages',
         'tasks',
@@ -191,6 +192,10 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
       break;
     case 'team.deleted':
       client.setQueryData<Team[]>(keys.teams, (list) => list?.filter((t) => t.id !== event.teamId));
+      client.removeQueries({ queryKey: keys.plan(event.teamId) });
+      break;
+    case 'plan.updated':
+      client.setQueryData(keys.plan(event.teamId), event.plan);
       break;
     case 'task.updated':
       void client.invalidateQueries({ queryKey: keys.tasks });

@@ -3,6 +3,7 @@ import { botSchema, messageSchema } from './bots';
 import { canvasSchema } from './canvases';
 import { computerSchema } from './computers';
 import { mcpComputerSchema, mcpServerSchema } from './mcp';
+import { teamPlanSchema } from './plans';
 import { connectorSchema, projectSchema } from './projects';
 import { questionSchema } from './questions';
 import {
@@ -32,6 +33,12 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('team.updated'), team: teamSchema }),
   z.object({ type: z.literal('team.deleted'), teamId: z.uuid() }),
   z.object({ type: z.literal('task.updated'), task: taskSchema }),
+  /** A team's plan was written, changed or cleared (`plan` null). */
+  z.object({
+    type: z.literal('plan.updated'),
+    teamId: z.uuid(),
+    plan: teamPlanSchema.nullable(),
+  }),
   /** A message went away (e.g. an idle check-in tidied up). */
   z.object({ type: z.literal('message.deleted'), botId: z.uuid(), messageId: z.uuid() }),
   z.object({ type: z.literal('canvas.updated'), canvas: canvasSchema }),

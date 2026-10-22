@@ -73,9 +73,27 @@ export const fr = {
     notDeleted: 'Équipe non supprimée.',
     clear: 'Vider les conversations',
     confirmClear:
-      'Vider les conversations de tous les bots de {{name}} ({{bots}}) ? Ils s’arrêtent et repartent de zéro ; leurs fichiers et leurs tâches restent.',
+      'Vider les conversations de tous les bots de {{name}} ({{bots}}) ? Ils s’arrêtent et repartent de zéro, et le plan de l’équipe est effacé ; leurs fichiers et leurs tâches restent.',
     cleared: 'Conversations vidées',
     notCleared: 'Conversations non vidées.',
+    plan: {
+      title: 'Plan',
+      empty:
+        'Pas encore de plan. Le lead (ou le Chef) l’écrit quand l’équipe se lance dans un travail en plusieurs étapes.',
+      progress: '{{done}} sur {{total}} étapes faites',
+      project: 'Projet {{name}}',
+      nobody: 'personne pour l’instant',
+      clear: 'Effacer le plan',
+      confirmClear: 'Effacer le plan de {{name}} ? Les tâches restent.',
+      notCleared: 'Plan non effacé.',
+      step: 'Étape {{n}}, {{status}} : {{title}}, {{owner}}',
+      status: {
+        todo: 'à faire',
+        doing: 'en cours',
+        done: 'faite',
+        blocked: 'bloquée',
+      },
+    },
   },
   bot: {
     identity: 'Identité',
@@ -231,9 +249,27 @@ export const en: Widen<typeof fr> = {
     notDeleted: 'Team not deleted.',
     clear: 'Clear conversations',
     confirmClear:
-      'Clear the conversations of every bot in {{name}} ({{bots}})? They stop and start over; their files and tasks stay.',
+      'Clear the conversations of every bot in {{name}} ({{bots}})? They stop and start over, and the team’s plan is cleared; their files and tasks stay.',
     cleared: 'Conversations cleared',
     notCleared: 'Conversations not cleared.',
+    plan: {
+      title: 'Plan',
+      empty:
+        'No plan yet. The lead (or the Chef) writes one when the team starts on work with several steps.',
+      progress: '{{done}} of {{total}} steps done',
+      project: 'Project {{name}}',
+      nobody: 'nobody yet',
+      clear: 'Clear the plan',
+      confirmClear: 'Clear the plan of {{name}}? Its tasks stay.',
+      notCleared: 'Plan not cleared.',
+      step: 'Step {{n}}, {{status}}: {{title}}, {{owner}}',
+      status: {
+        todo: 'to do',
+        doing: 'in progress',
+        done: 'done',
+        blocked: 'blocked',
+      },
+    },
   },
   bot: {
     identity: 'Identity',

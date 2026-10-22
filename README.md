@@ -39,6 +39,9 @@ or a local model.
   `/clear`, `/model`, `/pc`, `/files`…).
 - Who does what, at a glance: each bot says what it works on ("Building the home page"), and
   its row shows what it does right now ("Running npm", "Writing to Sacha", "waiting for Nova").
+- A plan of attack per team: before splitting a piece of work, the lead (or the Chef) writes the
+  goal and the steps with who does each; the team page shows how far it got, live, and steps
+  given as tasks follow them. Ask any bot "where are we?".
 - Characters with moods: each bot is a little creature that thinks, reads, waits, sleeps and
   beams when it is done.
 

@@ -81,6 +81,7 @@ export function ServerEvents() {
             'bots',
             'messages',
             'teams',
+            'plan',
             'tasks',
             'feed',
             'canvases',
@@ -130,7 +131,11 @@ export function ServerEvents() {
           queryClient.setQueryData<Team[]>(['teams'], (list) =>
             list?.filter((t) => t.id !== event.teamId),
           );
+          queryClient.removeQueries({ queryKey: ['plan', event.teamId] });
           void queryClient.invalidateQueries({ queryKey: ['computers'] });
+          break;
+        case 'plan.updated':
+          queryClient.setQueryData(['plan', event.teamId], event.plan);
           break;
         case 'task.updated':
           void queryClient.invalidateQueries({ queryKey: ['tasks'] });

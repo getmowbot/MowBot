@@ -2,6 +2,8 @@ export const keys = {
   me: ['me'] as const,
   bots: ['bots'] as const,
   teams: ['teams'] as const,
+  /** A team's plan of attack (null: none). */
+  plan: (teamId: string) => ['plan', teamId] as const,
   computers: ['computers'] as const,
   providers: ['providers'] as const,
   tasks: ['tasks'] as const,

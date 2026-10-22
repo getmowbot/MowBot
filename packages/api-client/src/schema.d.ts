@@ -230,8 +230,27 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Starts every conversation of the team's bots over (see `clearMessages`): for a new project, without the previous one's leftovers. Workspace files are kept. */
+        /** @description Starts every conversation of the team's bots over (see `clearMessages`): for a new project, without the previous one's leftovers. The team's plan goes too; workspace files and tasks are kept. */
         delete: operations["clearTeamMessages"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{id}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The team's plan of attack: its goal, then its steps in order with their owner and status (`plan` null: none yet). Changes come as `plan.updated` events. */
+        get: operations["getTeamPlan"];
+        /** @description Writes the plan over. A step with the same title as before keeps what it does not set (owner, status, task); a step that carries a task follows its status. */
+        put: operations["setTeamPlan"];
+        post?: never;
+        /** @description Clears the team's plan (its tasks stay). */
+        delete: operations["clearTeamPlan"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2697,6 +2716,238 @@ export interface operations {
         };
     };
     clearTeamMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    getTeamPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        plan: {
+                            /** Format: uuid */
+                            teamId: string;
+                            goal: string;
+                            projectId: string | null;
+                            authorBotId: string | null;
+                            steps: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                                /** @enum {string} */
+                                status: "todo" | "doing" | "done" | "blocked";
+                                ownerBotId: string | null;
+                                taskId: string | null;
+                            }[];
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    setTeamPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    goal: string;
+                    projectId?: string | null;
+                    steps: {
+                        title: string;
+                        /** @enum {string} */
+                        status?: "todo" | "doing" | "done" | "blocked";
+                        ownerBotId?: string | null;
+                        taskId?: string | null;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        teamId: string;
+                        goal: string;
+                        projectId: string | null;
+                        authorBotId: string | null;
+                        steps: {
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            /** @enum {string} */
+                            status: "todo" | "doing" | "done" | "blocked";
+                            ownerBotId: string | null;
+                            taskId: string | null;
+                        }[];
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    clearTeamPlan: {
         parameters: {
             query?: never;
             header?: never;

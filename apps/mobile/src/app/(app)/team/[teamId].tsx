@@ -18,6 +18,7 @@ import { BotPickRow, PICK_ROW_INSET } from '../../../components/org/bot-pick-row
 import { FieldGroup, TextArea } from '../../../components/org/field-group';
 import { FormError } from '../../../components/org/form-error';
 import { MemberRow } from '../../../components/org/member-row';
+import { TeamPlanSection } from '../../../components/org/team-plan';
 import { FormActions, Screen } from '../../../components/screen';
 import { Section } from '../../../components/tab-scroll';
 import { Button } from '../../../components/ui/button';
@@ -156,6 +157,8 @@ function TeamDetails({
         />
       </ListCard>
 
+      <TeamPlanSection team={team} bots={bots} />
+
       <Section
         title={t('orgAdmin.team.members')}
         accessory={
@@ -276,7 +279,7 @@ function TeamDetails({
   );
 }
 
-/** A team: its members, its PC and files, its settings. */
+/** A team: its PC and files, its plan of attack, its members, its settings. */
 export default function TeamScreen() {
   const { teamId } = useLocalSearchParams<{ teamId: string }>();
   const { t } = useTranslation();

@@ -21,6 +21,7 @@ import type {
   MessagePart,
   ModelRef,
   NotificationPriority,
+  PlanStepStatus,
   ProjectMode,
   ProjectScope,
   ProviderKind,
@@ -670,5 +671,39 @@ export const previews = pgTable(
   (t) => [
     uniqueIndex('previews_public_port_unique').on(t.publicPort),
     uniqueIndex('previews_computer_port_unique').on(t.computerId, t.port),
+  ],
+);
+
+/** A team's plan of attack: its goal, then its steps in order (`planSteps`). One per team. */
+export const teamPlans = pgTable('team_plans', {
+  teamId: uuid('team_id')
+    .primaryKey()
+    .references(() => teams.id, { onDelete: 'cascade' }),
+  goal: text('goal').notNull(),
+  /** The user's project it is about. */
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  /** null: written by the user. */
+  authorBotId: uuid('author_bot_id').references(() => bots.id, { onDelete: 'set null' }),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** A step of a team's plan; one that carries a task follows its status. */
+export const planSteps = pgTable(
+  'plan_steps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    teamId: uuid('team_id')
+      .notNull()
+      .references(() => teamPlans.teamId, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    title: text('title').notNull(),
+    status: text('status').$type<PlanStepStatus>().notNull().default('todo'),
+    ownerBotId: uuid('owner_bot_id').references(() => bots.id, { onDelete: 'set null' }),
+    taskId: uuid('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    index('plan_steps_team_idx').on(t.teamId, t.position),
+    index('plan_steps_task_idx').on(t.taskId),
   ],
 );
