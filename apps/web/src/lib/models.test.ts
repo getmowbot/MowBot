@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { type Listing, modelGroups } from './models';
 
-const openrouter = { id: 'p-or', name: 'OpenRouter', defaultModel: 'deepseek/deepseek-v4.1-flash' };
-const openai = { id: 'p-oa', name: 'OpenAI', defaultModel: null };
+const openrouter = {
+  id: 'p-or',
+  name: 'OpenRouter',
+  kind: 'openai-compatible' as const,
+  baseUrl: 'https://openrouter.ai/api/v1',
+  defaultModel: 'deepseek/deepseek-v4.1-flash',
+};
+const openai = {
+  id: 'p-oa',
+  name: 'OpenAI',
+  kind: 'openai' as const,
+  baseUrl: 'https://api.openai.com/v1',
+  defaultModel: null,
+};
 
 const ready = (...ids: string[]): Listing => ({ state: 'ready', items: ids.map((id) => ({ id })) });
 

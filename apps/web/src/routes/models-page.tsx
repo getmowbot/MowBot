@@ -1,6 +1,8 @@
 import {
+  ANTHROPIC_DEFAULT_MODEL,
   type Bot,
   CHATGPT_USAGE_URL,
+  OPENAI_COMPATIBLE_PRESETS,
   PROVIDER_DEFAULT_URLS,
   type Provider,
   type ProviderKind,
@@ -11,7 +13,6 @@ import {
   Check,
   Download,
   ExternalLink,
-  KeyRound,
   LogIn,
   MessageCircle,
   Plug,
@@ -26,6 +27,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { type FormEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BotAvatar } from '../components/bot-avatar';
+import { ProviderMark } from '../components/provider-mark';
 import { Button } from '../components/ui/button';
 import { Card, FormError, Input, Label, Select } from '../components/ui/form';
 import { i18n } from '../i18n';
@@ -41,19 +43,58 @@ import { desktop, inDesktopApp } from '../lib/projects';
 import { useBots, useProviders } from '../lib/queries';
 import { cn } from '../lib/utils';
 
-/** Product names stay as they are; only the generic kinds are worded. */
-const KINDS = [
-  { kind: 'command-code', name: 'Command Code', hint: 'models.kinds.commandCodeHint' },
-  { kind: 'openai', name: 'OpenAI', hint: 'models.kinds.openaiHint' },
-  { kind: 'openai-chatgpt', name: null, hint: 'models.kinds.chatgptHint' },
-  { kind: 'openai-compatible', name: null, hint: 'models.kinds.compatibleHint' },
-] as const satisfies readonly { kind: ProviderKind; name: string | null; hint: string }[];
+/** What can be added: the providers MowBot speaks to natively, well-known services, any other. */
+interface ProviderOption {
+  id: string;
+  kind: ProviderKind;
+  name: string;
+  hint: string;
+  /** A preset's address, filled in. */
+  baseUrl?: string;
+  /** No key needed (Ollama). */
+  keyless?: boolean;
+}
 
-const kindTitle = (option: (typeof KINDS)[number]): string =>
-  option.name ??
-  (option.kind === 'openai-chatgpt'
-    ? i18n.t('models.kinds.chatgpt')
-    : i18n.t('models.kinds.compatible'));
+/** In the order shown. Product names stay as they are; only the generic kinds are worded. */
+function providerOptions(): ProviderOption[] {
+  return [
+    {
+      id: 'anthropic',
+      kind: 'anthropic',
+      name: 'Anthropic',
+      hint: i18n.t('models.kinds.anthropicHint'),
+    },
+    { id: 'openai', kind: 'openai', name: 'OpenAI', hint: i18n.t('models.kinds.openaiHint') },
+    {
+      id: 'openai-chatgpt',
+      kind: 'openai-chatgpt',
+      name: i18n.t('models.kinds.chatgpt'),
+      hint: i18n.t('models.kinds.chatgptHint'),
+    },
+    ...OPENAI_COMPATIBLE_PRESETS.map((preset) => ({
+      id: preset.id,
+      kind: 'openai-compatible' as const,
+      name: preset.name,
+      baseUrl: preset.baseUrl,
+      keyless: preset.keyAt === null,
+      hint: preset.keyAt
+        ? i18n.t('models.kinds.presetHint', { site: preset.keyAt })
+        : i18n.t('models.kinds.ollamaHint'),
+    })),
+    {
+      id: 'command-code',
+      kind: 'command-code',
+      name: 'Command Code',
+      hint: i18n.t('models.kinds.commandCodeHint'),
+    },
+    {
+      id: 'openai-compatible',
+      kind: 'openai-compatible',
+      name: i18n.t('models.kinds.compatible'),
+      hint: i18n.t('models.kinds.compatibleHint'),
+    },
+  ];
+}
 
 /** The models of a provider: `id` for the bots, `name` to show when there is one. */
 function useModels(providerId: string | null | undefined) {
@@ -546,47 +587,64 @@ function EditProvider({ provider, onDone }: { provider: Provider; onDone(): void
 
 function AddProvider({ onDone }: { onDone(): void }) {
   const { t } = useTranslation();
-  const [kind, setKind] = useState<ProviderKind>('command-code');
-  const current = KINDS.find((k) => k.kind === kind);
+  const options = providerOptions();
+  const [picked, setPicked] = useState<string | null>(null);
+  const current = options.find((option) => option.id === picked);
   return (
     <div className="space-y-4">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {KINDS.map((option) => (
-          <button
-            key={option.kind}
-            type="button"
-            onClick={() => setKind(option.kind)}
-            className={cn(
-              'relative rounded-xl border px-3 py-2.5 text-left text-sm transition-colors duration-200',
-              kind === option.kind
-                ? 'border-primary/50 text-foreground'
-                : 'border-border-strong text-muted-foreground hover:border-white/20',
-            )}
-          >
-            {kind === option.kind && (
-              <motion.span
-                layoutId="provider-kind"
-                transition={springs.soft}
-                className="absolute inset-0 rounded-xl bg-primary/[0.08]"
-              />
-            )}
-            <span className="relative font-medium">{kindTitle(option)}</span>
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+        {options.map((option) => {
+          const on = option.id === picked;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setPicked(option.id)}
+              aria-pressed={on}
+              className={cn(
+                'relative flex items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left text-[13px] transition-colors duration-200 sm:gap-3 sm:px-3 sm:py-2.5 sm:text-sm',
+                on
+                  ? 'border-primary/50 text-foreground'
+                  : 'border-border-strong text-muted-foreground hover:border-white/20 hover:text-foreground',
+              )}
+            >
+              {on && (
+                <motion.span
+                  layoutId="provider-kind"
+                  transition={springs.soft}
+                  className="absolute inset-0 rounded-xl bg-primary/[0.08]"
+                />
+              )}
+              <span className="relative grid size-7 shrink-0 place-items-center rounded-lg bg-white/[0.05] sm:size-8">
+                <ProviderMark kind={option.kind} baseUrl={option.baseUrl} />
+              </span>
+              <span className="relative line-clamp-2 min-w-0 font-medium leading-snug">
+                {option.name}
+              </span>
+            </button>
+          );
+        })}
       </div>
-      <p className="text-[13px] text-muted-foreground">{current && t(current.hint)}</p>
-      {kind === 'openai-chatgpt' ? (
-        <AddChatgpt onDone={onDone} />
+      {current ? (
+        <>
+          <p className="text-[13px] text-muted-foreground">{current.hint}</p>
+          {current.kind === 'openai-chatgpt' ? (
+            <AddChatgpt onDone={onDone} />
+          ) : (
+            <AddKeyProvider key={current.id} option={current} onDone={onDone} />
+          )}
+        </>
       ) : (
-        <AddKeyProvider kind={kind} onDone={onDone} />
+        <p className="text-[13px] text-faint">{t('models.pick')}</p>
       )}
     </div>
   );
 }
 
-/** A provider reached with an API key (Command Code, OpenAI, any OpenAI-compatible endpoint). */
-function AddKeyProvider({ kind, onDone }: { kind: ProviderKind; onDone(): void }) {
+/** A provider reached with an API key (or none, Ollama): its address filled in for a preset. */
+function AddKeyProvider({ option, onDone }: { option: ProviderOption; onDone(): void }) {
   const { t } = useTranslation();
+  const { kind } = option;
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<HeaderRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -614,7 +672,8 @@ function AddKeyProvider({ kind, onDone }: { kind: ProviderKind; onDone(): void }
     },
     onError: (err) => setError(problemMessage(err, t('models.addFailed'))),
   });
-  const current = KINDS.find((k) => k.kind === kind);
+  // A key everywhere but on a generic endpoint or a local Ollama.
+  const keyRequired = !option.keyless && (kind !== 'openai-compatible' || Boolean(option.baseUrl));
 
   return (
     <form
@@ -628,20 +687,16 @@ function AddKeyProvider({ kind, onDone }: { kind: ProviderKind; onDone(): void }
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="name">{t('common.name')}</Label>
-          <Input
-            id="name"
-            name="name"
-            required
-            defaultValue={current && kindTitle(current)}
-            key={kind}
-          />
+          <Input id="name" name="name" required defaultValue={option.name} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="defaultModel">{t('models.defaultModel')}</Label>
           <Input
             id="defaultModel"
             name="defaultModel"
-            placeholder={t('models.defaultModelPlaceholder')}
+            placeholder={
+              kind === 'anthropic' ? ANTHROPIC_DEFAULT_MODEL : t('models.defaultModelPlaceholder')
+            }
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
@@ -651,8 +706,8 @@ function AddKeyProvider({ kind, onDone }: { kind: ProviderKind; onDone(): void }
             name="baseUrl"
             type="url"
             required={kind === 'openai-compatible'}
-            placeholder={PROVIDER_DEFAULT_URLS[kind] ?? 'https://openrouter.ai/api/v1'}
-            key={`url-${kind}`}
+            defaultValue={option.baseUrl}
+            placeholder={PROVIDER_DEFAULT_URLS[kind] ?? 'https://api.example.com/v1'}
           />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
@@ -662,7 +717,14 @@ function AddKeyProvider({ kind, onDone }: { kind: ProviderKind; onDone(): void }
             name="apiKey"
             type="password"
             autoComplete="off"
-            placeholder={t('models.apiKeyPlaceholder')}
+            required={keyRequired}
+            placeholder={
+              kind === 'anthropic'
+                ? 'sk-ant-…'
+                : keyRequired
+                  ? t('models.apiKeyPlaceholder')
+                  : t('models.apiKeyOptional')
+            }
           />
         </div>
       </div>
@@ -698,12 +760,8 @@ function ProviderRow({ provider }: { provider: Provider }) {
   const account = provider.chatgpt;
   return (
     <div className="flex flex-wrap items-center gap-3 py-3">
-      <span className="grid size-9 place-items-center rounded-xl bg-white/[0.05]">
-        {account ? (
-          <MessageCircle className="size-4 text-muted-foreground" />
-        ) : (
-          <KeyRound className="size-4 text-muted-foreground" />
-        )}
+      <span className="grid size-9 place-items-center rounded-xl bg-white/[0.05] text-foreground/85">
+        <ProviderMark kind={provider.kind} baseUrl={provider.baseUrl} className="size-[18px]" />
       </span>
       {/* At least 10rem: on a phone the buttons go to the next line rather than squeeze it. */}
       <div className="min-w-40 flex-1">

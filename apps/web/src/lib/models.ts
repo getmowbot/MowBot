@@ -20,7 +20,7 @@ export interface ModelChoice {
 }
 
 export interface ModelGroup {
-  provider: Pick<Provider, 'id' | 'name'>;
+  provider: Pick<Provider, 'id' | 'name' | 'kind' | 'baseUrl'>;
   state: Listing['state'];
   models: ModelChoice[];
   /** Matching models left out (a provider may list hundreds): typing narrows them down. */
@@ -36,7 +36,7 @@ export const MODELS_PER_PROVIDER = 12;
  * even when the endpoint does not list them (or cannot be reached).
  */
 export function modelGroups(
-  providers: readonly Pick<Provider, 'id' | 'name' | 'defaultModel'>[],
+  providers: readonly Pick<Provider, 'id' | 'name' | 'defaultModel' | 'kind' | 'baseUrl'>[],
   listings: ReadonlyMap<string, Listing>,
   bot: { providerId: string | null; model: string | null },
   query: string,
@@ -75,7 +75,12 @@ export function modelGroups(
       .map(({ model }) => model);
     if (sorted.length === 0 && listing.state !== 'loading') continue;
     groups.push({
-      provider: { id: provider.id, name: provider.name },
+      provider: {
+        id: provider.id,
+        name: provider.name,
+        kind: provider.kind,
+        baseUrl: provider.baseUrl,
+      },
       state: listing.state,
       models: sorted.slice(0, limit),
       more: Math.max(0, sorted.length - limit),
