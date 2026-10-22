@@ -33,6 +33,7 @@ The release workflow publishes the section of the version it builds as the relea
 
 ### Fixes
 - **Voice messages** no longer fail to transcribe on a flaky connection: the first one downloads the Whisper model, and a download cut short is now tried again.
+- **Voice messages** also transcribe on a network that cuts connections once the model is there: it loads from the hub's disk without asking Hugging Face anything (it used to check its files online at every load, and failed with "Transcription impossible").
 
 ### Pick each team's computer
 - **With a desktop or the command line.** A team's PC runs Ubuntu with its desktop (you watch it and take control), or without a screen: lighter, with a shell, files and a browser without a window. Pick it when you create the team (the Chef too) or on the team's page.
