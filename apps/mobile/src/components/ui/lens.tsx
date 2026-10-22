@@ -1,6 +1,6 @@
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useId, useState } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -13,7 +13,13 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Defs, Ellipse, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, {
+  Defs,
+  RadialGradient,
+  Rect,
+  Stop,
+  LinearGradient as SvgGradient,
+} from 'react-native-svg';
 import { isIOS } from '../../lib/platform';
 import { colors, currentScheme, themed } from '../../theme';
 
@@ -21,13 +27,22 @@ const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 /** One turn of the light along the edge: slow, quicker while the user writes (as on the web). */
 const TURN_MS = { idle: 6_000, focused: 3_500 } as const;
-/** The light's tail, as parts of the edge: overlapping, they fade from its head backwards. */
-const TAIL = [0.3, 0.18, 0.08] as const;
+/**
+ * The light's tail, as parts of the edge: overlapping, faint each, they brighten towards its
+ * head without a visible step.
+ */
+const TAIL = [0.04, 0.08, 0.12, 0.16, 0.2, 0.24, 0.28, 0.32] as const;
+
+type Size = { width: number; height: number };
+
+/** An id usable in an SVG `url(#…)` (React's have colons). */
+const useSvgId = () => useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
 /**
  * The web's message field, natively: a lens of glass, very round, bulging (a shine on top, depth
- * under, a soft shadow), with a slow light running along its edge, brighter and quicker while
- * `focused`. Blurs what scrolls under it on iOS; Android keeps it opaque.
+ * under, a soft shadow), with a single edge lit from above and a slow light running along it,
+ * brighter and quicker while `focused`. Blurs what scrolls under it on iOS; Android keeps it
+ * opaque.
  */
 export function Lens({
   focused,
@@ -40,7 +55,7 @@ export function Lens({
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const [size, setSize] = useState<Size | null>(null);
   return (
     <View style={[styles.lift, { borderRadius: radius }]}>
       <View
@@ -50,7 +65,7 @@ export function Lens({
             was?.width === width && was.height === height ? was : { width, height },
           );
         }}
-        style={[styles.body, { borderRadius: radius }, focused && styles.bodyFocused]}
+        style={[styles.body, { borderRadius: radius }]}
       >
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           {isIOS && (
@@ -66,48 +81,41 @@ export function Lens({
             style={StyleSheet.absoluteFill}
           />
           <LinearGradient colors={['transparent', colors.lensDepth]} style={styles.depth} />
-          {size && <Shine width={size.width} height={size.height} />}
-          <View style={[styles.rim, { borderRadius: radius }]} />
+          {size && <Shine {...size} />}
         </View>
         {/* Its own layer: above the glass's, on the web too. */}
         <View style={style}>{children}</View>
       </View>
-      {size && <Beam {...size} radius={radius} focused={focused} />}
+      {size && <Edge {...size} radius={radius} focused={focused} />}
     </View>
   );
 }
 
-/** A soft highlight across the top, as on a bulging glass. */
-function Shine({ width, height }: { width: number; height: number }) {
-  const w = width * 0.84;
-  const h = height * 0.55;
+/**
+ * A soft highlight across the top, as on a bulging glass: it fades out before its own bounds,
+ * so no shape shows inside the field.
+ */
+function Shine({ width, height }: Size) {
+  const id = useSvgId();
+  const w = width * 0.88;
+  const h = height * 0.6;
   return (
-    <Svg width={w} height={h} style={[styles.shine, { left: width * 0.08 }]}>
+    <Svg width={w} height={h} style={[styles.shine, { left: width * 0.06 }]}>
       <Defs>
-        <RadialGradient id="shine" cx="50%" cy="0%" rx="120%" ry="100%">
-          <Stop offset="0" stopColor={colors.lensShine} stopOpacity={0.55} />
-          <Stop offset="0.7" stopColor={colors.lensShine} stopOpacity={0} />
+        <RadialGradient id={id} cx="50%" cy="0%" rx="50%" ry="100%">
+          <Stop offset="0" stopColor={colors.lensShine} stopOpacity={0.5} />
+          <Stop offset="1" stopColor={colors.lensShine} stopOpacity={0} />
         </RadialGradient>
       </Defs>
-      <Ellipse cx={w / 2} cy={0} rx={w} ry={h} fill="url(#shine)" />
+      <Rect width={w} height={h} fill={`url(#${id})`} />
     </Svg>
   );
 }
 
-/** The light along the edge: a comet going round, its tail fading. */
-function Beam({
-  width,
-  height,
-  radius,
-  focused,
-}: {
-  width: number;
-  height: number;
-  radius: number;
-  focused: boolean;
-}) {
+/** The field's one edge: lit from above, quiet down its sides; and the light going round it. */
+function Edge({ width, height, radius, focused }: Size & { radius: number; focused: boolean }) {
+  const id = useSvgId();
   const reduced = useReducedMotion();
-  // Plain numbers for the worklets (never the theme's live colors).
   const r = Math.min(radius, height / 2) - 0.5;
   const perimeter = 2 * (width - 1 + (height - 1)) - 8 * r + 2 * Math.PI * r;
   const turns = useSharedValue(0);
@@ -132,22 +140,28 @@ function Beam({
   }, [focused, reduced, turns, shown]);
 
   const fade = useAnimatedStyle(() => ({ opacity: shown.get() }));
+  const shape = { x: 0.5, y: 0.5, width: width - 1, height: height - 1, rx: r, ry: r };
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, fade]} pointerEvents="none">
-      <Svg width={width} height={height}>
-        {TAIL.map((part) => (
-          <TailPart
-            key={part}
-            part={part}
-            perimeter={perimeter}
-            turns={turns}
-            width={width}
-            height={height}
-            r={r}
-          />
-        ))}
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <SvgGradient id={id} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={colors.lensRim} />
+            <Stop offset="0.5" stopColor={focused ? colors.borderStrong : colors.border} />
+          </SvgGradient>
+        </Defs>
+        <Rect {...shape} fill="none" stroke={`url(#${id})`} strokeWidth={1} />
       </Svg>
-    </Animated.View>
+      {!reduced && (
+        <Animated.View style={[StyleSheet.absoluteFill, fade]}>
+          <Svg width={width} height={height}>
+            {TAIL.map((part) => (
+              <TailPart key={part} part={part} perimeter={perimeter} turns={turns} shape={shape} />
+            ))}
+          </Svg>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -155,16 +169,12 @@ function TailPart({
   part,
   perimeter,
   turns,
-  width,
-  height,
-  r,
+  shape,
 }: {
   part: number;
   perimeter: number;
   turns: SharedValue<number>;
-  width: number;
-  height: number;
-  r: number;
+  shape: { x: number; y: number; width: number; height: number; rx: number; ry: number };
 }) {
   const length = part * perimeter;
   // Every part's head at the same point: the overlap brightens towards it.
@@ -173,15 +183,10 @@ function TailPart({
   }));
   return (
     <AnimatedRect
-      x={0.5}
-      y={0.5}
-      width={width - 1}
-      height={height - 1}
-      rx={r}
-      ry={r}
+      {...shape}
       fill="none"
       stroke={colors.lensBeam}
-      strokeOpacity={0.4}
+      strokeOpacity={0.14}
       strokeWidth={1}
       strokeDasharray={[length, perimeter - length]}
       animatedProps={props}
@@ -198,20 +203,9 @@ const styles = themed(() =>
       shadowOffset: { width: 0, height: 12 },
       elevation: 3,
     },
-    body: {
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    bodyFocused: { borderColor: colors.borderStrong },
+    body: { overflow: 'hidden' },
     fill: { backgroundColor: isIOS ? colors.lensFill : colors.lensFillOpaque },
     depth: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 18 },
-    shine: { position: 'absolute', top: 1 },
-    rim: {
-      ...StyleSheet.absoluteFill,
-      borderWidth: 1,
-      borderColor: 'transparent',
-      borderTopColor: colors.lensRim,
-    },
+    shine: { position: 'absolute', top: 0 },
   }),
 );
