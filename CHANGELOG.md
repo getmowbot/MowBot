@@ -11,6 +11,9 @@ The release workflow publishes the section of the version it builds as the relea
 - The search goes to DuckDuckGo by default (free, but it often blocks automated searches: bots then use their PC's browser), or to **Brave Search** or **Tavily** with a free API key, set in Tools → Web search.
 - The hub never fetches local addresses for a bot (your network, its own machine), not even through a redirect or a name that points there.
 
+### Fixes
+- **Voice messages** no longer fail to transcribe on a flaky connection: the first one downloads the Whisper model, and a download cut short is now tried again.
+
 ### Pick each team's computer
 - **With a desktop or the command line.** A team's PC runs Ubuntu with its desktop (you watch it and take control), or without a screen: lighter, with a shell, files and a browser without a window. Pick it when you create the team (the Chef too) or on the team's page.
 - **Graphics cards.** Give a PC the hub machine's NVIDIA cards, all of them or some: CUDA, NVENC and compute work inside it, and several PCs can share a card. It needs the NVIDIA Container Toolkit on the host (Docker Desktop on Windows has it with WSL 2).

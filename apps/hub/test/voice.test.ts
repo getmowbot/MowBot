@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { Bot, Message, MessagePart, ServerEvent } from '@mowbot/contract';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parsePeaks, parseWav, peaksOf, voiceExtension } from '../src/voice/audio';
-import type { Transcriber } from '../src/voice/whisper';
+import { retryingFetch, type Transcriber } from '../src/voice/whisper';
 import { bearer, createTestApp, multipartForm, setupOwner } from './helpers';
 import { promptOf, scripted, textTurn } from './models';
 
@@ -354,5 +354,48 @@ describe('audio helpers', () => {
     expect(voiceExtension('audio/mp4', 'x')).toBe('.m4a');
     expect(voiceExtension('application/octet-stream', 'recording.m4a')).toBe('.m4a');
     expect(voiceExtension('text/plain', 'notes.txt')).toBeNull();
+  });
+});
+
+describe('the Whisper model download', () => {
+  it('tries again when the connection is cut, before or during the file', async () => {
+    let calls = 0;
+    const flaky = (async () => {
+      calls++;
+      if (calls === 1)
+        throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNRESET' } });
+      if (calls === 2) {
+        // The headers came, then the body broke off.
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"half'));
+            controller.error(new Error('read ECONNRESET'));
+          },
+        });
+        return new Response(body, { status: 200 });
+      }
+      return new Response('{"model":"whisper"}', {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as typeof fetch;
+    const response = await retryingFetch(flaky, [1, 1, 1])('https://huggingface.co/x/config.json');
+    expect(await response.json()).toEqual({ model: 'whisper' });
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(calls).toBe(3);
+  });
+
+  it('gives up after its tries, and leaves HTTP answers alone', async () => {
+    let calls = 0;
+    const down = (async () => {
+      calls++;
+      throw new TypeError('fetch failed');
+    }) as typeof fetch;
+    await expect(retryingFetch(down, [1, 1])('https://huggingface.co/x')).rejects.toThrow(
+      'fetch failed',
+    );
+    expect(calls).toBe(3);
+    const missing = (async () => new Response('no', { status: 404 })) as typeof fetch;
+    expect((await retryingFetch(missing, [1])('https://huggingface.co/x')).status).toBe(404);
   });
 });
