@@ -213,16 +213,16 @@ function FromBotMessage({ message }: { message: Message }) {
     at: message.createdAt,
   };
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex flex-col items-center">
       <TalkLine
-        title={talk.title}
+        line={t(`chat.talk.line.${message.kind}`, { name: bot.name })}
         bot={bot}
         summary={summaryOf(message)}
+        note={message.steered ? t('chat.steeredShort') : undefined}
         onOpen={() => setOpen(true)}
         className="max-w-[92%]"
       />
       <TalkDialog talk={talk} chips={chips} open={open} onClose={() => setOpen(false)} />
-      {message.steered && <SteeredHint />}
     </div>
   );
 }

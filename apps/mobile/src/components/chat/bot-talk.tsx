@@ -6,7 +6,7 @@ import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ChipBot } from '../../lib/incoming';
 import { timeAgo } from '../../lib/time';
-import { colors, themed, tint } from '../../theme';
+import { colors, themed } from '../../theme';
 import { BotAvatar } from '../bot-avatar';
 import { Markdown } from '../markdown';
 import { IconButton } from '../ui/button';
@@ -29,39 +29,37 @@ export interface Talk {
 export const chipsOf = (bots: Bot[] | undefined): ChipBot[] =>
   (bots ?? []).map(({ id, name, avatarSeed, isChef }) => ({ id, name, avatarSeed, isChef }));
 
-/** A message between bots on one line: who, then what in a few words. Opens it large. */
+/**
+ * A message between bots, as a small grey mark: the sender's face and what happened ("Milo
+ * a écrit"), nothing more. A tap opens it large.
+ */
 export function TalkLine({
-  title,
+  line,
   bot,
   summary,
+  note,
   onPress,
 }: {
-  title: string;
+  line: string;
   bot: ChipBot;
+  /** What it says in a few words: for screen readers, the line itself stays short. */
   summary: string;
+  /** A quiet addition after it ("pris en compte"). */
+  note?: string;
   onPress(): void;
 }) {
   return (
     <Touchable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={summary ? `${title} · ${summary}` : title}
+      accessibilityLabel={summary ? `${line} · ${summary}` : line}
+      hitSlop={{ top: 6, bottom: 6 }}
       style={styles.line}
     >
-      <BotAvatar seed={bot.avatarSeed} size={20} still />
-      <T variant="footnote" tone="muted" style={styles.who} numberOfLines={1}>
-        {title}
+      <BotAvatar seed={bot.avatarSeed} size={16} still />
+      <T variant="caption" tone="faint" numberOfLines={1} style={styles.lineText}>
+        {note ? `${line} · ${note}` : line}
       </T>
-      {summary ? (
-        <>
-          <T variant="footnote" tone="faint">
-            ·
-          </T>
-          <T variant="footnote" style={styles.gist} numberOfLines={1}>
-            {summary}
-          </T>
-        </>
-      ) : null}
     </Touchable>
   );
 }
@@ -135,20 +133,8 @@ export function TalkSheet({
 
 const styles = themed(() =>
   StyleSheet.create({
-    line: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 7,
-      maxWidth: '92%',
-      borderRadius: 9999,
-      paddingVertical: 5,
-      paddingLeft: 6,
-      paddingRight: 13,
-      backgroundColor: tint.ink(0.045),
-      overflow: 'hidden',
-    },
-    who: { flexShrink: 0, fontWeight: '600' },
-    gist: { flexShrink: 1, color: tint.text(0.78) },
+    line: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '92%' },
+    lineText: { flexShrink: 1 },
     sheet: { flex: 1, backgroundColor: colors.backgroundRaised },
     header: {
       flexDirection: 'row',

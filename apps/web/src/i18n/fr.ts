@@ -218,6 +218,7 @@ export const fr = {
     noModel: 'Connecte un modèle (Command Code, OpenAI ou compatible) pour réveiller {{name}}.',
     connectModel: 'Connecter un modèle',
     steered: 'Pris en compte en cours de route',
+    steeredShort: 'pris en compte',
     readMore: 'Lire la suite',
     readLess: 'Replier',
     /** Above messages from other bots, before their names: « Messages de Nova et Iris ». */
@@ -233,6 +234,12 @@ export const fr = {
       },
       to: { chat: 'Message à {{name}}', ask: 'Question à {{name}}' },
       answerFrom: 'Réponse de {{name}}',
+      line: {
+        chat: '{{name}} a écrit',
+        ask: '{{name}} demande',
+        task: '{{name}} a confié une tâche',
+        routine: '{{name}} a écrit',
+      },
       outcome: 'Suite',
       openChat: 'Ouvrir la conversation avec {{name}}',
     },

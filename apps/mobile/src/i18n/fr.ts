@@ -99,6 +99,7 @@ export const fr = {
     stepLimit: 'Étapes max atteintes',
     continue: 'Continuer',
     steered: 'Pris en compte en cours de route',
+    steeredShort: 'pris en compte',
     readMore: 'Lire la suite',
     readLess: 'Replier',
     vaultRequest: {
@@ -136,6 +137,12 @@ export const fr = {
       },
       to: { chat: 'Message à {{name}}', ask: 'Question à {{name}}' },
       answerFrom: 'Réponse de {{name}}',
+      line: {
+        chat: '{{name}} a écrit',
+        ask: '{{name}} demande',
+        task: '{{name}} a confié une tâche',
+        routine: '{{name}} a écrit',
+      },
       outcome: 'Suite',
       openChat: 'Ouvrir la conversation avec {{name}}',
     },

@@ -165,13 +165,13 @@ function FromBotMessage({ message, bots }: { message: Message; bots: Bot[] | und
   return (
     <View style={styles.incoming}>
       <TalkLine
-        title={talk.title}
+        line={t(`chat.talk.line.${message.kind}`, { name: bot.name })}
         bot={bot}
         summary={summaryOf(message)}
+        note={message.steered ? t('chat.steeredShort') : undefined}
         onPress={() => setOpen(true)}
       />
       <TalkSheet talk={talk} chips={chips} visible={open} onClose={() => setOpen(false)} />
-      <Steered message={message} style={styles.centered} />
     </View>
   );
 }
