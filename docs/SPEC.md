@@ -42,6 +42,7 @@ Référence d'inspiration : Grok Bot (xAI). Différences : self-hosted, modèles
 | **Ordinateur** | Conteneur Docker persistant (Ubuntu + XFCE + VNC + Chrome + sudo + daemon `mow-agent`). **PC d'équipe** (partagé) ou **PC dédié** (un seul bot). Un bot est rattaché à exactement un ordinateur. |
 | **Workspace** | Arborescence de fichiers d'une équipe (ou d'un bot solo), montée sur `/workspace` dans ses ordinateurs, navigable et téléchargeable par l'utilisateur. |
 | **Mission / Tâche** | Travail assigné (par l'utilisateur ou un bot) avec statut et résultat. |
+| **Plan d'attaque** | Plan d'une équipe : un objectif (et le projet de l'utilisateur concerné), puis des étapes ordonnées avec responsable et statut. Tenu par le lead ou le Chef ; chaque membre marque ses étapes ; une étape portée par une tâche suit son statut. Effacé quand on vide les conversations de l'équipe. |
 | **Routine** | Déclencheur (cron, intervalle, ponctuel, événement) qui réveille un bot avec un prompt. Créable par les bots, silencieuse par défaut. |
 | **Coffre (vault)** | Stockage chiffré de sessions navigateur, secrets et logins. Partageable entre bots selon des politiques. |
 | **Device** | Appareil client appairé (web, mobile, desktop, CLI) avec ses propres tokens révocables. |
@@ -231,7 +232,7 @@ Montrer à l'utilisateur une page en cours (un serveur de dev sur le PC d'un bot
 | Groupe | Outils |
 |---|---|
 | Organisation | `list_teams`, `create_team(name, mission, lead?)` (Chef), `update_team`, `list_bots(team?)`, `create_bot(…, team: id \| null, computer: team \| new)` (Chef, leads pour leur équipe, bots `can_spawn`), `update_bot`, `move_bot(team)`, `retire_bot`, `set_focus(text)` (ce sur quoi il travaille, affiché à côté de son nom) |
-| Communication | `send_message` (tout bot de l'annuaire, sauf équipe cloisonnée), `ask_bot` (synchrone, timeout), `reply`, `post_channel` (canal de son équipe), `assign_task`, `update_task`, `list_tasks`, `share_file(path, to)` |
+| Communication | `send_message` (tout bot de l'annuaire, sauf équipe cloisonnée), `ask_bot` (synchrone, timeout), `reply`, `post_channel` (canal de son équipe), `assign_task(…, step?)`, `update_task`, `list_tasks`, `share_file(path, to)` ; plan d'équipe : `plan_set` (lead, Chef), `plan_update` (membres : leurs étapes), `plan_show` |
 | Utilisateur | `notify_user(priority: digest \| normal \| urgent)`, `ask_user(question, options)`, `request_user_takeover(reason)` |
 | Proactivité | `create_routine`, `list_routines`, `update_routine`, `delete_routine`, `set_heartbeat` |
 | Mémoire | `remember(scope: private \| team)`, `recall(query)`, `kb_search` (base de connaissances = `/workspace/kb/`) |
