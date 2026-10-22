@@ -6,7 +6,7 @@ import {
   colors as tokens,
 } from '@mowbot/design';
 import { useSyncExternalStore } from 'react';
-import { Appearance, Platform } from 'react-native';
+import { Appearance, Platform, type TextStyle } from 'react-native';
 import { readSync, write } from './lib/storage';
 
 /** The app's look: the phone's, or always light, or always dark. */
@@ -38,7 +38,7 @@ const palettes = {
     lensFillOpaque: '#12151b',
     lensTop: 'rgba(255, 255, 255, 0.085)',
     lensBottom: 'rgba(255, 255, 255, 0.025)',
-    lensShine: '#ffffff',
+    lensShine: 'rgba(255, 255, 255, 0.16)',
     lensRim: 'rgba(255, 255, 255, 0.2)',
     lensDepth: 'rgba(0, 0, 0, 0.28)',
     lensBeam: 'rgba(255, 255, 255, 0.55)',
@@ -245,6 +245,25 @@ export const type = {
     textTransform: 'uppercase' as const,
   },
 } as const;
+
+/**
+ * A text field's type. On iOS a line height taller than the font's puts the extra room above
+ * the text, so a field's text, placeholder and caret sat low: fields keep the font's own line
+ * there. `height`: a multiline field (top-aligned on iOS) that tall, its one line centered by its
+ * padding.
+ */
+export function fieldType(
+  style: { fontSize: number; lineHeight: number; fontWeight?: TextStyle['fontWeight'] },
+  height?: number,
+): TextStyle {
+  if (Platform.OS !== 'ios') return style;
+  const { lineHeight: _lineHeight, ...font } = style;
+  if (height === undefined) return font;
+  // The font's own line (SF: 1.19 em), a hair above the middle: the eye centers on lowercase.
+  const room = height - style.fontSize * 1.19;
+  const top = Math.round((room / 2 - 0.5) * 2) / 2;
+  return { ...font, paddingTop: top, paddingBottom: room - top };
+}
 
 /** Material 3 shape scale on Android, softer continuous corners on iOS. */
 export const shape = {

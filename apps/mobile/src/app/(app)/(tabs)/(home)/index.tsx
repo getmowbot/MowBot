@@ -38,7 +38,16 @@ import {
 import { alertError, confirm } from '../../../../lib/options-menu';
 import { isAndroid, isIOS } from '../../../../lib/platform';
 import { botsById, keys, useBots, useMe, useSendMessage } from '../../../../lib/queries';
-import { colors, currentScheme, shape, spacing, themed, tint, type } from '../../../../theme';
+import {
+  colors,
+  currentScheme,
+  fieldType,
+  shape,
+  spacing,
+  themed,
+  tint,
+  type,
+} from '../../../../theme';
 
 const HOME_QUERIES = [
   keys.me,
@@ -431,7 +440,7 @@ const styles = themed(() =>
       borderRadius: shape.bar,
     },
     askInput: {
-      ...type.callout,
+      ...fieldType(type.callout),
       flex: 1,
       color: colors.text,
       minHeight: SEND,

@@ -175,6 +175,8 @@
  * a reflection that sweeps across once on hover.
  */
 .pebble {
+  /* Holds its reflection: without it, the sweep sits on the nearest positioned parent instead. */
+  position: relative;
   isolation: isolate;
   overflow: hidden;
   color: var(--pebble-text);
