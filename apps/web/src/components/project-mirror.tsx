@@ -88,7 +88,8 @@ export function MirrorState({
 }) {
   const { t } = useTranslation();
   const text = useMirrorText();
-  const tone = mirrorTone(mirror);
+  // The state's own color; the conflicts have theirs next to it.
+  const tone = mirrorTone({ ...mirror, conflicts: [] });
   return (
     <span className={cn('flex flex-wrap items-center gap-x-1.5 gap-y-0.5', className)}>
       <span className={cn(tone === 'ok' ? 'text-muted-foreground' : TONES[tone])}>
