@@ -1,0 +1,92 @@
+# Changelog
+
+What changed in each version of MowBot. The version is the desktop app's: each one is a [GitHub release](https://github.com/getmowbot/MowBot/releases) with its installers. The hub, the web app and the mobile app move with it; update a server with `sudo mowbot update`.
+
+The release workflow publishes the section of the version it builds as the release notes.
+
+## 0.2.5 — 2026-10-22
+
+### Your projects, mirrored
+- **Live two-way mirror.** A project a bot works in is copied into the bots' workspace and kept in sync with your folder in both directions, within seconds. Bots keep working when your computer is off; your folder catches up on its own when it comes back.
+- **Nothing gets lost.**
+  - Every change to your folder first checks that you didn't change the file meanwhile.
+  - Deleted files go to your system's trash.
+  - A mass deletion is put back instead.
+  - When you and a bot changed the same file, your version stays and the bot's is kept next to it (you get a notification).
+- **Add a folder from the conversation.** The project chip has "Add a folder…": in the desktop app it opens the folder picker and makes the folder the bot's project; from the web or your phone, "Choose on <computer>" opens the picker on that computer.
+- `.git`, dependencies and builds are never copied; git repositories are updated in place.
+
+### See what's going on
+- **Who does what.** Each bot says what it is working on ("I'm building the home page"), with its live action under it ("Running npm"), in the sidebar, the org chart and the team pages.
+- The chat header shows the bot's role instead of its model; `/model` switches the model.
+- **A plan of attack per team.** The lead (or the Chef) writes the goal and the steps, who does each one and where it stands; steps follow their tasks. It is on the team page, live.
+
+### Previews of work in progress
+- A bot running a website on its PC shares it as a **private link** that opens on your phone or any computer, on your network or from the internet, with hot reload and no public tunnel.
+- The link is a secret that turns into a cookie on the first visit. Your hub's cookies never reach the bot's server.
+- Servers: open the preview ports (8800-8819 by default) in your firewall.
+
+### Teams
+- Delete a team with its bots.
+- Clear every conversation of a team at once, for instance before a new project. The Chef can do it too.
+
+### Desktop app
+- Folder watcher, safe writes and deletions, and a folder picker the hub can open: what the mirror needs.
+
+## 0.2.4 — 2026-10-22
+
+### Your projects
+- **Work lands in your folder.** A task given in a project carries it: it becomes the project of the bot that does it, and messages between bots say which project they're about. Bots no longer rebuild your project elsewhere in their workspace.
+- Bringing work back from a bot's PC now writes straight into a folder that is not a git repository (it used to refuse). Files you changed meanwhile are left alone.
+
+### Calmer conversations
+- Messages that reach a bot while it works show above its answer, where it read them.
+- Bots' answers to each other fold to their first sentence; bots give you results rather than progress reports.
+- Long conversations stay light: the last 40 messages, earlier ones as you scroll up.
+
+### Desktop app
+- Writes the binary files (pictures…) that bots bring back into a project.
+
+## 0.2.3 — 2026-10-21
+
+### Use your ChatGPT plan
+- **OpenAI with a ChatGPT account**, a new model provider: sign in with ChatGPT from the desktop app, and your bots run on your plan.
+- The hub refreshes the sign-in itself; at the usage limit, bots move to their fallback model.
+
+### Conversations
+- **Voice messages**, transcribed on your hub by a local Whisper model; the transcript sits under the waveform.
+- **Attachments:** photos, documents, any file, by paperclip, drag and drop or paste. Bots see the pictures.
+- Messages between bots show as one line ("Message from Nova · the gist") and open large on click.
+
+### MCP servers
+- Servers that run as a command now run on their own computer on the hub's host, and the Chef manages them (add, change, remove, set up). Bots use them only through their tools.
+
+### Desktop app
+- "Sign in with ChatGPT": the sign-in happens on your computer, and the app hands the result to your hub.
+
+## 0.2.2 — 2026-10-21
+
+- **Pick the project a bot works in from the conversation:** the project chip, `/project`, or `@project`.
+
+### Desktop app
+- **Native window on macOS:** the system's traffic lights and title bar instead of the custom buttons.
+
+## 0.2.1 — 2026-10-21
+
+First public release.
+
+### Desktop app
+- **Your computer's folders as projects**, even when your hub is on a remote server. Bots read, edit, search and run commands there: commands with your approval, or freely in auto mode.
+- Bots can copy a project to their PC to install and test it, and bring their changes back as a git branch of your repository.
+- Frameless window with its own buttons; the app keeps running in the tray.
+- Choose your hub on first launch; change it from Profile → Change hub, or with `--hub`.
+- **Updates itself**, with signed updates.
+- Installers for Windows (`.exe`, `.msi`), macOS (`.dmg`) and Linux (AppImage, `.deb`, `.rpm`), and a one-command install on Linux.
+
+### Hub and apps
+- `@` mentions (a bot, a team, a file) and `/` commands (`/stop`, `/clear`, `/pc`, `/files`, `/mcp`…).
+- MCP servers: remote ones with OAuth, or local ones.
+- When a bot needs you on its PC (a login, a code), it asks with a card in the conversation, which opens the screen.
+- More expressive bot characters.
+- Change your hub's password from your profile.
+- Free software under the AGPL-3.0.
