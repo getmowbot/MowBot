@@ -105,6 +105,7 @@ export const en: Catalog = {
     home: 'Home',
     routines: 'Routines',
     proactivity: 'Proactivity',
+    memory: 'Memory',
     paused: 'Paused',
     organization: 'Organization',
     activity: 'Activity',
@@ -982,11 +983,52 @@ export const en: Catalog = {
     live: 'Live',
     liveHint: 'Updated automatically {{every}} by {{bot}}’s script',
   },
+  memory: {
+    title: 'Memory',
+    subtitle:
+      'What your bots know about you, whichever heard it: all of them use it, without asking again. Fix or erase anything.',
+    you: 'You',
+    byYou: 'Added by you',
+    heardBy: 'Kept by {{name}}',
+    kind: 'Kind',
+    kinds: {
+      profile: 'Who you are',
+      preference: 'What you like',
+      event: 'Coming up',
+      note: 'Notes',
+    },
+    placeholders: {
+      profile: 'My personal email is…',
+      preference: 'I listen to music on…',
+      event: 'Badminton competition in Rennes',
+      note: 'Keep it casual with me',
+    },
+    when: 'When',
+    add: 'Add',
+    edit: 'Edit',
+    forget: 'Forget',
+    notSaved: 'Not saved.',
+    empty: 'Nothing yet: your bots will keep what you tell them about yourself as you talk.',
+    planned: 'What your bots planned',
+    plannedHint:
+      'What they will do for you on their own, at the right time: a reminder, a route, a check-in.',
+    nothingPlanned: 'Nothing planned for now.',
+    cancel: 'Cancel',
+  },
   proactivity: {
     title: 'Proactivity',
     subtitle:
       'How much your bots act on their own: pause, quiet hours, budgets, check-ins and fallback models.',
     pause: 'Global pause',
+    watch: 'Chef’s watch',
+    watchLevels: { off: 'Off', light: 'Light', active: 'Active' },
+    watchHints: {
+      off: 'The Chef looks at nothing on its own: it acts when you talk to it.',
+      light:
+        'Twice a day (9am, 6pm), the Chef goes through your mail, your calendar and what it knows of you, and tells you what matters.',
+      active:
+        'Every two hours during the day, the Chef goes through your mail, your calendar and what it knows of you, and gets ahead of things.',
+    },
     pauseHint: 'Stops everything bots do on their own; they still answer your messages.',
     quietHours: 'Quiet hours (no check-ins)',
     quietStart: 'Quiet hours start',

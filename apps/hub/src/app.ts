@@ -24,6 +24,7 @@ import { eventRoutes } from './routes/events';
 import { fileRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
 import { mcpRoutes } from './routes/mcp';
+import { memoryRoutes } from './routes/memory';
 import { previewRoutes } from './routes/previews';
 import { proactivityRoutes } from './routes/proactivity';
 import { projectRoutes } from './routes/projects';
@@ -169,6 +170,7 @@ export async function buildApp(services: Services): Promise<FastifyInstance> {
       await api.register(canvasRoutes);
       await api.register(previewRoutes);
       await api.register(webRoutes);
+      await api.register(memoryRoutes);
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: API_PREFIX },

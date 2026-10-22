@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { bearerSecurity, requireAuth } from '../http/auth-hook';
 import { errorResponses, HttpProblem, notFound } from '../http/problems';
 import { toAutomation } from '../proactivity/automations';
+import { SHOWN_KINDS } from '../proactivity/routines';
 
 /** A webhook may fire its routine at most this often. */
 const WEBHOOK_MIN_GAP_MS = 10_000;
@@ -43,8 +44,11 @@ export const proactivityRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: routineListSchema, ...errorResponses },
       },
     },
+    // The bots' initiatives and the watch are not the user's routines (see /initiatives).
     async (request) => ({
-      items: (await routines.list(request.query.botId)).map((row) => routines.toRoutine(row)),
+      items: (await routines.list(request.query.botId))
+        .filter((row) => SHOWN_KINDS.includes(row.kind))
+        .map((row) => routines.toRoutine(row)),
     }),
   );
 
@@ -267,6 +271,10 @@ export const proactivityRoutes: FastifyPluginAsyncZod = async (app) => {
       const settings = await system.update(request.body);
       if (settings.paused && !before.paused) runtime.pauseAll();
       if (!settings.paused && before.paused) await runtime.resumeAll();
+      if (settings.watch !== before.watch) {
+        const chef = await bots.chef();
+        if (chef) await routines.syncWatch(chef, settings.watch);
+      }
       return settings;
     },
   );

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { watchLevelSchema } from './memory';
 
 /** When a routine fires. Event triggers are preferred to polling with crons. */
 export const routineTriggerSchema = z.discriminatedUnion('type', [
@@ -18,8 +19,12 @@ export const routineTriggerSchema = z.discriminatedUnion('type', [
 ]);
 export type RoutineTrigger = z.infer<typeof routineTriggerSchema>;
 
-/** `heartbeat`: the bot's periodic check-in; `digest`: the Chef's daily summary. */
-export const routineKindSchema = z.enum(['custom', 'heartbeat', 'digest']);
+/**
+ * `heartbeat`: the bot's periodic check-in; `digest`: the Chef's daily summary; `initiative`:
+ * something a bot planned for the user on its own, once (not listed with the routines); `watch`:
+ * the Chef looking after the user unasked (its pace is the `watch` setting).
+ */
+export const routineKindSchema = z.enum(['custom', 'heartbeat', 'digest', 'initiative', 'watch']);
 export type RoutineKind = z.infer<typeof routineKindSchema>;
 
 export const routineRunStatusSchema = z.enum(['running', 'done', 'idle', 'error', 'skipped']);
@@ -137,6 +142,8 @@ export const systemSettingsSchema = z.object({
     .nullable(),
   /** Tokens (in + out) all bots may spend per day on what they do on their own; null: no cap. */
   dailyTokenBudget: z.number().int().min(1000).nullable(),
+  /** How much the Chef looks after the user on its own (see `watchLevelSchema`). */
+  watch: watchLevelSchema,
   timeZone: z.string(),
 });
 export type SystemSettings = z.infer<typeof systemSettingsSchema>;

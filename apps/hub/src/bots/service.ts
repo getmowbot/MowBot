@@ -168,6 +168,12 @@ export class BotService {
     return row;
   }
 
+  /** The Chef (null before the organisation exists). */
+  async chef(): Promise<BotRow | null> {
+    const [row] = await this.db.select().from(bots).where(eq(bots.isChef, true));
+    return row ?? null;
+  }
+
   /**
    * A renamed bot keeps its workspace folder: `bots/<old>` moves to `bots/<new>` (unless that
    * one exists) and the screenshots shown in its conversation follow.

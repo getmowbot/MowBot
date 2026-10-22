@@ -110,6 +110,7 @@ export const fr = {
     home: 'Accueil',
     routines: 'Routines',
     proactivity: 'Proactivité',
+    memory: 'Mémoire',
     paused: 'En pause',
     organization: 'Organisation',
     activity: 'Activité',
@@ -1012,11 +1013,47 @@ export const fr = {
     live: 'En direct',
     liveHint: 'Mis à jour automatiquement {{every}} par le script de {{bot}}',
   },
+  memory: {
+    title: 'Mémoire',
+    subtitle:
+      'Ce que tes bots savent de toi, quel que soit celui qui l’a entendu : tous s’en servent, sans te le redemander. Corrige ou efface ce que tu veux.',
+    you: 'Toi',
+    byYou: 'Ajouté par toi',
+    heardBy: 'Retenu par {{name}}',
+    kind: 'Type',
+    kinds: { profile: 'Qui tu es', preference: 'Ce que tu aimes', event: 'À venir', note: 'Notes' },
+    placeholders: {
+      profile: 'Mon mail perso est…',
+      preference: 'J’écoute ma musique sur…',
+      event: 'Compétition de badminton à Rennes',
+      note: 'Je préfère qu’on me tutoie',
+    },
+    when: 'Quand',
+    add: 'Ajouter',
+    edit: 'Modifier',
+    forget: 'Oublier',
+    notSaved: 'Pas enregistré.',
+    empty: 'Rien encore : tes bots retiendront ce que tu leur dis de toi au fil des conversations.',
+    planned: 'Ce que tes bots ont prévu',
+    plannedHint:
+      'Ce qu’ils feront d’eux-mêmes pour toi, au bon moment : un rappel, un itinéraire, un check-in.',
+    nothingPlanned: 'Rien de prévu pour l’instant.',
+    cancel: 'Annuler',
+  },
   proactivity: {
     title: 'Proactivité',
     subtitle:
       'Combien tes bots agissent d’eux-mêmes : pause, heures calmes, budgets, réveils et modèles de secours.',
     pause: 'Pause globale',
+    watch: 'Veille du Chef',
+    watchLevels: { off: 'Désactivée', light: 'Légère', active: 'Active' },
+    watchHints: {
+      off: 'Le Chef ne regarde rien de lui-même : il agit quand tu lui parles.',
+      light:
+        'Deux fois par jour (9 h, 18 h), le Chef parcourt tes mails, ton agenda et ce qu’il sait de toi, et te prévient de ce qui compte.',
+      active:
+        'Toutes les deux heures en journée, le Chef parcourt tes mails, ton agenda et ce qu’il sait de toi, et prend les devants.',
+    },
     pauseHint:
       'Arrête tout ce que les bots font d’eux-mêmes ; ils répondent encore à tes messages.',
     quietHours: 'Heures calmes (pas de réveils)',

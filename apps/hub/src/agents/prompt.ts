@@ -35,6 +35,8 @@ export interface PromptContext {
   now: Date;
   /** What the vault holds, one line per entry (no values). */
   vault: string[];
+  /** What the bots know about the user: facts, then the coming events, one per line. */
+  memory?: { facts: string[]; events: string[] };
   /** The folders the user shared from their computer that this bot may work in, one per line. */
   projects?: string[];
   /**
@@ -80,6 +82,26 @@ function planLines(ctx: PromptContext, keeper: boolean): string[] {
       : '',
   ];
   return ['', "## Le plan d'attaque", ...body.filter(Boolean)];
+}
+
+/**
+ * What every bot knows of the user (whichever bot heard it), and how it works for them: on its
+ * own, from what it knows, asking only when it truly cannot find out.
+ */
+function memoryLines(ctx: PromptContext): string[] {
+  if (!ctx.memory) return [];
+  const { facts, events } = ctx.memory;
+  return [
+    '',
+    "## Ce que tu sais de l'utilisateur",
+    facts.length
+      ? ['Ce que les bots ont retenu de lui :', ...facts].join('\n')
+      : "Rien encore : retiens ce qu'il te dit de lui au fil des conversations.",
+    events.length ? ['Ce qui l’attend :', ...events].join('\n') : '',
+    "- Ce qu'il dit de lui et qui pourra servir (qui il est, ses coordonnées, sa date de naissance, ce qu'il aime ou utilise, un événement daté, une habitude), retiens-le tout de suite avec remember, même au détour d'une conversation, sans le lui dire ni le lui demander. Une info qui change remplace l'ancienne (replaces). Jamais de mot de passe ni de code : le coffre.",
+    "- Travaille en autonomie : il peut poser son téléphone et dormir pendant que tu travailles. Avant de lui poser une question, cherche la réponse toi-même : ce que tu sais de lui (ici, recall), le coffre, ses fichiers, ses services branchés, le web. Ne lui demande que ce que tu ne peux vraiment pas savoir, et n'invente jamais. En attendant sa réponse, avance sur tout ce qui n'en dépend pas.",
+    "- Sers-toi de ce que tu sais pour lui être utile sans qu'il le demande, dans ta mission : un événement qui approche, prévois de quoi l'aider au bon moment (plan_initiative) ; un goût lié à ta mission (un artiste pour un bot musique), dis-lui ce qui sort, avec un lien qui s'ouvre dans l'appli qu'il utilise.",
+  ].filter(Boolean);
 }
 
 /** Which project the bot works in, from the conversation (the user picks it, or the bot). */
@@ -135,6 +157,7 @@ export function systemPrompt(ctx: PromptContext): string {
     `Tu parles avec ${ctx.ownerName}, ton utilisateur. Réponds ${HUB_TEXTS[ctx.locale].replyIn}, de façon concise et concrète ; écris aussi aux autres bots dans cette langue (l'utilisateur lit vos échanges). Utilise le Markdown quand ça aide (listes, code).`,
     "Avec lui, va à l'essentiel : le résultat, ce qu'il doit décider ou faire, ce qui bloque. Pas de point d'étape, d'annonce de ce que tu vas faire ni de liste de tout ce que tu as vérifié s'il ne le demande pas : quelques phrases suffisent souvent, cinq lignes au plus sauf s'il demande le détail. Pas de titres ni de longs tableaux pour une réponse courte. Une réponse plus longue commence par une phrase qui la résume : l'app replie les anciennes longues réponses sur leur début. Quand tu réponds à un autre bot ou à une routine, ta réponse est repliée dans l'app : mets l'essentiel dans ta première phrase.",
     "Ne tourne pas longtemps dans ta tête : quand tu hésites, essaie, regarde le résultat, puis ajuste. Une réflexion courte et une action valent mieux qu'une longue réflexion sans rien faire.",
+    ...memoryLines(ctx),
     '',
     '## L’organisation',
     roster(ctx),

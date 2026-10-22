@@ -17,6 +17,7 @@ import { bots as botsTable } from './db/schema';
 import { EventBus } from './events';
 import { TicketService } from './http/tickets';
 import { McpService } from './mcp/service';
+import { MemoryService } from './memory/service';
 import { PlanService } from './org/plans';
 import { OrgService } from './org/service';
 import type { TaskService } from './org/tasks';
@@ -66,6 +67,8 @@ export interface Services {
   mirrors: MirrorService;
   /** The bots' web searches and page reads, from the hub. */
   web: WebService;
+  /** What the bots know about the user, whichever heard it. */
+  memory: MemoryService;
   /** Main team, its PC, the Chef and its daily summary (at startup and right after setup). */
   bootstrap(): Promise<void>;
 }
@@ -101,6 +104,7 @@ export async function createServices(
   const notifications = new NotificationService(db, events);
   const system = new SystemService(db, events, config.timeZone);
   const web = new WebService(db, config.masterKey, overrides.webFetch);
+  const memory = new MemoryService(db, events);
   const canvases = new CanvasService(db, events);
   const questions = new QuestionService(db, events, notifications);
   const push = new PushService(db, system, { url: config.pushUrl, fetch: overrides.pushFetch });
@@ -108,7 +112,10 @@ export async function createServices(
   const bootstrap = async () => {
     await bootstrapOrganization(db, files, config.masterKey);
     const [chef] = await db.select().from(botsTable).where(eq(botsTable.isChef, true));
-    if (chef) await routines.ensureDigest(chef);
+    if (chef) {
+      await routines.ensureDigest(chef);
+      await routines.syncWatch(chef, (await system.get()).watch);
+    }
   };
   await bootstrap();
   const computers = new ComputerService(
@@ -181,6 +188,7 @@ export async function createServices(
     previews,
     mirrors,
     web,
+    memory,
     voice: {
       transcriber:
         overrides.transcriber ??
@@ -224,6 +232,7 @@ export async function createServices(
     previews,
     mirrors,
     web,
+    memory,
     bootstrap,
   };
 }

@@ -4,6 +4,7 @@ import { Link, Outlet, useLocation } from '@tanstack/react-router';
 import {
   Activity,
   Blocks,
+  Brain,
   CalendarClock,
   ChevronDown,
   Cpu,
@@ -373,6 +374,9 @@ function Sidebar({ onNavigate }: { onNavigate(): void }) {
         </NavItem>
         <NavItem to="/settings/proactivity" onNavigate={onNavigate}>
           <Gauge className="size-4 shrink-0" /> {t('shell.proactivity')}
+        </NavItem>
+        <NavItem to="/memory" onNavigate={onNavigate}>
+          <Brain className="size-4 shrink-0" /> {t('shell.memory')}
         </NavItem>
         <NavItem to="/vault" onNavigate={onNavigate}>
           <Vault className="size-4 shrink-0" /> {t('shell.vault')}

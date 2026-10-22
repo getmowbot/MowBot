@@ -85,7 +85,7 @@ export class Scheduler {
     if (settings.paused && !options.manual) return skip('paused');
     if (await routines.runningRun(routine.id)) return skip('still_running');
     if (
-      routine.kind === 'heartbeat' &&
+      (routine.kind === 'heartbeat' || routine.kind === 'watch') &&
       !options.manual &&
       inQuietHours(settings.quietHours, now, system.timeZone)
     ) {
@@ -99,11 +99,18 @@ export class Scheduler {
     const header =
       routine.kind === 'heartbeat'
         ? '[Réveil périodique]'
-        : `[Routine « ${routine.name} »${options.manual ? ', lancée par l’utilisateur' : ''}]`;
+        : routine.kind === 'watch'
+          ? '[Veille]'
+          : routine.kind === 'initiative'
+            ? "[Initiative que tu avais prévue pour l'utilisateur : fais-la maintenant]"
+            : `[Routine « ${routine.name} »${options.manual ? ', lancée par l’utilisateur' : ''}]`;
     await runtime.deliver(bot.id, {
       from: null,
       kind: 'routine',
-      display: routine.kind === 'heartbeat' ? routine.name : `**${routine.name}**`,
+      display:
+        routine.kind === 'heartbeat' || routine.kind === 'watch' || routine.kind === 'initiative'
+          ? routine.name
+          : `**${routine.name}**`,
       text: [
         header,
         routine.prompt,
