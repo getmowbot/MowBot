@@ -431,14 +431,16 @@ const styles = themed(() =>
       minHeight: SIZE + 14,
     },
     input: {
-      ...type.body,
+      // iOS puts a line height's extra room above the text, which then sits low: the font's own
+      // line, and padding that centers it on the round buttons.
+      ...(isIOS ? { fontSize: type.body.fontSize } : type.body),
       flex: 1,
       color: colors.text,
       minHeight: SIZE,
       maxHeight: 220,
       paddingHorizontal: 10,
-      paddingTop: isIOS ? 8 : 6,
-      paddingBottom: isIOS ? 8 : 6,
+      paddingTop: isIOS ? 11 : 6,
+      paddingBottom: isIOS ? 10 : 6,
       textAlignVertical: 'center',
     },
     action: { height: SIZE, justifyContent: 'center' },
