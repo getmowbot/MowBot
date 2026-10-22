@@ -1562,6 +1562,17 @@ export class BotRuntime {
     });
   }
 
+  /** The names of the cards a PC gets (`all`: every card of the host). */
+  private async gpuNames(gpus: NonNullable<Computer['gpus']>): Promise<string[]> {
+    const host = await this.deps.computers.gpus().catch(() => null);
+    const items = host?.items ?? [];
+    const picked = gpus === 'all' ? items : items.filter((gpu) => gpus.includes(gpu.id));
+    if (picked.length === 0) return gpus === 'all' ? ['NVIDIA'] : gpus;
+    return picked.map((gpu) =>
+      gpu.memoryMb ? `${gpu.name} (${Math.round(gpu.memoryMb / 1024)} Go)` : gpu.name,
+    );
+  }
+
   /** Who looks after a bot's work: its team's lead, or the Chef (none for the Chef itself). */
   private async overseerOf(bot: BotRow): Promise<BotRow | null> {
     const [team] = bot.teamId
@@ -1669,6 +1680,10 @@ export class BotRuntime {
       const pendingImages: string[] = [];
       const secrets = await this.deps.vault.scope(bot);
       const expand = (text: string) => secrets.expand(text);
+      // What its PC runs: with a screen or only a shell, and its graphics cards.
+      const pc = computerId ? await this.deps.computers.get(computerId).catch(() => null) : null;
+      const screen = pc?.system !== 'terminal';
+      const gpus = pc?.gpus ? await this.gpuNames(pc.gpus) : [];
       const computer = computerId
         ? async () => {
             const agent = await this.computerAgent(computerId);
@@ -1716,6 +1731,7 @@ export class BotRuntime {
         ...buildTools({
           botId,
           botName: bot.name,
+          screen,
           workspaceId: bot.workspaceId,
           files: this.deps.files,
           events,
@@ -1801,7 +1817,7 @@ export class BotRuntime {
           showPart,
           notifications: this.deps.notifications,
         }),
-        ...(computerId && computer
+        ...(computerId && computer && screen
           ? buildTakeoverTools({
               self: bot,
               computerId,
@@ -1833,6 +1849,8 @@ export class BotRuntime {
         teams: allTeams,
         bots: allBots,
         hasComputer: Boolean(computerId),
+        screen,
+        gpus,
         sharesComputer: allBots.some((b) => b.id !== botId && b.computerId === computerId),
         previews:
           computerId && previews?.enabled

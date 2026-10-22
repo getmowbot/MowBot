@@ -108,6 +108,22 @@ export class QuestionService {
     return answered;
   }
 
+  /** The user sets the question aside without answering: the bot is not told. */
+  async dismiss(id: string): Promise<Question> {
+    const [row] = await this.db
+      .update(questions)
+      .set({ status: 'closed' })
+      .where(and(eq(questions.id, id), eq(questions.status, 'open')))
+      .returning();
+    if (!row) {
+      await this.row(id);
+      throw new HttpProblem(409, 'question_closed', 'This question was already answered');
+    }
+    const closed = toQuestion(row);
+    this.events.publish({ type: 'question.updated', question: closed });
+    return closed;
+  }
+
   /** The user wrote to the bot (or cleared its conversation): its questions are moot. */
   async closeOpen(botId: string): Promise<void> {
     const rows = await this.db

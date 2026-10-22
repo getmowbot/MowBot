@@ -1,4 +1,4 @@
-import type { Bot, BotComputerChoice, Team } from '@mowbot/contract';
+import type { Bot, BotComputerChoice, ComputerGpus, ComputerSystem, Team } from '@mowbot/contract';
 import { springs } from '@mowbot/design';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -10,6 +10,7 @@ import { api, problemMessage } from '../lib/auth';
 import { useComputers, useTeams } from '../lib/queries';
 import { cn } from '../lib/utils';
 import { BotAvatar } from './bot-avatar';
+import { GpuChoice, SystemChoice } from './computer-setup';
 import { Button } from './ui/button';
 import { Dialog } from './ui/dialog';
 import { FormError, Input, Label, Select, Textarea } from './ui/form';
@@ -102,12 +103,19 @@ function NewTeamForm({ onDone }: { onDone(): void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isolated, setIsolated] = useState(false);
+  const [system, setSystem] = useState<ComputerSystem>('desktop');
+  const [gpus, setGpus] = useState<ComputerGpus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const create = useMutation({
     mutationFn: async (form: FormData) => {
       const mission = String(form.get('mission') ?? '').trim();
       const { data, error } = await api.POST('/api/v1/teams', {
-        body: { name: String(form.get('name')).trim(), mission: mission || undefined, isolated },
+        body: {
+          name: String(form.get('name')).trim(),
+          mission: mission || undefined,
+          isolated,
+          computer: { system, ...(gpus ? { gpus } : {}) },
+        },
       });
       if (error || !data) throw error;
       return data;
@@ -147,6 +155,14 @@ function NewTeamForm({ onDone }: { onDone(): void }) {
           maxLength={4000}
           placeholder={t('dialogs.newTeam.missionPlaceholder')}
         />
+      </div>
+      <div className="space-y-1.5">
+        <Label>{t('computer.setup.system')}</Label>
+        <SystemChoice value={system} onChange={setSystem} />
+      </div>
+      <div className="space-y-1.5">
+        <Label>{t('computer.setup.gpus')}</Label>
+        <GpuChoice value={gpus} onChange={setGpus} />
       </div>
       <Check
         checked={isolated}

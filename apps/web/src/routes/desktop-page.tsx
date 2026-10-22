@@ -42,7 +42,9 @@ export function DesktopPage() {
   const inControl = Boolean(control && control.deviceId === me.data?.device.id);
   const busy = action.isPending || pc.status === 'starting' || pc.status === 'stopping';
   const pcBots = (bots.data ?? []).filter((b) => b.computerId === pc.id);
-  const shownBot = pcBots.find((b) => b.id === shown);
+  // Without a desktop there is no screen: only the bots' browser windows.
+  const screen = pc.system === 'desktop';
+  const shownBot = pcBots.find((b) => b.id === shown) ?? (screen ? undefined : pcBots[0]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -59,7 +61,7 @@ export function DesktopPage() {
         <div className="flex flex-wrap gap-2">
           {pc.status === 'running' && (
             <>
-              {inControl ? (
+              {!screen ? null : inControl ? (
                 <Button onClick={() => action.mutate('release')} disabled={busy}>
                   <Undo2 className="size-4" /> {t('desktop.release')}
                 </Button>
@@ -68,14 +70,16 @@ export function DesktopPage() {
                   <Hand className="size-4" /> {t('desktop.takeover')}
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => view.current?.fullscreen()}
-                aria-label={t('desktop.fullscreen')}
-              >
-                <Maximize className="size-4" />
-              </Button>
+              {screen && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => view.current?.fullscreen()}
+                  aria-label={t('desktop.fullscreen')}
+                >
+                  <Maximize className="size-4" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="icon"
@@ -118,11 +122,15 @@ export function DesktopPage() {
 
       {pc.status === 'running' && <PreviewList computerId={pc.id} />}
 
-      {pc.status === 'running' && pcBots.length > 0 && (
+      {pc.status === 'running' && !screen && (
+        <p className="text-sm text-muted-foreground">{t('computer.setup.noScreen')}</p>
+      )}
+
+      {pc.status === 'running' && pcBots.length > (screen ? 0 : 1) && (
         <ViewSwitch
           value={shownBot ? shownBot.id : 'screen'}
           options={[
-            { value: 'screen', label: t('desktop.screen') },
+            ...(screen ? [{ value: 'screen', label: t('desktop.screen') }] : []),
             ...pcBots.map((b) => ({
               value: b.id,
               label: t('desktop.botWindow', { name: b.name }),
@@ -138,7 +146,7 @@ export function DesktopPage() {
           botName={shownBot.name}
           onShown={() => setShown('screen')}
           onTakeOver={
-            inControl
+            inControl || !screen
               ? undefined
               : () => {
                   action.mutate('takeover');
@@ -146,7 +154,7 @@ export function DesktopPage() {
                 }
           }
         />
-      ) : pc.status === 'running' ? (
+      ) : pc.status === 'running' && screen ? (
         <Suspense
           fallback={<p className="text-sm text-muted-foreground">{t('desktop.loading')}</p>}
         >

@@ -47,6 +47,7 @@ import {
   type Trigger,
   triggerAt,
 } from '../lib/chat-input';
+import { useDraft } from '../lib/drafts';
 import { formatSize, IMAGE } from '../lib/files';
 import { type ModelChoice, modelGroups } from '../lib/models';
 import { projectsFor, useProjects } from '../lib/projects';
@@ -289,7 +290,8 @@ export function ChatComposer({
       moveCaret(MODEL_PREFIX.length);
     },
   });
-  const [text, setText] = useState('');
+  // Kept while the user goes elsewhere: back as it was when they return to this bot.
+  const [text, setText] = useDraft(`chat.${bot.id}`);
   const [caret, setCaret] = useState(0);
   const [picked, setPicked] = useState<Picked[]>([]);
   const [active, setActive] = useState(0);

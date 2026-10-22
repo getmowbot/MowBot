@@ -1,4 +1,4 @@
-import type { Computer, McpComputer } from '@mowbot/contract';
+import type { Computer, ComputerUpdate, GpuList, McpComputer } from '@mowbot/contract';
 import { and, eq, inArray, isNotNull, ne } from 'drizzle-orm';
 import { open } from '../crypto/secretbox';
 import type { Db } from '../db/client';
@@ -6,7 +6,7 @@ import { computers } from '../db/schema';
 import type { EventBus } from '../events';
 import { HttpProblem, notFound } from '../http/problems';
 import { AgentClient } from './agent-client';
-import type { ComputerRuntime } from './runtime';
+import { type ComputerRuntime, setupKey } from './runtime';
 
 export const AGENT_TOKEN_PURPOSE = 'computer-agent-token';
 
@@ -26,6 +26,12 @@ export function toComputer(row: ComputerRow): Computer {
     id: row.id,
     name: row.name,
     kind: row.kind,
+    system: row.system,
+    gpus: row.gpus ?? null,
+    restartNeeded:
+      (row.status === 'running' || row.status === 'starting') &&
+      row.appliedSetup !== null &&
+      row.appliedSetup !== setupKey({ system: row.system, gpus: row.gpus ?? null }),
     teamId: row.teamId,
     workspaceId: row.workspaceId,
     status: row.status,
@@ -86,6 +92,45 @@ export class ComputerService {
       .where(ne(computers.kind, 'mcp'))
       .orderBy(computers.createdAt);
     return rows.map(toComputer);
+  }
+
+  /** The host's graphics cards the PCs can get. */
+  async gpus(): Promise<GpuList> {
+    return this.runtime.gpus();
+  }
+
+  /**
+   * Changes what a PC runs (its desktop or only a shell) and the cards it gets. A stopped PC
+   * takes it at its next start; a running one once it restarts (`restartNeeded`).
+   */
+  async configure(id: string, input: ComputerUpdate): Promise<Computer> {
+    const row = await this.row(id);
+    if (row.kind === 'mcp') {
+      throw new HttpProblem(400, 'mcp_computer_fixed', 'The MCP computer has no desktop to choose');
+    }
+    if (input.gpus) await this.checkGpus(input.gpus);
+    return toComputer(
+      await this.update(id, {
+        ...(input.system ? { system: input.system } : {}),
+        ...(input.gpus !== undefined ? { gpus: input.gpus } : {}),
+      }),
+    );
+  }
+
+  /** Cards a PC asks for must be on the host. */
+  async checkGpus(gpus: NonNullable<ComputerUpdate['gpus']>): Promise<void> {
+    const host = await this.runtime.gpus();
+    if (!host.available) {
+      throw new HttpProblem(
+        400,
+        'gpu_unavailable',
+        'No graphics card can be handed out: install the NVIDIA Container Toolkit on the host',
+      );
+    }
+    const unknown = gpus === 'all' ? [] : gpus.filter((g) => !host.items.some((i) => i.id === g));
+    if (unknown.length) {
+      throw new HttpProblem(400, 'unknown_gpu', `No such graphics card: ${unknown.join(', ')}`);
+    }
   }
 
   async get(id: string): Promise<Computer> {
@@ -293,13 +338,16 @@ export class ComputerService {
 
   private async boot(row: ComputerRow): Promise<void> {
     try {
-      const { containerId } = await this.runtime.start({
+      const spec = {
         id: row.id,
         kind: row.kind,
+        system: row.system,
+        gpus: row.gpus ?? null,
         workspaceId: row.workspaceId,
         agentToken: this.agentToken(row),
-      });
-      const started = await this.update(row.id, { containerId });
+      };
+      const { containerId } = await this.runtime.start(spec);
+      const started = await this.update(row.id, { containerId, appliedSetup: setupKey(spec) });
       await this.waitForAgent(started);
       await this.update(row.id, {
         status: 'running',
@@ -318,8 +366,8 @@ export class ComputerService {
     while (Date.now() < deadline) {
       try {
         const health = await (await this.agent(row)).health();
-        // The MCP computer has no desktop.
-        if (health.ok && (health.vnc || row.kind === 'mcp')) return;
+        // The MCP computer has no desktop, nor a PC that runs only a shell.
+        if (health.ok && (health.vnc || row.kind === 'mcp' || row.system === 'terminal')) return;
       } catch (error) {
         lastError = error;
       }

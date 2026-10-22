@@ -37,6 +37,8 @@ export interface ToolContext {
   shared: SharedPc | null;
   /** Starts the bot's computer if needed and returns its agent. */
   computer: (() => Promise<AgentClient>) | null;
+  /** The computer has a screen (its desktop): the screenshot and computer tools. */
+  screen: boolean;
   /** Screenshots (base64 PNG) to show the model at its next step. */
   pendingImages: string[];
   /** Fills in `{{vault:…}}` placeholders (commands, typed text). */
@@ -164,106 +166,109 @@ export function buildTools(ctx: ToolContext): ToolSet {
     }),
   });
 
-  tools.screenshot = tool({
-    description:
-      "Capture l'écran de ton PC (1280×800) pour voir ce qui s'y passe (applications, bureau). Pour une page web, préfère browser_snapshot ou browser_screenshot.",
-    inputSchema: z.object({}),
-    execute: async (_, { abortSignal }) => {
-      const agent = await computer();
-      await takeScreen(abortSignal);
-      const png = await agent.screenshot();
-      let saved: string | null = null;
-      if (workspaceId) {
-        const name = `${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
-        const entry = await files.writeFile(
-          workspaceId,
-          `${botFolder(ctx.botName)}/captures/${name}`,
-          png,
-        );
-        saved = entry.path;
-      }
-      // The image itself is attached to the next step as a user message (see runtime):
-      // chat-completions APIs reject images inside tool results.
-      ctx.pendingImages.push(png.toString('base64'));
-      return { saved };
-    },
-    toModelOutput: () => ({
-      type: 'text',
-      value: "Capture prise : l'image est jointe au message suivant.",
-    }),
-  });
+  // A PC without its desktop has no screen to look at or to click on.
+  if (ctx.screen) {
+    tools.screenshot = tool({
+      description:
+        "Capture l'écran de ton PC (1280×800) pour voir ce qui s'y passe (applications, bureau). Pour une page web, préfère browser_snapshot ou browser_screenshot.",
+      inputSchema: z.object({}),
+      execute: async (_, { abortSignal }) => {
+        const agent = await computer();
+        await takeScreen(abortSignal);
+        const png = await agent.screenshot();
+        let saved: string | null = null;
+        if (workspaceId) {
+          const name = `${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+          const entry = await files.writeFile(
+            workspaceId,
+            `${botFolder(ctx.botName)}/captures/${name}`,
+            png,
+          );
+          saved = entry.path;
+        }
+        // The image itself is attached to the next step as a user message (see runtime):
+        // chat-completions APIs reject images inside tool results.
+        ctx.pendingImages.push(png.toString('base64'));
+        return { saved };
+      },
+      toModelOutput: () => ({
+        type: 'text',
+        value: "Capture prise : l'image est jointe au message suivant.",
+      }),
+    });
 
-  tools.computer = tool({
-    description:
-      "Agit sur l'écran de ton PC : clic, double clic, clic droit, déplacement, saisie de texte, touches (ex. 'ctrl+l', 'Return'), défilement, glisser-déposer. Refusé si l'utilisateur a pris la main.",
-    inputSchema: z.object({
-      intent: intentSchema,
-      action: z.enum([
-        'click',
-        'double_click',
-        'right_click',
-        'move',
-        'type',
-        'key',
-        'scroll',
-        'drag',
-      ]),
-      ...pointSchema,
-      text: z.string().optional().describe('Texte à taper (action type)'),
-      keys: z
-        .string()
-        .optional()
-        .describe('Touches xdotool, ex. ctrl+l, Return, Escape (action key)'),
-      direction: z.enum(['up', 'down', 'left', 'right']).optional(),
-      amount: z.number().int().min(1).max(20).optional(),
-      to_x: z.number().int().min(0).max(1279).optional(),
-      to_y: z.number().int().min(0).max(799).optional(),
-    }),
-    execute: async (input, { abortSignal }) => {
-      const agent = await computer();
-      await takeScreen(abortSignal);
-      const at = input.x !== undefined && input.y !== undefined ? { x: input.x, y: input.y } : {};
-      switch (input.action) {
-        case 'click':
-        case 'double_click':
-        case 'right_click':
-          await agent.input({
-            action: 'click',
-            ...at,
-            button: input.action === 'right_click' ? 'right' : 'left',
-            double: input.action === 'double_click',
-          });
-          break;
-        case 'move':
-          if (!('x' in at)) throw new Error('move demande x et y');
-          await agent.input({ action: 'move', ...at });
-          break;
-        case 'type':
-          if (!input.text) throw new Error('type demande text');
-          await agent.input({ action: 'type', text: await ctx.expand(input.text) });
-          break;
-        case 'key':
-          if (!input.keys) throw new Error('key demande keys');
-          await agent.input({ action: 'key', keys: input.keys });
-          break;
-        case 'scroll':
-          await agent.input({
-            action: 'scroll',
-            ...at,
-            direction: input.direction ?? 'down',
-            amount: input.amount ?? 3,
-          });
-          break;
-        case 'drag':
-          if (!('x' in at) || input.to_x === undefined || input.to_y === undefined) {
-            throw new Error('drag demande x, y, to_x et to_y');
-          }
-          await agent.input({ action: 'drag', from: at, to: { x: input.to_x, y: input.to_y } });
-          break;
-      }
-      return 'Fait.';
-    },
-  });
+    tools.computer = tool({
+      description:
+        "Agit sur l'écran de ton PC : clic, double clic, clic droit, déplacement, saisie de texte, touches (ex. 'ctrl+l', 'Return'), défilement, glisser-déposer. Refusé si l'utilisateur a pris la main.",
+      inputSchema: z.object({
+        intent: intentSchema,
+        action: z.enum([
+          'click',
+          'double_click',
+          'right_click',
+          'move',
+          'type',
+          'key',
+          'scroll',
+          'drag',
+        ]),
+        ...pointSchema,
+        text: z.string().optional().describe('Texte à taper (action type)'),
+        keys: z
+          .string()
+          .optional()
+          .describe('Touches xdotool, ex. ctrl+l, Return, Escape (action key)'),
+        direction: z.enum(['up', 'down', 'left', 'right']).optional(),
+        amount: z.number().int().min(1).max(20).optional(),
+        to_x: z.number().int().min(0).max(1279).optional(),
+        to_y: z.number().int().min(0).max(799).optional(),
+      }),
+      execute: async (input, { abortSignal }) => {
+        const agent = await computer();
+        await takeScreen(abortSignal);
+        const at = input.x !== undefined && input.y !== undefined ? { x: input.x, y: input.y } : {};
+        switch (input.action) {
+          case 'click':
+          case 'double_click':
+          case 'right_click':
+            await agent.input({
+              action: 'click',
+              ...at,
+              button: input.action === 'right_click' ? 'right' : 'left',
+              double: input.action === 'double_click',
+            });
+            break;
+          case 'move':
+            if (!('x' in at)) throw new Error('move demande x et y');
+            await agent.input({ action: 'move', ...at });
+            break;
+          case 'type':
+            if (!input.text) throw new Error('type demande text');
+            await agent.input({ action: 'type', text: await ctx.expand(input.text) });
+            break;
+          case 'key':
+            if (!input.keys) throw new Error('key demande keys');
+            await agent.input({ action: 'key', keys: input.keys });
+            break;
+          case 'scroll':
+            await agent.input({
+              action: 'scroll',
+              ...at,
+              direction: input.direction ?? 'down',
+              amount: input.amount ?? 3,
+            });
+            break;
+          case 'drag':
+            if (!('x' in at) || input.to_x === undefined || input.to_y === undefined) {
+              throw new Error('drag demande x, y, to_x et to_y');
+            }
+            await agent.input({ action: 'drag', from: at, to: { x: input.to_x, y: input.to_y } });
+            break;
+        }
+        return 'Fait.';
+      },
+    });
+  }
 
   tools.list_windows = tool({
     description:

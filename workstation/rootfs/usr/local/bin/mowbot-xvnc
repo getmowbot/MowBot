@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# The screen of the computer, only reachable from inside the container (mow-agent bridges it to
+# the hub). A computer without its desktop (MOWBOT_DESKTOP=0) has none.
+set -euo pipefail
+if [ "${MOWBOT_DESKTOP:-1}" = "0" ]; then
+  exec sleep infinity
+fi
+exec /usr/bin/Xvnc :0 -geometry 1280x800 -depth 24 -rfbport 5900 -localhost \
+  -SecurityTypes None -AlwaysShared -desktop MowBot

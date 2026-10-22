@@ -76,6 +76,24 @@ describe('questions to the user', () => {
     expect(again.status).toBe(409);
   });
 
+  it('can be set aside without answering, and the bot is not told', async () => {
+    const model = scripted([toolTurn('ask_user', question), textTurn('Je te laisse choisir.')]);
+    const { inject, say, open, transcript } = await start(model);
+    await say('Trouve un resto pour ce soir');
+    const [asked] = await open();
+    const before = (await transcript()).length;
+
+    const closed = await inject<Question>('POST', `/api/v1/questions/${asked?.id}/dismiss`);
+    expect(closed.body).toMatchObject({ status: 'closed', answer: null });
+    await t?.services.runtime.settle();
+    expect(await open()).toEqual([]);
+    expect(await transcript()).toHaveLength(before);
+    expect(model.doStreamCalls).toHaveLength(2);
+    // Gone: it cannot be answered any more.
+    const late = await inject(`POST`, `/api/v1/questions/${asked?.id}/answer`, { answer: 'Oui' });
+    expect(late.status).toBe(409);
+  });
+
   it('closes open questions when the user writes in the chat instead', async () => {
     const { say, open, inject } = await start(
       scripted([toolTurn('ask_user', question), textTurn('À toi.'), textTurn("D'accord.")]),

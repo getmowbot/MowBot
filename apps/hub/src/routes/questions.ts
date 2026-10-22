@@ -53,4 +53,21 @@ export const questionRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request) => runtime.answerQuestion(request.params.id, request.body.answer),
   );
+
+  app.post(
+    '/questions/:id/dismiss',
+    {
+      preHandler: requireAuth('chat'),
+      schema: {
+        tags,
+        operationId: 'dismissQuestion',
+        description:
+          'Closes the question without answering it: the bot is not told, and waits for what you write next.',
+        security: bearerSecurity,
+        params: questionIdParamsSchema,
+        response: { 200: questionSchema, ...errorResponses },
+      },
+    },
+    async (request) => questions.dismiss(request.params.id),
+  );
 };

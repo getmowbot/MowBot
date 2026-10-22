@@ -6,8 +6,10 @@ import type {
   CanvasContent,
   CanvasSize,
   ChatgptStatus,
+  ComputerGpus,
   ComputerKind,
   ComputerStatus,
+  ComputerSystem,
   ConnectorOs,
   DeviceKind,
   Locale,
@@ -188,6 +190,11 @@ export const computers = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull(),
     kind: text('kind').$type<ComputerKind>().notNull(),
+    /** What it runs (with a desktop or not), and the host's graphics cards it gets. */
+    system: text('system').$type<ComputerSystem>().notNull().default('desktop'),
+    gpus: jsonb('gpus').$type<ComputerGpus>(),
+    /** The setup its container was made with (`setupKey`): another one waits for a restart. */
+    appliedSetup: text('applied_setup'),
     teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }),
     workspaceId: uuid('workspace_id')
       .notNull()

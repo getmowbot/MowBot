@@ -415,7 +415,7 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
   if (self.isChef) {
     tools.create_team = tool({
       description:
-        'Crée une équipe : elle a son PC partagé et son dossier de fichiers. Ensuite, crée ses bots avec create_bot (dont son lead). Crée une équipe pour un domaine durable, pas pour une tâche ponctuelle.',
+        "Crée une équipe : elle a son PC partagé et son dossier de fichiers. Ensuite, crée ses bots avec create_bot (dont son lead). Crée une équipe pour un domaine durable, pas pour une tâche ponctuelle. Son PC : un bureau Ubuntu (par défaut : navigateur visible, l'utilisateur peut prendre la main) ou la ligne de commande seule (plus léger : code, scripts, données, web sans fenêtre) ; gpu pour lui donner les cartes graphiques de la machine (calcul, IA, vidéo).",
       inputSchema: z.object({
         name: z.string().min(1).max(60),
         mission: z.string().max(4000),
@@ -425,10 +425,28 @@ export async function buildOrgTools(ctx: OrgToolContext): Promise<ToolSet> {
           .describe(
             'Cloisonnée : seuls son lead et toi pouvez écrire à ses bots (données sensibles)',
           ),
+        pc: z
+          .enum(['bureau', 'terminal'])
+          .default('bureau')
+          .describe('Son PC : un bureau Ubuntu, ou la ligne de commande seule'),
+        gpu: z
+          .boolean()
+          .default(false)
+          .describe('Lui donner les cartes graphiques NVIDIA de la machine'),
       }),
-      execute: async ({ name, mission, isolated }) => {
-        const team = await org.createTeam({ name, mission, isolated }).catch(toolError);
-        return `Équipe « ${team.name} » créée (son PC s'allumera au premier besoin). Crée maintenant ses bots avec create_bot.`;
+      execute: async ({ name, mission, isolated, pc, gpu }) => {
+        const team = await org
+          .createTeam({
+            name,
+            mission,
+            isolated,
+            computer: {
+              system: pc === 'terminal' ? 'terminal' : 'desktop',
+              ...(gpu ? { gpus: 'all' as const } : {}),
+            },
+          })
+          .catch(toolError);
+        return `Équipe « ${team.name} » créée, avec ${pc === 'terminal' ? 'un PC en ligne de commande' : 'un PC avec bureau'}${gpu ? ' et les cartes graphiques' : ''} (il s'allumera au premier besoin). Crée maintenant ses bots avec create_bot.`;
       },
     });
 

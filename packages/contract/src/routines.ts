@@ -120,6 +120,8 @@ export const notificationListSchema = z.object({
 export const notificationReadSchema = z.object({
   /** Omitted: all of them. */
   ids: z.array(z.uuid()).max(200).optional(),
+  /** Only those of this bot (the user opened its conversation). */
+  botId: z.uuid().optional(),
 });
 
 /** Instance-wide settings of proactivity. */

@@ -20,7 +20,7 @@ export const en: Catalog = {
     team: 'Team',
     lead: 'Lead',
     files: 'Files',
-    desktop: 'Desktop',
+    desktop: 'Computer',
     isolated: 'Isolated',
     teamPc: 'Team PC',
     newTeam: 'New team',
@@ -132,6 +132,27 @@ export const en: Catalog = {
     idle: 'available',
   },
   computer: {
+    setup: {
+      title: 'The team’s computer',
+      system: 'System',
+      desktop: 'With a desktop',
+      desktopHint: 'Ubuntu with its desktop: you watch the screen live and can take control.',
+      terminal: 'Command line',
+      terminalHint:
+        'Ubuntu without a screen, lighter: a shell, files and a browser without a window.',
+      gpus: 'Graphics cards',
+      gpusHint: 'For compute, AI, video (CUDA, NVENC). Several PCs can share a card.',
+      noGpu:
+        'No graphics card to hand out: it takes an NVIDIA card and the NVIDIA Container Toolkit on the hub’s machine.',
+      allGpus: 'All',
+      memory: '{{size}} GB',
+      giveGpus: 'Give it the graphics cards',
+      restartNeeded: 'Applies at its next start.',
+      restartNow: 'Restart now',
+      notSaved: 'Setting not saved.',
+      noScreen:
+        'No screen: this PC only has the command line. Here you see the bots’ browser window.',
+    },
     status: {
       stopped: 'Off',
       starting: 'Starting…',
@@ -139,7 +160,7 @@ export const en: Catalog = {
       stopping: 'Shutting down…',
       error: 'Error',
     },
-    connecting: 'Connecting to the desktop…',
+    connecting: 'Connecting to the computer…',
   },
   chat: {
     suggestions: {
@@ -158,8 +179,8 @@ export const en: Catalog = {
     resumed: 'Going on by itself after the step limit ({{count}})',
     stepLimitResumes: 'Step limit reached · going on by itself',
     panel: {
-      show: 'Show the desktop',
-      hide: 'Hide the desktop',
+      show: 'Show the computer',
+      hide: 'Hide the computer',
       mission: 'Mission',
     },
     errors: {
@@ -594,9 +615,9 @@ export const en: Catalog = {
     fullscreen: 'Full screen',
     restart: 'Restart',
     turnOff: 'Turn off',
-    inControl: 'You’re in control: bots are paused on this PC. Click the desktop to type.',
+    inControl: 'You’re in control: bots are paused on this PC. Click the screen to type.',
     otherDevice: 'Another one of your devices is in control of this PC.',
-    loading: 'Loading the desktop…',
+    loading: 'Loading the screen…',
     starting: 'Starting the PC… (a few seconds, longer the first time)',
     stopping: 'Shutting down the PC…',
     off: 'The PC is off.',
@@ -776,6 +797,9 @@ export const en: Catalog = {
     other: 'Something else…',
     placeholder: 'Your answer',
     send: 'Send answer',
+    label: 'Question',
+    dismiss: 'Dismiss the question',
+    dismissHint: 'Close without answering: the bot isn’t told.',
   },
   home: {
     morning: 'Good morning {{name}}',
@@ -1070,7 +1094,7 @@ export const en: Catalog = {
     alreadySaved: 'already saved',
     noSites:
       'No site with cookies in this Chrome. Take over the PC’s desktop and sign in to the site: the session is saved when you hand control back.',
-    openDesktop: 'Open the desktop',
+    openDesktop: 'Open the computer',
     sitesNotRead: 'Couldn’t read this PC’s Chrome.',
     fromSite: 'Taken from the site',
     saveSession: 'Save the session',
